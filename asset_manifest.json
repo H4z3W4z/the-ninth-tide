@@ -151,6 +151,33 @@
       "source_svg": null
     },
     {
+      "id": "r04_lamp_off",
+      "path": "assets/listening/props/r04_lamp_off.png",
+      "width": 1322,
+      "height": 1190,
+      "sha256": "efe909e27ae8fd848557ca43aef837e81f4bbb415aef60d252f6238614c9ba62",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_recorder_empty",
+      "path": "assets/listening/props/r04_recorder_empty.png",
+      "width": 1774,
+      "height": 887,
+      "sha256": "a8a7f845e79fb1af4f4415a19b22ec1b5b65536a5131bd857a21943bf30c26f3",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_stool_damp",
+      "path": "assets/listening/props/r04_stool_damp.png",
+      "width": 1214,
+      "height": 1295,
+      "sha256": "9b89dda827fab6f9ac260dec7b9e023a4b69551ba9c8792c8bff41a611c6abf6",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "r04_stool_dry",
       "path": "assets/listening/props/r04_stool_dry.png",
       "width": 1223,

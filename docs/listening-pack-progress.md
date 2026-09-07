@@ -10,6 +10,10 @@
 - Two initial attempts are retained under `art/listening-review/` as **drafts needing correction**, not runtime sprites: the lamp has a baked checkerboard, and the recorder has a visible halo.
 - The remaining object, puzzle-state and inspection assets are still being generated.
 
+## Checkpoint 2
+
+The lamp OFF, empty recorder with bare spindle, and damp stool have been regenerated from the room master and now have genuine RGBA transparency (alpha range 0–255). Failed intermediate cutouts remain clearly marked under `art/listening-review/`. Dry and damp stool silhouettes have minor generated differences; use the final state overlay guidance for registered transitions.
+
 The full-room weather renders are review images with the master's partial cylinder assembly. They must not be used to infer puzzle completion. Runtime integration should clip their window panes over the clean static plate and apply local lighting separately. Small generated texture differences exist; these are not guaranteed pixel-registered animation frames.
 
 Exact labels, coherent cylinder seams, instruction diagrams and P17/P19 channel controls remain authored graphics/integration work. No Listening Room gameplay, audio, Web or native-device validation is delivered by these images.

@@ -89,6 +89,7 @@
     },
     {
       "id": "r04_lamp_off_draft",
+      "issue": "Baked checkerboard; no alpha channel. Must regenerate.",
       "kind": "draft",
       "path": "art/listening-review/r04_lamp_off_draft.png",
       "prompt": "Game sprite from The Ninth Tide room reference. Strict flat hand-illustrated front/side elevation as seen in room, broad matte fills, thin navy ink contours, subtle paper grain, only two or three flat shade tones, NOT photorealistic or 3D/PBR. Preserve the referenced object's silhouette and construction. Isolate ONLY the requested object, centered with generous clear margin, enlarge for clean inspection. REAL TRANSPARENT RGBA background: alpha zero outside object, no checkerboard or solid backdrop, no floor cast shadow. No horns, UI, watermark or text. ONLY the small articulated brass task lamp from left side of bench. Preserve circular base, slim vertical stem, two arm joints, small rounded dark brass shade tilted over working area. OFF state: bulb and underside unlit, no glow. No cord necessary, no furniture, no headphones or canisters. Whole lamp visible including base.",
@@ -98,11 +99,11 @@
         414,
         157,
         220
-      ],
-      "issue": "Baked checkerboard; no alpha channel. Must regenerate."
+      ]
     },
     {
       "id": "r04_recorder_empty_draft",
+      "issue": "Visible background halo; needs clean alpha and a bare spindle.",
       "kind": "draft",
       "path": "art/listening-review/r04_recorder_empty_draft.png",
       "prompt": "Game sprite from The Ninth Tide room reference. Strict flat hand-illustrated front/side elevation as seen in room, broad matte fills, thin navy ink contours, subtle paper grain, only two or three flat shade tones, NOT photorealistic or 3D/PBR. Preserve the referenced object's silhouette and construction. Isolate ONLY the requested object, centered with generous clear margin, enlarge for clean inspection. REAL TRANSPARENT RGBA background: alpha zero outside object, no checkerboard or solid backdrop, no floor cast shadow. No horns, UI, watermark or text. The complete hornless cylinder playback machine from the middle of the bench: dark oak rectangular plinth, brass supports, horizontal spindle, right hand crank and needle arm. REMOVE ALL WAX SLEEVES so spindle is completely bare. Needle raised. Keep the original substantial base and mechanism proportions; no extra wheels/dials. Draw complete machine alone, horizontal composition, 1536x1024 if supported.",
@@ -112,8 +113,7 @@
         465,
         320,
         164
-      ],
-      "issue": "Visible background halo; needs clean alpha and a bare spindle."
+      ]
     },
     {
       "id": "r04_stool_dry",
@@ -121,6 +121,96 @@
       "path": "assets/listening/props/r04_stool_dry.png",
       "prompt": "Game sprite from The Ninth Tide room reference. Strict flat hand-illustrated front/side elevation as seen in room, broad matte fills, thin navy ink contours, subtle paper grain, only two or three flat shade tones, NOT photorealistic or 3D/PBR. Preserve the referenced object's silhouette and construction. Isolate ONLY the requested object, centered with generous clear margin, enlarge for clean inspection. REAL TRANSPARENT RGBA background: alpha zero outside object, no checkerboard or solid backdrop, no floor cast shadow. No horns, UI, watermark or text. ONLY the worn wooden stool from in front of bench: round oval-in-elevation seat, four slim legs and low rungs. Same straight-on orientation, restrained rubbed pale edge and old brown wood. DRY state: seat uniformly worn and dry, no damp spot. No floor, no background.",
       "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-06a7949b-6e26-4951-b684-db2e895e51ff.png",
+      "target": [
+        459,
+        737,
+        170,
+        249
+      ]
+    },
+    {
+      "id": "r04_lamp_off_retry1",
+      "issue": "Opaque generated checkerboard; do not use as a transparent sprite.",
+      "kind": "draft",
+      "path": "art/listening-review/r04_lamp_off_retry1.png",
+      "prompt": "Edit this lamp cutout. KEEP the lamp object unchanged. REMOVE the entire gray/white checkerboard and every white paper-texture pixel behind it; they are a failed background, not part of the artwork. Output ONLY lamp on actual transparent RGBA. All pixels beyond the solid lamp outline must have alpha exactly zero. Lamp itself solid opaque, crisp illustrated edges. OFF bulb. No painted grid or background, no glow, no shadow. Keep full lamp including arm, base and shade, same orientation and canvas.",
+      "refs": [
+        "/workspace/scratch/caf0649b63b9/the-ninth-tide/art/listening-review/r04_lamp_off_draft.png"
+      ],
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-36c000e1-ff1e-4e9e-af51-0eab3b3f1de5.png",
+      "target": [
+        336,
+        414,
+        157,
+        220
+      ]
+    },
+    {
+      "id": "r04_stool_damp_retry1",
+      "issue": "Opaque generated checkerboard; do not use as a transparent sprite.",
+      "kind": "draft",
+      "path": "art/listening-review/r04_stool_damp_retry1.png",
+      "prompt": "Edit only the SEAT SURFACE of this illustrated wooden stool. Add a subtle irregular darker damp oval as if someone has just stood up; surrounding rubbed seat rim stays dry. Preserve exact stool geometry, silhouette, crop, all legs and rungs, colors, and transparent background. No puddle, drips, human outline, body or extra shadow. True RGBA alpha zero outside stool, opaque object. Same canvas and placement.",
+      "refs": [
+        "/workspace/scratch/caf0649b63b9/the-ninth-tide/assets/listening/props/r04_stool_dry.png"
+      ],
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-8cb1918c-b894-4fe0-b850-7da575e9d62d.png",
+      "target": [
+        459,
+        737,
+        170,
+        249
+      ]
+    },
+    {
+      "id": "r04_recorder_empty_retry1",
+      "issue": "Opaque generated checkerboard; do not use as a transparent sprite.",
+      "kind": "draft",
+      "path": "art/listening-review/r04_recorder_empty_retry1.png",
+      "prompt": "Edit this exact machine. Remove ALL surrounding black/brown/amber background halo and glow, leaving genuine zero-alpha transparent pixels outside the solid machine silhouette. Make actual machine surfaces opaque alpha255. Replace the large thick central metal drum with a THIN BARE BRASS SPINDLE ROD between the same end bearings, ready to accept three hollow wax sleeves. Retain all oak base, supports, needle arm and right hand crank positions exactly; needle stays raised. No large drum or cylinder remains on the rod. This is flat hand-illustrated game sprite, no floor shadow, no backdrop or checkerboard.",
+      "refs": [
+        "/workspace/scratch/caf0649b63b9/the-ninth-tide/art/listening-review/r04_recorder_empty_draft.png"
+      ],
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-b34ff155-da9d-4a82-a1ff-064b398ee6bd.png",
+      "target": [
+        544,
+        465,
+        320,
+        164
+      ]
+    },
+    {
+      "id": "r04_lamp_off",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_lamp_off.png",
+      "prompt": "A transparent PNG game sprite of only the small brass desk lamp shown at the left of this room reference. Full lamp, same jointed shape and rounded shade, bulb off. Centered isolated cutout, transparent background. Flat ink-and-matte-color illustration matching the room. No room, table, other objects, text or shadows.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-0603eca1-4cbd-4d37-941d-203db642da83.png",
+      "target": [
+        336,
+        414,
+        157,
+        220
+      ]
+    },
+    {
+      "id": "r04_recorder_empty",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_recorder_empty.png",
+      "prompt": "A transparent PNG game sprite of only the hornless cylinder recorder in the middle of the reference room. Dark oak plinth, brass bearings, raised needle arm and right-hand crank. No wax cylinder: just a thin bare brass spindle between the two bearings. Centered isolated cutout with transparent background. Flat ink-and-matte-color illustration, same front elevation and design as reference. No room, ground, other props, glow, shadow or writing.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-a4456e94-d3b2-4fe8-8c4c-a9772db6ee52.png",
+      "target": [
+        544,
+        465,
+        320,
+        164
+      ]
+    },
+    {
+      "id": "r04_stool_damp",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_stool_damp.png",
+      "prompt": "A transparent PNG game sprite of only the worn wooden stool shown in front of the reference room's desk. Four legs, rungs, worn oval seat with a subtle dark damp oval in its center. Match its front elevation and proportions. Centered isolated cutout with transparent background. Flat ink-and-matte-color illustration. No floor, room, cast shadow, other objects or writing.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-f8cea74e-b4cc-433a-b69a-e77b8ab30c93.png",
       "target": [
         459,
         737,
