@@ -8,9 +8,9 @@ The R03 arrival master establishes a second room in the station's approved visua
 
 File: `art/concepts/chart-room-arrival-v1.png`, 1448 x 1086 pixels, 4:3. The exact built-in image-generation prompt and reference provenance are in `chart-room-generation-v1.json`.
 
-This is a composed concept master. The room, weather, charts, dials, recorder, lever, and hatch are baked into one image. It is not loaded by the P01 preview and does not add a playable room. The runtime manifest continues to describe the Intake Office. The generated chart marks and dial ticks are decorative placeholders, not solvable evidence.
+This is a composed concept master. A runtime copy at `assets/backgrounds/chart_arrival.png` now provides the backdrop for the playable map workbench. Authored map-face overlays and native controls supply P03 interactions; the recorder, lever and hatch remain decorative. Generated dial ticks are placeholders, not solvable evidence.
 
-## Next production assets
+## Production assets and remaining work
 
 | Asset group | Required behavior | GDD puzzle |
 | --- | --- | --- |
@@ -24,7 +24,9 @@ This is a composed concept master. The room, weather, charts, dials, recorder, l
 
 Author clue-bearing numbers, symbols, diagrams, and text from deterministic SVG or runtime text sources. Keep the scale and positions of the cabinet, window, and hatch fixed when separating production layers. Do not independently regenerate complete room geometry for each weather state.
 
-Every map shown in a playable room needs an inspectable close-up, even when it carries only atmosphere. For this room, author the maps at a scale that supports useful zoom and pan, plus readable annotations and a completed-sheet reference. Fragment geometry must come from one coherent source sheet. The current master shows two intact decorative sheets and a cabinet without an authored chart-drawer hotspot; a production revision must show the torn-sheet state, its outlined board, and the clearly accessible drawer and chart weight required by GDD 1.2. These functional states have not yet been drawn or implemented.
+Every map shown in a playable room needs an inspectable close-up, even when it carries only atmosphere. For this room, author the maps at a scale that supports useful zoom and pan, plus readable annotations and a completed-sheet reference. Fragment geometry must come from one coherent source sheet. The current master shows two intact decorative sheets and a cabinet without an authored chart-drawer hotspot; a production revision must show the torn-sheet state, its outlined board, and the clearly accessible drawer and chart weight required by GDD 1.2. The composed illustration does not itself supply those functional prop states.
+
+The playable pass now supplies nine SVG/PNG map assets, a zoomable viewer with transcripts, three-fragment assembly, chart comparison, and saved evidence. Native labeled prop buttons make the board, unlocked drawer and paper under the weight operable. Final physical drawer/weight art and animations remain to replace those explicit workbench controls. P04-P05 remain unimplemented. See `map-interaction.md` for the current walkthrough and integration boundaries.
 
 Use tap-to-select and tap-to-place as well as optional drag; give step rotation and visible zoom controls so neither assembly nor inspection depends on precise gestures. Preserve partial assembly and observed map versions in the eventual game state. See the inspectable-maps section and P03 in `design/game-design.md` for the complete rule.
 

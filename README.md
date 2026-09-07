@@ -4,6 +4,8 @@ An illustrated point-and-click cosmic horror game set in a coastal survey statio
 
 **Current milestone:** Playable P01 lamp repair, zoomable Office maps, and a Chart Room workbench for P03 fragment assembly and chart comparison. This is an opening prototype, not the full game.
 
+**Continuing in Codex:** Start with [the implementation handoff](docs/CODEX-HANDOFF.md). It covers the active branch, known rendered-input failure, build steps, next milestones, and the split between coding and graphics creation.
+
 ## Included
 
 - 35 runtime PNG assets with 30 editable SVG sources.
@@ -71,7 +73,7 @@ The repository is structured around one Godot project. The next gate is a single
 
 The room plates are generated full images. Tiny texture/edge differences remain, so swap them on re-entry rather than slowly crossfading every pixel. Furniture, coat, and the late shadow are baked into each plate. The lamp, lighting state, rain effects, and puzzle pieces are separate. A later asset pass can extract more props when animation or new interactions require it.
 
-P01 and the P03 map workbench are playable. Other exits are descriptive; the service door remains locked until P06. P02 and P04-P27 are not implemented. The Chart Room currently uses its arrival plate and explicit prop buttons; later weather layers and final drawer/weight animation remain. There is no audio. Local headless checks pass; the map workflow additionally runs rendered desktop input checks and publishes screenshots. Actual iPad/Safari and native exports remain untested.
+P01 and the P03 map workbench are implemented. Other exits are descriptive; the service door remains locked until P06. P02 and P04-P27 are not implemented. The Chart Room currently uses its arrival plate and explicit prop buttons; later weather layers and final drawer/weight animation remain. There is no audio. Headless checks pass, but the rendered map workflow failed on the first Office map click at baseline commit `85639ff`, before producing screenshots. See the handoff for the failure and investigation steps. Actual iPad/Safari and native exports remain untested.
 
 The project is not assigned an open-source license. This scaffold does not grant third-party reuse of the game or art.
 
