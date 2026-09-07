@@ -34,6 +34,10 @@ Still to finish: clean noticeboard; document and photograph inspection art; inst
 
 ## Checkpoint 6
 
-The noticeboard now has a clean edge-to-edge opaque rectangular texture. Its pinned photograph has a dedicated readable close-up, and blank stationery and the instruction-card stand have separate alpha artwork. The two workers in the photo are unnamed: no new identity or puzzle dependency is implied. Papers will receive precise authored lettering. The prior noticeboard failures remain excluded from runtime assets.
+The noticeboard now has a clean edge-to-edge rectangular texture. Its alpha ranges from 200 to 250, so place a solid matching brown rectangle behind it. Its pinned photograph has a dedicated readable close-up, and blank stationery and the instruction-card stand have separate alpha artwork. The two workers in the photo are unnamed: no new identity or puzzle dependency is implied. Papers will receive precise authored lettering. The prior noticeboard failures remain excluded from runtime assets.
+
+## Checkpoint 7
+
+Separate shelf ledgers, a reusable horizontal cylinder case, and an open shallow drawer complete the small bench contents. An open-door detail plate supplies the portal image; clip only the doorway over the fixed clean room base. Do not replace the full room with that detail plate. Generated open/closed prop states have small geometry differences and are swap poses, not registered animation frames.
 
 Generation prompts, source paths, intended placements and draft status are recorded in `listening-pack-generation.json`. Checkpoint commits will continue as batches finish. The final delivery will include the full inventory and integration guide.

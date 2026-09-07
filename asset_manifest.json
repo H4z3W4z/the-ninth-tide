@@ -70,6 +70,15 @@
       "source_svg": null
     },
     {
+      "id": "r04_door_open_plate",
+      "path": "assets/listening/backgrounds/r04_door_open_plate.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "0360092adcbaf6c9a3da88f293161eed215e778b158ba1b1fb4cb810a2c3c275",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
       "id": "r04_weather_01_overcast",
       "path": "assets/listening/backgrounds/r04_weather_01_overcast.png",
       "width": 1448,
@@ -205,6 +214,15 @@
       "source_svg": null
     },
     {
+      "id": "r04_drawer_open",
+      "path": "assets/listening/props/r04_drawer_open.png",
+      "width": 2172,
+      "height": 724,
+      "sha256": "1de6c57d620c263a50624058fe24a857e499e4d9b453257760ec0379969885da",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "r04_headphones_hanging",
       "path": "assets/listening/props/r04_headphones_hanging.png",
       "width": 1254,
@@ -228,6 +246,15 @@
       "width": 1322,
       "height": 1190,
       "sha256": "efe909e27ae8fd848557ca43aef837e81f4bbb415aef60d252f6238614c9ba62",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_ledger_stack",
+      "path": "assets/listening/props/r04_ledger_stack.png",
+      "width": 1774,
+      "height": 887,
+      "sha256": "cd71cae0474c9a1a8eafb11c76bae7585335c577e32c39af95c273ce803d3e25",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -264,6 +291,15 @@
       "width": 1774,
       "height": 887,
       "sha256": "f035e362ab931db9318d041b8818f4a0a52c83bc5da65716b1b62cbb6454e078",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_shelf_cylinder",
+      "path": "assets/listening/props/r04_shelf_cylinder.png",
+      "width": 1774,
+      "height": 887,
+      "sha256": "c40674a7c0fe24807abf3b8d9487667fec3703b1bb713f9fd8d43939d8be8e5f",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },

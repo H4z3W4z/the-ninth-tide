@@ -371,8 +371,10 @@
       ]
     },
     {
+      "backing_color": "#745B36",
       "id": "r04_noticeboard_panel",
-      "kind": "opaque_prop",
+      "issue": "Alpha is 200–250 throughout; place over an opaque matching brown rectangle. No transparent margin or halo.",
+      "kind": "rectangular_prop",
       "path": "assets/listening/props/r04_noticeboard_panel.png",
       "prompt": "Generate the empty cork noticeboard from this room as a flat rectangular game texture. The OUTSIDE edges of its dark oak wooden frame coincide exactly with all four edges of the entire image, with zero surrounding wall or margin. Landscape 3:2 canvas. Straight-on elevation. Broad matte cork center, fine navy contours on warm worn oak frame, small brass pin in each corner. No papers, writing, glow, shadows outside the frame or other props. The entire opaque image is the rectangular noticeboard.",
       "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-7d9db493-0204-47be-bab9-86f3b753ec0c.png",
@@ -414,6 +416,61 @@
         504,
         97,
         125
+      ]
+    },
+    {
+      "id": "r04_ledger_stack",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_ledger_stack.png",
+      "prompt": "Transparent PNG sprite of the short horizontal stack of two worn station ledgers on the bottom-right shelf in the reference room. Dark muted olive cloth covers, cream page edges facing forward, thin navy ink contours. Flat straight front elevation, narrow top edge. Isolated on transparent background. No glow, shadow, lettering, shelf or other objects.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-f37ebfc1-91a2-4155-ac4a-b443040ad4f7.png",
+      "target": [
+        864,
+        835,
+        154,
+        43
+      ]
+    },
+    {
+      "id": "r04_shelf_cylinder",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_shelf_cylinder.png",
+      "prompt": "Transparent PNG sprite of one long brown cardboard recording-cylinder storage tube lying horizontally, from the right-hand shelves of the reference room. Dark brown tube with fitted end caps, blank pale cream label wrapped around its center. Side elevation, narrow oval end visible at left, restrained matte worn texture, fine navy ink outlines. Isolated on transparent background. No glow, shadow, writing, shelf or other objects.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-3cce2146-b41d-4554-a074-8cc1c49250fa.png",
+      "target": [
+        863,
+        690,
+        158,
+        46
+      ]
+    },
+    {
+      "id": "r04_drawer_open",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_drawer_open.png",
+      "prompt": "Transparent PNG sprite of a shallow open oak drawer matching the four small drawers at the left of this reference workbench. Exact flat frontal elevation. A narrow black interior slot runs above its low horizontal worn oak front, with a centered rectangular brass label-holder handle left blank. Width about four times overall height. No receding sidewalls or angled planes. Isolated on transparent background. Fine navy ink, broad matte brown colors. No glow, shadow, contents, cabinet, text or other props.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-e2aee1f7-e191-4fa1-9bc2-e48ca90e50b4.png",
+      "target": [
+        345,
+        665,
+        197,
+        67
+      ]
+    },
+    {
+      "id": "r04_door_open_plate",
+      "kind": "detail_plate",
+      "path": "assets/listening/backgrounds/r04_door_open_plate.png",
+      "prompt": "Edit only the closed blue door at the far left of this clean room plate: the door leaf is now fully out of sight, revealing a quiet, dark empty doorway. Preserve the exact blue outer frame, threshold and rectangular opening. Beyond it a flat dark petrol-blue interior, with one faint vertical plaster repair line; no receding corridor perspective. Keep the entire rest of the room absolutely unchanged, including the empty bench, wall, blank window panes and composition. Fixed straight-on flat ink illustration. No figure, eyes, writing or new props. Output the complete same 4:3 room frame.",
+      "refs": [
+        "/workspace/scratch/caf0649b63b9/the-ninth-tide/assets/listening/backgrounds/r04_clean_base.png"
+      ],
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-b8c32190-d363-4366-be25-6a9a55b33675.png",
+      "target": [
+        44,
+        158,
+        236,
+        738
       ]
     }
   ]
