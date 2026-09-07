@@ -118,7 +118,8 @@ func _draw():
 func _unhandled_input(event):
 	if is_instance_valid(map_widget): return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		var p = get_global_mouse_position()
+		# Use this click's position, not the independently polled cursor position.
+		var p = make_input_local(event).position
 		var action = action_at(p)
 		if action != "":
 			dispatch(action)

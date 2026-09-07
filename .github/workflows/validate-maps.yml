@@ -26,7 +26,7 @@ jobs:
       - name: Render and exercise native input
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
-        run: timeout 90 xvfb-run -a -s '-screen 0 1600x1200x24' godot --path . --script tests/maps_render.gd
+        run: timeout 90 xvfb-run -a -s '-screen 0 1600x1200x24' godot --audio-driver Dummy --path . --script tests/maps_render.gd
       - uses: actions/upload-artifact@v4
         if: always()
         with:
