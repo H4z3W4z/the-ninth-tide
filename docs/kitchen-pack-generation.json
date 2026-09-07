@@ -1,0 +1,23 @@
+{
+  "room_id": "R05",
+  "title": "Kitchen and Mess",
+  "method": "built-in image_gen",
+  "approved_master": "art/concepts/kitchen-room-master-v1.png",
+  "approval": "User: Looks good. Proceed",
+  "assets": [
+    {
+      "id": "r05_master",
+      "path": "art/concepts/kitchen-room-master-v1.png",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-29cbe448-b05c-40cd-bcbc-0517826aab68.png",
+      "prompt": "Use case: illustration-story. Asset type: production room master for The Ninth Tide, R05 Kitchen and Mess. Reference image is STYLE ONLY, a different room. Create a new abandoned 1931 coastal survey station communal kitchen, flat straight-on wall elevation, landscape 4:3 at same 1448x1086 proportions. Fine dark navy ink contours, broad matte sea-glass green, cream, muted ochre, dark petrol blue, tarnished brass and worn oak, subtle restrained paper texture. No photorealism, no angled walls or receding tabletop planes. Composition: far-left closed narrow petrol-blue service door. Left-middle a squat old black iron cooking range with a simple vertical stovepipe and a lidded tarnished copper stockpot. Above middle a small wooden kitchen service board with blank cream record card and two small token recesses. A large sea window dominates the upper-right half, straight-on thick dark blue frame, rain on panes, a distant low coast and lighthouse under low gray cloud. A small warm suspended enamel pendant lights the working area. Across the lower middle and right a long worn oak mess table seen strictly from the front, almost no top plane, front apron and two sturdy legs. Over the table a narrow pale linen cloth. EIGHT humble cream enamel soup bowls lined across it, subtle dark blue rims, worn but cared for. One empty setting gap among them feels conspicuous, nine faint spoon-shaped depressions in cloth (exact clue lettering will be supplied later, no need generated words). Folded kitchen towel at left end, closed dark-green provisioning ledger at right end, a plain wooden service drawer under left half of table with small brass pull. Background practical wall shelf with spare plates and ladle, one low apron hook with empty faded apron. Domestic, intimate, still; someone has just stopped making supper. No people, no ghosts, no horns, no occult icons, no skulls. The room should feel personal and unsettling through absence. Do NOT duplicate recorder, noticeboard photograph, headphones, stool or arrangement from reference. No repaired cup, that canonical prop lives in another room. No map in this room. All paper surfaces blank or restrained non-legible marks, exact text will be authored later. Keep every object separated enough for clickable extraction and preserve wide window as major story surface.",
+      "kind": "approved-reference"
+    },
+    {
+      "id": "r05_clean_base",
+      "path": "assets/kitchen/backgrounds/r05_clean_base.png",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-6333e6c2-5ac1-4a6d-840a-6cb678318e73.png",
+      "prompt": "Use case: precise-object-edit. Edit target: approved R05 Kitchen and Mess room image. Create a clean production background plate in exactly the same flat front elevation and 4:3 composition. Preserve EVERY wall, floor, window frame and mullion, door, stove, stovepipe, pendant and its warm light, shelving with its dishes and canisters, hanging ladle, hanging apron, table geometry, drawer closed, linen tablecloth and existing background texture and colors. Change ONLY these removable objects: remove ALL eight bowls and ALL spoons and ALL spoon-shaped marks from the mess table, restoring clean unmarked pale linen where they were. Remove the folded towel from the table's left end, restoring the wood and linen. Remove the green ledger at far right, restoring the table. Remove copper stockpot and lid from the stove, restoring its dark cooktop. Remove the tiny dangling blank paper from the kitchen service board, leaving its flat wooden face and two circular token recesses. Keep all remaining static dishes on the wall shelf. No new objects, no writing, no camera move, no added perspective. Keep image 1448x1086 proportions, with identical room placement and no crop. This is only the immutable room layer for independent puzzle sprites.",
+      "kind": "fixed-background"
+    }
+  ]
+}
