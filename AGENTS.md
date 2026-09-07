@@ -5,6 +5,7 @@ Read README.md, docs/design/game-design.md, and docs/art-direction.md before cha
 - Preserve the approved flat front elevation. No angled room perspective, receding tabletop planes, or cinematic photorealism.
 - Puzzle progress drives increasingly ominous environments across every room. Weather is not a real-time timer.
 - Never obscure clues or move hotspots merely to darken a scene. Preserve notebook evidence after state changes.
+- Every actual map/chart prop shown in a playable room must support readable close-up inspection, including atmospheric maps. Preserve observed versions and partial map assemblies; use tap placement and step rotation as alternatives to dragging.
 - Keep solutions deterministic. P01 requires supply OFF, straight bridge B installed, then supply ON. Curved C is rejected without consuming anything.
 - Keep generated artwork separate from exact labels and diagrams. Preserve SVG sources alongside raster exports.
 - Use assets/ for runtime content, art/ for approved references, docs/design/ for narrative, and tools/ for repeatable asset operations.

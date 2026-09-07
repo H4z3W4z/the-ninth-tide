@@ -10,6 +10,8 @@ The coat is empty. At the late state its shadow has a head and shoulders. This i
 
 Keep all exact clue marks, numbers, labels, and instruction diagrams authored from deterministic sources. P01's bridge/socket geometry is specified in SVG, with screw centres aligned in the installed overlay.
 
+Every actual map or nautical-chart prop shown in a playable room must have readable inspection artwork, including maps used only for atmosphere. Provide close-ups and transcripts alongside the room art; do not rely on enlarging small generated background details. P03's torn sheet, fragments, and completed chart share a coherent authored source. Map changes follow puzzle progress and preserve already observed evidence in the notebook.
+
 Native master canvas: 1448 x 1086, 4:3. Reference review size: 1024 x 768. Scale the complete composition uniformly and letterbox other aspect ratios in a release layout; do not stretch room geometry. The desktop preview currently uses the configured 4:3 window.
 
 ## Asset revisions

@@ -14,7 +14,8 @@ This is a composed concept master. The room, weather, charts, dials, recorder, l
 
 | Asset group | Required behavior | GDD puzzle |
 | --- | --- | --- |
-| Tide-sheet comparison | Two precise charts with matching date and north marks, lighthouse registration crosses, clips, and a composite crossing interval band 3 | P03 |
+| Torn tide sheet | Three matching upper-coastline, middle-shoal, and lower-soundings fragments; full-sheet assembly outline, completed sheet, visible chart-weight pickup, and chart-drawer open/closed states | P03 |
+| Tide-sheet comparison | Reconstructed sheet and intact reference with matching date and north marks, lighthouse registration crosses, clips, and a composite crossing interval band 3 | P03 |
 | Recorder controls | Separate ZERO and INTERVAL controls, authored labels and readable values, mismatch feedback, and CALIBRATE lever states; correct settings are 4 and 3 | P04 |
 | Observation plates | Separate boundary, relation, and observer plates, three sockets, and a RECORD control | P05 |
 | Recording paper | Blank paper and a runtime text area for the player's last three recognized completed interactions | P05 |
@@ -22,6 +23,10 @@ This is a composed concept master. The room, weather, charts, dials, recorder, l
 | Window and atmosphere | Separate exterior scenery, rain, reflections, interior color treatment, and local anomalies, all driven by puzzle progress | Shared tide state |
 
 Author clue-bearing numbers, symbols, diagrams, and text from deterministic SVG or runtime text sources. Keep the scale and positions of the cabinet, window, and hatch fixed when separating production layers. Do not independently regenerate complete room geometry for each weather state.
+
+Every map shown in a playable room needs an inspectable close-up, even when it carries only atmosphere. For this room, author the maps at a scale that supports useful zoom and pan, plus readable annotations and a completed-sheet reference. Fragment geometry must come from one coherent source sheet. The current master shows two intact decorative sheets and a cabinet without an authored chart-drawer hotspot; a production revision must show the torn-sheet state, its outlined board, and the clearly accessible drawer and chart weight required by GDD 1.2. These functional states have not yet been drawn or implemented.
+
+Use tap-to-select and tap-to-place as well as optional drag; give step rotation and visible zoom controls so neither assembly nor inspection depends on precise gestures. Preserve partial assembly and observed map versions in the eventual game state. See the inspectable-maps section and P03 in `design/game-design.md` for the complete rule.
 
 ## Environmental direction
 
