@@ -1,0 +1,22 @@
+; Intake Office asset review and P01 assembly sample.
+config_version=5
+
+[application]
+config/name="The Ninth Tide - Intake Office Asset Preview"
+run/main_scene="res://intake_preview.tscn"
+config/features=PackedStringArray("4.3", "GL Compatibility")
+
+[display]
+window/size/viewport_width=1448
+window/size/viewport_height=1086
+window/size/window_width_override=1024
+window/size/window_height_override=768
+window/stretch/mode="canvas_items"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/default_filters/use_nearest_mipmap_filter=false
+
+[input_devices]
+pointing/emulate_mouse_from_touch=true

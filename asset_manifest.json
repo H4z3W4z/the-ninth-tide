@@ -1,0 +1,416 @@
+{
+  "schema": 1,
+  "room": "R02",
+  "puzzle": {
+    "initial": {
+      "supply_on": true,
+      "bridge_installed": false,
+      "complete": false
+    },
+    "solution": [
+      "supply_off",
+      "select_B",
+      "fit_B",
+      "supply_on"
+    ],
+    "wrong_part": "C",
+    "reward": "chart_note; instrument-room access flags in full game",
+    "no_loss_on_wrong_attempt": true
+  },
+  "canvas": [
+    1448,
+    1086
+  ],
+  "origin": "top-left",
+  "coordinates": "logical pixels",
+  "assets": [
+    {
+      "id": "office_arrival",
+      "path": "assets/backgrounds/office_arrival.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "95f54042fed2dfd905029e3daba6dcd47137371f1fab5439057e9b06335a575a",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "office_ominous",
+      "path": "assets/backgrounds/office_ominous.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "77cbe74d79ed8ba4ee76a8a072226e9cfea2e05a8c031ff4356b1dc8bd038737",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "office_rain",
+      "path": "assets/backgrounds/office_rain.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "4ed8aa8b1d1cbe4d2f658dd110e3fbbf4685e6be7f84e5fbba7ebd8e5b4ce746",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "lamp_light",
+      "path": "assets/props/lamp_light.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "150d64da859defb02f38b1861d510c9225f133fc43dd76c1fe8cf9722feca464",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/props/lamp_light.svg"
+    },
+    {
+      "id": "lamp_off",
+      "path": "assets/props/lamp_off.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "85ffe09555443f1048dd410666b1e2021d4d87b2129d8a59afd419f432d71f3c",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "rain_0",
+      "path": "assets/props/rain_0.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "533aca901aa9b810805c36ad5176b19d501667782bba1a78d777ddd439085894",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/props/rain_0.svg"
+    },
+    {
+      "id": "rain_1",
+      "path": "assets/props/rain_1.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "75df86169951d363a8c9fcddbcfe573b6457b5540ad3dd380e12efed9379bc89",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/props/rain_1.svg"
+    },
+    {
+      "id": "rain_2",
+      "path": "assets/props/rain_2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "9bd275db4d97a86a0de5cea30aaf144d5db512c7b54e0c07648eb9c4303e7b90",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/props/rain_2.svg"
+    },
+    {
+      "id": "spares_tray",
+      "path": "assets/props/spares_tray.png",
+      "width": 240,
+      "height": 120,
+      "sha256": "5e4b54a92c5dfbe94b96194482344d9f7f59b64687589a07f534eebb567ed9d5",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/props/spares_tray.svg"
+    },
+    {
+      "id": "bridge_b",
+      "path": "assets/puzzle/bridge_b.png",
+      "width": 240,
+      "height": 120,
+      "sha256": "b3ad220db036a67462adf95aec2bfef56502fc184a34f9ef140601ff1e668d95",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/puzzle/bridge_b.svg"
+    },
+    {
+      "id": "bridge_b_installed",
+      "path": "assets/puzzle/bridge_b_installed.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "5a6f68bc69166d066e05267627262eed7115cf03441900613061d37b885c1f61",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/puzzle/bridge_b_installed.svg"
+    },
+    {
+      "id": "bridge_c",
+      "path": "assets/puzzle/bridge_c.png",
+      "width": 240,
+      "height": 120,
+      "sha256": "ea3cc60bdd36b292b0f402a7d7d7ba5f2c26b75f1a67a6902c3e4355c57e3997",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/puzzle/bridge_c.svg"
+    },
+    {
+      "id": "chart_note",
+      "path": "assets/puzzle/chart_note.png",
+      "width": 800,
+      "height": 650,
+      "sha256": "6b0ab6663d7d7117bb865961d425283c80abf8eb123ced3c052a8c51605d7598",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/puzzle/chart_note.svg"
+    },
+    {
+      "id": "duty_card",
+      "path": "assets/puzzle/duty_card.png",
+      "width": 800,
+      "height": 650,
+      "sha256": "71b26afb15bdb04dd0ffd1793feaf159b3bcaa2894b21c6a2d1494b4a8119cc2",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/puzzle/duty_card.svg"
+    },
+    {
+      "id": "indicator_on",
+      "path": "assets/puzzle/indicator_on.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "43019c38887e423039a3cc22d9564c5e6403699b86e878d652a531e0966bdda8",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/puzzle/indicator_on.svg"
+    },
+    {
+      "id": "repair_panel",
+      "path": "assets/puzzle/repair_panel.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "f476d2ddd7cb882235b8b80a5a13cb7df497492e33f9dc5aa887c28f2467cbd4",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/puzzle/repair_panel.svg"
+    },
+    {
+      "id": "switch_off",
+      "path": "assets/puzzle/switch_off.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "bf1456b0d2ae13a2605e36bcd5d6995b7c32732d4480ca65aee8148900e7263a",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/puzzle/switch_off.svg"
+    },
+    {
+      "id": "switch_on",
+      "path": "assets/puzzle/switch_on.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "ee674ee78de18771d8a295db88f6ab98f27d7bee8632c5cd78cea0661013f8e4",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/puzzle/switch_on.svg"
+    },
+    {
+      "id": "back",
+      "path": "assets/ui/back.png",
+      "width": 180,
+      "height": 72,
+      "sha256": "c822cc99154a74d82de90a62636686ffaed674c672f115fe82491aa055b6c24d",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/ui/back.svg"
+    },
+    {
+      "id": "close",
+      "path": "assets/ui/close.png",
+      "width": 180,
+      "height": 72,
+      "sha256": "89b7e5dd6f02d01dbe21a0fd9fa1ef538a56947511ad4629c87fae421fcf3f7d",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/ui/close.svg"
+    },
+    {
+      "id": "hint",
+      "path": "assets/ui/hint.png",
+      "width": 180,
+      "height": 72,
+      "sha256": "3e4b6165416278d8f342489320b2e1e86f731ce9c3aef447bef8a2a13ab959d8",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/ui/hint.svg"
+    },
+    {
+      "id": "notes",
+      "path": "assets/ui/notes.png",
+      "width": 180,
+      "height": 72,
+      "sha256": "17a5b92e2755e4b0a1810d15f45391256567b50ecb5acd505ccf509712574fb8",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/ui/notes.svg"
+    },
+    {
+      "id": "slot",
+      "path": "assets/ui/slot.png",
+      "width": 160,
+      "height": 160,
+      "sha256": "996a2cb4efe476b36cd04b7bf7e0918245a439b8b5f2bb0ad83db93d09bb8dbd",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/ui/slot.svg"
+    },
+    {
+      "id": "slot_complete",
+      "path": "assets/ui/slot_complete.png",
+      "width": 160,
+      "height": 160,
+      "sha256": "5ac43d54a302eecfb4d25f3e0530af0669c5a4bca70850dc12e2a5fd59cbe227",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/ui/slot_complete.svg"
+    },
+    {
+      "id": "slot_selected",
+      "path": "assets/ui/slot_selected.png",
+      "width": 160,
+      "height": 160,
+      "sha256": "5bbbce7886756548df046f4f1508fcc8f59e09d6c23b2cf516e3d1b09c5f0675",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/ui/slot_selected.svg"
+    }
+  ],
+  "layers": [
+    {
+      "id": "background",
+      "rect": [
+        0,
+        0,
+        1448,
+        1086
+      ]
+    },
+    {
+      "id": "lamp_off",
+      "rect": [
+        242,
+        469,
+        192,
+        288
+      ]
+    },
+    {
+      "id": "lamp_light",
+      "rect": [
+        242,
+        469,
+        192,
+        288
+      ],
+      "visible_when": "bridge_installed AND supply_on"
+    },
+    {
+      "id": "spares_tray",
+      "rect": [
+        341,
+        666,
+        128,
+        64
+      ]
+    },
+    {
+      "id": "rain_0..2",
+      "rect": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "visible_when": "weather > 0 AND motion_enabled"
+    }
+  ],
+  "weather_states": [
+    {
+      "id": 0,
+      "asset": "office_arrival",
+      "story_trigger": "arrival"
+    },
+    {
+      "id": 1,
+      "asset": "office_rain",
+      "story_trigger": "P09_complete"
+    },
+    {
+      "id": 2,
+      "asset": "office_ominous",
+      "story_trigger": "P17_complete AND P18_complete"
+    }
+  ],
+  "room_hotspots": [
+    {
+      "id": "lamp_and_parts",
+      "rect": [
+        242,
+        469,
+        230,
+        265
+      ],
+      "action": "open_repair"
+    },
+    {
+      "id": "duty_card",
+      "rect": [
+        726,
+        625,
+        180,
+        110
+      ],
+      "action": "read_duty"
+    },
+    {
+      "id": "window",
+      "rect": [
+        420,
+        80,
+        440,
+        526
+      ],
+      "action": "inspect_weather"
+    },
+    {
+      "id": "coat",
+      "rect": [
+        1016,
+        280,
+        184,
+        650
+      ],
+      "action": "inspect_coat"
+    },
+    {
+      "id": "service_door",
+      "rect": [
+        1189,
+        124,
+        258,
+        780
+      ],
+      "action": "locked_until_P06"
+    }
+  ],
+  "puzzle_hotspots": [
+    {
+      "id": "switch",
+      "rect": [
+        260,
+        582,
+        370,
+        126
+      ]
+    },
+    {
+      "id": "socket",
+      "rect": [
+        250,
+        435,
+        415,
+        132
+      ]
+    },
+    {
+      "id": "part_b",
+      "rect": [
+        88,
+        855,
+        278,
+        139
+      ]
+    },
+    {
+      "id": "part_c",
+      "rect": [
+        376,
+        855,
+        278,
+        139
+      ]
+    }
+  ],
+  "limitations": [
+    "Weather plates are separately generated: small texture differences exist; switch on room re-entry rather than slow pixel crossfades.",
+    "Coat, its late shadow, documents and most furniture are baked into room plates in this first-room preview.",
+    "Lamp is a separate alpha sprite; on state uses a precise separate lamp_light overlay.",
+    "Window rain is a separate three-frame overlay; base weather is baked into each plate.",
+    "Contains initial P01 asset set, not later P20 puzzle art or the remaining game."
+  ]
+}

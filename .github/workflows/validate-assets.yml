@@ -1,0 +1,11 @@
+name: Validate assets
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check assets, geometry, and manifest integrity
+        run: python3 tools/validate_assets.py
