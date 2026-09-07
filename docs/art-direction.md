@@ -16,6 +16,8 @@ Native master canvas: 1448 x 1086, 4:3. Reference review size: 1024 x 768. Scale
 
 ## Asset revisions
 
+Listening Room feedback: the user rejected the initial oversized gramophone horns. Do not carry those into production. The revised concept uses a compact speaking-tube panel and small hooked receiver; see `listening-room-assets.md` for its review status and remaining work. Preserve the cylinder player's prominence and the window's weather role.
+
 This initial pass contains three full weather plates. Small generated differences exist in paper texture and furniture edges. Prefer changing plates when re-entering the room. Do not market them as perfectly registered animation frames. Window rain is separately clipped to panes, while the bulk weather appearance is baked into the plates.
 
 Generated room art and the lamp are raster assets. Geometric puzzle/interaction assets are editable SVG plus PNG. The lamp's off sprite has true alpha even though transparent RGB pixels may contain dark color; use normal alpha blending. Two attempted cleanup generations with baked checkerboards were discarded and are not in the project.

@@ -18,6 +18,7 @@ An illustrated point-and-click cosmic horror game set in a coastal survey statio
 - Asset manifest containing dimensions, hashes, placement rectangles, hotspots, and state triggers.
 - Full game design v1.2, original research brief, approved concept references, and production notes.
 - Chart Room master, nine authored map assets, reusable inspection controls, partial-assembly persistence, and a [playable map walkthrough](docs/map-interaction.md).
+- [Listening Room arrival concept and production notes](docs/listening-room-assets.md), prepared for visual review; R04/P02 are not yet implemented.
 
 ## Open the preview
 

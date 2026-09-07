@@ -1,0 +1,16 @@
+{
+  "asset": "art/concepts/listening-room-arrival-v2.png",
+  "room": "R04",
+  "status": "revised concept for user review; not approved or integrated",
+  "date": "2026-09-07",
+  "tool": "built-in image_gen",
+  "use_case": "precise-object-edit",
+  "revision_reason": "User disliked the oversized horns. Replace them with a compact speaking-tube panel and small hooked receiver.",
+  "reference": "Initial Listening Room study from this conversation, rejected oversized-horn version retained in scratch only.",
+  "prompt": "Use case: precise-object-edit.\nEdit target: the supplied Listening Room concept from The Ninth Tide.\nUser feedback: the three large gramophone-like horns look weird and dominate the room. Remove them and redesign only the wall listening apparatus to be restrained and believable.\n\nPRESERVE the entire existing illustration outside the listening installation: fixed straight-on flat front elevation, exact 4:3 framing, left blue door, sage wall and three cork panels, right sea window and rainy coast, blue wainscoting, oak bench and drawers, stool, wax storage containers, brush, empty cylinder mechanism, crank and blank instruction card. Preserve palette, thin navy outlines, matte shapes and paper texture. No camera change or perspective.\n\nDELETE ALL THREE BIG BRASS HORNS and their sprawling U-shaped pipes. Restore plain cork texture where they were. Keep substantial quiet empty cork wall area so the cylinder player and window carry the scene.\nReplace the entire oversized installation with ONE modest compact early-20th-century acoustic connection panel centered low on the middle cork panel above the cylinder machine. Approximately 200 pixels wide and 180 pixels tall at this 1448x1086 scale. It is a flat dark-oak rectangular mounting board with a restrained tarnished-brass faceplate. It has three SMALL flush round tube connections across the upper part and one simple little mechanical selector below, all unlabelled. Three narrow copper tubes leave its top edge, run a SHORT distance vertically and disappear through sealed collars into the wall. There are NO projecting horns, no flared gramophone mouths, no speaker cones.\nOn a small hook immediately to the left of this little panel hangs ONE palm-sized dark brown ebonite-and-brass listening receiver attached to a short cloth-covered hose. It has a modest round earpiece, slim vertical grip and no large flare, like a practical shipboard listening appliance. The receiver must be small and subordinate, not a telephone wall cabinet or modern handset. The panel and receiver together occupy far less wall area than even the former largest horn.\n\nThe apparatus should look maintained but old, mundane enough that a later voice from a sealed wall is unsettling. Early state: no apparitions, eyes, faces, occult motifs, neon, magical glow or blood. Do not add a clock, maps, new documents or any text. No UI or watermark. Keep everything flat and front-facing; illustration, not photorealism. Output the same 1448x1086 resolution if supported.",
+  "notes": [
+    "Door, window, bench, spindle, stool and palette preserved.",
+    "Exact bands, seams, labels, controls and clue text remain separate work.",
+    "No runtime integration, audio or animation layers."
+  ]
+}
