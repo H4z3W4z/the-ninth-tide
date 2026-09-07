@@ -2,7 +2,7 @@
 config_version=5
 
 [application]
-config/name="The Ninth Tide - Intake Office Asset Preview"
+config/name="The Ninth Tide - Office and Map Preview"
 run/main_scene="res://intake_preview.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 
@@ -20,3 +20,4 @@ textures/default_filters/use_nearest_mipmap_filter=false
 
 [input_devices]
 pointing/emulate_mouse_from_touch=true
+pointing/android/enable_pan_and_scale_gestures=true

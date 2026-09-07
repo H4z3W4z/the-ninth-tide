@@ -25,6 +25,15 @@
   "coordinates": "logical pixels",
   "assets": [
     {
+      "id": "chart_arrival",
+      "path": "assets/backgrounds/chart_arrival.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "46c4ea09400e26f7542b779143db32ed6032f5ce6fea04bef8cc97c5c737d314",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
       "id": "office_arrival",
       "path": "assets/backgrounds/office_arrival.png",
       "width": 1448,
@@ -50,6 +59,87 @@
       "sha256": "4ed8aa8b1d1cbe4d2f658dd110e3fbbf4685e6be7f84e5fbba7ebd8e5b4ce746",
       "kind": "background",
       "source_svg": null
+    },
+    {
+      "id": "office_survey",
+      "path": "assets/maps/office_survey.png",
+      "width": 1200,
+      "height": 900,
+      "sha256": "aa721f82d977f9d93d165b02e326f223ab15472f3e1eecefdd79827a0c8b827b",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/maps/office_survey.svg"
+    },
+    {
+      "id": "office_survey_shifted",
+      "path": "assets/maps/office_survey_shifted.png",
+      "width": 1200,
+      "height": 900,
+      "sha256": "de235a10116e6d491628d398495e5943c2cc674d77423174b82dec907a63cd46",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/maps/office_survey_shifted.svg"
+    },
+    {
+      "id": "tide_example",
+      "path": "assets/maps/tide_example.png",
+      "width": 1200,
+      "height": 900,
+      "sha256": "035ec41383e3a3b9ff8f9192f2ca4f3b0f71734c477bbb5eea6a6e463d8bd177",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/maps/tide_example.svg"
+    },
+    {
+      "id": "tide_fragment_0",
+      "path": "assets/maps/tide_fragment_0.png",
+      "width": 1200,
+      "height": 900,
+      "sha256": "273131e95422599343ac0c1a32d36d1e0ed38f1f7ff4e4daad52a60277f43b48",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/maps/tide_fragment_0.svg"
+    },
+    {
+      "id": "tide_fragment_1",
+      "path": "assets/maps/tide_fragment_1.png",
+      "width": 1200,
+      "height": 900,
+      "sha256": "7eccd4cafdedd77e0dcdebc1794281da3da89197fd4c770d04e771f62edec2cf",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/maps/tide_fragment_1.svg"
+    },
+    {
+      "id": "tide_fragment_2",
+      "path": "assets/maps/tide_fragment_2.png",
+      "width": 1200,
+      "height": 900,
+      "sha256": "c83b420aab948ea34393f9a44be32aa2eeb72bd11e17cb3651ad0e5192f6f810",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/maps/tide_fragment_2.svg"
+    },
+    {
+      "id": "tide_reference_16",
+      "path": "assets/maps/tide_reference_16.png",
+      "width": 1200,
+      "height": 900,
+      "sha256": "81ccfc1b1b89cea478c2d01d696aa83321578dce07b831d470ee987bb5518e66",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/maps/tide_reference_16.svg"
+    },
+    {
+      "id": "tide_reference_17",
+      "path": "assets/maps/tide_reference_17.png",
+      "width": 1200,
+      "height": 900,
+      "sha256": "9f0cd55eb13d280904f90d8d655f044961ff5467d1f157c5c23561b14f2e07f7",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/maps/tide_reference_17.svg"
+    },
+    {
+      "id": "tide_sheet",
+      "path": "assets/maps/tide_sheet.png",
+      "width": 1200,
+      "height": 900,
+      "sha256": "626d5f8ba22496bdec4f5d0e21c40f17eed41f804381ec6685126641a21986d5",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/maps/tide_sheet.svg"
     },
     {
       "id": "lamp_light",
@@ -366,6 +456,26 @@
         780
       ],
       "action": "locked_until_P06"
+    },
+    {
+      "id": "office_map",
+      "rect": [
+        127,
+        179,
+        263,
+        290
+      ],
+      "action": "open_map_inspector"
+    },
+    {
+      "id": "chart_workbench",
+      "rect": [
+        38,
+        922,
+        215,
+        64
+      ],
+      "action": "open_chart_workbench_after_P01"
     }
   ],
   "puzzle_hotspots": [
@@ -411,6 +521,31 @@
     "Coat, its late shadow, documents and most furniture are baked into room plates in this first-room preview.",
     "Lamp is a separate alpha sprite; on state uses a precise separate lamp_light overlay.",
     "Window rain is a separate three-frame overlay; base weather is baked into each plate.",
-    "Contains initial P01 asset set, not later P20 puzzle art or the remaining game."
-  ]
+    "Includes the P01 asset set and P03 map workbench; other puzzles are not implemented."
+  ],
+  "map_inspection": {
+    "viewer": "scripts/maps/map_viewer.gd",
+    "workbench": "scripts/maps/map_workbench.gd",
+    "puzzle": "P03",
+    "progress_schema": 1,
+    "maps": [
+      "office_survey",
+      "office_survey_shifted",
+      "tide_sheet",
+      "tide_reference_17"
+    ],
+    "fragments": [
+      "tide_fragment_0",
+      "tide_fragment_1",
+      "tide_fragment_2"
+    ],
+    "comparison": {
+      "anchor": "lighthouse",
+      "north": "up",
+      "date": "17 October 1924",
+      "interval": 3
+    },
+    "chart_weather": "arrival_only",
+    "weather_review_changes_evidence": false
+  }
 }

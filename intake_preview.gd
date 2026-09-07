@@ -5,6 +5,10 @@ const DEFAULT_SAVE_PATH = "user://intake_asset_preview_v1.json"
 const PAPER = Color("ded4ba")
 const INK = Color("172b36")
 const GOLD = Color("d2aa66")
+const MapProgress = preload("res://scripts/maps/map_progress.gd")
+const MapWorkbench = preload("res://scripts/maps/map_workbench.gd")
+var map_progress = MapProgress.new()
+var map_widget
 var save_path = DEFAULT_SAVE_PATH
 var textures = {}
 var state = {"schema": 1, "supply_on": true, "bridge_installed": false,
@@ -67,6 +71,7 @@ func _draw():
 	if view == "room":
 		var backgrounds = ["office_arrival", "office_rain", "office_ominous"]
 		tex(backgrounds[int(state.weather)], Rect2(Vector2.ZERO, SIZE))
+		tex(map_progress.office_version, Rect2(145,196,227,251))
 		tex("lamp_off", Rect2(242, 469, 192, 288))
 		if state.supply_on and state.bridge_installed:
 			tex("lamp_light", Rect2(242, 469, 192, 288))
@@ -78,10 +83,11 @@ func _draw():
 		button(Rect2(205, 30, 150, 64), "Tide III", state.weather == 1)
 		button(Rect2(370, 30, 150, 64), "Tide VI", state.weather == 2)
 		button(Rect2(535, 30, 175, 64), "Motion " + ("on" if state.motion else "off"))
-		button(Rect2(725, 30, 160, 64), "Duty card")
+		button(Rect2(725, 30, 160, 64), "Maps")
 		button(Rect2(900, 30, 150, 64), "Notebook")
 		button(Rect2(1065, 30, 145, 64), "Hint")
 		button(Rect2(1225, 30, 165, 64), "Reset P01")
+		button(Rect2(38, 922, 215, 64), "Chart Room")
 	elif view == "repair":
 		tex("repair_panel", Rect2(Vector2.ZERO, SIZE))
 		tex("switch_on" if state.supply_on else "switch_off", Rect2(Vector2.ZERO, SIZE))
@@ -106,9 +112,11 @@ func _draw():
 		var card_id = "chart_note" if view == "note" else "duty_card"
 		tex(card_id, Rect2(244, 180, 960, 780))
 		button(Rect2(1160, 75, 205, 64), "Back")
+		button(Rect2(875, 75, 255, 64), "Map notebook")
 	draw_rect(Rect2(20, 994, 1408, 80), Color(0.08, 0.15, 0.18, 0.97))
 
 func _unhandled_input(event):
+	if is_instance_valid(map_widget): return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var p = get_global_mouse_position()
 		var action = action_at(p)
@@ -116,16 +124,22 @@ func _unhandled_input(event):
 			dispatch(action)
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		dispatch("back")
+	elif event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_M: dispatch("maps")
+		elif event.keycode == KEY_C: dispatch("chart_room")
+		elif event.keycode == KEY_N: dispatch("map_notes")
 
 func action_at(p):
 	if view == "room":
 		var buttons = [[Rect2(40,30,150,64),"weather_0"],[Rect2(205,30,150,64),"weather_1"],
 			[Rect2(370,30,150,64),"weather_2"],[Rect2(535,30,175,64),"motion"],
-			[Rect2(725,30,160,64),"duty"],[Rect2(900,30,150,64),"notes"],
+			[Rect2(725,30,160,64),"maps"],[Rect2(900,30,150,64),"notes"],
 			[Rect2(1065,30,145,64),"hint"],[Rect2(1225,30,165,64),"reset"]]
 		for entry in buttons:
 			if entry[0].has_point(p):
 				return entry[1]
+		if Rect2(127,179,263,290).has_point(p): return "maps"
+		if Rect2(38,922,215,64).has_point(p): return "chart_room"
 		if Rect2(242,469,230,265).has_point(p): return "repair"
 		if Rect2(726,625,180,110).has_point(p): return "duty"
 		if Rect2(420,80,440,526).has_point(p): return "window"
@@ -140,11 +154,18 @@ func action_at(p):
 	elif view == "reset_confirm":
 		if Rect2(400,520,260,75).has_point(p): return "back"
 		if Rect2(730,520,260,75).has_point(p): return "confirm_reset"
-	elif Rect2(1160,75,205,64).has_point(p): return "back"
+	else:
+		if Rect2(1160,75,205,64).has_point(p): return "back"
+		if Rect2(875,75,255,64).has_point(p): return "map_notes"
 	return ""
 
 func dispatch(action):
 	match action:
+		"maps": open_maps(map_progress.office_version)
+		"map_notes": open_maps("journal")
+		"chart_room":
+			if state.p01_complete: open_maps("chart_room")
+			else: feedback = "Restore the desk lamp to release the instrument-room latch."
 		"repair":
 			view = "repair"
 			feedback = "Inspect the repair card. Select a spare, then tap the contact socket."
@@ -216,6 +237,7 @@ func refresh():
 	queue_redraw()
 
 func save_progress():
+	state["maps"] = map_progress.snapshot()
 	var file = FileAccess.open(save_path, FileAccess.WRITE)
 	if file:
 		file.store_string(JSON.stringify(state))
@@ -231,5 +253,21 @@ func load_progress():
 	for key in ["supply_on","bridge_installed","p01_complete","motion"]:
 		if parsed.get(key) is bool: state[key] = parsed[key]
 	state.weather = clampi(int(parsed.get("weather",0)),0,2)
+	map_progress.restore(parsed.get("maps",{}))
 	if state.p01_complete: state.bridge_installed = true
 	if state.p01_complete: feedback = "Welcome back. The lamp repair and pencil note are saved."
+
+func open_maps(initial_mode: String):
+	if is_instance_valid(map_widget): return
+	map_widget = MapWorkbench.new()
+	map_widget.progress = map_progress
+	map_widget.unlocked = state.p01_complete
+	map_widget.mode = initial_mode
+	map_widget.changed.connect(save_progress)
+	map_widget.closed.connect(func():
+		var previous = map_widget
+		map_widget = null
+		previous.queue_free()
+		save_progress()
+		refresh())
+	add_child(map_widget)

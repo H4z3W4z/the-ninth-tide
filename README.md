@@ -2,11 +2,11 @@
 
 An illustrated point-and-click cosmic horror game set in a coastal survey station whose instruments are learning to locate their observer.
 
-**Current milestone:** Intake Office asset scaffold and a functional P01 assembly preview. This is the first room's production starting point, not the full game.
+**Current milestone:** Playable P01 lamp repair, zoomable Office maps, and a Chart Room workbench for P03 fragment assembly and chart comparison. This is an opening prototype, not the full game.
 
 ## Included
 
-- 25 runtime PNG assets with 21 editable SVG sources.
+- 35 runtime PNG assets with 30 editable SVG sources.
 - Three office background plates: arrival, gathering rain, and ominous Tide VI.
 - Transparent lamp sprite plus an aligned illuminated-shade overlay.
 - Precise bridge B / spare C, socket, supply-switch states, and indicator.
@@ -14,8 +14,8 @@ An illustrated point-and-click cosmic horror game set in a coastal survey statio
 - Three clipped window-rain frames, tray artwork, and UI elements.
 - Godot preview with click/tap repair interaction, hints, notebook, weather review, motion toggle, and local save/resume.
 - Asset manifest containing dimensions, hashes, placement rectangles, hotspots, and state triggers.
-- Full game design v1.2, original research brief, approved concept references, and production notes; map inspection and P03 fragment assembly are specified for implementation.
-- Chart Room arrival concept master and [production asset plan](docs/chart-room-assets.md); this room is not yet playable.
+- Full game design v1.2, original research brief, approved concept references, and production notes.
+- Chart Room master, nine authored map assets, reusable inspection controls, partial-assembly persistence, and a [playable map walkthrough](docs/map-interaction.md).
 
 ## Open the preview
 
@@ -23,15 +23,18 @@ Validated with **Godot 4.5.1**, using the Compatibility renderer and GDScript. I
 
 Select the lamp or nearby tray. Set supply OFF, select bridge B, tap the socket, then switch ON. Try C or attempt fitting with the supply on to review failure feedback. Return to the room to see the lamp lit and open Notebook for the preserved note.
 
+Click the Office's framed map (or press M) to zoom and pan, even before repairing the lamp. After P01, select Chart Room (or press C), recover the three fragments from the board, drawer and chart weight, assemble the sheet, and compare it against the reference. Press N for the map notebook. Full controls and the solution are in [Map interaction](docs/map-interaction.md).
+
 The top weather buttons are **asset-review controls**. Arrival / Tide III / Tide VI change artwork without advancing story flags. In the full game, P09 triggers the intermediate plate and completion of both P17 and P18 triggers the ominous plate. P01 alone must not summon Tide VI.
 
-Mouse and touch share the same tap targets. Escape returns to the room. This assembly sample does not yet provide full keyboard focus navigation, audio, or an iPad-tested browser build.
+Mouse and touch share tap targets. Map controls use native focusable buttons, with keyboard and pinch/pan handlers. Escape returns to the Office. The original P01 canvas controls still lack full keyboard focus navigation. No audio or iPad-tested browser build is included.
 
 ## Project structure
 
 | Path | Purpose |
 | --- | --- |
-| `project.godot`, `intake_preview.*` | Runnable first-room assembly sample |
+| `project.godot`, `intake_preview.*` | Runnable Office and map-workbench host |
+| `scripts/maps/`, `assets/maps/` | Reusable viewer, P03 state/UI, and authored map evidence |
 | `assets/backgrounds/` | Generated full-room state plates |
 | `assets/props/` | Lamp, light overlay, parts tray, rain frames |
 | `assets/puzzle/` | Precise P01 assets and readable documents |
@@ -50,10 +53,12 @@ PNG assets are already included. To edit and rebuild precision assets, install P
 
 ```sh
 python3 tools/build_vectors.py
+python3 tools/build_maps.py
 python3 tools/build_manifest.py
 python3 tools/validate_assets.py
 godot --headless --path . --editor --import
 godot --headless --path . --script tests/p01_smoke.gd
+godot --headless --path . --script tests/maps_smoke.gd
 ```
 
 The scene uses raster exports for identical lettering across platforms. SVGs remain editable source material. Generated background source prompts are recorded in `docs/generation-prompts.json`; no image-generation API credentials are required to run the project.
@@ -66,7 +71,7 @@ The repository is structured around one Godot project. The next gate is a single
 
 The room plates are generated full images. Tiny texture/edge differences remain, so swap them on re-entry rather than slowly crossfading every pixel. Furniture, coat, and the late shadow are baked into each plate. The lamp, lighting state, rain effects, and puzzle pieces are separate. A later asset pass can extract more props when animation or new interactions require it.
 
-Only P01 is playable. Other room exits are descriptive; the service door remains locked until P06 in the design. Later Office puzzle P20 is documented but has no implementation here. There is no audio yet. Desktop headless import/runtime and puzzle state checks have passed; actual iPad, mobile export, and rendered Godot UI testing remain pending.
+P01 and the P03 map workbench are playable. Other exits are descriptive; the service door remains locked until P06. P02 and P04-P27 are not implemented. The Chart Room currently uses its arrival plate and explicit prop buttons; later weather layers and final drawer/weight animation remain. There is no audio. Local headless checks pass; the map workflow additionally runs rendered desktop input checks and publishes screenshots. Actual iPad/Safari and native exports remain untested.
 
 The project is not assigned an open-source license. This scaffold does not grant third-party reuse of the game or art.
 

@@ -26,3 +26,11 @@ Before extending the prototype into a multi-room custom framework, trial Popochi
 Pin versions and retain required licenses for incorporated code. Add dependencies only for a concrete capability. Record what is actually used separately from researched candidates. Do not pull in multiple adventure frameworks at once. Do not import third-party game artwork as production assets merely because code is open source.
 
 Research checked September 7, 2026 using the upstream README, license, and release metadata. Current vendored adventure-framework dependency count: zero.
+
+## Map-workbench implementation trial
+
+For the map pass, cloned Popochiu v2.1.1 at `784d1474ef5fe79285a9da69d550504692a3f7e3` into an isolated scratch project and imported it with Godot 4.6 stable. The first import emitted UID/resource warm-up errors; a second editor boot completed without ERROR or SCRIPT ERROR messages. Reviewed the save/load implementation: it supports optional player data and `Globals.on_save()` / `Globals.on_load()` custom data. These are a suitable future adapter boundary for the map puzzle's snapshot/restore data. This trial did not validate a complete first-person game, production inventory behavior, or a Safari export, so Popochiu remains a candidate rather than an adopted dependency.
+
+The current deliverable is a reusable Godot Control/TextureRect inspection surface and puzzle-specific workbench hosted by the existing P01 harness. It reuses Godot's native button, focus, clipping and texture controls. It does not add a general room manager, dialogue system, inventory framework or production save service. The application stays on its validated Godot 4.5.1 pin.
+
+Map CI reuses [Chickensoft setup-godot](https://github.com/chickensoft-games/setup-godot) at commit `c233594225991af5aec714e52457cc76d6df8fa2`, with Godot 4.5.1 and no .NET/export templates. Upstream action code is referenced rather than vendored.
