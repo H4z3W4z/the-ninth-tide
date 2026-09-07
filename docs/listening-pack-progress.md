@@ -50,4 +50,8 @@ Added 38 editable SVG/PNG pairs: six readable documents; nine band/seam orientat
 
 Asset integrity checks pass. An exhaustive check of all 162 order/orientation combinations found exactly one valid band assembly: C/A/B at steps 0/0/0. This checks the graphic specification, not implemented gameplay. The assembly card, correction note and P19 overlay received a first visual check; complete scene composition, document review, lamp-shade illumination, precise placement and platform checks remain. Timing traces are authored diagrams and must be synchronized with future voice recordings.
 
+## Checkpoint 10
+
+The lamp ON sprite now has a separate warm illuminated bulb and shade on genuine transparency. It has a small generated silhouette difference from OFF and should be treated as an on/off pose, not a registered animation frame. Five parallel reviewers are finishing the inventory, exact puzzle/evidence graphics, document review, scene composition and design handoff. Their final review and manifest supersede earlier pending lists above.
+
 For the next bounded continuation, read `listening-resume.md`. Generation prompts, source paths, intended placements and draft status are recorded in `listening-pack-generation.json`. No Listening Room gameplay or audio is implemented by this pack.

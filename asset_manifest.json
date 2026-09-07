@@ -376,6 +376,15 @@
       "source_svg": null
     },
     {
+      "id": "r04_lamp_on",
+      "path": "assets/listening/props/r04_lamp_on.png",
+      "width": 1323,
+      "height": 1189,
+      "sha256": "3380ba3095d0f8b0a57153b7a90efde430426affcf54069ea0816a7eefe13172",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "r04_ledger_stack",
       "path": "assets/listening/props/r04_ledger_stack.png",
       "width": 1774,
