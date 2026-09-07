@@ -15,6 +15,7 @@ An illustrated point-and-click cosmic horror game set in a coastal survey statio
 - Godot preview with click/tap repair interaction, hints, notebook, weather review, motion toggle, and local save/resume.
 - Asset manifest containing dimensions, hashes, placement rectangles, hotspots, and state triggers.
 - Full game design v1.1, original research brief, approved concept references, and production notes.
+- Chart Room arrival concept master and [production asset plan](docs/chart-room-assets.md); this room is not yet playable.
 
 ## Open the preview
 
