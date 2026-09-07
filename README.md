@@ -4,11 +4,13 @@ An illustrated point-and-click cosmic horror game set in a coastal survey statio
 
 **Current milestone:** Playable P01 lamp repair, zoomable Office maps, and a Chart Room workbench for P03 fragment assembly and chart comparison. This is an opening prototype, not the full game.
 
-**Continuing in Codex:** Start with [the implementation handoff](docs/CODEX-HANDOFF.md). It covers the active branch, known rendered-input failure, build steps, next milestones, and the split between coding and graphics creation.
+**Continuing in Codex:** Start with [the implementation handoff](docs/CODEX-HANDOFF.md). It covers the active branch, rendered-input verification, build steps, next milestones, and the split between coding and graphics creation.
 
-**New art handoff:** The [Listening Room v4 pack](docs/listening-room-assets.md) supplies the accepted hornless recorder/headphones direction, eight weather appearances, separate props, inspection art, and authored puzzle graphics. Review its [inventory](docs/listening-inventory.md), [placement/state manifest](assets/listening/manifest.json), and [composed art review](art/listening-review/composed/index.html). These additions do not implement R04 or repair the prototype's rendered-input failure.
+**New art handoff:** The [Listening Room v4 pack](docs/listening-room-assets.md) supplies the accepted hornless recorder/headphones direction, eight weather appearances, separate props, inspection art, and authored puzzle graphics. Review its [inventory](docs/listening-inventory.md), [placement/state manifest](assets/listening/manifest.json), and [composed art review](art/listening-review/composed/index.html). These additions do not implement R04.
 
 **Kitchen art handoff:** Mike approved the [Kitchen and Mess master v1](art/concepts/kitchen-room-master-v1.png). The [R05 asset handoff](docs/kitchen-room-assets.md) preserves P07's nine-served/eight-recorded supper and P09's additive correction, with Nora's personal cup remaining in the Bunk Room. The completed graphics pack includes 84 local PNGs and 78 editable SVG sources, with seven shared weather plates. Review its [inventory](docs/kitchen-inventory.md), [manifest](assets/kitchen/manifest.json) and [offline art gallery](art/kitchen-review/composed/index.html). R05/P07/P09 gameplay remains unimplemented.
+
+**Input repair, September 7:** Map clicks now use the event position. [Rendered CI passed](https://github.com/H4z3W4z/the-ninth-tide/actions/runs/34143727613) for opening, zoom, Fit, pinch/release and closing at 1024 × 768 and 1448 × 1086, with all five review captures uploaded. Follow-up layout corrections keep map illustrations and clue text inside their panels; current review details are in the handoff. Physical iPad/Safari validation remains outstanding.
 
 ## Included
 

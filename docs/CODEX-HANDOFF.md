@@ -9,9 +9,19 @@
 
 **Kitchen art update, September 7:** Mike approved [Kitchen master v1](../art/concepts/kitchen-room-master-v1.png). The complete [R05 graphics handoff](kitchen-room-assets.md) specifies P07/P09 evidence and visual states, with [84 local PNG assets](kitchen-inventory.md), 78 editable SVG sources, seven reused R04 weather plates, a [measured manifest](../assets/kitchen/manifest.json) and [offline art gallery](../art/kitchen-review/composed/index.html). Nora's physical repaired cup stays in R06; the Kitchen provisioning page supplies the corresponding repair sketch. These art additions do not implement R05 or change the dated code baseline below.
 
+## Current input repair — September 7, 2026
+
+Commit `34a819fd176ce3e71b9a87d41e348fe09ff6221f` changes Office hit testing to use `make_input_local(event).position`. The room previously polled the current cursor position, which could differ from the injected click. The test now converts design coordinates to window pixels and exercises opening, native zoom/Fit/Back buttons, and two-finger pinch/release at 1024 × 768 and 1448 × 1086. Assertions are replaced with explicit nonzero exits; a 45-second watchdog catches stranded coroutines. CI uses dummy audio and still requires a real renderer and all five screenshots.
+
+Local validation passed: 212 PNG asset validation, P01 smoke, map smoke, and the shared harness's explicit `--input-only` mode. Running the rendered suite with a headless display correctly exits 1 immediately. Local input-only results do not validate rendering or physical devices. Rendered CI passed in [run 34143727613](https://github.com/H4z3W4z/the-ninth-tide/actions/runs/34143727613), including both input sizes and upload of all five screenshots. The asset workflows also passed at that commit.
+
+Screenshot inspection then exposed oversized Chart Room/fragment textures and horizontally overflowing clue labels. Follow-up commit `61b97603327faa0f2afeb0c38b1be74bb7820af6` sets texture expansion and text wrapping before assigning display sizes. The render harness now checks transformed panel-child bounds, including rotated fragments. The follow-up [rendered run 34144018577](https://github.com/H4z3W4z/the-ninth-tide/actions/runs/34144018577) passed, along with both asset workflows. All five captures were downloaded and inspected: illustrations remain within their panels, transcripts and interval-3 feedback wrap completely, and the completed map comparison is readable. That review also led to a smaller centered fragment preview so its quarter-turns clear the neighboring buttons. Room map-face aspect ratios and final overlay/art polish remain implementation follow-ups; these captures are not approval of final art or a full walkthrough.
+
+The baseline failure and investigation record below are retained as history. Physical mouse, iPad/Safari, native devices, focus-loss gesture cleanup, and a full player walkthrough remain separate validation work.
+
 ## 1. Start here
 
-The project already contains a Godot prototype, approved Office references, a new Chart Room concept, and implemented P01/P03 puzzle logic. Continue from this work. The immediate task is to resolve the failing rendered map-input test, verify the actual interface, and produce the first local-network Web preview for an iPad.
+The project already contains a Godot prototype, approved Office references, a new Chart Room concept, and implemented P01/P03 puzzle logic. Continue from this work. After the input repair above, the next implementation milestone is the first local-network Web preview for an iPad, including actual device input and layout checks.
 
 | Item | Location or decision |
 | --- | --- |
@@ -82,7 +92,7 @@ The full location list is Jetty, Intake Office, Chart Room, Listening Room, Kitc
 
 The code baseline contained **35 runtime PNGs and 30 editable SVG sources**, including nine authored map PNG/SVG pairs. Later art additions increase the repository inventory; consult the current manifests rather than treating these historical counts as the present total. The new R04 pack supplies illustrations and exact graphics while P02/P17/P19 remain unimplemented.
 
-## 5. First task: repair and verify rendered input
+## 5. Historical rendered-input failure and investigation
 
 Baseline CI evidence:
 
@@ -260,10 +270,10 @@ python3 tools/validate_assets.py
 For the rendered regression on Linux with Xvfb and a working display/socket environment:
 
 ```sh
-LIBGL_ALWAYS_SOFTWARE=1 timeout 90 xvfb-run -a -s '-screen 0 1600x1200x24' godot --path . --script tests/maps_render.gd
+LIBGL_ALWAYS_SOFTWARE=1 timeout 90 xvfb-run -a -s '-screen 0 1600x1200x24' godot --audio-driver Dummy --path . --script tests/maps_render.gd
 ```
 
-This last command reproduces the failing baseline; it is not expected to pass until repaired. With a physical desktop display, run the script directly through Godot instead of Xvfb. Screenshots belong in ignored `build/map-review/`. The prior graphics workspace could run headless checks but could not create display sockets, so real rendering was attempted in GitHub Actions. Use a normal desktop or CI for that verification.
+This command runs the required rendered regression, including input at two window sizes and five screenshots. See the current repair status above; the historical baseline failed. With a physical desktop display, run the script directly through Godot instead of Xvfb. Screenshots belong in ignored `build/map-review/`. The prior graphics workspace could run headless checks but could not create display sockets, so real rendering was attempted in GitHub Actions. Use a normal desktop or CI for that verification.
 
 CI pins `chickensoft-games/setup-godot` to `c233594225991af5aec714e52457cc76d6df8fa2` and installs Godot 4.5.1 without export templates. Match export templates to the engine when creating builds. Never commit signing material, credentials, exported packages, engine binaries or `.godot` caches.
 

@@ -180,7 +180,8 @@ func _assembly():
 		var atlas = AtlasTexture.new()
 		atlas.atlas = texture("tide_fragment_"+str(progress.selected))
 		atlas.region = Rect2(0,maxi(0,progress.selected*300-25),1200,350 if progress.selected == 1 else 325)
-		var image = _image(atlas,Rect2(1100,508,245,85))
+		# Keep all four orientations between the fragment list and Rotate button.
+		var image = _image(atlas,Rect2(1118,534,210,62))
 		image.pivot_offset = image.size/2.0
 		image.rotation = progress.rotation_step*PI/2.0
 	_button("rotate","Rotate 90 degrees",Rect2(1050,680,345,64),func():
