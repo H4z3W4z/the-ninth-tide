@@ -61,6 +61,213 @@
       "source_svg": null
     },
     {
+      "id": "r06_clean_base",
+      "path": "assets/bunks/backgrounds/r06_clean_base.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "cded646af901f2b3e6ab6bc69b957a524ed358d214f902faa08700bb13fb3de0",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r06_amendment_rule",
+      "path": "assets/bunks/documents/r06_amendment_rule.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "4095dcc9d34b2598654ea19b93542f984c7e0aa16d377005b2c7a9273367489e",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_amendment_rule.svg"
+    },
+    {
+      "id": "r06_assignment_rule",
+      "path": "assets/bunks/documents/r06_assignment_rule.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "209e24206705f107bd5c09f64bdf64a51cfc3c3a02f80bd0669fcb330437f0df",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_assignment_rule.svg"
+    },
+    {
+      "id": "r06_card_bell",
+      "path": "assets/bunks/documents/r06_card_bell.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "0b6989d640fdcb5c28c44cc959b33046eceac974d673bdad9bed407968dacec0",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_card_bell.svg"
+    },
+    {
+      "id": "r06_card_ives",
+      "path": "assets/bunks/documents/r06_card_ives.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "6ff63de46301cb1c5721200291866900b4ec17a865505a0e924611e2b9f3a200",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_card_ives.svg"
+    },
+    {
+      "id": "r06_card_rook",
+      "path": "assets/bunks/documents/r06_card_rook.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "c71aa31bf69ac270c4e2d2838fdcc0233fee710f9cc7f2e7faf103ff750a43b1",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_card_rook.svg"
+    },
+    {
+      "id": "r06_card_venn",
+      "path": "assets/bunks/documents/r06_card_venn.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "241bcd0eea97610c70130b5c42a51d5428b12a243a0f7d61cff56a30b6552a2a",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_card_venn.svg"
+    },
+    {
+      "id": "r06_index_original",
+      "path": "assets/bunks/documents/r06_index_original.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "4844b06320c0b30a5aa89e6842b74ebd9db0d9fc0aa41c1a79c8c02d94bc9b72",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_index_original.svg"
+    },
+    {
+      "id": "r06_ives_letter",
+      "path": "assets/bunks/documents/r06_ives_letter.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "9f09b3707f95c93ca77e97ca63b124af2a984f22b79a081e3260857cf720311b",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_ives_letter.svg"
+    },
+    {
+      "id": "r06_p08_record",
+      "path": "assets/bunks/documents/r06_p08_record.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "ba5e00125bd16428e32d55cfba3b048c06da12ec3c1b32be9dee2fa8c4a158bd",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_p08_record.svg"
+    },
+    {
+      "id": "r06_p22_record",
+      "path": "assets/bunks/documents/r06_p22_record.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "30dce0e706bebaa95828098b8ec7f65988332dc390df9295f2a7f1caed753c5c",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_p22_record.svg"
+    },
+    {
+      "id": "r06_venn_seal",
+      "path": "assets/bunks/documents/r06_venn_seal.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "7ac664037e3b5fd845b0382c1c44dd592c69eb7fcf14108381099174e3a5fd62",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_venn_seal.svg"
+    },
+    {
+      "id": "r06_calipers",
+      "path": "assets/bunks/props/r06_calipers.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "6b63198a01799fe7da5584670d2ce252d46e80ab977becded54ab1b0db46288f",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r06_cup",
+      "path": "assets/bunks/props/r06_cup.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "b934e2fb02cda89adc7af2c2874efd40f25b12b4a390d91d28f389f4560de008",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r06_glove",
+      "path": "assets/bunks/props/r06_glove.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "b4275fc690726f0c33f5285aaaebd58c61e7b6fe22c0c85a2fff1187c75ef0b6",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r06_pencil_holder",
+      "path": "assets/bunks/props/r06_pencil_holder.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "3060eb23d6e9e4cb0c16dfd4eb784816ad8df5d2f85f51fa1eae4d34acb46b50",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r06_calipers_mark",
+      "path": "assets/bunks/puzzle/r06_calipers_mark.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "967ad918baa0dcc852c0951523fa43a63209f73f0f43ddab2abfc0d7ab2331ff",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/puzzle/r06_calipers_mark.svg"
+    },
+    {
+      "id": "r06_cup_mark",
+      "path": "assets/bunks/puzzle/r06_cup_mark.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "bb5dbc87befbc18f710d77d68cf77baffd965fa94ead616c02f3b8f5633e469c",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/puzzle/r06_cup_mark.svg"
+    },
+    {
+      "id": "r06_label_bell",
+      "path": "assets/bunks/puzzle/r06_label_bell.png",
+      "width": 280,
+      "height": 96,
+      "sha256": "b74051f3cf2eee26c1ec4ee964917f0817b837df6a37761c40dd9295183cc924",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/puzzle/r06_label_bell.svg"
+    },
+    {
+      "id": "r06_label_ives",
+      "path": "assets/bunks/puzzle/r06_label_ives.png",
+      "width": 280,
+      "height": 96,
+      "sha256": "89739b65ec51b8aebaefc047982a76f6fd830ec9051eae82b12f0ddd5505e54a",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/puzzle/r06_label_ives.svg"
+    },
+    {
+      "id": "r06_label_rook",
+      "path": "assets/bunks/puzzle/r06_label_rook.png",
+      "width": 280,
+      "height": 96,
+      "sha256": "8e9c6414689cc849ad08dee3c6fa534e4bbad8d4895b78b97cf348b9b5330d4e",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/puzzle/r06_label_rook.svg"
+    },
+    {
+      "id": "r06_label_venn",
+      "path": "assets/bunks/puzzle/r06_label_venn.png",
+      "width": 280,
+      "height": 96,
+      "sha256": "1d314fdb55982f69dd1417f26ca79d0c77bc37e8b94065ed81be4c67017a8262",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/puzzle/r06_label_venn.svg"
+    },
+    {
+      "id": "r06_pencil_holder_mark",
+      "path": "assets/bunks/puzzle/r06_pencil_holder_mark.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "24d070337077d1780183de187ae1f05c1ab354db8d69d39270e85b96b1c99bbc",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/puzzle/r06_pencil_holder_mark.svg"
+    },
+    {
       "id": "r05_clean_base",
       "path": "assets/kitchen/backgrounds/r05_clean_base.png",
       "width": 1448,

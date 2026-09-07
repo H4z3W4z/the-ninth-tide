@@ -2,6 +2,8 @@
 
 Recovered September 7, 2026, after the graphics conversation stopped.
 
+**Latest continuation:** R06 [checkpoint 1](bunk-pack-progress.md) adds the clean room plate, four RGBA belongings, eighteen editable exact-graphic pairs and six review compositions. The repository now has 235 runtime PNGs. Continue with the remaining states listed in that checkpoint. The concept-only status below is retained as recovery history; do not regenerate the completed first batch.
+
 ## Verified recovery baseline
 
 Repository: H4z3W4z/the-ninth-tide. Continue the shared branch `art/chart-room-master-v1` (draft PR #1), or its merged successor. The remote baseline recovered in this session is `14dd2631d7aaf134f768f9e02ef2990830d64c38`. The former scratch checkout had equivalent locally created commits with different SHAs; use GitHub SHAs when referring to published work.

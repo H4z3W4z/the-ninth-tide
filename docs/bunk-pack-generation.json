@@ -1,0 +1,81 @@
+{
+  "room": "R06",
+  "status": "working_asset_batch; room concept not explicitly approved",
+  "method": "built-in Imagegen",
+  "reference": "art/concepts/bunk-room-concept-v1.png",
+  "assets": [
+    {
+      "id": "r06_clean_base",
+      "method": "built-in Imagegen",
+      "path": "assets/bunks/backgrounds/r06_clean_base.png",
+      "prompt": "Edit the provided Bunk Room illustration into a clean fixed game-room background plate. Retain EXACTLY the same 1448 x 1086 4:3 front-facing composition, all furniture geometry, empty two beds with normal pillows, linen curtain, blue door, warm lamp, calendar, four closed locker doors, shelves, windows and suitcases. REMOVE ONLY the four loose belongings from the lower-right long shelf: cup, calipers, pencil holder and glove, leaving the empty shelf continuous and natural. Remove the envelope and pencil on the upper small bunk shelf and the loose pencil on the lower bunk shelf too, leaving those small wooden shelves in place. Remove only the four cream pinned personal cards on locker fronts, keeping the underlying wood and the brass plates. Keep the calendar paper in place but leave its small lower writing strip completely blank. No objects in the empty locker shelf recess. Preserve fine navy ink contours, broad matte sea-glass green / blue / warm oak, subtle paper grain. No new objects or symbols. Opaque RGB room background, no transparency. This is a production working plate based on a draft concept; do not change room design.",
+      "role": "working room plate",
+      "source": "/workspace/scratch/62b81168bbb1/generated_images/exec-f1564713-ab73-4071-b304-ae61a3b48567.png",
+      "status": "working_art_from_draft_concept"
+    },
+    {
+      "id": "r06_cup",
+      "method": "built-in Imagegen",
+      "path": "assets/bunks/props/r06_cup.png",
+      "prompt": "Edit this transparent isolated bowl sprite: replace the bowl with ONE cream enamel tea cup, blue rim and right side handle. The handle has a small brass repair band at both joins to the cup body. Preserve the input image's actual transparent surrounding canvas and crisp fully opaque illustrated-object treatment. Keep the same flat navy ink and matte texture. Show front elevation and no lettering. The entire space outside the cup and within its handle must stay empty transparent exactly as outside the original bowl. No shadow or glow. Output one cup sprite only.",
+      "role": "transparent unlettered personal cup",
+      "source": "/workspace/scratch/62b81168bbb1/generated_images/exec-ef816820-6e91-4c89-9daf-0b78ff898e28.png",
+      "status": "RGBA_validated"
+    },
+    {
+      "id": "r06_calipers",
+      "method": "built-in Imagegen",
+      "path": "assets/bunks/props/r06_calipers.png",
+      "prompt": "Replace the cup in this transparent sprite with one pair of old brass measuring calipers, horizontal side view. Same illustrated ink-and-matte-paint style. Blank measuring beam. Preserve the transparent background of the input. One isolated caliper, no shadows.",
+      "role": "transparent measuring calipers",
+      "source": "/workspace/scratch/62b81168bbb1/generated_images/exec-788008d8-db21-4cfb-9a31-6dccacd36c32.png",
+      "status": "RGBA_validated"
+    },
+    {
+      "id": "r06_pencil_holder",
+      "method": "built-in Imagegen",
+      "path": "assets/bunks/props/r06_pencil_holder.png",
+      "prompt": "Replace the isolated caliper with a short square wooden pencil holder containing three short pencils. Same flat hand-illustrated style and dark contours. Keep the background transparent, exactly as in the input. No shadows. One complete pencil holder sprite.",
+      "role": "transparent pencil holder",
+      "source": "/workspace/scratch/62b81168bbb1/generated_images/exec-7056fe30-abcc-45f4-8d50-fadc39984f85.png",
+      "status": "RGBA_validated"
+    },
+    {
+      "id": "r06_glove",
+      "method": "built-in Imagegen",
+      "path": "assets/bunks/props/r06_glove.png",
+      "prompt": "Replace the isolated caliper with ONE empty worn work glove, palm facing forward, fingers pointing up. Brown-grey canvas and leather, rectangular sewn repair patch across the palm. Five fingers. Same flat hand-illustrated style and dark contours. Keep the background transparent, exactly as in the input. No shadows. One complete glove sprite.",
+      "role": "transparent work glove",
+      "source": "/workspace/scratch/62b81168bbb1/generated_images/exec-17b9a4ac-b892-4168-b166-105b1e06886c.png",
+      "status": "RGBA_validated"
+    }
+  ],
+  "rejected_iterations": [
+    {
+      "prompt": "Using the provided Bunk Room image ONLY as a style and material reference, make ONE isolated game prop: Nora Bell's old cream enamel tea cup, navy-blue lip and a broad handle on the RIGHT, shown almost straight-on with a very shallow opening ellipse. The handle is repaired at BOTH its upper join and lower join to the cup body, using two modest old brass mending bands, easily visible. The cup BODY IS INTACT, no crack across body and no square patch. Leave the front blank for separately authored NB initials. Slight age and chips, fine navy ink, matte cream enamel, muted brass, subtle paper texture, exactly the reference's maritime illustration style. Center one complete cup with generous clear padding on a GENUINELY TRANSPARENT RGBA background, no checkerboard pixels, no white background, no floor, no external glow, no broad halo and no detached cast shadow. Wide side handle unobscured. No text, no letters, no other objects.",
+      "reason": "RGB checked backdrop; no transparency",
+      "source": "/workspace/scratch/62b81168bbb1/generated_images/exec-63ee4744-96da-4b78-8ed9-13a372c5e27d.png"
+    },
+    {
+      "prompt": "Edit this image into a TRUE TRANSPARENT PNG cutout of the cup. Preserve the cup illustration and its two brass handle repairs exactly. Remove ALL grey checked background pixels outside the cup and inside the handle, replacing those regions with transparent alpha = 0. Deliver an RGBA PNG with an alpha channel, not a picture of transparency. No backdrop, pattern, floor or shadow. Keep the entire cup edge clean. Blank front stays blank.",
+      "reason": "RGB checked backdrop; no transparency",
+      "source": "/workspace/scratch/62b81168bbb1/generated_images/exec-681e1c2e-c628-4e37-b2ec-5b9999823859.png"
+    },
+    {
+      "prompt": "Two-image alpha-seed attempt; superseded by successful single-reference edit",
+      "reason": "RGB checked backdrop; no transparency",
+      "source": "/workspace/scratch/62b81168bbb1/generated_images/exec-508d5268-e7c0-40e8-9003-eb46357fe26d.png"
+    },
+    {
+      "prompt": "Edit this transparent isolated bowl sprite: replace the bowl with ONE old brass measuring caliper, shown flat broadside and horizontal, fixed jaw and sliding jaw at left, straight measurement beam extending right. Fine navy ink contours, matte tarnished brass, restrained paper texture in the same illustration style. No numerals or text; leave the beam mostly blank for separately authored tick marks. Preserve the input image's actual transparent surrounding canvas and crisp fully opaque illustrated-object treatment. The entire space outside the caliper must stay empty transparent exactly as outside the original bowl. No background, shadow or glow. Output one caliper sprite only.",
+      "reason": "RGB checked backdrop; no transparency",
+      "source": "/workspace/scratch/62b81168bbb1/generated_images/exec-35ee4340-6b2b-431b-aeb4-975602345cc0.png"
+    },
+    {
+      "prompt": "First pencil-holder edit from transparent cup; superseded by caliper-source edit",
+      "reason": "RGB checked backdrop; no transparency",
+      "source": "/workspace/scratch/62b81168bbb1/generated_images/exec-df14f86f-6504-4a69-b87c-d85bbfb91acf.png"
+    }
+  ]
+}
+
