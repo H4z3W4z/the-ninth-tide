@@ -310,6 +310,65 @@
         98,
         33
       ]
+    },
+    {
+      "id": "r04_recorder_partial",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_recorder_partial.png",
+      "prompt": "Transparent PNG sprite of this exact hornless brass-and-oak recorder, with one short brown wax sleeve seated on the LEFT third of its bare spindle, remaining two thirds bare. Keep raised needle, supports, crank and wooden base. Straight side elevation. Flat matte illustrated colors. Isolated on transparent background. No words, glow, room or other props.",
+      "refs": [
+        "/workspace/scratch/caf0649b63b9/the-ninth-tide/assets/listening/props/r04_recorder_empty.png"
+      ],
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-97f94ec4-ef7b-4769-9ef1-54cdb86bdc83.png",
+      "target": [
+        544,
+        465,
+        320,
+        164
+      ]
+    },
+    {
+      "id": "r04_recorder_assembled",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_recorder_assembled.png",
+      "prompt": "Transparent PNG sprite of this exact hornless brass-and-oak recorder, with three equal brown wax sleeves seated snugly side by side filling the spindle, two fine join lines. Needle lowered to the wax at the right. Keep supports, crank and wooden base. Straight side elevation. Flat matte illustrated colors. Isolated on transparent background. No words, glow, room or other props.",
+      "refs": [
+        "/workspace/scratch/caf0649b63b9/the-ninth-tide/assets/listening/props/r04_recorder_empty.png"
+      ],
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-2dd9f2a2-f553-4f20-af8c-0b09e96357a2.png",
+      "target": [
+        544,
+        465,
+        320,
+        164
+      ]
+    },
+    {
+      "id": "r04_brush_shavings",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_brush_shavings.png",
+      "prompt": "Transparent PNG sprite of the small recorder cleaning brush and a few scattered wax shavings on the reference workbench. Brush lies horizontally, dark bristles at left, worn oak handle at right. Very small curled golden-brown wax scraps around it. Flat matte ink illustration, straight elevation. Isolated on transparent background. No glow, shadow, workbench, writing or other props.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-dc93851c-8c41-425c-b45e-e4d73e26d738.png",
+      "target": [
+        432,
+        608,
+        206,
+        31
+      ]
+    },
+    {
+      "id": "r04_noticeboard",
+      "issue": "Replacement still has broad baked aura; not a runtime cutout.",
+      "kind": "draft",
+      "path": "art/listening-review/r04_noticeboard_retry_draft.png",
+      "prompt": "Transparent PNG sprite of the empty wooden framed cork noticeboard from the reference room. Straight frontal rectangle, three to two proportions, dark oak frame and warm matte cork. Plain cork surface. Thin navy ink contours. Isolated on transparent background. No glow, shadow, papers, wall or text.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-72f51954-a52e-49f3-9bbb-f36d799fe506.png",
+      "target": [
+        541,
+        173,
+        355,
+        237
+      ]
     }
   ]
 }

@@ -26,4 +26,10 @@ The closed storage canister and open empty wooden case are separate RGBA props w
 
 A clean wax-band template, open canister and closed case now complement the prior props. Reuse the band illustration for the three labeled P02 pieces; labels and seam positions remain deterministic authored overlays. The initial bare noticeboard has an unwanted aura and is retained as a review draft pending replacement.
 
+## Checkpoint 5
+
+Partial and assembled recorder sprites and the cleaning brush with wax shavings have genuine alpha and are saved as separate objects. The recorder variants preserve the overall mechanism but have small generated differences; use the empty recorder plus deterministic band layers for exact interactive assembly. Generated wax joins are visual references, not the final C/A/B clue seams. The second bare noticeboard attempt still has a broad aura and remains a review draft.
+
+Still to finish: clean noticeboard; document and photograph inspection art; instruction-card stand; shelf contents; open drawer/door states; local lighting and damp overlays; later channel-panel art; precise placement manifest and final Codex integration notes. The current pack is not complete or integrated into gameplay.
+
 Generation prompts, source paths, intended placements and draft status are recorded in `listening-pack-generation.json`. Checkpoint commits will continue as batches finish. The final delivery will include the full inventory and integration guide.

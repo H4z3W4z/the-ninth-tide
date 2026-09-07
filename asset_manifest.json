@@ -142,6 +142,15 @@
       "source_svg": null
     },
     {
+      "id": "r04_brush_shavings",
+      "path": "assets/listening/props/r04_brush_shavings.png",
+      "width": 1774,
+      "height": 887,
+      "sha256": "8872d4624a5db35e6b6ae1b9b276fbe23834c2ae1bdbffbd90e4084d8f79c0b9",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "r04_canister_closed",
       "path": "assets/listening/props/r04_canister_closed.png",
       "width": 1207,
@@ -196,11 +205,29 @@
       "source_svg": null
     },
     {
+      "id": "r04_recorder_assembled",
+      "path": "assets/listening/props/r04_recorder_assembled.png",
+      "width": 1774,
+      "height": 887,
+      "sha256": "9165aba9dfcb8fbfa548622239351a694c0bea60402f988d04c7d24618b9ee1c",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "r04_recorder_empty",
       "path": "assets/listening/props/r04_recorder_empty.png",
       "width": 1774,
       "height": 887,
       "sha256": "a8a7f845e79fb1af4f4415a19b22ec1b5b65536a5131bd857a21943bf30c26f3",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_recorder_partial",
+      "path": "assets/listening/props/r04_recorder_partial.png",
+      "width": 1774,
+      "height": 887,
+      "sha256": "f035e362ab931db9318d041b8818f4a0a52c83bc5da65716b1b62cbb6454e078",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
