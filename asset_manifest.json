@@ -151,6 +151,15 @@
       "source_svg": null
     },
     {
+      "id": "r04_channel_panel_blank",
+      "path": "assets/listening/closeups/r04_channel_panel_blank.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "ff294f65cd550aef04ec0f6da8bc86a6e903796b142195048db789d82be762e5",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "r04_paper_blank",
       "path": "assets/listening/closeups/r04_paper_blank.png",
       "width": 1086,

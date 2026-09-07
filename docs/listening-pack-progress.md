@@ -40,4 +40,8 @@ The noticeboard now has a clean edge-to-edge rectangular texture. Its alpha rang
 
 Separate shelf ledgers, a reusable horizontal cylinder case, and an open shallow drawer complete the small bench contents. An open-door detail plate supplies the portal image; clip only the doorway over the fixed clean room base. Do not replace the full room with that detail plate. Generated open/closed prop states have small geometry differences and are swap poses, not registered animation frames.
 
+## Checkpoint 8
+
+The later listening calibration board now has a separate blank faceplate matching the recorder's materials. Exact channel labels, waveform strips and witness controls will sit above it. This is an inspection surface, not a new horn assembly or a change to the approved room composition.
+
 Generation prompts, source paths, intended placements and draft status are recorded in `listening-pack-generation.json`. Checkpoint commits will continue as batches finish. The final delivery will include the full inventory and integration guide.

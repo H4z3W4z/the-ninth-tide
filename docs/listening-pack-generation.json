@@ -472,6 +472,13 @@
         236,
         738
       ]
+    },
+    {
+      "id": "r04_channel_panel_blank",
+      "kind": "panel",
+      "path": "assets/listening/closeups/r04_channel_panel_blank.png",
+      "prompt": "Create a flat front-elevation game texture of a rectangular 1931 listening calibration board matching the dark oak, tarnished brass and fine navy ink of the reference room. The board fills the complete 4:3 image edge to edge with no outside margin. A narrow dark oak perimeter, a large quiet flat desaturated charcoal-bronze metal center, four brass corner screws, restrained wear. The central 85 percent is plain empty metal reserved for precise graphic controls. Broad matte shapes, light paper grain, no perspective. No text, gauges, knobs, sockets, horns, lights, decorative symbols or room. This is an empty opaque instrument faceplate for separately authored controls.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-1e82289b-eff7-4350-99d3-342cf521906a.png"
     }
   ]
 }
