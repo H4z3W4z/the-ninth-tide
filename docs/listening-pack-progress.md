@@ -22,4 +22,8 @@ Exact labels, coherent cylinder seams, instruction diagrams and P17/P19 channel 
 
 The closed storage canister and open empty wooden case are separate RGBA props with genuine transparency. Their blank labels are reserved for authored lettering. The first recording-sleeve attempt is preserved as a review draft because it has a broad amber halo; it is excluded from runtime assets and will be regenerated.
 
+## Checkpoint 4
+
+A clean wax-band template, open canister and closed case now complement the prior props. Reuse the band illustration for the three labeled P02 pieces; labels and seam positions remain deterministic authored overlays. The initial bare noticeboard has an unwanted aura and is retained as a review draft pending replacement.
+
 Generation prompts, source paths, intended placements and draft status are recorded in `listening-pack-generation.json`. Checkpoint commits will continue as batches finish. The final delivery will include the full inventory and integration guide.

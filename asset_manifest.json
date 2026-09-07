@@ -151,6 +151,24 @@
       "source_svg": null
     },
     {
+      "id": "r04_canister_open",
+      "path": "assets/listening/props/r04_canister_open.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "912053044996571731e59f7ade715771ab4a1760b92791c2b431a57684bbca71",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_case_closed",
+      "path": "assets/listening/props/r04_case_closed.png",
+      "width": 1313,
+      "height": 1198,
+      "sha256": "c446a2e16550def067e0d94384e63764003f572439e4a33e709d40785aaf930a",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "r04_case_open",
       "path": "assets/listening/props/r04_case_open.png",
       "width": 1314,
@@ -201,6 +219,15 @@
       "width": 1223,
       "height": 1286,
       "sha256": "611539f08ab5d1a2f52d4fb0ab65a4b4f4b1b9b173fd6287e23dceb856d9dec0",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_wax_band",
+      "path": "assets/listening/props/r04_wax_band.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "8ee53683ab7400a554497fbed4d7781031c0746fb7f73444696d179bb00996a0",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },

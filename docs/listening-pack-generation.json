@@ -257,6 +257,59 @@
         46,
         59
       ]
+    },
+    {
+      "id": "r04_wax_band",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_wax_band.png",
+      "prompt": "A transparent PNG sprite of one short hollow brown wax recording band for the reference recorder. A stubby sleeve, its horizontal length about equal to its diameter. Side elevation, narrow visible opening at the right, fine grooves. Centered isolated cutout with transparent background. Flat matte illustration with fine navy outlines, simple restrained texture. No glow, lighting aura, background, text or other objects.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-1ca63785-a529-4727-85df-4aa1fbcd2d33.png"
+    },
+    {
+      "id": "r04_noticeboard_bare",
+      "issue": "Unwanted broad aura around board; excluded from runtime.",
+      "kind": "draft",
+      "path": "art/listening-review/r04_noticeboard_bare_draft.png",
+      "prompt": "A transparent PNG game sprite of only the rectangular wooden-framed cork noticeboard in the reference room. Straight front elevation, width to height ratio three to two, worn dark oak frame, plain warm cork center and a few small brass pins around the edges. Empty board. Centered isolated cutout with transparent background. Flat ink-and-matte-color illustration. No papers, photographs, room, ground or writing.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-b1947956-ee97-4d29-bc7f-45438fcfa50e.png",
+      "target": [
+        541,
+        173,
+        355,
+        237
+      ]
+    },
+    {
+      "id": "r04_canister_open",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_canister_open.png",
+      "prompt": "A transparent PNG game sprite of this same upright brown storage canister with its lid removed and absent, leaving the dark empty opening visible. Keep the shape, blank label, colors and straight front view of the reference. Centered isolated cutout with transparent background. Flat ink-and-matte-color illustration. No room, ground, text or other objects.",
+      "refs": [
+        "/workspace/scratch/caf0649b63b9/the-ninth-tide/assets/listening/props/r04_canister_closed.png"
+      ],
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-13c5c52b-ca3c-4580-adef-075595ecb7b0.png",
+      "target": [
+        393,
+        560,
+        46,
+        59
+      ]
+    },
+    {
+      "id": "r04_case_closed",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_case_closed.png",
+      "prompt": "A transparent PNG game sprite of this same small wooden recording box with its lid shut. Low rectangular warm dark oak case, small centered brass catch, straight front elevation, thin top edge. Centered isolated cutout with transparent background. Flat ink-and-matte-color illustration. No room, ground, text or other objects.",
+      "refs": [
+        "/workspace/scratch/caf0649b63b9/the-ninth-tide/assets/listening/props/r04_case_open.png"
+      ],
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-50fd6907-8f6b-43a6-86da-2ac569a8f961.png",
+      "target": [
+        845,
+        597,
+        98,
+        33
+      ]
     }
   ]
 }
