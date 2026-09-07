@@ -12,6 +12,14 @@ This is a composed concept master. A runtime copy at `assets/backgrounds/chart_a
 
 ## Production assets and remaining work
 
+### P03 prop concept v1
+
+`art/concepts/chart-room-p03-props-v1.png` proposes three visible pickup sites within the original room composition: a torn upper chart on its outlined board, an open shallow cabinet drawer with a protruding middle fragment, and a brass weight holding the lower fragment on the window sill. This is a concept for user review, not an approved replacement or integrated runtime plate. The generation prompt and references are in `chart-room-p03-generation-v1.json`.
+
+The generated paper shapes and contour marks illustrate presentation only. Replace them with the coherent authored P03 map geometry for playable clues. Preserve the established window, recorder, dials, sockets and hatch; derive closed/open/collected prop layers after visual review. The concept remains a composed image, so it does not yet supply those separate states. Current runtime art and the original arrival master are preserved.
+
+### Remaining asset groups
+
 | Asset group | Required behavior | GDD puzzle |
 | --- | --- | --- |
 | Torn tide sheet | Three matching upper-coastline, middle-shoal, and lower-soundings fragments; full-sheet assembly outline, completed sheet, visible chart-weight pickup, and chart-drawer open/closed states | P03 |
