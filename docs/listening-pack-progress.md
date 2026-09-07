@@ -1,6 +1,8 @@
 # Listening Room asset pack: generation checkpoints
 
-**Status: in progress.** The accepted visual master is `art/concepts/listening-room-approved-master-v4.png`. This replaces the earlier Listening Room concepts as the current art direction: small used noticeboard, specialized recording bench, hornless recorder and headphones, task lamp, weather window, and subtle damp stool impression.
+**Status: R04 graphics pack complete; runtime integration pending.** The accepted visual master is `art/concepts/listening-room-approved-master-v4.png`. This replaces the earlier Listening Room concepts as the current art direction: small used noticeboard, specialized recording bench, hornless recorder and headphones, task lamp, weather window, and subtle damp stool impression.
+
+Earlier pending lists below are historical. Checkpoint 11 and `listening-resume.md` record the completed graphics state.
 
 ## Checkpoint 1
 
@@ -55,3 +57,13 @@ Asset integrity checks pass. An exhaustive check of all 162 order/orientation co
 The lamp ON sprite now has a separate warm illuminated bulb and shade on genuine transparency. It has a small generated silhouette difference from OFF and should be treated as an on/off pose, not a registered animation frame. Five parallel reviewers are finishing the inventory, exact puzzle/evidence graphics, document review, scene composition and design handoff. Their final review and manifest supersede earlier pending lists above.
 
 For the next bounded continuation, read `listening-resume.md`. Generation prompts, source paths, intended placements and draft status are recorded in `listening-pack-generation.json`. No Listening Room gameplay or audio is implemented by this pack.
+
+## Checkpoint 11: completed Listening Room graphics pack
+
+Five specialist passes completed the inventory, exact puzzle graphics, evidence review, scene compositions and Codex handoff. The final inventory contains **93 PNG assets**, including **61 editable SVG/PNG pairs**: 12 documents, 42 puzzle graphics and seven effects, plus 32 generated illustrations. The master, rejected drafts and review proofs are excluded from that count.
+
+The measured R04 manifest defines 46 room layers, 16 hotspots, reusable templates, eight milestone-driven weather states and inspection/evidence bindings. Every visible approved-master prop has a representation. Exact graphics now cover all P02 controls and playback evidence, both P17 statements and alignment controls, and P19 configuration, fixed questions/answers and the indicator-dark cue.
+
+The offline composed review includes independent room-state controls, 22 inspection views and 12 SVG/PNG proofs. Visual review corrected the headphone cord, late-tide interior lighting, lamp pool alignment and a P17 label overlap. All 12 document PNGs plus the playback readout were inspected; 120 checked text elements fit their canvases. Graphic invariants establish unique solutions for P02 (1/162), P17 (1/441) and P19 (1/32). These are artwork/specification checks, not gameplay or device tests.
+
+The v4 reference remains the accepted composition. All source images, exact graphics, manifests and review/handoff files are ready for integration. Recorded audio, gameplay, saves, animation and platform validation remain with Codex. See `listening-resume.md` for the current entry point; previous next-batch lists are superseded.

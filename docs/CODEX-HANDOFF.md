@@ -5,6 +5,8 @@
 **Code baseline:** `85639ffee679f5737a57a72b2f2e08a2bb7a5e0a`. This handoff and accompanying documentation updates are newer; they do not fix the code issues described below.  
 **Spoilers:** Includes opening puzzle solutions and later story mechanics.
 
+**Art update, September 7:** The accepted Listening Room v4 reference and its generated/authored asset pack are now documented in [Listening Room assets](listening-room-assets.md), [inventory](listening-inventory.md), [placement/state manifest](../assets/listening/manifest.json), and [composed review](../art/listening-review/composed/index.html). These art additions do not change the code baseline or resolve the rendered map-input failure below. Use asset status and review notes when integrating; the gallery is not a running Godot room.
+
 ## 1. Start here
 
 The project already contains a Godot prototype, approved Office references, a new Chart Room concept, and implemented P01/P03 puzzle logic. Continue from this work. The immediate task is to resolve the failing rendered map-input test, verify the actual interface, and produce the first local-network Web preview for an iPad.
@@ -21,7 +23,7 @@ The project already contains a Godot prototype, approved Office references, a ne
 | Subsequent targets | Native iOS and Android from the same game project, validated early |
 | Current release status | Prototype only; no tested Web export or native device build |
 
-Read `AGENTS.md`, this document, `README.md`, `docs/design/game-design.md`, and `docs/art-direction.md` before editing. The GDD is version 1.2 and contains the complete proposed game, including all 27 puzzles. This handoff describes what exists in code and where to resume. It does not replace the full design.
+Read `AGENTS.md`, this document, `README.md`, `docs/design/game-design.md`, and `docs/art-direction.md` before editing. The GDD is version 1.3 and contains the complete proposed game, including all 27 puzzles. Version 1.3 updates the Listening Room's art staging without changing puzzle solutions or dependencies. This handoff describes what exists in code and where to resume. It does not replace the full design.
 
 For a fresh checkout:
 
@@ -76,7 +78,7 @@ The full location list is Jetty, Intake Office, Chart Room, Listening Room, Kitc
 | Export | Shared Godot project structure | No Web package, LAN iPad test, native iOS or Android build |
 | Adventure framework | Small puzzle-specific harness; isolated Popochiu trial | No adopted inventory/dialogue/room framework or production save layer |
 
-The repository contains **35 runtime PNGs and 30 editable SVG sources** at this baseline. The counts include nine authored map PNG/SVG pairs. These counts describe assets, not 35 finished game scenes.
+The code baseline contained **35 runtime PNGs and 30 editable SVG sources**, including nine authored map PNG/SVG pairs. Later art additions increase the repository inventory; consult the current manifests rather than treating these historical counts as the present total. The new R04 pack supplies illustrations and exact graphics while P02/P17/P19 remain unimplemented.
 
 ## 5. First task: repair and verify rendered input
 
@@ -162,6 +164,7 @@ Approved references:
 
 - `art/concepts/intake-approved-calm.png`
 - `art/concepts/intake-approved-ominous.png`
+- `art/concepts/listening-room-approved-master-v4.png`
 
 Use flat, straight-on elevations with **no angled walls, receding tabletops or perspective camera**. Fine navy contours, matte sea-glass/sage plaster, storm/petrol blue, tarnished copper/brass, restrained brown wood, and subtle paper texture establish the identity. Rusty Lake informed tactile puzzle design and flatness; its characters, signature imagery and exact visual identity are not production assets.
 
@@ -175,11 +178,15 @@ Office arrival/rain/ominous backgrounds were generated as separate composed plat
 
 Current Chart Room source: `art/concepts/chart-room-arrival-v1.png`; runtime copy: `assets/backgrounds/chart_arrival.png`. It uses the established direction but is a **v1 concept, not an explicitly approved final master**. It has a left window/lighthouse, two central charts, recorder cabinet, dials, sockets, lever and right hatch. Authored map overlays and temporary labeled buttons supply current P03 behavior. Drawer/weight states, moving pen, weather layers and final P04/P05 controls are missing. Generated ticks and marks must not become exact puzzle clues.
 
+Listening Room v4 uses a hornless wax recorder, hooked headphones, a small used noticeboard, a specialized oak bench and the right-hand weather window. Earlier speaking-tube and horn studies are superseded. Keep `r04_clean_base.png` fixed and clip only the glazing from `r04_weather_*` plates. Their partially assembled recorder is part of the visual study; it must never override saved P02 arrangement. Use separate props and authored band layers, with local damp/light effects. Generated alternate poses are references or discrete state swaps, not registered animation frames.
+
+R04 composition order is fixed room → clipped exterior/door details → local effects behind props → props/papers and puzzle pieces → exact control overlays → inspection/focus UI. The manifest records source regions and placement; transparent canvas margins are not hitboxes. Tide IX holds weather appearance eight. The P17/P19 calibration faceplate belongs to an inspection view, not a new wall apparatus. Keep Venn and Nora's channels separately selectable with transcripts, and preserve Venn's P19 continuation through the headphones after the indicator goes dark. See the R04 handoff for complete triggers, document gates and reuse rules.
+
 ## 9. Graphics-to-code asset contract
 
 Keep originals in `art/concepts/`, runtime content under `assets/`, and generation provenance/production notes under `docs/`. Keep revision history and preserve approved originals. `docs/generation-prompts.json` records the earlier set; `docs/chart-room-generation-v1.json` records the Chart Room master.
 
-Generated illustrations provide the surfaces and atmosphere. Codex authors exact clue text, numbers, symbols, hotspots and geometry in SVG or runtime text. Keep SVG sources beside PNG exports. The nine current map assets live in `assets/maps/`; fragment shapes and completed sheet must continue to derive from one geometry source. Current map canvas is 1200 × 900. Do not independently regenerate fragment coastlines or rely on magnifying tiny generated map marks.
+Generated illustrations provide the surfaces and atmosphere. Exact clue text, numbers, symbols, hotspots and geometry come from SVG or runtime text. Keep SVG sources beside PNG exports. The nine current map assets live in `assets/maps/`; fragment shapes and completed sheet must continue to derive from one geometry source. Current map canvas is 1200 × 900. Do not independently regenerate fragment coastlines or rely on magnifying tiny generated map marks. R04 already includes authored documents, band orientations, channel controls and timing diagrams from `tools/build_listening_vectors.py`; integrate these existing sources before creating replacements. Its `authored-spec.json` defines the sole correct C/A/B step-0 arrangement. Timing diagrams must be matched to future audio and are not extracted voice waveforms.
 
 For each missing image, return a short brief to the graphics conversation using this template:
 
@@ -198,12 +205,12 @@ Acceptance view and readability requirement:
 
 For room-aligned overlays, specify the full 1448 × 1086 canvas or an exact crop rectangle, so registration is reproducible. Transparent props need real alpha; checkerboard pixels are not transparency. State whether an export is a concept, approved illustration, or integrated runtime asset. A generated master alone does not imply animation-ready layers.
 
-Recommended next graphics batches, subject to Mike's review:
+Remaining graphics briefs beyond the R04 pack, subject to Mike's review:
 
 1. **Chart Room P03 integration:** visible chart drawer open/closed, weight and revealed paper, torn-chart board presentation. Keep the existing window, cabinet and hatch positions. Codex supplies the exact map faces.
 2. **Chart Room P04/P05:** recorder close-up, separate control/lever positions, sockets, pen/paper and closed/open hatch. Codex supplies ZERO/INTERVAL values, symbols and recorded text.
 3. **Chart Room environmental layers:** fixed-geometry window/exterior states, rain/reflections and restrained anomalies, using GDD milestones. Do not independently regenerate all room geometry for nine tides.
-4. **Listening Room arrival master and cylinder components:** support P02's C/A/B bands, seam and playback close-up, with exact clues authored separately.
+4. **Listening Room integration review:** use the v4 master and existing pack first. Report specific missing crops, states or readability defects from a rendered implementation rather than requesting a replacement master. Keep P02 arrangement independent of weather and honor document visibility gates.
 
 When importing a batch: inspect dimensions/alpha and approval status; retain sources; integrate placement and state; rebuild the manifest; run asset validation; render the affected view at reference size. Report missing parts with the brief above. Do not wait for final art to investigate input or implement deterministic puzzle logic.
 
@@ -235,6 +242,9 @@ For precision-art changes:
 ```sh
 python3 tools/build_vectors.py
 python3 tools/build_maps.py
+python3 tools/build_listening_vectors.py
+python3 tools/build_listening_manifest.py
+python3 tools/build_listening_review.py
 python3 tools/build_manifest.py
 python3 tools/validate_assets.py
 ```

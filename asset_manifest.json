@@ -200,16 +200,25 @@
       "path": "assets/listening/documents/r04_maintenance_ledger.png",
       "width": 800,
       "height": 1000,
-      "sha256": "3d111fd7b97b5273204a8f48995935b3dc3f9d36c08c13a87132366b36a351cc",
+      "sha256": "00be499560e1a24b5ad99c39ccd2dc7240b8f7ca056769d59747b7f2eb182804",
       "kind": "overlay_or_sprite",
       "source_svg": "assets/listening/documents/r04_maintenance_ledger.svg"
+    },
+    {
+      "id": "r04_nora_statement",
+      "path": "assets/listening/documents/r04_nora_statement.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "dca67565ce7f36ea072c7fddc5a6e8a3300a451e5ed4080a7718502ff9266d0e",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_nora_statement.svg"
     },
     {
       "id": "r04_playback_transcript",
       "path": "assets/listening/documents/r04_playback_transcript.png",
       "width": 800,
       "height": 1000,
-      "sha256": "aef39b770d773478b85002ae962453c7715bbf47790b050c4d8a217e09d080b5",
+      "sha256": "4a0e6a60f5efbe3711bc496b06b5a8bace95d123e7d342dc762a6bced82ff6b5",
       "kind": "overlay_or_sprite",
       "source_svg": "assets/listening/documents/r04_playback_transcript.svg"
     },
@@ -223,11 +232,56 @@
       "source_svg": "assets/listening/documents/r04_recording_log.svg"
     },
     {
+      "id": "r04_venn_statement",
+      "path": "assets/listening/documents/r04_venn_statement.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "b0fed32543f6fe5e142ec3b717fcf45e62399365991f42683add036bddcf7859",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_venn_statement.svg"
+    },
+    {
+      "id": "r04_witness_answer_reach",
+      "path": "assets/listening/documents/r04_witness_answer_reach.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "f730a692b71ce010d7a1aa230a07de3a2c9b284daebad02160916a82aa1169f8",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_witness_answer_reach.svg"
+    },
+    {
+      "id": "r04_witness_answer_remain",
+      "path": "assets/listening/documents/r04_witness_answer_remain.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "1a3c6bea4268c22d6c9a18cb1c787394e17cb047005076d44af9b544fd7895b4",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_witness_answer_remain.svg"
+    },
+    {
+      "id": "r04_witness_answer_sever",
+      "path": "assets/listening/documents/r04_witness_answer_sever.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "75ece5d440a9801e8842fde5b951c11ef7a66b2b17902fee61cee5c6d0d65064",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_witness_answer_sever.svg"
+    },
+    {
+      "id": "r04_witness_margin",
+      "path": "assets/listening/documents/r04_witness_margin.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "e5663146842b2aa15e018ce89d402eb8a3948356f09012d0bdcb2aae3addfd0c",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_witness_margin.svg"
+    },
+    {
       "id": "r04_witness_procedure",
       "path": "assets/listening/documents/r04_witness_procedure.png",
       "width": 800,
       "height": 1000,
-      "sha256": "f6c49506d611f4674cc4ac126d68f72aef64411e9b517ca5b959813ca3fe9038",
+      "sha256": "cc365241f03122cfc2d77e6b3af5cebf4a9368d8dc5cf03ddbb9bb7c879421a5",
       "kind": "overlay_or_sprite",
       "source_svg": "assets/listening/documents/r04_witness_procedure.svg"
     },
@@ -236,7 +290,7 @@
       "path": "assets/listening/effects/r04_lamp_pool.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "d82072714baa2dd41d28b5cf438795fea9d251cb132cd62b8acd439bf6753f36",
+      "sha256": "32c3a367f4f0a0c78eddbf39cee944e0eb30837c4605aa2dbffce68eafbd229a",
       "kind": "overlay_or_sprite",
       "source_svg": "assets/listening/effects/r04_lamp_pool.svg"
     },
@@ -497,7 +551,7 @@
       "path": "assets/listening/puzzle/r04_band_b_step_0.png",
       "width": 180,
       "height": 300,
-      "sha256": "e266bb253a60b31cb932a2d7f3f888a4b1ba1b1230e07c500dd1b6f2be73070e",
+      "sha256": "e888d7cff058f370d88cfc379c0eeb8041d5724cbeb0112f2595729900c52402",
       "kind": "overlay_or_sprite",
       "source_svg": "assets/listening/puzzle/r04_band_b_step_0.svg"
     },
@@ -506,7 +560,7 @@
       "path": "assets/listening/puzzle/r04_band_b_step_1.png",
       "width": 180,
       "height": 300,
-      "sha256": "daa1209762f6bd75c60b6680e3709a1cff197b962f971588720fa5779f6a21c7",
+      "sha256": "48a23f3a68264f2b77cf1a7536445700f6270a1ed64360e5f80add7d92aa42ea",
       "kind": "overlay_or_sprite",
       "source_svg": "assets/listening/puzzle/r04_band_b_step_1.svg"
     },
@@ -515,7 +569,7 @@
       "path": "assets/listening/puzzle/r04_band_b_step_2.png",
       "width": 180,
       "height": 300,
-      "sha256": "73878424e339250e13ce3af147f2fb5289921443c4a138628d9ec3b6f537835e",
+      "sha256": "1464554e7bb3c7b0bbd111c7d4c5c1ff9fba146309c3a0417a6ec9f21da7afa4",
       "kind": "overlay_or_sprite",
       "source_svg": "assets/listening/puzzle/r04_band_b_step_2.svg"
     },
@@ -524,7 +578,7 @@
       "path": "assets/listening/puzzle/r04_band_c_step_0.png",
       "width": 180,
       "height": 300,
-      "sha256": "f308e771efa161ae24d37c3874110eba94e138d55e2a4bf789005f37f13a7e14",
+      "sha256": "545b80ea84d2b385a45059bed5c8853e0fa578798c25bcacef783f2ef4cea279",
       "kind": "overlay_or_sprite",
       "source_svg": "assets/listening/puzzle/r04_band_c_step_0.svg"
     },
@@ -533,7 +587,7 @@
       "path": "assets/listening/puzzle/r04_band_c_step_1.png",
       "width": 180,
       "height": 300,
-      "sha256": "1ee0e8784fa43d90b49fce21add5e5eee2b8294e43b0216a39c9bfd5d5bf3fe1",
+      "sha256": "8e6a759d5ff5ebf77727392c2463f3a5669f534d8781060e9f35e169d250609b",
       "kind": "overlay_or_sprite",
       "source_svg": "assets/listening/puzzle/r04_band_c_step_1.svg"
     },
@@ -542,9 +596,18 @@
       "path": "assets/listening/puzzle/r04_band_c_step_2.png",
       "width": 180,
       "height": 300,
-      "sha256": "fcf666cc8812bdd4cb6350b55439caffd4fea46cc5c40d284d7b2143fca5f8ce",
+      "sha256": "0fd97dd879b73ae24cb7f0712cbbabbb883f3e116bdf481061a236eeee4defa8",
       "kind": "overlay_or_sprite",
       "source_svg": "assets/listening/puzzle/r04_band_c_step_2.svg"
+    },
+    {
+      "id": "r04_band_face",
+      "path": "assets/listening/puzzle/r04_band_face.png",
+      "width": 180,
+      "height": 200,
+      "sha256": "239c1c80ab092b37245bb30aa5d55e7e7d6af1bc49ef48571f8332cf54d4bfbc",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_band_face.svg"
     },
     {
       "id": "r04_case_label_a",
@@ -610,6 +673,42 @@
       "source_svg": "assets/listening/puzzle/r04_indicator_on.svg"
     },
     {
+      "id": "r04_listen_nora_idle",
+      "path": "assets/listening/puzzle/r04_listen_nora_idle.png",
+      "width": 400,
+      "height": 72,
+      "sha256": "de5f9abae40d7409c338a0a8b7e87cd34511b6c3966a10b7d5c6d09a782cf2d5",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_listen_nora_idle.svg"
+    },
+    {
+      "id": "r04_listen_nora_pressed",
+      "path": "assets/listening/puzzle/r04_listen_nora_pressed.png",
+      "width": 400,
+      "height": 72,
+      "sha256": "f629d9a7caf6404ec3f40b2d945fc1bcb5488a35dab238e58ec9a6ca06989313",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_listen_nora_pressed.svg"
+    },
+    {
+      "id": "r04_listen_venn_idle",
+      "path": "assets/listening/puzzle/r04_listen_venn_idle.png",
+      "width": 400,
+      "height": 72,
+      "sha256": "bcd135b4b9be53956355a501d0d403eb0704d47dd96a955f30e0238090bab8da",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_listen_venn_idle.svg"
+    },
+    {
+      "id": "r04_listen_venn_pressed",
+      "path": "assets/listening/puzzle/r04_listen_venn_pressed.png",
+      "width": 400,
+      "height": 72,
+      "sha256": "8e3ca40ae4dc2731efaa980d72dd0a82f8b418ea0ebf068784a2860a470a1b39",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_listen_venn_pressed.svg"
+    },
+    {
       "id": "r04_motor_off",
       "path": "assets/listening/puzzle/r04_motor_off.png",
       "width": 260,
@@ -628,11 +727,47 @@
       "source_svg": "assets/listening/puzzle/r04_motor_on.svg"
     },
     {
+      "id": "r04_needle_lowered",
+      "path": "assets/listening/puzzle/r04_needle_lowered.png",
+      "width": 350,
+      "height": 96,
+      "sha256": "f0c207611b6bc551a2e95713e98a9e6cf070deccefb70ef9e5a756ba888ebb81",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_needle_lowered.svg"
+    },
+    {
+      "id": "r04_needle_raised",
+      "path": "assets/listening/puzzle/r04_needle_raised.png",
+      "width": 350,
+      "height": 96,
+      "sha256": "fafe0ddd6cd00b259f92549931207a78db2b2e9b3cdc902362b4821567391b18",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_needle_raised.svg"
+    },
+    {
+      "id": "r04_p02_panel_overlay",
+      "path": "assets/listening/puzzle/r04_p02_panel_overlay.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "1d6b488ff361cb0d555b959b5b5dcb8d995313fd55774f19cd922b87b31b9ca9",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_p02_panel_overlay.svg"
+    },
+    {
+      "id": "r04_p02_playback_readout",
+      "path": "assets/listening/puzzle/r04_p02_playback_readout.png",
+      "width": 1080,
+      "height": 600,
+      "sha256": "bf346c2c91ee5f752dc4c79c4e92357cd2cf9946666bbfe8933c886a6f1feb95",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_p02_playback_readout.svg"
+    },
+    {
       "id": "r04_p17_panel_overlay",
       "path": "assets/listening/puzzle/r04_p17_panel_overlay.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "03291acd78fd7ef078264ef87424097a1a2606fac0536d182bbed23e8ce12fe7",
+      "sha256": "f630738dff885944dbc3e9f4850ec2021dba8d7cee3591cbd7770f66ad1641b7",
       "kind": "overlay_or_sprite",
       "source_svg": "assets/listening/puzzle/r04_p17_panel_overlay.svg"
     },
@@ -641,25 +776,97 @@
       "path": "assets/listening/puzzle/r04_p19_panel_overlay.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "618ca3b677462f875206c516aeda642c6429ed5a9c125b00af017513c42c5b90",
+      "sha256": "74c1edb5446920566d73a6f202c1251d6fe642d3ce2d2f56c102e97146e68210",
       "kind": "overlay_or_sprite",
       "source_svg": "assets/listening/puzzle/r04_p19_panel_overlay.svg"
     },
     {
+      "id": "r04_p19_questions_overlay",
+      "path": "assets/listening/puzzle/r04_p19_questions_overlay.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "7cb4cd9f5a119784e4c3dadb50806c17dee56e2e80f60113687076c42e6f5d81",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_p19_questions_overlay.svg"
+    },
+    {
+      "id": "r04_play_key",
+      "path": "assets/listening/puzzle/r04_play_key.png",
+      "width": 350,
+      "height": 96,
+      "sha256": "b410052add9d14707ed973b0f169a9d7cfb776fed5ffae4d093a73cb3f734f05",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_play_key.svg"
+    },
+    {
+      "id": "r04_question_reach",
+      "path": "assets/listening/puzzle/r04_question_reach.png",
+      "width": 1208,
+      "height": 140,
+      "sha256": "74b2cf6fb160e653aa586e18f1b603a0cec86d0a0a6cedc1f3f785e874302127",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_question_reach.svg"
+    },
+    {
+      "id": "r04_question_remain",
+      "path": "assets/listening/puzzle/r04_question_remain.png",
+      "width": 1208,
+      "height": 140,
+      "sha256": "b903102ab40af48121b7a3fcf97772a3b95dc49a772b5b73b4ca75650c523e77",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_question_remain.svg"
+    },
+    {
+      "id": "r04_question_sever",
+      "path": "assets/listening/puzzle/r04_question_sever.png",
+      "width": 1208,
+      "height": 140,
+      "sha256": "aa6a6bb4d4ef773d997661956bcf608946755fa1b2fc74d8926f81d02defc26e",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_question_sever.svg"
+    },
+    {
+      "id": "r04_rotate_band",
+      "path": "assets/listening/puzzle/r04_rotate_band.png",
+      "width": 268,
+      "height": 96,
+      "sha256": "54df3db6ca4c957fdd4f4f542abb05b6f20cb417d700a7f8af23fb62ce1d69f3",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_rotate_band.svg"
+    },
+    {
       "id": "r04_spindle_guides",
       "path": "assets/listening/puzzle/r04_spindle_guides.png",
-      "width": 240,
+      "width": 600,
       "height": 300,
-      "sha256": "84837a6b83f940780d0eaaf1fd0d001c98fb42b879ab6a882bc9c79c54db8e87",
+      "sha256": "d50668076db936feacc8965bb00413e67f61ea2c53aafc0d9671809cfc99264b",
       "kind": "overlay_or_sprite",
       "source_svg": "assets/listening/puzzle/r04_spindle_guides.svg"
+    },
+    {
+      "id": "r04_trace_left",
+      "path": "assets/listening/puzzle/r04_trace_left.png",
+      "width": 104,
+      "height": 72,
+      "sha256": "000344d8527a3968b997454456efcc1514669b509b878487f5ba7ea5c1b10b6b",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_trace_left.svg"
+    },
+    {
+      "id": "r04_trace_right",
+      "path": "assets/listening/puzzle/r04_trace_right.png",
+      "width": 104,
+      "height": 72,
+      "sha256": "82d2706bf0cc2fa92c488b49d8333fd7ff8568e07140ca0bd7253df63b778c43",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_trace_right.svg"
     },
     {
       "id": "r04_waveform_nora",
       "path": "assets/listening/puzzle/r04_waveform_nora.png",
       "width": 960,
       "height": 144,
-      "sha256": "6e96f4f7b3d198dae8df20db55c5384768fc0d13317ae44e40d1846480cfbbe3",
+      "sha256": "886131346923f528bfeefa870095721cfeb4b5c19e36a44274ad8157f75604cd",
       "kind": "overlay_or_sprite",
       "source_svg": "assets/listening/puzzle/r04_waveform_nora.svg"
     },
@@ -668,7 +875,7 @@
       "path": "assets/listening/puzzle/r04_waveform_venn.png",
       "width": 960,
       "height": 144,
-      "sha256": "7ac2b87e59c2d8d0821298c7e3282df52c6a05c76f339e70408e2cd717910d48",
+      "sha256": "bd5fe69ed78248fc360b8bf20faa58983e1483c4a537a199134a93ad4e2669e9",
       "kind": "overlay_or_sprite",
       "source_svg": "assets/listening/puzzle/r04_waveform_venn.svg"
     },

@@ -6,9 +6,11 @@ An illustrated point-and-click cosmic horror game set in a coastal survey statio
 
 **Continuing in Codex:** Start with [the implementation handoff](docs/CODEX-HANDOFF.md). It covers the active branch, known rendered-input failure, build steps, next milestones, and the split between coding and graphics creation.
 
+**New art handoff:** The [Listening Room v4 pack](docs/listening-room-assets.md) supplies the accepted hornless recorder/headphones direction, eight weather appearances, separate props, inspection art, and authored puzzle graphics. Review its [inventory](docs/listening-inventory.md), [placement/state manifest](assets/listening/manifest.json), and [composed art review](art/listening-review/composed/index.html). These additions do not implement R04 or repair the prototype's rendered-input failure.
+
 ## Included
 
-- 35 runtime PNG assets with 30 editable SVG sources.
+- The original P01/P03 prototype assets, plus a separate Listening Room illustration and exact-graphics pack. Current dimensions and hashes are recorded in the asset manifests.
 - Three office background plates: arrival, gathering rain, and ominous Tide VI.
 - Transparent lamp sprite plus an aligned illuminated-shade overlay.
 - Precise bridge B / spare C, socket, supply-switch states, and indicator.
@@ -16,9 +18,9 @@ An illustrated point-and-click cosmic horror game set in a coastal survey statio
 - Three clipped window-rain frames, tray artwork, and UI elements.
 - Godot preview with click/tap repair interaction, hints, notebook, weather review, motion toggle, and local save/resume.
 - Asset manifest containing dimensions, hashes, placement rectangles, hotspots, and state triggers.
-- Full game design v1.2, original research brief, approved concept references, and production notes.
+- Full game design v1.3, original research brief, approved concept references, and production notes.
 - Chart Room master, nine authored map assets, reusable inspection controls, partial-assembly persistence, and a [playable map walkthrough](docs/map-interaction.md).
-- [Listening Room arrival concept and production notes](docs/listening-room-assets.md), prepared for visual review; R04/P02 are not yet implemented.
+- Listening Room clean base, window weather plates, reusable prop states, readable documents, cylinder seam orientations, P17/P19 control art, and local effects; R04/P02/P17/P19 gameplay remains unimplemented.
 
 ## Open the preview
 
@@ -38,12 +40,14 @@ Mouse and touch share tap targets. Map controls use native focusable buttons, wi
 | --- | --- |
 | `project.godot`, `intake_preview.*` | Runnable Office and map-workbench host |
 | `scripts/maps/`, `assets/maps/` | Reusable viewer, P03 state/UI, and authored map evidence |
+| `assets/listening/` | R04 illustrations, exact SVG/PNG graphics, and its placement/state manifest |
 | `assets/backgrounds/` | Generated full-room state plates |
 | `assets/props/` | Lamp, light overlay, parts tray, rain frames |
 | `assets/puzzle/` | Precise P01 assets and readable documents |
 | `assets/ui/` | Reusable buttons and inventory frames |
 | `asset_manifest.json` | Runtime asset registry and placement specification |
 | `art/concepts/` | Approved visual references; not loaded at runtime |
+| `art/listening-review/` | Clearly labeled rejected drafts and composed art review; not runtime content |
 | `docs/design/` | Full game design and research |
 | `docs/` | Art direction, production limits, validation and GitHub setup |
 | `tools/` | Rebuild, manifest and asset-check scripts |
@@ -57,6 +61,9 @@ PNG assets are already included. To edit and rebuild precision assets, install P
 ```sh
 python3 tools/build_vectors.py
 python3 tools/build_maps.py
+python3 tools/build_listening_vectors.py
+python3 tools/build_listening_manifest.py
+python3 tools/build_listening_review.py
 python3 tools/build_manifest.py
 python3 tools/validate_assets.py
 godot --headless --path . --editor --import
@@ -72,7 +79,9 @@ The repository is structured around one Godot project. The next gate is a single
 
 ## Current limits
 
-The room plates are generated full images. Tiny texture/edge differences remain, so swap them on re-entry rather than slowly crossfading every pixel. Furniture, coat, and the late shadow are baked into each plate. The lamp, lighting state, rain effects, and puzzle pieces are separate. A later asset pass can extract more props when animation or new interactions require it.
+The Office room plates are generated full images. Tiny texture/edge differences remain, so swap them on re-entry rather than slowly crossfading every pixel. Furniture, coat, and the late shadow are baked into each Office plate. Its lamp, lighting state, rain effects, and puzzle pieces are separate.
+
+The Listening Room uses a fixed clean base. Clip only the window panes from its full-room weather plates and layer props independently; the recorder pictured in those mood plates is not puzzle state. Eight exterior appearances cover arrival through Tide VIII, and Tide IX holds the eighth. Use the R04 manifest for crop rectangles, placement and state rules. Generated alternate prop poses have minor geometry differences and are not registered animation frames. The composed review demonstrates artwork layout, not Godot gameplay or device behavior.
 
 P01 and the P03 map workbench are implemented. Other exits are descriptive; the service door remains locked until P06. P02 and P04-P27 are not implemented. The Chart Room currently uses its arrival plate and explicit prop buttons; later weather layers and final drawer/weight animation remain. There is no audio. Headless checks pass, but the rendered map workflow failed on the first Office map click at baseline commit `85639ff`, before producing screenshots. See the handoff for the failure and investigation steps. Actual iPad/Safari and native exports remain untested.
 

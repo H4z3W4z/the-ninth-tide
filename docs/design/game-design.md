@@ -3,7 +3,7 @@
 
 **Working project:** Lovecraft Lake  
 **Prepared for:** Mike Pearson and Kristi  
-**Version:** 1.2, September 7, 2026  
+**Version:** 1.3, September 7, 2026  
 **Format:** Original, single-player, illustrated point-and-click cosmic horror mystery  
 **Target:** Approximately three hours for a first playthrough  
 **Status:** Complete creative design proposal; pacing and implementation remain to be validated through playtesting  
@@ -151,7 +151,7 @@ Twelve playable locations are the scope cap. R01 and R09 are exterior; the other
 | R01 | Jetty, opening | A boat rope hangs over the water with no reflection | P06 |
 | R02 | Intake Office, opening | Eight empty coat hooks and a ninth still wet | P01, P20 |
 | R03 | Chart Room, P01 | A tide pen scratches against a motionless drum | P03–P05, P21 |
-| R04 | Listening Room, P01 | Ear trumpets point into a sealed plaster wall | P02, P17, P19 |
+| R04 | Listening Room, P01 | Headphones hang beside a recorder whose motor has stopped | P02, P17, P19 |
 | R05 | Kitchen and Mess, P06 | Eight place settings; nine spoon depressions in the cloth | P07, P09 |
 | R06 | Bunk Room, P06 | An occupied indentation settles into an empty mattress | P08, P22 |
 | R07 | Wet Laboratory, P09 | Specimen jars hold seawater at different angles | P10, P13, P14 |
@@ -177,7 +177,7 @@ An illustrated plan becomes available in the notebook after P05. After visiting 
 
 **R03, Chart Room.** The central instrument is an elegant object designed to invite handling: bone-colored paper, a copper float mechanism, a polished lever. During P05 the pen records a short list of Ada's actual completed interactions, not a generic boast. Later, compass lines curve toward the standing position in front of the desk. The final chart describes the station in the outline of a seated person. Do not animate the full transformation until the player has read enough conventional diagrams to recognize it.
 
-**R04, Listening Room.** Cork walls, wax dust, a stool polished by use. Sound enters through funnels whose pipes disappear into plaster. Early playback has a reassuring click and a human throat clearing. At Tide VI, the player hears Venn begin a sentence, then Nora finishes it from another recording. Their voices remain distinct. At Tide VII the dead channel speaks once after the motor stops. The transcript labels the event accurately; accessibility presentation does not conceal the scare.
+**R04, Listening Room.** A small used noticeboard, wax dust, a stool polished by use. Headphones hang beside a hornless wax recorder on a specialized oak bench; a warm task lamp makes the abandoned work look recently interrupted. The large right-hand sea window carries the weather changes. The accepted v4 composition replaces the earlier horn and speaking-tube studies. Early playback has a reassuring click and a human throat clearing. At Tide VI, the player hears Venn begin a sentence, then Nora finishes it from another recording. Their voices remain distinct. At Tide VII the dead channel speaks once after the motor stops. The transcript labels the event accurately; accessibility presentation does not conceal the scare. The later channel controls appear in an inspection view of the recording installation, without adding a new horn assembly to the room.
 
 **R05, Kitchen and Mess.** This is the emotional center. Nora's routine was careful rather than occult. A towel is folded beside a cup with a repaired handle. Condensation travels inward across a bowl when the player reconstructs the supper table. A spoon lifts half an inch, waits for someone who cannot take it, and lowers. The only joke is penciled beside a ration correction: “Rook has discovered a ninth appetite. It belongs to Rook.” Later evidence reveals why the headcount mattered.
 
@@ -224,7 +224,7 @@ These are proposed authored treatments beneath the approved principle. Transitio
 | R01 Jetty | Sky, water, mooring rope, distant lighthouse | Shrinking visibility, unnatural stillness, missing or contradictory reflections |
 | R02 Intake Office | Large window, lamp contrast, wet coat | Darker weather outside; increasingly isolated warm desk; coat and shadow diverge |
 | R03 Chart Room | Sea window, paper, recording pen | Exterior darkness grows while the pen continues reporting conditions that cannot be seen |
-| R04 Listening Room | Funnels, indicators, reflected light, room tone | Weather leaks through the wrong channel, then stops; a dead channel carries presence |
+| R04 Listening Room | Headphones, channel indicators, weather window, reflected light, room tone | Weather leaks through the wrong channel, then stops; a dead channel carries presence |
 | R05 Kitchen and Mess | Condensation, bowls, spoon, ambient light | Condensation moves inward, meal traces appear, spoon movement suggests an absent diner |
 | R06 Bunk Room | Beds, curtain, calendar, indirect light | Indentations and shadows imply increasing occupancy without displaying people |
 | R07 Wet Laboratory | Jar surfaces, tank reflections, pressure traces | Water angles and reflected light become less physical; samples increasingly respond to identity |
@@ -241,6 +241,7 @@ Late-unlocked rooms inherit the current global condition immediately and need on
 - Author each room's reachable environmental states alongside its puzzle content. Each state specifies visual layers, audio layers, triggering puzzle flags, and the detail the returning player should notice.
 - Separate window scenery, rain, glass/reflection effects, interior color treatment, and local anomaly overlays from the fixed room illustration. Use flat graphic color changes and drawn overlays consistent with the approved style.
 - Reuse station-wide weather treatments while preserving each window's established view. Do not independently regenerate room geometry for later tides.
+- R04's generated weather plates are full-room visual studies. In the interactive scene, clip only their glazing over the fixed clean base and layer the actual recorder arrangement independently. Eight appearances cover arrival through Tide VIII; Tide IX holds the eighth. The partial cylinder visible in a mood plate never grants puzzle progress. Use the R04 placement/state manifest rather than moving hotspots to match generation drift.
 - Keep clues, item silhouettes, controls, and document contrast readable at the darkest stage. Increasing dread is not permission to obscure a required hotspot or clue.
 - On re-entry, render the latest state directly. Never replay an obsolete earlier state because a player skipped visits. A brief arrival hold can draw attention to a major change, but never forces repeat inspection or extra backtracking.
 - Capture essential evidence before any state replaces its source. Atmospheric changes cannot silently change a solved answer, lock a route, or invalidate the notebook.
@@ -432,7 +433,7 @@ The settings below are proposed shipped answers, not placeholders. Named documen
 **Goal and evidence:** Contact the witness position. P17 identifies the dead channel. Venn's seal from P08 has three cuts; the channel board maps one, two, and three cuts to sockets A, B, and C. A printed procedure says to isolate live playback before addressing a witness.  
 **Solution:** Stop the motor, close live channels A and B, open **C**, and press the labeled WITNESS key.  
 **Reward:** A brief exchange with Venn using three fixed questions. He admits he kept the people accessible but could not free them; he cannot promise that they remain whole. He explains that severance will end the traces and that a successor must remain physically at the station. All three answers are required evidence and can be replayed.  
-**Horror:** His final answer continues through the brass funnel after the channel indicator goes dark. No free-form dialogue system is required.
+**Horror:** His final answer continues through the headphones after the channel indicator goes dark. The caption preserves his identity and the continuation; the dark indicator does not hide the text. No free-form dialogue system is required.
 
 **P20. Why Ada Mercer: Office / Venn's Correspondence**  
 **Requires:** P17 and P18.  
@@ -554,7 +555,7 @@ The final image is the corrected page drying in daylight. A small water stain co
 
 ### Ending B: The Last Observer
 
-Ada transfers the witness line from Venn to herself. His funnel is silent. In the office, the wet coat collapses into an ordinary garment. His duty has ended; the game does not claim he has physically returned.
+Ada transfers the witness line from Venn to herself. His listening channel is silent. In the office, the wet coat collapses into an ordinary garment. His duty has ended; the game does not claim he has physically returned.
 
 Ada sits in the chamber. The Index offers the first automatic sentence: “Subject Bell possesses no surviving personal effects.” She adds a correction about the repaired cup. Its handle becomes warm in the kitchen. Another line appears. She adds another correction.
 
@@ -764,5 +765,6 @@ All Greywake characters, scenes, dialogue, puzzle settings, history, and endings
 
 ## Revision history
 
+- **1.3:** Adopted the accepted Listening Room v4 composition: hornless wax recorder, hooked headphones, small used noticeboard, specialized bench and prominent weather window. Replaced obsolete funnel/trumpet staging while preserving P02/P17/P19 solutions, voices, dependencies and ending consequences. Documented fixed room geometry, clipped weather and independent recorder state. This art revision adds no gameplay or platform-validation claim.
 - **1.2:** Made every actual map prop inspectable, including atmospheric maps; specified zoom/pan alternatives, readable close-up assets, and preservation of changing map evidence. Expanded P03 with three-fragment reconstruction before its existing chart comparison. Prerequisites, interval-3 reward, 27-puzzle count, and ending choices remain intact. Added map asset and save-state requirements.
 - **1.1:** Recorded the approved flat, front-facing art direction and made progress-driven environmental escalation mandatory in all 12 locations. Added the window/weather milestone table, room-specific treatments, reusable layer requirements, and save/revisit behavior. Puzzle count, solutions, and ending choices remain as specified.

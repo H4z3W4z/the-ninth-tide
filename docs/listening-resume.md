@@ -1,27 +1,33 @@
-# Listening Room: resume the art pass
+# Listening Room: completed graphics handoff
 
 ## Current state
 
-The accepted visual reference is `art/concepts/listening-room-approved-master-v4.png`. Use headphones and the hornless wax recorder, a small lived-in noticeboard, specialized oak bench, worn stool, brass task lamp and prominent right-hand weather window. Earlier speaking-tube and horn concepts are superseded.
+The R04 graphics pass is complete for the accepted `art/concepts/listening-room-approved-master-v4.png` composition. The hornless wax recorder, headphones, small lived-in noticeboard, specialized oak bench, worn stool, task lamp and weather window replace the earlier speaking-tube and horn concepts.
 
-Generated room, weather, prop and inspection images are under `assets/listening/`. Failed cutouts are clearly separated under `art/listening-review/`. Eight weather appearances cover arrival through Tide VIII; Tide IX holds the eighth state. Clean base and door detail are separate. Complete weather images are mood references; clip only their window panes when composing the fixed room.
+The pack contains **93 PNG assets: 32 generated illustrations and 61 authored SVG/PNG pairs**. Counts exclude the approved master, rejected drafts and composed review exports. The authored pairs comprise 12 documents, 42 puzzle graphics and seven environmental effects. Eight weather appearances cover arrival through Tide VIII; Tide IX holds VIII. Source images remain unchanged.
 
-The repo contains 31 generated R04 asset images plus 38 authored SVG/PNG pairs at this checkpoint. These counts exclude the accepted master and failed attempts. Read `listening-pack-progress.md` for checked batches and `listening-pack-generation.json` for prompts. The pack is an integration candidate in progress, not an implemented room.
+Open `art/listening-review/composed/index.html` for the offline art review, including independent weather, recorder and prop states plus readable inspection surfaces. Twelve composed SVG/PNG proofs accompany it. This review displays artwork and specified states; it is not a playable implementation.
 
-## Next bounded batch
+## Source of truth
 
-1. Inspect the authored documents and control overlays at readable scale. Keep visual evidence clear on dark panel backgrounds.
-2. Finish the lamp's lit-shade layer, then write the precise R04 placement/layer manifest. Keep all source PNG files unchanged. Use alpha-region coordinates in the engine to account for transparent sprite margins.
-3. Document the weather/puzzle layer combinations. Recorder state comes from P02 arrangement/completion, independently of the tide. Use one fixed empty mechanism plus band layers for exact assembly; generated partial/assembled recorder sprites are pose references and have slight geometry drift.
-4. Update `listening-room-assets.md`, `art-direction.md`, the README and the Codex handoff with v4 and current asset inventory. Replace obsolete funnel/trumpet visual descriptions in the GDD without changing dependencies, answers or channel behavior.
-5. Rebuild the asset manifest, validate, and push the final bounded art checkpoint. Do not merge the draft PR or change runtime puzzle code here.
+- `assets/listening/manifest.json`: measured source regions, 46 room layers, 16 hotspots, state triggers, inspection geometry, evidence gates and explicit reuse decisions.
+- `assets/listening/authored-spec.json`: exact P02/P17/P19 controls, solutions, statements and fixed question/answer copy.
+- `docs/listening-inventory.md`: exhaustive asset inventory and coverage decisions.
+- `docs/listening-room-assets.md`: composition and integration instructions.
+- `docs/listening-evidence-review.md`: readable-document and narrative review.
+- `docs/CODEX-HANDOFF.md`: implementation baseline, known rendered map-input failure and integration gates.
+- `docs/listening-pack-generation.json`: generation prompts, source references and rejected draft status.
 
-## Exact artwork and remaining integration
+Keep the fixed clean room base. Clip weather images only into the window panes so a changed tide never changes the player's recording arrangement. Use measured visible-content regions to place padded PNGs; the noticeboard requires an opaque brown backing. Use the dry stool plus damp mark for a stable silhouette. Lamp ON/OFF images are discrete poses with slight silhouette differences.
 
-`tools/build_listening_vectors.py` authors the precise layers. `assets/listening/authored-spec.json` specifies C/A/B, the three discrete seam orientations and fixed end guides. The three canisters and recording bands share illustration templates with separate exact labels. No generated writing is authoritative evidence.
+## Verified graphics
 
-P17 timing traces are authored visual diagrams, not extracted audio. The eventual spoken recordings must use the same bell synchronization event. P19 requires motor OFF, A and B CLOSED, C OPEN and WITNESS. Its voice continuation follows a dark indicator; do not restore horns.
+Five specialist passes covered inventory, exact puzzle graphics, documents, composed scenes and handoff consistency. Every visible v4 prop has a separate asset, reusable template or native vector representation. All 12 document exports and the P02 playback readout were inspected; all 120 checked text elements fit their canvases. The finished compositions include connected headphones, progressive interior darkness, a warm task lamp and preserved clue readability.
 
-The v4 reference remains the approved composition. Shelf props, document close-ups and the later control panel are additions for implementation review. The noticeboard texture has alpha 200–250 and needs a matching opaque brown backing rectangle. Window mask and damp/light vectors use proposed room coordinates; inspect the actual composition before claiming registration.
+The graphic specification has exactly one solution among 162 P02 arrangements, one among 441 P17 trace alignments, and one among 32 P19 connection states. These checks validate authored relationships, not runtime puzzle behavior.
 
-Codex elsewhere owns code, state, saves, final placement, animation wiring and platform tests. No audio, Listening Room gameplay, iPad/Safari or native validation has been completed in this art pass.
+## Next work belongs to implementation
+
+Codex can integrate this pack using the manifest and handoff. Preserve P02's C/A/B steps 0/0/0 and zero-4/tomorrow evidence; P17's separate Venn and Nora statements; P19's motor OFF, A/B CLOSED, C OPEN, WITNESS configuration and three retained exchanges. Never reveal earned evidence just because a late weather image is selected.
+
+Recorded audio, interactive state, saves, animation wiring and device testing remain implementation work. P17 traces are authored diagrams and need matching recording cues. No Listening Room gameplay, iPad/Safari or native validation has been completed by this graphics pass. The other rooms remain separate production packs.
