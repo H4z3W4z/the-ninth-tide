@@ -4,6 +4,8 @@ An illustrated point-and-click cosmic horror game set in a coastal survey statio
 
 **Current milestone:** Playable P01 lamp repair, zoomable Office maps, and a Chart Room workbench for P03 fragment assembly and chart comparison. This is an opening prototype, not the full game.
 
+**Graphics continuation:** [The recovery checkpoint](docs/GRAPHICS-RESUME.md) records the completed Listening Room and Kitchen packs, verified passing map checks, and the new [Bunk Room concept v1](art/concepts/bunk-room-concept-v1.png). R06 is a first concept for review; its production asset pack is the next graphics task.
+
 **Continuing in Codex:** Start with [the implementation handoff](docs/CODEX-HANDOFF.md). It covers the active branch, rendered-input verification, build steps, next milestones, and the split between coding and graphics creation.
 
 **New art handoff:** The [Listening Room v4 pack](docs/listening-room-assets.md) supplies the accepted hornless recorder/headphones direction, eight weather appearances, separate props, inspection art, and authored puzzle graphics. Review its [inventory](docs/listening-inventory.md), [placement/state manifest](assets/listening/manifest.json), and [composed art review](art/listening-review/composed/index.html). These additions do not implement R04.
