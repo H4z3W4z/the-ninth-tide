@@ -1,0 +1,113 @@
+{
+  "approval": "User: Looks good. Proceed",
+  "approved_master": "art/concepts/kitchen-room-master-v1.png",
+  "assets": [
+    {
+      "id": "r05_master",
+      "kind": "approved-reference",
+      "path": "art/concepts/kitchen-room-master-v1.png",
+      "prompt": "Use case: illustration-story. Asset type: production room master for The Ninth Tide, R05 Kitchen and Mess. Reference image is STYLE ONLY, a different room. Create a new abandoned 1931 coastal survey station communal kitchen, flat straight-on wall elevation, landscape 4:3 at same 1448x1086 proportions. Fine dark navy ink contours, broad matte sea-glass green, cream, muted ochre, dark petrol blue, tarnished brass and worn oak, subtle restrained paper texture. No photorealism, no angled walls or receding tabletop planes. Composition: far-left closed narrow petrol-blue service door. Left-middle a squat old black iron cooking range with a simple vertical stovepipe and a lidded tarnished copper stockpot. Above middle a small wooden kitchen service board with blank cream record card and two small token recesses. A large sea window dominates the upper-right half, straight-on thick dark blue frame, rain on panes, a distant low coast and lighthouse under low gray cloud. A small warm suspended enamel pendant lights the working area. Across the lower middle and right a long worn oak mess table seen strictly from the front, almost no top plane, front apron and two sturdy legs. Over the table a narrow pale linen cloth. EIGHT humble cream enamel soup bowls lined across it, subtle dark blue rims, worn but cared for. One empty setting gap among them feels conspicuous, nine faint spoon-shaped depressions in cloth (exact clue lettering will be supplied later, no need generated words). Folded kitchen towel at left end, closed dark-green provisioning ledger at right end, a plain wooden service drawer under left half of table with small brass pull. Background practical wall shelf with spare plates and ladle, one low apron hook with empty faded apron. Domestic, intimate, still; someone has just stopped making supper. No people, no ghosts, no horns, no occult icons, no skulls. The room should feel personal and unsettling through absence. Do NOT duplicate recorder, noticeboard photograph, headphones, stool or arrangement from reference. No repaired cup, that canonical prop lives in another room. No map in this room. All paper surfaces blank or restrained non-legible marks, exact text will be authored later. Keep every object separated enough for clickable extraction and preserve wide window as major story surface.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-29cbe448-b05c-40cd-bcbc-0517826aab68.png"
+    },
+    {
+      "id": "r05_clean_base",
+      "kind": "fixed-background",
+      "path": "assets/kitchen/backgrounds/r05_clean_base.png",
+      "prompt": "Use case: precise-object-edit. Edit target: approved R05 Kitchen and Mess room image. Create a clean production background plate in exactly the same flat front elevation and 4:3 composition. Preserve EVERY wall, floor, window frame and mullion, door, stove, stovepipe, pendant and its warm light, shelving with its dishes and canisters, hanging ladle, hanging apron, table geometry, drawer closed, linen tablecloth and existing background texture and colors. Change ONLY these removable objects: remove ALL eight bowls and ALL spoons and ALL spoon-shaped marks from the mess table, restoring clean unmarked pale linen where they were. Remove the folded towel from the table's left end, restoring the wood and linen. Remove the green ledger at far right, restoring the table. Remove copper stockpot and lid from the stove, restoring its dark cooktop. Remove the tiny dangling blank paper from the kitchen service board, leaving its flat wooden face and two circular token recesses. Keep all remaining static dishes on the wall shelf. No new objects, no writing, no camera move, no added perspective. Keep image 1448x1086 proportions, with identical room placement and no crop. This is only the immutable room layer for independent puzzle sprites.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-6333e6c2-5ac1-4a6d-840a-6cb678318e73.png"
+    },
+    {
+      "id": "r05_bowl_plain",
+      "kind": "transparent-prop",
+      "path": "assets/kitchen/props/r05_bowl_plain.png",
+      "prompt": "Edit Image 1, the transparent isolated canister sprite: replace the canister with ONE low, wide cream enamel soup bowl with a thin navy rim, matching the bowls in Image 2. Preserve Image 1's actual transparent surrounding canvas and crisp fully opaque illustrated-object treatment. The bowl should have the same flat navy ink and matte texture style as Image 2. Show front elevation with a shallow inner oval, tiny chips in the cream enamel, and no letters. The entire space outside the bowl must stay empty transparent exactly as outside the original canister. No shadow or glow. Output one bowl sprite only.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-dc2daf64-40a1-4760-ae2e-bcf2b684efde.png"
+    },
+    {
+      "id": "r05_stockpot",
+      "kind": "transparent-prop",
+      "path": "assets/kitchen/props/r05_stockpot.png",
+      "prompt": "Extract the copper stockpot with its lid and two side handles from the stove in this kitchen into one isolated transparent game sprite. Front facing, completepot, closedlid. Keep the exact warm tarnished copper, dark navy ink outline and matte flat drawn style of the reference. Only the stockpot, transparent background, no stove or wall, no shadows.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-77e9458d-b08b-487e-b286-01fc51cc9c41.png"
+    },
+    {
+      "id": "r05_towel",
+      "kind": "transparent-prop",
+      "path": "assets/kitchen/props/r05_towel.png",
+      "prompt": "Extract the folded linen kitchen towel draped over the left end of the table in the reference into one isolated transparent game sprite. Same straight-on hanging folded shape, narrow blue woven stripes near theedge, cream linen, shortfringe, modest flat drawn papertexture. One complete towel only. Transparent background, no table or wall, no shadows.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-663fd36b-dd7b-489d-8359-39313786787a.png"
+    },
+    {
+      "id": "r05_ledger_closed",
+      "kind": "transparent-prop",
+      "path": "assets/kitchen/props/r05_ledger_closed.png",
+      "prompt": "Extract the closed dark green provisioning ledger lying on the far right of the table in this kitchen into one isolated transparent game sprite. Preserve the book's modest low flat front-facing shape, clothbound dark green cover, worn brass corner protectors, cream page edge and small blank cream label. The exact same practical illustrated style and navy contour as the kitchen. Entire book visible, no extra papers, no lettering. Transparent background, no table or wall, no shadows.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-f2f5f6bb-c346-44cf-a961-5c57662899fd.png"
+    },
+    {
+      "id": "r05_drawer_open",
+      "kind": "transparent-prop",
+      "path": "assets/kitchen/props/r05_drawer_open.png",
+      "prompt": "Make a separate game sprite of the kitchen table's small service drawer pulled open. Reference is the approved kitchen. Same warm worn oak, little brass half-moon pull centered on drawer front, straight-on front elevation, no diagonal perspective. Include the drawer front and shallow dark empty interior visible just above it, with very short wooden sides. The front is a long horizontal rectangle, about four times wider than high, matching the drawer under the left part of this table. Entire isolated drawer sprite visible. Preserve the flat navy ink and matte painted texture style. Transparent background, no surrounding table or wall or floor, no loose objects inside, no shadow.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-b542741e-1f64-4e35-91ce-eead360b9a3b.png"
+    }
+  ],
+  "method": "built-in image_gen",
+  "room_id": "R05",
+  "title": "Kitchen and Mess",
+  "rejected_iterations": [
+    {
+      "id": "plain_halo",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-db21dbd8-8c1a-4911-bd1e-a3d6d40bbc47.png",
+      "prompt": "Use case: background-extraction. Reference image: approved Kitchen and Mess master for The Ninth Tide. Generate ONE separate game object sprite of a single cream enamel soup bowl matching exactly the small bowls lined on the table in the reference. Flat straight-on view, shallow visible inner oval, dark navy narrow rim, restrained navy ink contour, cream matte enamel with a few tiny wear chips, no initials or text, no square patch. Same illustrated hand drawn restrained flat style and colors as reference, not photorealistic. Center entire bowl on a genuinely transparent background, RGBA transparency, clean crisp edges, no checkerboard baked into pixels, no glow/halo, no surrounding rectangle, no table, no floor, no cast shadow. Large isolated object suitable for resizing, moderate breathing room. Only one bowl. Preserve practical humble early1930s kitchen character.",
+      "status": "Rejected for halo or baked checkerboard; never registered as runtime asset"
+    },
+    {
+      "id": "plain_checkerboard",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-f81f05d0-2bea-47e6-ab86-ff135b907f1e.png",
+      "prompt": "Edit target: the single cream soup bowl image. Remove the entire glowing smoky surrounding aura and black background completely. Preserve ONLY the drawn bowl, with fully opaque cream enamel and blue rim. Everything outside the precise bowl outline must be entirely transparent alpha=0, with no gray/white shadows, no light bloom, no aura, no gradients outside the bowl, no rectangular backdrop. The bowl itself is a flat game sprite, fully opaque, clean blue outline. Keep its same shape and colors. Genuine transparent PNG background, not a black background or checkerboard picture. One isolated bowl only. Absolutely no cast shadow. This is a production cutout for placement over a green kitchen, so any outside glow must be removed.",
+      "status": "Rejected for halo or baked checkerboard; never registered as runtime asset"
+    },
+    {
+      "id": "plain_halo_retry",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-bfa3fec5-3ce4-45ea-83f3-b1239a18c0f8.png",
+      "prompt": "A single small cream enamel soup bowl with a thin navy rim, matching the flat hand-drawn bowls on the table in the reference kitchen. Front view, shallow visible interior. Isolated game sprite on a transparent background. Fully opaque bowl with a crisp ink silhouette. Simple matte cream color with a few tiny worn enamel marks, restrained paper texture inside the bowl. Transparent PNG cutout, just the bowl, no shadow. No letters.",
+      "status": "Rejected for halo or baked checkerboard; never registered as runtime asset"
+    },
+    {
+      "id": "repaired_checkerboard",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-95cee916-d049-4e33-b835-97a0e2d512b0.png",
+      "prompt": "Edit this transparent bowl sprite. Keep the bowl's silhouette, cream enamel, navy rim, lighting, flat drawing and empty transparent surrounding canvas unchanged. Add one obvious SQUARE repair patch of dull gray tin on the front of the bowl, slightly right of center, about one fifth of the bowl's width. Four tiny dark rivets at its four corners. The patch is unmistakably square, viewed directly from the front. This is the unsigned ninth soup bowl in a puzzle; do not add initials or text. Only change the patch; preserve actual transparent background and no outer shadows or glow.",
+      "status": "Rejected for halo or baked checkerboard; never registered as runtime asset"
+    },
+    {
+      "id": "repaired_checkerboard_retry",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-0ad05e1a-9829-47ab-bf62-c796e2913c47.png",
+      "prompt": "Edit Image1, the isolated canister sprite: replace that canister with ONE low wide cream enamel soup bowl matching the flat soup bowls in Image2. Preserve Image1's actual transparent surrounding canvas and fully opaque illustrated-object treatment. Dark navy rim and ink outline, shallow inner oval, matte cream enamel. On the bowl's front right is one square dull tin repair patch with four small corner rivets, directly front facing. The bowl has no initials. No background scene, no shadow, no glow. The whole exterior stays empty transparent exactly like Image1.",
+      "status": "Rejected for halo or baked checkerboard; never registered as runtime asset"
+    },
+    {
+      "id": "repaired_checkerboard_cleanup",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-06de4071-1996-4f4b-9d22-9081a2220358.png",
+      "prompt": "Remove the checkered background. Return the isolated object as a transparent PNG.",
+      "status": "Rejected for halo or baked checkerboard; never registered as runtime asset"
+    },
+    {
+      "id": "spoon_checkerboard",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-ca8eb0f8-b477-401a-ac1f-10d2f9c8ff7d.png",
+      "prompt": "Edit Image1, the isolated canister sprite: replace that canister with ONE worn pewter soup spoon from the flat kitchen style of Image2. Preserve Image1's actual transparent surrounding canvas and fully opaque illustrated-object treatment. One entire straight spoon horizontally across the canvas, shallow oval scoop on the left, long plain tapered handle on the right. Restrained dark navy ink outlines, matte gray pewter, sparse wear marks. Flat side/top view suitable to lie across the table in the kitchen; no dramatic perspective. No lettering, no background scene, no shadow, no glow. All outside stays empty transparent exactly like Image1.",
+      "status": "Rejected for halo or baked checkerboard; never registered as runtime asset"
+    },
+    {
+      "id": "spoon_checkerboard_cleanup",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-c77a3e4b-8cb4-496b-ab00-62233149fe35.png",
+      "prompt": "Remove the checkered background. Return the isolated object as a transparent PNG.",
+      "status": "Rejected for halo or baked checkerboard; never registered as runtime asset"
+    }
+  ],
+  "reuse_notes": [
+    "Unsigned room bowl uses the clean plain bowl with authored square patch, retaining the same silhouette.",
+    "Room spoon reuses authored r05_spoon_rest and r05_spoon_raised for registered visual poses.",
+    "Seven reachable weather states reuse frame-free regions of existing R04 plates; R05 starts after P06 and holds appearance08 at TideIX."
+  ]
+}

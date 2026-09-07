@@ -1,0 +1,456 @@
+{
+  "schema": 1,
+  "room_id": "R06",
+  "status": "checkpoint_1_working_art_not_full_pack",
+  "user_approved_master": false,
+  "reference": "art/concepts/bunk-room-concept-v1.png",
+  "canvas": [
+    1448,
+    1086
+  ],
+  "generated_by": "tools/build_bunk_batch.py",
+  "assets": [
+    {
+      "id": "r06_clean_base",
+      "path": "assets/bunks/backgrounds/r06_clean_base.png",
+      "size": [
+        1448,
+        1086
+      ],
+      "role": "working_fixed_room_plate",
+      "sha256": "cded646af901f2b3e6ab6bc69b957a524ed358d214f902faa08700bb13fb3de0",
+      "visible_when": "P06 complete"
+    },
+    {
+      "id": "r06_cup",
+      "path": "assets/bunks/props/r06_cup.png",
+      "role": "generated_prop",
+      "visible_when": "P06 complete; placement follows P08",
+      "source_size": [
+        1207,
+        1303
+      ],
+      "alpha_range": [
+        0,
+        255
+      ],
+      "content_bbox_ltrb": [
+        168,
+        478,
+        1129,
+        984
+      ],
+      "bbox_alpha_threshold": 8,
+      "size": [
+        1207,
+        1303
+      ],
+      "sha256": "b934e2fb02cda89adc7af2c2874efd40f25b12b4a390d91d28f389f4560de008"
+    },
+    {
+      "id": "r06_cup_mark",
+      "path": "assets/bunks/puzzle/r06_cup_mark.png",
+      "source_svg": "assets/bunks/puzzle/r06_cup_mark.svg",
+      "role": "exact_prop_mark",
+      "visible_when": "P06 complete",
+      "size": [
+        1207,
+        1303
+      ],
+      "sha256": "bb5dbc87befbc18f710d77d68cf77baffd965fa94ead616c02f3b8f5633e469c"
+    },
+    {
+      "id": "r06_calipers",
+      "path": "assets/bunks/props/r06_calipers.png",
+      "role": "generated_prop",
+      "visible_when": "P06 complete; placement follows P08",
+      "source_size": [
+        1207,
+        1303
+      ],
+      "alpha_range": [
+        0,
+        255
+      ],
+      "content_bbox_ltrb": [
+        23,
+        430,
+        1192,
+        926
+      ],
+      "bbox_alpha_threshold": 8,
+      "size": [
+        1207,
+        1303
+      ],
+      "sha256": "6b63198a01799fe7da5584670d2ce252d46e80ab977becded54ab1b0db46288f"
+    },
+    {
+      "id": "r06_calipers_mark",
+      "path": "assets/bunks/puzzle/r06_calipers_mark.png",
+      "source_svg": "assets/bunks/puzzle/r06_calipers_mark.svg",
+      "role": "exact_prop_mark",
+      "visible_when": "P06 complete",
+      "size": [
+        1207,
+        1303
+      ],
+      "sha256": "967ad918baa0dcc852c0951523fa43a63209f73f0f43ddab2abfc0d7ab2331ff"
+    },
+    {
+      "id": "r06_pencil_holder",
+      "path": "assets/bunks/props/r06_pencil_holder.png",
+      "role": "generated_prop",
+      "visible_when": "P06 complete; placement follows P08",
+      "source_size": [
+        1207,
+        1303
+      ],
+      "alpha_range": [
+        0,
+        255
+      ],
+      "content_bbox_ltrb": [
+        297,
+        223,
+        935,
+        1100
+      ],
+      "bbox_alpha_threshold": 8,
+      "size": [
+        1207,
+        1303
+      ],
+      "sha256": "3060eb23d6e9e4cb0c16dfd4eb784816ad8df5d2f85f51fa1eae4d34acb46b50"
+    },
+    {
+      "id": "r06_pencil_holder_mark",
+      "path": "assets/bunks/puzzle/r06_pencil_holder_mark.png",
+      "source_svg": "assets/bunks/puzzle/r06_pencil_holder_mark.svg",
+      "role": "exact_prop_mark",
+      "visible_when": "P06 complete",
+      "size": [
+        1207,
+        1303
+      ],
+      "sha256": "24d070337077d1780183de187ae1f05c1ab354db8d69d39270e85b96b1c99bbc"
+    },
+    {
+      "id": "r06_glove",
+      "path": "assets/bunks/props/r06_glove.png",
+      "role": "generated_prop",
+      "visible_when": "P06 complete; placement follows P08",
+      "source_size": [
+        1207,
+        1303
+      ],
+      "alpha_range": [
+        0,
+        255
+      ],
+      "content_bbox_ltrb": [
+        159,
+        17,
+        1147,
+        1267
+      ],
+      "bbox_alpha_threshold": 8,
+      "size": [
+        1207,
+        1303
+      ],
+      "sha256": "b4275fc690726f0c33f5285aaaebd58c61e7b6fe22c0c85a2fff1187c75ef0b6"
+    },
+    {
+      "id": "r06_card_bell",
+      "path": "assets/bunks/documents/r06_card_bell.png",
+      "source_svg": "assets/bunks/documents/r06_card_bell.svg",
+      "role": "readable_evidence",
+      "visible_when": "P06 complete",
+      "size": [
+        900,
+        1100
+      ],
+      "sha256": "0b6989d640fdcb5c28c44cc959b33046eceac974d673bdad9bed407968dacec0"
+    },
+    {
+      "id": "r06_label_bell",
+      "path": "assets/bunks/puzzle/r06_label_bell.png",
+      "source_svg": "assets/bunks/puzzle/r06_label_bell.svg",
+      "role": "exact_locker_label",
+      "visible_when": "P06 complete",
+      "size": [
+        280,
+        96
+      ],
+      "sha256": "b74051f3cf2eee26c1ec4ee964917f0817b837df6a37761c40dd9295183cc924"
+    },
+    {
+      "id": "r06_card_rook",
+      "path": "assets/bunks/documents/r06_card_rook.png",
+      "source_svg": "assets/bunks/documents/r06_card_rook.svg",
+      "role": "readable_evidence",
+      "visible_when": "P06 complete",
+      "size": [
+        900,
+        1100
+      ],
+      "sha256": "c71aa31bf69ac270c4e2d2838fdcc0233fee710f9cc7f2e7faf103ff750a43b1"
+    },
+    {
+      "id": "r06_label_rook",
+      "path": "assets/bunks/puzzle/r06_label_rook.png",
+      "source_svg": "assets/bunks/puzzle/r06_label_rook.svg",
+      "role": "exact_locker_label",
+      "visible_when": "P06 complete",
+      "size": [
+        280,
+        96
+      ],
+      "sha256": "8e9c6414689cc849ad08dee3c6fa534e4bbad8d4895b78b97cf348b9b5330d4e"
+    },
+    {
+      "id": "r06_card_venn",
+      "path": "assets/bunks/documents/r06_card_venn.png",
+      "source_svg": "assets/bunks/documents/r06_card_venn.svg",
+      "role": "readable_evidence",
+      "visible_when": "P06 complete",
+      "size": [
+        900,
+        1100
+      ],
+      "sha256": "241bcd0eea97610c70130b5c42a51d5428b12a243a0f7d61cff56a30b6552a2a"
+    },
+    {
+      "id": "r06_label_venn",
+      "path": "assets/bunks/puzzle/r06_label_venn.png",
+      "source_svg": "assets/bunks/puzzle/r06_label_venn.svg",
+      "role": "exact_locker_label",
+      "visible_when": "P06 complete",
+      "size": [
+        280,
+        96
+      ],
+      "sha256": "1d314fdb55982f69dd1417f26ca79d0c77bc37e8b94065ed81be4c67017a8262"
+    },
+    {
+      "id": "r06_card_ives",
+      "path": "assets/bunks/documents/r06_card_ives.png",
+      "source_svg": "assets/bunks/documents/r06_card_ives.svg",
+      "role": "readable_evidence",
+      "visible_when": "P06 complete",
+      "size": [
+        900,
+        1100
+      ],
+      "sha256": "6ff63de46301cb1c5721200291866900b4ec17a865505a0e924611e2b9f3a200"
+    },
+    {
+      "id": "r06_label_ives",
+      "path": "assets/bunks/puzzle/r06_label_ives.png",
+      "source_svg": "assets/bunks/puzzle/r06_label_ives.svg",
+      "role": "exact_locker_label",
+      "visible_when": "P06 complete",
+      "size": [
+        280,
+        96
+      ],
+      "sha256": "89739b65ec51b8aebaefc047982a76f6fd830ec9051eae82b12f0ddd5505e54a"
+    },
+    {
+      "id": "r06_assignment_rule",
+      "path": "assets/bunks/documents/r06_assignment_rule.png",
+      "source_svg": "assets/bunks/documents/r06_assignment_rule.svg",
+      "role": "readable_evidence",
+      "visible_when": "P06 complete",
+      "size": [
+        900,
+        1100
+      ],
+      "sha256": "209e24206705f107bd5c09f64bdf64a51cfc3c3a02f80bd0669fcb330437f0df"
+    },
+    {
+      "id": "r06_p08_record",
+      "path": "assets/bunks/documents/r06_p08_record.png",
+      "source_svg": "assets/bunks/documents/r06_p08_record.svg",
+      "role": "readable_evidence",
+      "visible_when": "P08 complete; retain in notebook",
+      "size": [
+        900,
+        1100
+      ],
+      "sha256": "ba5e00125bd16428e32d55cfba3b048c06da12ec3c1b32be9dee2fa8c4a158bd"
+    },
+    {
+      "id": "r06_venn_seal",
+      "path": "assets/bunks/documents/r06_venn_seal.png",
+      "source_svg": "assets/bunks/documents/r06_venn_seal.svg",
+      "role": "readable_evidence",
+      "visible_when": "P08 complete; preserve for P09 and P19",
+      "size": [
+        900,
+        1100
+      ],
+      "sha256": "7ac664037e3b5fd845b0382c1c44dd592c69eb7fcf14108381099174e3a5fd62"
+    },
+    {
+      "id": "r06_index_original",
+      "path": "assets/bunks/documents/r06_index_original.png",
+      "source_svg": "assets/bunks/documents/r06_index_original.svg",
+      "role": "readable_evidence",
+      "visible_when": "P21 complete; P22 comparison input",
+      "size": [
+        900,
+        1100
+      ],
+      "sha256": "4844b06320c0b30a5aa89e6842b74ebd9db0d9fc0aa41c1a79c8c02d94bc9b72"
+    },
+    {
+      "id": "r06_amendment_rule",
+      "path": "assets/bunks/documents/r06_amendment_rule.png",
+      "source_svg": "assets/bunks/documents/r06_amendment_rule.svg",
+      "role": "readable_evidence",
+      "visible_when": "P21 complete; P22 available",
+      "size": [
+        900,
+        1100
+      ],
+      "sha256": "4095dcc9d34b2598654ea19b93542f984c7e0aa16d377005b2c7a9273367489e"
+    },
+    {
+      "id": "r06_p22_record",
+      "path": "assets/bunks/documents/r06_p22_record.png",
+      "source_svg": "assets/bunks/documents/r06_p22_record.svg",
+      "role": "readable_evidence",
+      "visible_when": "P22 complete; retain in notebook",
+      "size": [
+        900,
+        1100
+      ],
+      "sha256": "30dce0e706bebaa95828098b8ec7f65988332dc390df9295f2a7f1caed753c5c"
+    },
+    {
+      "id": "r06_ives_letter",
+      "path": "assets/bunks/documents/r06_ives_letter.png",
+      "source_svg": "assets/bunks/documents/r06_ives_letter.svg",
+      "role": "readable_evidence",
+      "visible_when": "P08 complete; optional O03 production copy",
+      "size": [
+        900,
+        1100
+      ],
+      "sha256": "9f09b3707f95c93ca77e97ca63b124af2a984f22b79a081e3260857cf720311b"
+    }
+  ],
+  "room_prop_rects_xywh": {
+    "cup": [
+      1022,
+      676,
+      79,
+      51
+    ],
+    "calipers": [
+      1113,
+      690,
+      110,
+      42
+    ],
+    "pencil_holder": [
+      1240,
+      664,
+      42,
+      62
+    ],
+    "glove": [
+      1300,
+      675,
+      66,
+      54
+    ]
+  },
+  "room_hotspots": [
+    {
+      "id": "belongings",
+      "rect": [
+        989,
+        657,
+        441,
+        85
+      ],
+      "action": "open_P08_inspection"
+    },
+    {
+      "id": "locker_cards",
+      "rect": [
+        1003,
+        299,
+        408,
+        343
+      ],
+      "action": "read_ownership_cards"
+    },
+    {
+      "id": "calendar",
+      "rect": [
+        872,
+        207,
+        106,
+        197
+      ],
+      "action": "inspect_calendar"
+    },
+    {
+      "id": "door",
+      "rect": [
+        34,
+        165,
+        199,
+        722
+      ],
+      "action": "return_to_corridor"
+    }
+  ],
+  "solution": {
+    "BELL": "cup",
+    "ROOK": "calipers",
+    "VENN": "pencil_holder",
+    "IVES": "glove"
+  },
+  "validation_scope": "Artwork geometry and evidence layout; no gameplay validation",
+  "clue_production_details": {
+    "BELL": "NB; two brass bands at handle joins; matches existing R05 evidence",
+    "ROOK": "V nick near far end of beam",
+    "VENN": "pale thumb-worn crescent on holder front",
+    "IVES": "broad palm patch with pale stitching"
+  },
+  "state_contract": {
+    "entry": "P06; P08 can precede or follow P07",
+    "P08_reward": "bunk token half and three-cut seal rubbing; preserve rubbing",
+    "cup_retention": "keep on Bell shelf after P08 and P22; do not consume",
+    "P22_entry": "P21",
+    "P22_solution": [
+      "PERSONAL EFFECT IDENTIFIED",
+      "REPAIRED CUP",
+      "NORA BELL"
+    ],
+    "P22_original": "No surviving personal effects.",
+    "weather": "shared puzzle milestones only; never grants object placements or rewards"
+  },
+  "pending": [
+    "Room composition approval",
+    "Open locker and curtain poses",
+    "Token-half graphic matching R05 paired geometry",
+    "Pillow depression and later local environmental effects",
+    "Calendar date/name state overlays",
+    "Secondary view with five already-closed staff lockers",
+    "Room door state and pencil-shelf letter props",
+    "Full measured layers/state manifest and final scene review",
+    "Gameplay, recorded audio, persistence and device testing"
+  ],
+  "limitations": [
+    "Generated props retain original PNGs with real alpha. Very faint alpha speckles outside content are omitted by inspection viewports using measured alpha>8 bounds.",
+    "Four new habit/mark descriptions are production copy proposals consistent with P08; they do not change owner mapping.",
+    "Do not use whole-room mood swaps to grant puzzle completion.",
+    "This checkpoint does not complete the R06 graphics pack."
+  ]
+}

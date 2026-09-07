@@ -1,0 +1,6623 @@
+{
+  "schema_version": 1,
+  "room_id": "R04",
+  "title": "Listening Room",
+  "scope": "Listening Room v4 static art, progression appearances, object poses and authored puzzle graphics; not all twelve game rooms.",
+  "generated_by": "tools/build_listening_manifest.py",
+  "canvas": [
+    1448,
+    1086
+  ],
+  "coordinate_convention": "Every *_rect and *_region_px is [x,y,width,height]; bbox_ltrb is [left,top,right,bottom] with exclusive right/bottom.",
+  "rendering_contract": [
+    "Render room_layers in ascending z, stable original order for equal z. Coordinates stay fixed across puzzle/weather state.",
+    "For image layers, fit the source_region_px crop into target_rect. No crop is written back to source PNG. Generated source regions ignore alpha below 16 for placement only.",
+    "Use full canvas for authored graphics, especially seams, effect maps and control overlays. Their transparent margins encode registration.",
+    "All when fields are AND conditions. Empty when means visible. recorder_slot means the named slot is occupied, not that P02 is complete.",
+    "@weather resolves to the highest eligible weather_states asset. @rain resolves by weather rain_mode, with freeze_0 in reduced motion.",
+    "Use clip_rects as target-space clips. The full weather and doorway image are never substituted for fixed_room.",
+    "At viewport scale, letterbox 4:3 uniformly. Inflate hit targets to at least 44 CSS px or provide inspection buttons; do not move clue objects."
+  ],
+  "accepted_reference": {
+    "path": "art/concepts/listening-room-approved-master-v4.png",
+    "sha256": "c14cb97556c9197e1d91dac1b6997bef43b56128aec5d4aa6d456ca48bb90e49",
+    "canvas": [
+      1448,
+      1086
+    ],
+    "status": "accepted_visual_direction",
+    "puzzle_pose": "partial_reference_not_new_game"
+  },
+  "assets": {
+    "r04_clean_base": {
+      "path": "assets/listening/backgrounds/r04_clean_base.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGB",
+      "sha256": "f165753f280093bbae39145442fae67ac2296a33d1da0e1c07947af2a9e3d2c6",
+      "alpha_range": [
+        255,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "class": "generated_illustration",
+      "role": "base",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_door_open_plate": {
+      "path": "assets/listening/backgrounds/r04_door_open_plate.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGB",
+      "sha256": "0360092adcbaf6c9a3da88f293161eed215e778b158ba1b1fb4cb810a2c3c275",
+      "alpha_range": [
+        255,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "class": "generated_illustration",
+      "role": "detail_plate",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "portal_source_only"
+    },
+    "r04_weather_01_overcast": {
+      "path": "assets/listening/backgrounds/r04_weather_01_overcast.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGB",
+      "sha256": "018cd36d8f2eda813c6d4a958b146374ee62c88cbe480a1046a70a2e78c7af1b",
+      "alpha_range": [
+        255,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "class": "generated_illustration",
+      "role": "weather",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "window_source_and_full_room_review",
+      "notes": [
+        "Clip the seven glazing panes only over the fixed clean base. Full image contains a partial recorder unrelated to current puzzle flags."
+      ]
+    },
+    "r04_weather_02_rain": {
+      "path": "assets/listening/backgrounds/r04_weather_02_rain.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGB",
+      "sha256": "e075bbe6fe06ac466fbad7008f27c62984d170cce16ce2bd68d352290349fa7e",
+      "alpha_range": [
+        255,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "class": "generated_illustration",
+      "role": "weather",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "window_source_and_full_room_review",
+      "notes": [
+        "Clip the seven glazing panes only over the fixed clean base. Full image contains a partial recorder unrelated to current puzzle flags."
+      ]
+    },
+    "r04_weather_03_storm": {
+      "path": "assets/listening/backgrounds/r04_weather_03_storm.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGB",
+      "sha256": "7447df6d05aaadfda916bb11badf79e8e64bea91d33cedd7fa8c1ec80178304f",
+      "alpha_range": [
+        255,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "class": "generated_illustration",
+      "role": "weather",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "window_source_and_full_room_review",
+      "notes": [
+        "Clip the seven glazing panes only over the fixed clean base. Full image contains a partial recorder unrelated to current puzzle flags."
+      ]
+    },
+    "r04_weather_04_suspended": {
+      "path": "assets/listening/backgrounds/r04_weather_04_suspended.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGB",
+      "sha256": "f774d2a7dd2dcd3b96bf8dac99bdd8a72e1c8d9530c3b0a1ad93276ff8338a1d",
+      "alpha_range": [
+        255,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "class": "generated_illustration",
+      "role": "weather",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "window_source_and_full_room_review",
+      "notes": [
+        "Clip the seven glazing panes only over the fixed clean base. Full image contains a partial recorder unrelated to current puzzle flags."
+      ]
+    },
+    "r04_weather_05_upright": {
+      "path": "assets/listening/backgrounds/r04_weather_05_upright.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGB",
+      "sha256": "bb80c2ee32089473f74e1148e616d8c2272fe3d56dd6fae1ba71cec5e2b3536e",
+      "alpha_range": [
+        255,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "class": "generated_illustration",
+      "role": "weather",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "window_source_and_full_room_review",
+      "notes": [
+        "Clip the seven glazing panes only over the fixed clean base. Full image contains a partial recorder unrelated to current puzzle flags."
+      ]
+    },
+    "r04_weather_06_silent": {
+      "path": "assets/listening/backgrounds/r04_weather_06_silent.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGB",
+      "sha256": "8cf3407454dea3987ff17dc1ccb8519d67f4a324f33c0602f609b0d3bbe9dfb8",
+      "alpha_range": [
+        255,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "class": "generated_illustration",
+      "role": "weather",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "window_source_and_full_room_review",
+      "notes": [
+        "Clip the seven glazing panes only over the fixed clean base. Full image contains a partial recorder unrelated to current puzzle flags."
+      ]
+    },
+    "r04_weather_07_bearing": {
+      "path": "assets/listening/backgrounds/r04_weather_07_bearing.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGB",
+      "sha256": "6e49f740d9545a4293fb63295f629b99b8dff20059db65c14a0f61475b3096b4",
+      "alpha_range": [
+        255,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "class": "generated_illustration",
+      "role": "weather",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "window_source_and_full_room_review",
+      "notes": [
+        "Clip the seven glazing panes only over the fixed clean base. Full image contains a partial recorder unrelated to current puzzle flags."
+      ]
+    },
+    "r04_weather_08_surface": {
+      "path": "assets/listening/backgrounds/r04_weather_08_surface.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGB",
+      "sha256": "029c9b46428f1db2f9d54d78738307dc37b182f176d5459ea81b2c4de5f6b26e",
+      "alpha_range": [
+        255,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "class": "generated_illustration",
+      "role": "weather",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "window_source_and_full_room_review",
+      "notes": [
+        "Clip the seven glazing panes only over the fixed clean base. Full image contains a partial recorder unrelated to current puzzle flags."
+      ]
+    },
+    "r04_channel_panel_blank": {
+      "path": "assets/listening/closeups/r04_channel_panel_blank.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGB",
+      "sha256": "ff294f65cd550aef04ec0f6da8bc86a6e903796b142195048db789d82be762e5",
+      "alpha_range": [
+        255,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "class": "generated_illustration",
+      "role": "panel",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_paper_blank": {
+      "path": "assets/listening/closeups/r04_paper_blank.png",
+      "width": 1086,
+      "height": 1448,
+      "mode": "RGBA",
+      "sha256": "792cdaed6bbc23fc4ec80cc58720ac5148aca0d47685ea742f4861b8fe89b624",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        50,
+        110,
+        1005,
+        1360
+      ],
+      "visible_bbox_ltrb": [
+        84,
+        115,
+        1003,
+        1340
+      ],
+      "transparent_pixel_fraction": 0.282592,
+      "low_alpha_pixel_fraction": 0.010553,
+      "render_region_px": [
+        84,
+        115,
+        919,
+        1225
+      ],
+      "class": "generated_illustration",
+      "role": "alpha",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_workers_photo": {
+      "path": "assets/listening/closeups/r04_workers_photo.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGB",
+      "sha256": "e9bb946cb0c3b4b331d706f3da30734abd49322def628cd7b6465dde759c377e",
+      "alpha_range": [
+        255,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "class": "generated_illustration",
+      "role": "opaque_prop",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_assembly_card": {
+      "path": "assets/listening/documents/r04_assembly_card.png",
+      "width": 800,
+      "height": 1000,
+      "mode": "RGBA",
+      "sha256": "a79a1381fd888704ffa0a571bca3fe797d5e4396362160f5864cacbcf2620ced",
+      "alpha_range": [
+        195,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "source_svg": "assets/listening/documents/r04_assembly_card.svg",
+      "source_svg_sha256": "7953d9f5114f032ff2534393bcfff69c3d10b1210aebd780522cf7a9566dd625",
+      "class": "authored_graphic",
+      "role": "readable_document",
+      "visibility_note": "R04 visited",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_correction_note": {
+      "path": "assets/listening/documents/r04_correction_note.png",
+      "width": 800,
+      "height": 1000,
+      "mode": "RGBA",
+      "sha256": "98ed811ca885c9ff2e8c24f28c1094c67e098bfdc93e6d1c94f47e8e35d8495a",
+      "alpha_range": [
+        195,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "source_svg": "assets/listening/documents/r04_correction_note.svg",
+      "source_svg_sha256": "901a7fd1c9e7f80b2a515415f52736c837cd12bd9f477f6e78071071ec6a83d4",
+      "class": "authored_graphic",
+      "role": "readable_document",
+      "visibility_note": "R04 visited",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_maintenance_ledger": {
+      "path": "assets/listening/documents/r04_maintenance_ledger.png",
+      "width": 800,
+      "height": 1000,
+      "mode": "RGBA",
+      "sha256": "00be499560e1a24b5ad99c39ccd2dc7240b8f7ca056769d59747b7f2eb182804",
+      "alpha_range": [
+        195,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "source_svg": "assets/listening/documents/r04_maintenance_ledger.svg",
+      "source_svg_sha256": "e7bdfcacc445225e95147f7e4ab47ae2e8e30190f22a98f59bf8f180e6d5775d",
+      "class": "authored_graphic",
+      "role": "readable_document",
+      "visibility_note": "R04 visited",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_nora_statement": {
+      "path": "assets/listening/documents/r04_nora_statement.png",
+      "width": 800,
+      "height": 1000,
+      "mode": "RGBA",
+      "sha256": "dca67565ce7f36ea072c7fddc5a6e8a3300a451e5ed4080a7718502ff9266d0e",
+      "alpha_range": [
+        195,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "source_svg": "assets/listening/documents/r04_nora_statement.svg",
+      "source_svg_sha256": "9b64fd96c19ce9c54b7a48a9a58953b2e37d405d8de186b8838e67e89bb9830d",
+      "class": "authored_graphic",
+      "role": "readable_document",
+      "visibility_note": "P17 bell peaks aligned AND Nora channel heard",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_playback_transcript": {
+      "path": "assets/listening/documents/r04_playback_transcript.png",
+      "width": 800,
+      "height": 1000,
+      "mode": "RGBA",
+      "sha256": "4a0e6a60f5efbe3711bc496b06b5a8bace95d123e7d342dc762a6bced82ff6b5",
+      "alpha_range": [
+        195,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "source_svg": "assets/listening/documents/r04_playback_transcript.svg",
+      "source_svg_sha256": "5cc0464ec24f6cfa52f83800d3f1e2562904c60ca17d12cacd6757c9d1bfb8c9",
+      "class": "authored_graphic",
+      "role": "readable_document",
+      "visibility_note": "P02 complete",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_recording_log": {
+      "path": "assets/listening/documents/r04_recording_log.png",
+      "width": 800,
+      "height": 1000,
+      "mode": "RGBA",
+      "sha256": "63af5700f0d3b7c6d6c26fb984c22d30313d1a8e2b444dbe76dcfc3253c4493a",
+      "alpha_range": [
+        195,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "source_svg": "assets/listening/documents/r04_recording_log.svg",
+      "source_svg_sha256": "1bf69ddf375292fa2673911f609c970b52a8a20a9d32db83c4835767e6fb9b35",
+      "class": "authored_graphic",
+      "role": "readable_document",
+      "visibility_note": "R04 visited",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_venn_statement": {
+      "path": "assets/listening/documents/r04_venn_statement.png",
+      "width": 800,
+      "height": 1000,
+      "mode": "RGBA",
+      "sha256": "b0fed32543f6fe5e142ec3b717fcf45e62399365991f42683add036bddcf7859",
+      "alpha_range": [
+        195,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "source_svg": "assets/listening/documents/r04_venn_statement.svg",
+      "source_svg_sha256": "5b30a10dc3616a1c072fe2e3db2bde7501d46be6bb01aedddfbf5eef537fc8f5",
+      "class": "authored_graphic",
+      "role": "readable_document",
+      "visibility_note": "P17 bell peaks aligned AND Venn channel heard",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_witness_answer_reach": {
+      "path": "assets/listening/documents/r04_witness_answer_reach.png",
+      "width": 800,
+      "height": 1000,
+      "mode": "RGBA",
+      "sha256": "f730a692b71ce010d7a1aa230a07de3a2c9b284daebad02160916a82aa1169f8",
+      "alpha_range": [
+        195,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "source_svg": "assets/listening/documents/r04_witness_answer_reach.svg",
+      "source_svg_sha256": "c3fd507d611847a2445b1a0e4346274c1ed1391f73aa8290f534014549342848",
+      "class": "authored_graphic",
+      "role": "readable_document",
+      "visibility_note": "P19 witness connected AND question reach asked; retain after indicator dark",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_witness_answer_remain": {
+      "path": "assets/listening/documents/r04_witness_answer_remain.png",
+      "width": 800,
+      "height": 1000,
+      "mode": "RGBA",
+      "sha256": "1a3c6bea4268c22d6c9a18cb1c787394e17cb047005076d44af9b544fd7895b4",
+      "alpha_range": [
+        195,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "source_svg": "assets/listening/documents/r04_witness_answer_remain.svg",
+      "source_svg_sha256": "b8dc1fc43d188e12e4150d99311d63ab580f4438d41f5f7403194ac5414bddb2",
+      "class": "authored_graphic",
+      "role": "readable_document",
+      "visibility_note": "P19 witness connected AND question remain asked; retain after indicator dark",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_witness_answer_sever": {
+      "path": "assets/listening/documents/r04_witness_answer_sever.png",
+      "width": 800,
+      "height": 1000,
+      "mode": "RGBA",
+      "sha256": "75ece5d440a9801e8842fde5b951c11ef7a66b2b17902fee61cee5c6d0d65064",
+      "alpha_range": [
+        195,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "source_svg": "assets/listening/documents/r04_witness_answer_sever.svg",
+      "source_svg_sha256": "f3815173424b3bb5f7ab181275052bdba0c84143731623f20e2fbadeaf350ada",
+      "class": "authored_graphic",
+      "role": "readable_document",
+      "visibility_note": "P19 witness connected AND question sever asked; retain after indicator dark",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_witness_margin": {
+      "path": "assets/listening/documents/r04_witness_margin.png",
+      "width": 800,
+      "height": 1000,
+      "mode": "RGBA",
+      "sha256": "e5663146842b2aa15e018ce89d402eb8a3948356f09012d0bdcb2aae3addfd0c",
+      "alpha_range": [
+        195,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "source_svg": "assets/listening/documents/r04_witness_margin.svg",
+      "source_svg_sha256": "1616838c51a0af3a8258fbae1e4acb285b6f5f9a03553f6bfe35d86225844e76",
+      "class": "authored_graphic",
+      "role": "readable_document",
+      "visibility_note": "P17 complete; retain in notebook",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_witness_procedure": {
+      "path": "assets/listening/documents/r04_witness_procedure.png",
+      "width": 800,
+      "height": 1000,
+      "mode": "RGBA",
+      "sha256": "cc365241f03122cfc2d77e6b3af5cebf4a9368d8dc5cf03ddbb9bb7c879421a5",
+      "alpha_range": [
+        195,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "source_svg": "assets/listening/documents/r04_witness_procedure.svg",
+      "source_svg_sha256": "4afcbd40a3c801718064c333384cf652bc0da32542a3f90691acde9706c25483",
+      "class": "authored_graphic",
+      "role": "readable_document",
+      "visibility_note": "P17 complete; P19 interaction requires P17 AND P18",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_lamp_pool": {
+      "path": "assets/listening/effects/r04_lamp_pool.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGBA",
+      "sha256": "32c3a367f4f0a0c78eddbf39cee944e0eb30837c4605aa2dbffce68eafbd229a",
+      "alpha_range": [
+        0,
+        48
+      ],
+      "alpha_bbox_ltrb": [
+        354,
+        488,
+        615,
+        641
+      ],
+      "visible_bbox_ltrb": [
+        354,
+        489,
+        614,
+        641
+      ],
+      "transparent_pixel_fraction": 0.982477,
+      "low_alpha_pixel_fraction": 0.000203,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "source_svg": "assets/listening/effects/r04_lamp_pool.svg",
+      "source_svg_sha256": "80d2b9272ecf2ec639fd3b0a2a812c693ac893bfd089f088d857620af0a1fb27",
+      "class": "authored_graphic",
+      "role": "local_light_behind_props",
+      "visibility_note": "task lamp lit",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_rain_0": {
+      "path": "assets/listening/effects/r04_rain_0.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGBA",
+      "sha256": "e552168cfb4e2644908933f2a1260f09c8f186923bc1adbe6e3d819104261e30",
+      "alpha_range": [
+        0,
+        69
+      ],
+      "alpha_bbox_ltrb": [
+        1173,
+        137,
+        1324,
+        579
+      ],
+      "visible_bbox_ltrb": [
+        1173,
+        137,
+        1324,
+        579
+      ],
+      "transparent_pixel_fraction": 0.998744,
+      "low_alpha_pixel_fraction": 0.000256,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "source_svg": "assets/listening/effects/r04_rain_0.svg",
+      "source_svg_sha256": "fff8857faac255c820986c9ddb7f6482da926b76980693c38ddd91cecb92314d",
+      "class": "authored_graphic",
+      "role": "window_rain_frame",
+      "visibility_note": "weather 2\u20137; freeze frame 0 at weather 4; no motion in reduced-motion mode",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_rain_1": {
+      "path": "assets/listening/effects/r04_rain_1.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGBA",
+      "sha256": "509fb8a5457ff0fbca2a08a431f873a4a5453407855d63f3a019cb7031a0a652",
+      "alpha_range": [
+        0,
+        69
+      ],
+      "alpha_bbox_ltrb": [
+        1173,
+        137,
+        1324,
+        579
+      ],
+      "visible_bbox_ltrb": [
+        1173,
+        137,
+        1324,
+        579
+      ],
+      "transparent_pixel_fraction": 0.998797,
+      "low_alpha_pixel_fraction": 0.000244,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "source_svg": "assets/listening/effects/r04_rain_1.svg",
+      "source_svg_sha256": "330cb6f66383b1c53575aec2a43f869ca236056eef5eea1dd894caf59ccbf8d9",
+      "class": "authored_graphic",
+      "role": "window_rain_frame",
+      "visibility_note": "weather 2\u20137; freeze frame 0 at weather 4; no motion in reduced-motion mode",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_rain_2": {
+      "path": "assets/listening/effects/r04_rain_2.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGBA",
+      "sha256": "ee8aaf4154d9b1eb16eac57ea508b0019901312a3cd437065195268b16d7e4ab",
+      "alpha_range": [
+        0,
+        69
+      ],
+      "alpha_bbox_ltrb": [
+        1173,
+        137,
+        1324,
+        578
+      ],
+      "visible_bbox_ltrb": [
+        1173,
+        137,
+        1324,
+        578
+      ],
+      "transparent_pixel_fraction": 0.998736,
+      "low_alpha_pixel_fraction": 0.000257,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "source_svg": "assets/listening/effects/r04_rain_2.svg",
+      "source_svg_sha256": "abcea7e181a93a69005fd14980687409e659c9fca3905c7ad55e11decc8a074f",
+      "class": "authored_graphic",
+      "role": "window_rain_frame",
+      "visibility_note": "weather 2\u20137; freeze frame 0 at weather 4; no motion in reduced-motion mode",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_stool_damp_mark": {
+      "path": "assets/listening/effects/r04_stool_damp_mark.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGBA",
+      "sha256": "5bf576e69af5f282477df8c937ad130fc7b93a320f5df475163a651eacf867b2",
+      "alpha_range": [
+        0,
+        74
+      ],
+      "alpha_bbox_ltrb": [
+        490,
+        749,
+        577,
+        772
+      ],
+      "visible_bbox_ltrb": [
+        490,
+        749,
+        577,
+        772
+      ],
+      "transparent_pixel_fraction": 0.998989,
+      "low_alpha_pixel_fraction": 2.6e-05,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "source_svg": "assets/listening/effects/r04_stool_damp_mark.svg",
+      "source_svg_sha256": "706d503714ec4c91be395d5aea86e87f464cf5469c0c570d6a2fa8c9499cff12",
+      "class": "authored_graphic",
+      "role": "registered_seat_mark",
+      "visibility_note": "weather >= 3; layer over dry stool; alignment requires integration review",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_wall_damp": {
+      "path": "assets/listening/effects/r04_wall_damp.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGBA",
+      "sha256": "a63a1ca94b288568be42db11b17a3b16de3fb1d39148438c2c66db3983eec333",
+      "alpha_range": [
+        0,
+        56
+      ],
+      "alpha_bbox_ltrb": [
+        1115,
+        640,
+        1265,
+        801
+      ],
+      "visible_bbox_ltrb": [
+        1115,
+        640,
+        1265,
+        799
+      ],
+      "transparent_pixel_fraction": 0.993095,
+      "low_alpha_pixel_fraction": 0.00014,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "source_svg": "assets/listening/effects/r04_wall_damp.svg",
+      "source_svg_sha256": "f81512d0d6ba413f6664eb0bac9986181a7d2ccb0d74e96045b785a611146ef9",
+      "class": "authored_graphic",
+      "role": "local_damp_layer",
+      "visibility_note": "weather >= 3",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_window_mask": {
+      "path": "assets/listening/effects/r04_window_mask.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGBA",
+      "sha256": "7bc3b784e9644a278bc7f5b185d7f63015a90e02a7357f002fb407e953a62e89",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1112,
+        137,
+        1380,
+        579
+      ],
+      "visible_bbox_ltrb": [
+        1112,
+        137,
+        1380,
+        579
+      ],
+      "transparent_pixel_fraction": 0.93302,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "source_svg": "assets/listening/effects/r04_window_mask.svg",
+      "source_svg_sha256": "4d966c6392f1dfde09813004bf4d441cae2ce2a8133e258d0caf107841566fdb",
+      "class": "authored_graphic",
+      "role": "window_alpha_mask",
+      "visibility_note": null,
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_brush_shavings": {
+      "path": "assets/listening/props/r04_brush_shavings.png",
+      "width": 1774,
+      "height": 887,
+      "mode": "RGBA",
+      "sha256": "8872d4624a5db35e6b6ae1b9b276fbe23834c2ae1bdbffbd90e4084d8f79c0b9",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        179,
+        21,
+        1704,
+        758
+      ],
+      "visible_bbox_ltrb": [
+        187,
+        304,
+        1579,
+        626
+      ],
+      "transparent_pixel_fraction": 0.84898,
+      "low_alpha_pixel_fraction": 0.014588,
+      "render_region_px": [
+        187,
+        304,
+        1392,
+        322
+      ],
+      "class": "generated_illustration",
+      "role": "alpha",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_canister_closed": {
+      "path": "assets/listening/props/r04_canister_closed.png",
+      "width": 1207,
+      "height": 1303,
+      "mode": "RGBA",
+      "sha256": "2f7a7a7e328ec31436945e854c5ee8b904cd9fc4bfcae4103cb6c3f2e88bf809",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        42,
+        1086,
+        1287
+      ],
+      "visible_bbox_ltrb": [
+        263,
+        156,
+        939,
+        1163
+      ],
+      "transparent_pixel_fraction": 0.585684,
+      "low_alpha_pixel_fraction": 0.004495,
+      "render_region_px": [
+        263,
+        156,
+        676,
+        1007
+      ],
+      "class": "generated_illustration",
+      "role": "alpha",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_canister_open": {
+      "path": "assets/listening/props/r04_canister_open.png",
+      "width": 1207,
+      "height": 1303,
+      "mode": "RGBA",
+      "sha256": "912053044996571731e59f7ade715771ab4a1760b92791c2b431a57684bbca71",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        1127,
+        1303
+      ],
+      "visible_bbox_ltrb": [
+        266,
+        153,
+        941,
+        1163
+      ],
+      "transparent_pixel_fraction": 0.584271,
+      "low_alpha_pixel_fraction": 0.003489,
+      "render_region_px": [
+        266,
+        153,
+        675,
+        1010
+      ],
+      "class": "generated_illustration",
+      "role": "alpha",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_case_closed": {
+      "path": "assets/listening/props/r04_case_closed.png",
+      "width": 1313,
+      "height": 1198,
+      "mode": "RGBA",
+      "sha256": "c446a2e16550def067e0d94384e63764003f572439e4a33e709d40785aaf930a",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        21,
+        21,
+        1172,
+        1158
+      ],
+      "visible_bbox_ltrb": [
+        144,
+        429,
+        1169,
+        821
+      ],
+      "transparent_pixel_fraction": 0.742971,
+      "low_alpha_pixel_fraction": 0.006637,
+      "render_region_px": [
+        144,
+        429,
+        1025,
+        392
+      ],
+      "class": "generated_illustration",
+      "role": "alpha",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_case_open": {
+      "path": "assets/listening/props/r04_case_open.png",
+      "width": 1314,
+      "height": 1197,
+      "mode": "RGBA",
+      "sha256": "81b6a5011b0e32bfef29e0f4814d3270b721351bfdd24e3900099c1495e2e4c6",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        81,
+        19,
+        1258,
+        1197
+      ],
+      "visible_bbox_ltrb": [
+        235,
+        156,
+        1080,
+        1019
+      ],
+      "transparent_pixel_fraction": 0.597967,
+      "low_alpha_pixel_fraction": 0.006417,
+      "render_region_px": [
+        235,
+        156,
+        845,
+        863
+      ],
+      "class": "generated_illustration",
+      "role": "alpha",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_drawer_open": {
+      "path": "assets/listening/props/r04_drawer_open.png",
+      "width": 2172,
+      "height": 724,
+      "mode": "RGBA",
+      "sha256": "1de6c57d620c263a50624058fe24a857e499e4d9b453257760ec0379969885da",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        63,
+        23,
+        2150,
+        724
+      ],
+      "visible_bbox_ltrb": [
+        129,
+        203,
+        2043,
+        553
+      ],
+      "transparent_pixel_fraction": 0.570214,
+      "low_alpha_pixel_fraction": 0.009953,
+      "render_region_px": [
+        129,
+        203,
+        1914,
+        350
+      ],
+      "class": "generated_illustration",
+      "role": "alpha",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_headphones_hanging": {
+      "path": "assets/listening/props/r04_headphones_hanging.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "sha256": "c348e4b4dcc149a9fa41de40e3c471f092495236c4bfd66978e9ee2583427110",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        49,
+        21,
+        1230,
+        1254
+      ],
+      "visible_bbox_ltrb": [
+        260,
+        70,
+        1149,
+        1187
+      ],
+      "transparent_pixel_fraction": 0.85819,
+      "low_alpha_pixel_fraction": 0.007432,
+      "render_region_px": [
+        260,
+        70,
+        889,
+        1117
+      ],
+      "class": "generated_illustration",
+      "role": "alpha",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_instruction_stand": {
+      "path": "assets/listening/props/r04_instruction_stand.png",
+      "width": 1351,
+      "height": 1164,
+      "mode": "RGBA",
+      "sha256": "a585d62dad77f1306b65a95a44194b77b4cb21314db76bd147b9fce2b787e4fb",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        49,
+        8,
+        1321,
+        1146
+      ],
+      "visible_bbox_ltrb": [
+        295,
+        156,
+        1057,
+        1005
+      ],
+      "transparent_pixel_fraction": 0.661296,
+      "low_alpha_pixel_fraction": 0.005232,
+      "render_region_px": [
+        295,
+        156,
+        762,
+        849
+      ],
+      "class": "generated_illustration",
+      "role": "alpha",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_lamp_off": {
+      "path": "assets/listening/props/r04_lamp_off.png",
+      "width": 1322,
+      "height": 1190,
+      "mode": "RGBA",
+      "sha256": "efe909e27ae8fd848557ca43aef837e81f4bbb415aef60d252f6238614c9ba62",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        25,
+        9,
+        1292,
+        1160
+      ],
+      "visible_bbox_ltrb": [
+        193,
+        13,
+        1102,
+        1156
+      ],
+      "transparent_pixel_fraction": 0.839894,
+      "low_alpha_pixel_fraction": 0.005931,
+      "render_region_px": [
+        193,
+        13,
+        909,
+        1143
+      ],
+      "class": "generated_illustration",
+      "role": "alpha",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_lamp_on": {
+      "path": "assets/listening/props/r04_lamp_on.png",
+      "width": 1323,
+      "height": 1189,
+      "mode": "RGBA",
+      "sha256": "3380ba3095d0f8b0a57153b7a90efde430426affcf54069ea0816a7eefe13172",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        90,
+        8,
+        1220,
+        1159
+      ],
+      "visible_bbox_ltrb": [
+        193,
+        11,
+        1105,
+        1154
+      ],
+      "transparent_pixel_fraction": 0.83746,
+      "low_alpha_pixel_fraction": 0.006183,
+      "render_region_px": [
+        193,
+        11,
+        912,
+        1143
+      ],
+      "class": "generated_illustration",
+      "role": "alpha",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_ledger_stack": {
+      "path": "assets/listening/props/r04_ledger_stack.png",
+      "width": 1774,
+      "height": 887,
+      "mode": "RGBA",
+      "sha256": "cd71cae0474c9a1a8eafb11c76bae7585335c577e32c39af95c273ce803d3e25",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        19,
+        1601,
+        865
+      ],
+      "visible_bbox_ltrb": [
+        176,
+        260,
+        1599,
+        706
+      ],
+      "transparent_pixel_fraction": 0.60161,
+      "low_alpha_pixel_fraction": 0.007472,
+      "render_region_px": [
+        176,
+        260,
+        1423,
+        446
+      ],
+      "class": "generated_illustration",
+      "role": "alpha",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_noticeboard_panel": {
+      "path": "assets/listening/props/r04_noticeboard_panel.png",
+      "width": 1536,
+      "height": 1024,
+      "mode": "RGBA",
+      "sha256": "c2c79faadd0112bbe36d2aae96f72e1174a87f1251d7bfaf80628ab1314a53cc",
+      "alpha_range": [
+        200,
+        250
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        1536,
+        1024
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        1536,
+        1024
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        1536,
+        1024
+      ],
+      "class": "generated_illustration",
+      "role": "rectangular_prop",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_prop",
+      "notes": [
+        "Alpha is 200-250 throughout. Use the opaque brown backing layer."
+      ]
+    },
+    "r04_recorder_assembled": {
+      "path": "assets/listening/props/r04_recorder_assembled.png",
+      "width": 1774,
+      "height": 887,
+      "mode": "RGBA",
+      "sha256": "9165aba9dfcb8fbfa548622239351a694c0bea60402f988d04c7d24618b9ee1c",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        238,
+        77,
+        1691,
+        847
+      ],
+      "visible_bbox_ltrb": [
+        240,
+        115,
+        1687,
+        797
+      ],
+      "transparent_pixel_fraction": 0.637604,
+      "low_alpha_pixel_fraction": 0.009182,
+      "render_region_px": [
+        240,
+        115,
+        1447,
+        682
+      ],
+      "class": "generated_illustration",
+      "role": "alpha",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "pose_reference_only",
+      "notes": [
+        "Generated silhouette drift. Use fixed empty recorder plus bands, or dry stool plus damp overlay, for persistent room state."
+      ]
+    },
+    "r04_recorder_empty": {
+      "path": "assets/listening/props/r04_recorder_empty.png",
+      "width": 1774,
+      "height": 887,
+      "mode": "RGBA",
+      "sha256": "a8a7f845e79fb1af4f4415a19b22ec1b5b65536a5131bd857a21943bf30c26f3",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        19,
+        21,
+        1760,
+        863
+      ],
+      "visible_bbox_ltrb": [
+        241,
+        95,
+        1683,
+        796
+      ],
+      "transparent_pixel_fraction": 0.684282,
+      "low_alpha_pixel_fraction": 0.011635,
+      "render_region_px": [
+        241,
+        95,
+        1442,
+        701
+      ],
+      "class": "generated_illustration",
+      "role": "alpha",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_recorder_partial": {
+      "path": "assets/listening/props/r04_recorder_partial.png",
+      "width": 1774,
+      "height": 887,
+      "mode": "RGBA",
+      "sha256": "f035e362ab931db9318d041b8818f4a0a52c83bc5da65716b1b62cbb6454e078",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        17,
+        31,
+        1732,
+        863
+      ],
+      "visible_bbox_ltrb": [
+        122,
+        65,
+        1729,
+        825
+      ],
+      "transparent_pixel_fraction": 0.601131,
+      "low_alpha_pixel_fraction": 0.012804,
+      "render_region_px": [
+        122,
+        65,
+        1607,
+        760
+      ],
+      "class": "generated_illustration",
+      "role": "alpha",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "pose_reference_only",
+      "notes": [
+        "Generated silhouette drift. Use fixed empty recorder plus bands, or dry stool plus damp overlay, for persistent room state."
+      ]
+    },
+    "r04_shelf_cylinder": {
+      "path": "assets/listening/props/r04_shelf_cylinder.png",
+      "width": 1774,
+      "height": 887,
+      "mode": "RGBA",
+      "sha256": "c40674a7c0fe24807abf3b8d9487667fec3703b1bb713f9fd8d43939d8be8e5f",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        21,
+        1762,
+        833
+      ],
+      "visible_bbox_ltrb": [
+        87,
+        248,
+        1683,
+        650
+      ],
+      "transparent_pixel_fraction": 0.601207,
+      "low_alpha_pixel_fraction": 0.005997,
+      "render_region_px": [
+        87,
+        248,
+        1596,
+        402
+      ],
+      "class": "generated_illustration",
+      "role": "alpha",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_stool_damp": {
+      "path": "assets/listening/props/r04_stool_damp.png",
+      "width": 1214,
+      "height": 1295,
+      "mode": "RGBA",
+      "sha256": "9b89dda827fab6f9ac260dec7b9e023a4b69551ba9c8792c8bff41a611c6abf6",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        10,
+        1168,
+        1238
+      ],
+      "visible_bbox_ltrb": [
+        223,
+        158,
+        991,
+        1177
+      ],
+      "transparent_pixel_fraction": 0.70881,
+      "low_alpha_pixel_fraction": 0.007914,
+      "render_region_px": [
+        223,
+        158,
+        768,
+        1019
+      ],
+      "class": "generated_illustration",
+      "role": "alpha",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "pose_reference_only",
+      "notes": [
+        "Generated silhouette drift. Use fixed empty recorder plus bands, or dry stool plus damp overlay, for persistent room state."
+      ]
+    },
+    "r04_stool_dry": {
+      "path": "assets/listening/props/r04_stool_dry.png",
+      "width": 1223,
+      "height": 1286,
+      "mode": "RGBA",
+      "sha256": "611539f08ab5d1a2f52d4fb0ab65a4b4f4b1b9b173fd6287e23dceb856d9dec0",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        210,
+        71,
+        1165,
+        1208
+      ],
+      "visible_bbox_ltrb": [
+        213,
+        98,
+        1011,
+        1203
+      ],
+      "transparent_pixel_fraction": 0.691272,
+      "low_alpha_pixel_fraction": 0.008062,
+      "render_region_px": [
+        213,
+        98,
+        798,
+        1105
+      ],
+      "class": "generated_illustration",
+      "role": "alpha",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_wax_band": {
+      "path": "assets/listening/props/r04_wax_band.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGBA",
+      "sha256": "8ee53683ab7400a554497fbed4d7781031c0746fb7f73444696d179bb00996a0",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        280,
+        21,
+        1321,
+        997
+      ],
+      "visible_bbox_ltrb": [
+        427,
+        336,
+        1012,
+        748
+      ],
+      "transparent_pixel_fraction": 0.85114,
+      "low_alpha_pixel_fraction": 0.002239,
+      "render_region_px": [
+        427,
+        336,
+        585,
+        412
+      ],
+      "class": "generated_illustration",
+      "role": "alpha",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_band_a_step_0": {
+      "path": "assets/listening/puzzle/r04_band_a_step_0.png",
+      "width": 180,
+      "height": 300,
+      "mode": "RGBA",
+      "sha256": "7dea680d1496b9943f0af33388c13711f6239f4226766e284b86160d9963ab90",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        92,
+        180,
+        254
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        92,
+        180,
+        254
+      ],
+      "transparent_pixel_fraction": 0.901556,
+      "low_alpha_pixel_fraction": 0.000981,
+      "render_region_px": [
+        0,
+        0,
+        180,
+        300
+      ],
+      "source_svg": "assets/listening/puzzle/r04_band_a_step_0.svg",
+      "source_svg_sha256": "823ab29bde3638b141f5a76d0deffd8a34532c3c576fba117a7c5a434170b9e0",
+      "class": "authored_graphic",
+      "role": "exact_band_overlay",
+      "visibility_note": "P02 sleeve visible",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_band_a_step_1": {
+      "path": "assets/listening/puzzle/r04_band_a_step_1.png",
+      "width": 180,
+      "height": 300,
+      "mode": "RGBA",
+      "sha256": "a8e5ab9da63df49fe425dc6a0f824bac2ae1db2c237173e6539e06274ee39b20",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        34,
+        180,
+        254
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        34,
+        180,
+        254
+      ],
+      "transparent_pixel_fraction": 0.895963,
+      "low_alpha_pixel_fraction": 0.001389,
+      "render_region_px": [
+        0,
+        0,
+        180,
+        300
+      ],
+      "source_svg": "assets/listening/puzzle/r04_band_a_step_1.svg",
+      "source_svg_sha256": "be7afda31726489f6ebe8d2aaea3c2cd4cc381781edaf59af79e580f43cc35a7",
+      "class": "authored_graphic",
+      "role": "exact_band_overlay",
+      "visibility_note": "P02 sleeve visible",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_band_a_step_2": {
+      "path": "assets/listening/puzzle/r04_band_a_step_2.png",
+      "width": 180,
+      "height": 300,
+      "mode": "RGBA",
+      "sha256": "b1fae64f4d62bf3108847308d601a4111ef8d0a22c3ed60ac5b5c19a66cda432",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        34,
+        180,
+        254
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        34,
+        180,
+        254
+      ],
+      "transparent_pixel_fraction": 0.901556,
+      "low_alpha_pixel_fraction": 0.000981,
+      "render_region_px": [
+        0,
+        0,
+        180,
+        300
+      ],
+      "source_svg": "assets/listening/puzzle/r04_band_a_step_2.svg",
+      "source_svg_sha256": "c160e178f6e6acf0c3b3d9331c50d80e297d026dea710af38e5618f4666a10df",
+      "class": "authored_graphic",
+      "role": "exact_band_overlay",
+      "visibility_note": "P02 sleeve visible",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_band_b_step_0": {
+      "path": "assets/listening/puzzle/r04_band_b_step_0.png",
+      "width": 180,
+      "height": 300,
+      "mode": "RGBA",
+      "sha256": "e888d7cff058f370d88cfc379c0eeb8041d5724cbeb0112f2595729900c52402",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        34,
+        180,
+        282
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        34,
+        180,
+        282
+      ],
+      "transparent_pixel_fraction": 0.888148,
+      "low_alpha_pixel_fraction": 0.001667,
+      "render_region_px": [
+        0,
+        0,
+        180,
+        300
+      ],
+      "source_svg": "assets/listening/puzzle/r04_band_b_step_0.svg",
+      "source_svg_sha256": "5e32d5d823db416db557ba50d6bb3e0aa5861e2f7d6b4bba7b20c343ffc66d14",
+      "class": "authored_graphic",
+      "role": "exact_band_overlay",
+      "visibility_note": "P02 sleeve visible",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_band_b_step_1": {
+      "path": "assets/listening/puzzle/r04_band_b_step_1.png",
+      "width": 180,
+      "height": 300,
+      "mode": "RGBA",
+      "sha256": "48a23f3a68264f2b77cf1a7536445700f6270a1ed64360e5f80add7d92aa42ea",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        34,
+        180,
+        282
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        34,
+        180,
+        282
+      ],
+      "transparent_pixel_fraction": 0.893741,
+      "low_alpha_pixel_fraction": 0.001259,
+      "render_region_px": [
+        0,
+        0,
+        180,
+        300
+      ],
+      "source_svg": "assets/listening/puzzle/r04_band_b_step_1.svg",
+      "source_svg_sha256": "bb8041b16b0d70140f8de5b7e0b988eedd4187a378809564abbc5df1a3006c1c",
+      "class": "authored_graphic",
+      "role": "exact_band_overlay",
+      "visibility_note": "P02 sleeve visible",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_band_b_step_2": {
+      "path": "assets/listening/puzzle/r04_band_b_step_2.png",
+      "width": 180,
+      "height": 300,
+      "mode": "RGBA",
+      "sha256": "1464554e7bb3c7b0bbd111c7d4c5c1ff9fba146309c3a0417a6ec9f21da7afa4",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        92,
+        180,
+        282
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        92,
+        180,
+        282
+      ],
+      "transparent_pixel_fraction": 0.893741,
+      "low_alpha_pixel_fraction": 0.001259,
+      "render_region_px": [
+        0,
+        0,
+        180,
+        300
+      ],
+      "source_svg": "assets/listening/puzzle/r04_band_b_step_2.svg",
+      "source_svg_sha256": "af070a1638c6dc1099a34c5f1ce971b0f72eee41dbc68a0740cc54bac7d96b2d",
+      "class": "authored_graphic",
+      "role": "exact_band_overlay",
+      "visibility_note": "P02 sleeve visible",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_band_c_step_0": {
+      "path": "assets/listening/puzzle/r04_band_c_step_0.png",
+      "width": 180,
+      "height": 300,
+      "mode": "RGBA",
+      "sha256": "545b80ea84d2b385a45059bed5c8853e0fa578798c25bcacef783f2ef4cea279",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        34,
+        180,
+        283
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        34,
+        180,
+        283
+      ],
+      "transparent_pixel_fraction": 0.891685,
+      "low_alpha_pixel_fraction": 0.001426,
+      "render_region_px": [
+        0,
+        0,
+        180,
+        300
+      ],
+      "source_svg": "assets/listening/puzzle/r04_band_c_step_0.svg",
+      "source_svg_sha256": "66e8261efa5bbddade93a9ae23767a8917359baf0fb8533e1de9c20d7a768027",
+      "class": "authored_graphic",
+      "role": "exact_band_overlay",
+      "visibility_note": "P02 sleeve visible",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_band_c_step_1": {
+      "path": "assets/listening/puzzle/r04_band_c_step_1.png",
+      "width": 180,
+      "height": 300,
+      "mode": "RGBA",
+      "sha256": "8e6a759d5ff5ebf77727392c2463f3a5669f534d8781060e9f35e169d250609b",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        92,
+        180,
+        283
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        92,
+        180,
+        283
+      ],
+      "transparent_pixel_fraction": 0.891685,
+      "low_alpha_pixel_fraction": 0.001426,
+      "render_region_px": [
+        0,
+        0,
+        180,
+        300
+      ],
+      "source_svg": "assets/listening/puzzle/r04_band_c_step_1.svg",
+      "source_svg_sha256": "03ce1904b72055ae6b8487a558723ded2a3d381f779d42fa936e04f9053ec18b",
+      "class": "authored_graphic",
+      "role": "exact_band_overlay",
+      "visibility_note": "P02 sleeve visible",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_band_c_step_2": {
+      "path": "assets/listening/puzzle/r04_band_c_step_2.png",
+      "width": 180,
+      "height": 300,
+      "mode": "RGBA",
+      "sha256": "0fd97dd879b73ae24cb7f0712cbbabbb883f3e116bdf481061a236eeee4defa8",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        34,
+        180,
+        283
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        34,
+        180,
+        283
+      ],
+      "transparent_pixel_fraction": 0.886093,
+      "low_alpha_pixel_fraction": 0.001833,
+      "render_region_px": [
+        0,
+        0,
+        180,
+        300
+      ],
+      "source_svg": "assets/listening/puzzle/r04_band_c_step_2.svg",
+      "source_svg_sha256": "6bef7e2737173ed9a96d914d8361d9f8ee4f728c4a0762ab3e2bdf010eb43ab9",
+      "class": "authored_graphic",
+      "role": "exact_band_overlay",
+      "visibility_note": "P02 sleeve visible",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_band_face": {
+      "path": "assets/listening/puzzle/r04_band_face.png",
+      "width": 180,
+      "height": 200,
+      "mode": "RGBA",
+      "sha256": "239c1c80ab092b37245bb30aa5d55e7e7d6af1bc49ef48571f8332cf54d4bfbc",
+      "alpha_range": [
+        195,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        180,
+        200
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        180,
+        200
+      ],
+      "transparent_pixel_fraction": 0.0,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        180,
+        200
+      ],
+      "source_svg": "assets/listening/puzzle/r04_band_face.svg",
+      "source_svg_sha256": "77d11911c5146209a7ee1e5b2a1dcbc634c67f17b343e852ad8ee6886ffccb15",
+      "class": "authored_graphic",
+      "role": "authored_front_elevation_wax_face",
+      "visibility_note": "P02 inspection; use beneath exact seam overlay",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_case_label_a": {
+      "path": "assets/listening/puzzle/r04_case_label_a.png",
+      "width": 180,
+      "height": 90,
+      "mode": "RGBA",
+      "sha256": "5482edc5e55178f558d97e93e918ddbf6be0a80d0bbcf24b1ddbffc1175cba65",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        179,
+        89
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        179,
+        89
+      ],
+      "transparent_pixel_fraction": 0.033086,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        180,
+        90
+      ],
+      "source_svg": "assets/listening/puzzle/r04_case_label_a.svg",
+      "source_svg_sha256": "3c2d120316d62f4ebca2cd34a6a681108f9012ef5c80f28548cd1bb5a4646839",
+      "class": "authored_graphic",
+      "role": "case_label",
+      "visibility_note": "R04",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_case_label_b": {
+      "path": "assets/listening/puzzle/r04_case_label_b.png",
+      "width": 180,
+      "height": 90,
+      "mode": "RGBA",
+      "sha256": "8c3a2a3845b40ad72d867dd24be864878f9ba283dec64825cd2d79499da4d9de",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        179,
+        89
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        179,
+        89
+      ],
+      "transparent_pixel_fraction": 0.033086,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        180,
+        90
+      ],
+      "source_svg": "assets/listening/puzzle/r04_case_label_b.svg",
+      "source_svg_sha256": "b5b960773c2d58cddac21b169f84cdb7e81a9cf91c0e550e15e6d15751a85409",
+      "class": "authored_graphic",
+      "role": "case_label",
+      "visibility_note": "R04",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_case_label_c": {
+      "path": "assets/listening/puzzle/r04_case_label_c.png",
+      "width": 180,
+      "height": 90,
+      "mode": "RGBA",
+      "sha256": "4b50b1af487020f125791237adce0c62a8a57442d83d511ede9484e86654d49e",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        179,
+        89
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        179,
+        89
+      ],
+      "transparent_pixel_fraction": 0.033086,
+      "low_alpha_pixel_fraction": 0.0,
+      "render_region_px": [
+        0,
+        0,
+        180,
+        90
+      ],
+      "source_svg": "assets/listening/puzzle/r04_case_label_c.svg",
+      "source_svg_sha256": "8d38dfe0646c8e2b1024193cbe9606abb45494eefeca5ab8ed7afcf39d091636",
+      "class": "authored_graphic",
+      "role": "case_label",
+      "visibility_note": "R04",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_channel_closed": {
+      "path": "assets/listening/puzzle/r04_channel_closed.png",
+      "width": 260,
+      "height": 100,
+      "mode": "RGBA",
+      "sha256": "866e737f52a56171ba3d1f6562fc0b8e2a1a673b0ecac43f92c68e2f906f72f4",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        259,
+        99
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        259,
+        99
+      ],
+      "transparent_pixel_fraction": 0.028769,
+      "low_alpha_pixel_fraction": 0.000615,
+      "render_region_px": [
+        0,
+        0,
+        260,
+        100
+      ],
+      "source_svg": "assets/listening/puzzle/r04_channel_closed.svg",
+      "source_svg_sha256": "3db020461c46e56e2ce035312220c9278f2f7a338e87f6a3fb54f413c6fb7c8f",
+      "class": "authored_graphic",
+      "role": "shared_channel_control",
+      "visibility_note": "P19",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_channel_open": {
+      "path": "assets/listening/puzzle/r04_channel_open.png",
+      "width": 260,
+      "height": 100,
+      "mode": "RGBA",
+      "sha256": "b7445b2f79e0f8d6bbef1cdf59552e338cca85b9c8f75a6c3ae68780292e89a3",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        259,
+        99
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        259,
+        99
+      ],
+      "transparent_pixel_fraction": 0.028769,
+      "low_alpha_pixel_fraction": 0.000615,
+      "render_region_px": [
+        0,
+        0,
+        260,
+        100
+      ],
+      "source_svg": "assets/listening/puzzle/r04_channel_open.svg",
+      "source_svg_sha256": "ed67fc5f8c5ffa706b1a9a21aada18825f3e054f58f60a71afee91ba359a28d3",
+      "class": "authored_graphic",
+      "role": "shared_channel_control",
+      "visibility_note": "P19",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_indicator_off": {
+      "path": "assets/listening/puzzle/r04_indicator_off.png",
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "sha256": "88f131a64180c55d075a37d464260b33f992308ddab79f416437fb4a04dfaf3f",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        4,
+        4,
+        60,
+        60
+      ],
+      "visible_bbox_ltrb": [
+        4,
+        4,
+        60,
+        60
+      ],
+      "transparent_pixel_fraction": 0.395996,
+      "low_alpha_pixel_fraction": 0.004395,
+      "render_region_px": [
+        0,
+        0,
+        64,
+        64
+      ],
+      "source_svg": "assets/listening/puzzle/r04_indicator_off.svg",
+      "source_svg_sha256": "048bf0cf835c85ac6fb6972e223e53005eec187e79e71f697e161c8fa8dfa5cc",
+      "class": "authored_graphic",
+      "role": "circuit_indicator",
+      "visibility_note": "P19",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_indicator_on": {
+      "path": "assets/listening/puzzle/r04_indicator_on.png",
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA",
+      "sha256": "6ab60f1671504f56bd22177a59373e865d3138e670fef76c5ec2d16644b9c9a1",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        4,
+        4,
+        60,
+        60
+      ],
+      "visible_bbox_ltrb": [
+        4,
+        4,
+        60,
+        60
+      ],
+      "transparent_pixel_fraction": 0.395996,
+      "low_alpha_pixel_fraction": 0.004395,
+      "render_region_px": [
+        0,
+        0,
+        64,
+        64
+      ],
+      "source_svg": "assets/listening/puzzle/r04_indicator_on.svg",
+      "source_svg_sha256": "a9cd31c6b994a9b265c3e9dfa50e590b6658425f1d1e57f6b233b6b4ee910399",
+      "class": "authored_graphic",
+      "role": "circuit_indicator",
+      "visibility_note": "P19",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_listen_nora_idle": {
+      "path": "assets/listening/puzzle/r04_listen_nora_idle.png",
+      "width": 400,
+      "height": 72,
+      "mode": "RGBA",
+      "sha256": "de5f9abae40d7409c338a0a8b7e87cd34511b6c3966a10b7d5c6d09a782cf2d5",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        399,
+        71
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        399,
+        71
+      ],
+      "transparent_pixel_fraction": 0.034306,
+      "low_alpha_pixel_fraction": 3.5e-05,
+      "render_region_px": [
+        0,
+        0,
+        400,
+        72
+      ],
+      "source_svg": "assets/listening/puzzle/r04_listen_nora_idle.svg",
+      "source_svg_sha256": "99b5cfed70d55d09b86acebbcb8f9efe79d7a57d96a3a9c6916eb663f976f263",
+      "class": "authored_graphic",
+      "role": "single_voice_control",
+      "visibility_note": "P17",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_listen_nora_pressed": {
+      "path": "assets/listening/puzzle/r04_listen_nora_pressed.png",
+      "width": 400,
+      "height": 72,
+      "mode": "RGBA",
+      "sha256": "f629d9a7caf6404ec3f40b2d945fc1bcb5488a35dab238e58ec9a6ca06989313",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        399,
+        71
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        399,
+        71
+      ],
+      "transparent_pixel_fraction": 0.034306,
+      "low_alpha_pixel_fraction": 3.5e-05,
+      "render_region_px": [
+        0,
+        0,
+        400,
+        72
+      ],
+      "source_svg": "assets/listening/puzzle/r04_listen_nora_pressed.svg",
+      "source_svg_sha256": "a64a513cc55b213fe0c8b4faf6e004ba844394c4e8dea5e6ad71f18a84944a39",
+      "class": "authored_graphic",
+      "role": "single_voice_control",
+      "visibility_note": "P17",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_listen_venn_idle": {
+      "path": "assets/listening/puzzle/r04_listen_venn_idle.png",
+      "width": 400,
+      "height": 72,
+      "mode": "RGBA",
+      "sha256": "bcd135b4b9be53956355a501d0d403eb0704d47dd96a955f30e0238090bab8da",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        399,
+        71
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        399,
+        71
+      ],
+      "transparent_pixel_fraction": 0.034306,
+      "low_alpha_pixel_fraction": 3.5e-05,
+      "render_region_px": [
+        0,
+        0,
+        400,
+        72
+      ],
+      "source_svg": "assets/listening/puzzle/r04_listen_venn_idle.svg",
+      "source_svg_sha256": "97bafda58ba312bdc23fb0be4a7964c44d84bd07cccbdbb11c69e870ceea3316",
+      "class": "authored_graphic",
+      "role": "single_voice_control",
+      "visibility_note": "P17",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_listen_venn_pressed": {
+      "path": "assets/listening/puzzle/r04_listen_venn_pressed.png",
+      "width": 400,
+      "height": 72,
+      "mode": "RGBA",
+      "sha256": "8e3ca40ae4dc2731efaa980d72dd0a82f8b418ea0ebf068784a2860a470a1b39",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        399,
+        71
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        399,
+        71
+      ],
+      "transparent_pixel_fraction": 0.034306,
+      "low_alpha_pixel_fraction": 3.5e-05,
+      "render_region_px": [
+        0,
+        0,
+        400,
+        72
+      ],
+      "source_svg": "assets/listening/puzzle/r04_listen_venn_pressed.svg",
+      "source_svg_sha256": "e8993670363b2acc3b6fb9a41fa8485b15f1f22348556c7aa0762f92f195eaf1",
+      "class": "authored_graphic",
+      "role": "single_voice_control",
+      "visibility_note": "P17",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_motor_off": {
+      "path": "assets/listening/puzzle/r04_motor_off.png",
+      "width": 260,
+      "height": 100,
+      "mode": "RGBA",
+      "sha256": "5b44302a465756d7e28e1535480dfd1eabf728d77a2323d991ca520409d0d5cb",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        259,
+        99
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        259,
+        99
+      ],
+      "transparent_pixel_fraction": 0.028769,
+      "low_alpha_pixel_fraction": 0.000615,
+      "render_region_px": [
+        0,
+        0,
+        260,
+        100
+      ],
+      "source_svg": "assets/listening/puzzle/r04_motor_off.svg",
+      "source_svg_sha256": "95411036ced229964a84d5a3abd264f3c0b20c13c489aa1cac39ddec5cbf2173",
+      "class": "authored_graphic",
+      "role": "motor_control",
+      "visibility_note": "P19",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_motor_on": {
+      "path": "assets/listening/puzzle/r04_motor_on.png",
+      "width": 260,
+      "height": 100,
+      "mode": "RGBA",
+      "sha256": "219ad780a576e5bd76744f732a651c54b1fe24b4ebc6239f9bbab3bcf1803c04",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        259,
+        99
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        259,
+        99
+      ],
+      "transparent_pixel_fraction": 0.028769,
+      "low_alpha_pixel_fraction": 0.000615,
+      "render_region_px": [
+        0,
+        0,
+        260,
+        100
+      ],
+      "source_svg": "assets/listening/puzzle/r04_motor_on.svg",
+      "source_svg_sha256": "8f7c4fb02358e30ca20b09b04c9ad01456ff2e1e6734eeadf46060c24acee394",
+      "class": "authored_graphic",
+      "role": "motor_control",
+      "visibility_note": "P19",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_needle_lowered": {
+      "path": "assets/listening/puzzle/r04_needle_lowered.png",
+      "width": 350,
+      "height": 96,
+      "mode": "RGBA",
+      "sha256": "f0c207611b6bc551a2e95713e98a9e6cf070deccefb70ef9e5a756ba888ebb81",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        349,
+        95
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        349,
+        95
+      ],
+      "transparent_pixel_fraction": 0.027857,
+      "low_alpha_pixel_fraction": 3e-05,
+      "render_region_px": [
+        0,
+        0,
+        350,
+        96
+      ],
+      "source_svg": "assets/listening/puzzle/r04_needle_lowered.svg",
+      "source_svg_sha256": "b0cdbf9f745ba32d0242508be11f0e8342b533da24145f93ad7cdf15e15d5486",
+      "class": "authored_graphic",
+      "role": "needle_control",
+      "visibility_note": "P02",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_needle_raised": {
+      "path": "assets/listening/puzzle/r04_needle_raised.png",
+      "width": 350,
+      "height": 96,
+      "mode": "RGBA",
+      "sha256": "fafe0ddd6cd00b259f92549931207a78db2b2e9b3cdc902362b4821567391b18",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        349,
+        95
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        349,
+        95
+      ],
+      "transparent_pixel_fraction": 0.027857,
+      "low_alpha_pixel_fraction": 3e-05,
+      "render_region_px": [
+        0,
+        0,
+        350,
+        96
+      ],
+      "source_svg": "assets/listening/puzzle/r04_needle_raised.svg",
+      "source_svg_sha256": "c8af6949ea81dd292727fbdc1ba156ac26f3e30610ab4742a53eea08b57d9090",
+      "class": "authored_graphic",
+      "role": "needle_control",
+      "visibility_note": "P02",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_p02_panel_overlay": {
+      "path": "assets/listening/puzzle/r04_p02_panel_overlay.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGBA",
+      "sha256": "1d6b488ff361cb0d555b959b5b5dcb8d995313fd55774f19cd922b87b31b9ca9",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        90,
+        113,
+        1157,
+        611
+      ],
+      "visible_bbox_ltrb": [
+        90,
+        113,
+        1157,
+        611
+      ],
+      "transparent_pixel_fraction": 0.809588,
+      "low_alpha_pixel_fraction": 0.000798,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "source_svg": "assets/listening/puzzle/r04_p02_panel_overlay.svg",
+      "source_svg_sha256": "4663cbf27a9b5642ee521d8ab0fce189dbd9b3a1e0ed9c3c644c467c4dc1f64a",
+      "class": "authored_graphic",
+      "role": "P02_inspection_overlay",
+      "visibility_note": "P01 complete",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_p02_playback_readout": {
+      "path": "assets/listening/puzzle/r04_p02_playback_readout.png",
+      "width": 1080,
+      "height": 600,
+      "mode": "RGBA",
+      "sha256": "bf346c2c91ee5f752dc4c79c4e92357cd2cf9946666bbfe8933c886a6f1feb95",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        0,
+        1080,
+        600
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        0,
+        1080,
+        600
+      ],
+      "transparent_pixel_fraction": 7.4e-05,
+      "low_alpha_pixel_fraction": 2e-06,
+      "render_region_px": [
+        0,
+        0,
+        1080,
+        600
+      ],
+      "source_svg": "assets/listening/puzzle/r04_p02_playback_readout.svg",
+      "source_svg_sha256": "766f2b05d5b476014587ca844a89df32e80b534ea5fe51060e7a330e12350a5b",
+      "class": "authored_graphic",
+      "role": "P02_exact_playback_readout",
+      "visibility_note": "P02 successful playback only",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_p17_panel_overlay": {
+      "path": "assets/listening/puzzle/r04_p17_panel_overlay.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGBA",
+      "sha256": "f630738dff885944dbc3e9f4850ec2021dba8d7cee3591cbd7770f66ad1641b7",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        110,
+        113,
+        1306,
+        973
+      ],
+      "visible_bbox_ltrb": [
+        110,
+        113,
+        1306,
+        973
+      ],
+      "transparent_pixel_fraction": 0.767819,
+      "low_alpha_pixel_fraction": 0.000717,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "source_svg": "assets/listening/puzzle/r04_p17_panel_overlay.svg",
+      "source_svg_sha256": "a720f8c0ac9e51aadeab2adc70957c7d02231d89bfb9b8d74768fb4811c62483",
+      "class": "authored_graphic",
+      "role": "P17_inspection_overlay",
+      "visibility_note": "P16 complete",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_p19_panel_overlay": {
+      "path": "assets/listening/puzzle/r04_p19_panel_overlay.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGBA",
+      "sha256": "74c1edb5446920566d73a6f202c1251d6fe642d3ce2d2f56c102e97146e68210",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        112,
+        111,
+        1302,
+        1015
+      ],
+      "visible_bbox_ltrb": [
+        112,
+        111,
+        1302,
+        1015
+      ],
+      "transparent_pixel_fraction": 0.718688,
+      "low_alpha_pixel_fraction": 0.000616,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "source_svg": "assets/listening/puzzle/r04_p19_panel_overlay.svg",
+      "source_svg_sha256": "767976cf38e4f63fce064088aeb56408d786b763d68a78444b52bf216acba6e7",
+      "class": "authored_graphic",
+      "role": "P19_inspection_overlay",
+      "visibility_note": "P17 AND P18 complete",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_p19_questions_overlay": {
+      "path": "assets/listening/puzzle/r04_p19_questions_overlay.png",
+      "width": 1448,
+      "height": 1086,
+      "mode": "RGBA",
+      "sha256": "7cb4cd9f5a119784e4c3dadb50806c17dee56e2e80f60113687076c42e6f5d81",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        109,
+        113,
+        869,
+        941
+      ],
+      "visible_bbox_ltrb": [
+        109,
+        113,
+        869,
+        941
+      ],
+      "transparent_pixel_fraction": 0.991105,
+      "low_alpha_pixel_fraction": 0.000531,
+      "render_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "source_svg": "assets/listening/puzzle/r04_p19_questions_overlay.svg",
+      "source_svg_sha256": "01483f82d22be7e07467882216d33815839a4889bb0b7229ae4730b24a11370f",
+      "class": "authored_graphic",
+      "role": "P19_question_selection_overlay",
+      "visibility_note": "P19 witness connected",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_play_key": {
+      "path": "assets/listening/puzzle/r04_play_key.png",
+      "width": 350,
+      "height": 96,
+      "mode": "RGBA",
+      "sha256": "b410052add9d14707ed973b0f169a9d7cfb776fed5ffae4d093a73cb3f734f05",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        349,
+        95
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        349,
+        95
+      ],
+      "transparent_pixel_fraction": 0.027857,
+      "low_alpha_pixel_fraction": 3e-05,
+      "render_region_px": [
+        0,
+        0,
+        350,
+        96
+      ],
+      "source_svg": "assets/listening/puzzle/r04_play_key.svg",
+      "source_svg_sha256": "07bf5eed18c0f2c431ae6a703ac3a551f7f7819a5ad3ad944cf059d09ce19cd8",
+      "class": "authored_graphic",
+      "role": "playback_control",
+      "visibility_note": "P02",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_question_reach": {
+      "path": "assets/listening/puzzle/r04_question_reach.png",
+      "width": 1208,
+      "height": 140,
+      "mode": "RGBA",
+      "sha256": "74b2cf6fb160e653aa586e18f1b603a0cec86d0a0a6cedc1f3f785e874302127",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        1207,
+        139
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        1207,
+        139
+      ],
+      "transparent_pixel_fraction": 0.016202,
+      "low_alpha_pixel_fraction": 6e-06,
+      "render_region_px": [
+        0,
+        0,
+        1208,
+        140
+      ],
+      "source_svg": "assets/listening/puzzle/r04_question_reach.svg",
+      "source_svg_sha256": "6a50254c76a7b99dbb91aae5ab466430d0f2cf5d4563f7d9086bbeb57759a788",
+      "class": "authored_graphic",
+      "role": "fixed_question",
+      "visibility_note": "P19 witness connected",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_question_remain": {
+      "path": "assets/listening/puzzle/r04_question_remain.png",
+      "width": 1208,
+      "height": 140,
+      "mode": "RGBA",
+      "sha256": "b903102ab40af48121b7a3fcf97772a3b95dc49a772b5b73b4ca75650c523e77",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        1207,
+        139
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        1207,
+        139
+      ],
+      "transparent_pixel_fraction": 0.016202,
+      "low_alpha_pixel_fraction": 6e-06,
+      "render_region_px": [
+        0,
+        0,
+        1208,
+        140
+      ],
+      "source_svg": "assets/listening/puzzle/r04_question_remain.svg",
+      "source_svg_sha256": "fba148cf30a5a3e0ba7120eb8458cf9bc835a588e63f60e2e2af0c292aadf373",
+      "class": "authored_graphic",
+      "role": "fixed_question",
+      "visibility_note": "P19 witness connected",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_question_sever": {
+      "path": "assets/listening/puzzle/r04_question_sever.png",
+      "width": 1208,
+      "height": 140,
+      "mode": "RGBA",
+      "sha256": "aa6a6bb4d4ef773d997661956bcf608946755fa1b2fc74d8926f81d02defc26e",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        1207,
+        139
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        1207,
+        139
+      ],
+      "transparent_pixel_fraction": 0.016202,
+      "low_alpha_pixel_fraction": 6e-06,
+      "render_region_px": [
+        0,
+        0,
+        1208,
+        140
+      ],
+      "source_svg": "assets/listening/puzzle/r04_question_sever.svg",
+      "source_svg_sha256": "1abbf31092e84ff149817d944a87fc8eb1bd5f6112b826ea09f0cc54276405c3",
+      "class": "authored_graphic",
+      "role": "fixed_question",
+      "visibility_note": "P19 witness connected",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_rotate_band": {
+      "path": "assets/listening/puzzle/r04_rotate_band.png",
+      "width": 268,
+      "height": 96,
+      "mode": "RGBA",
+      "sha256": "54df3db6ca4c957fdd4f4f542abb05b6f20cb417d700a7f8af23fb62ce1d69f3",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        267,
+        95
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        267,
+        95
+      ],
+      "transparent_pixel_fraction": 0.030006,
+      "low_alpha_pixel_fraction": 3.9e-05,
+      "render_region_px": [
+        0,
+        0,
+        268,
+        96
+      ],
+      "source_svg": "assets/listening/puzzle/r04_rotate_band.svg",
+      "source_svg_sha256": "0669694cde70e019187a82debf0aff01c0df70444b2be07e0da31e61444c204e",
+      "class": "authored_graphic",
+      "role": "discrete_rotation_control",
+      "visibility_note": "P02",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_spindle_guides": {
+      "path": "assets/listening/puzzle/r04_spindle_guides.png",
+      "width": 600,
+      "height": 300,
+      "mode": "RGBA",
+      "sha256": "d50668076db936feacc8965bb00413e67f61ea2c53aafc0d9671809cfc99264b",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        0,
+        22,
+        600,
+        64
+      ],
+      "visible_bbox_ltrb": [
+        0,
+        22,
+        600,
+        64
+      ],
+      "transparent_pixel_fraction": 0.9962,
+      "low_alpha_pixel_fraction": 2.2e-05,
+      "render_region_px": [
+        0,
+        0,
+        600,
+        300
+      ],
+      "source_svg": "assets/listening/puzzle/r04_spindle_guides.svg",
+      "source_svg_sha256": "5b2d13324c989196ad42eb9defce60997bb325960b28b253778d803336603ac6",
+      "class": "authored_graphic",
+      "role": "fixed_end_guides",
+      "visibility_note": "P02 inspection",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_trace_left": {
+      "path": "assets/listening/puzzle/r04_trace_left.png",
+      "width": 104,
+      "height": 72,
+      "mode": "RGBA",
+      "sha256": "000344d8527a3968b997454456efcc1514669b509b878487f5ba7ea5c1b10b6b",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        103,
+        71
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        103,
+        71
+      ],
+      "transparent_pixel_fraction": 0.052885,
+      "low_alpha_pixel_fraction": 0.000134,
+      "render_region_px": [
+        0,
+        0,
+        104,
+        72
+      ],
+      "source_svg": "assets/listening/puzzle/r04_trace_left.svg",
+      "source_svg_sha256": "8db7c867d0d994adbdaab49d42c1e76eb033dcc1144c6b484654572544c41f59",
+      "class": "authored_graphic",
+      "role": "discrete_trace_shift",
+      "visibility_note": "P17",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_trace_right": {
+      "path": "assets/listening/puzzle/r04_trace_right.png",
+      "width": 104,
+      "height": 72,
+      "mode": "RGBA",
+      "sha256": "82d2706bf0cc2fa92c488b49d8333fd7ff8568e07140ca0bd7253df63b778c43",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        103,
+        71
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        103,
+        71
+      ],
+      "transparent_pixel_fraction": 0.052885,
+      "low_alpha_pixel_fraction": 0.000134,
+      "render_region_px": [
+        0,
+        0,
+        104,
+        72
+      ],
+      "source_svg": "assets/listening/puzzle/r04_trace_right.svg",
+      "source_svg_sha256": "4c86e00b622ce1df767c95429c674746fdf497a4325f38023a5d7d03e145b7fa",
+      "class": "authored_graphic",
+      "role": "discrete_trace_shift",
+      "visibility_note": "P17",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_waveform_nora": {
+      "path": "assets/listening/puzzle/r04_waveform_nora.png",
+      "width": 960,
+      "height": 144,
+      "mode": "RGBA",
+      "sha256": "886131346923f528bfeefa870095721cfeb4b5c19e36a44274ad8157f75604cd",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        18,
+        7,
+        942,
+        133
+      ],
+      "visible_bbox_ltrb": [
+        18,
+        7,
+        942,
+        133
+      ],
+      "transparent_pixel_fraction": 0.943193,
+      "low_alpha_pixel_fraction": 0.00515,
+      "render_region_px": [
+        0,
+        0,
+        960,
+        144
+      ],
+      "source_svg": "assets/listening/puzzle/r04_waveform_nora.svg",
+      "source_svg_sha256": "e6cebdfa13be4f6cbbe9ced81dfa340fce6f87a139029a6cc30093d3ed08867f",
+      "class": "authored_graphic",
+      "role": "authored_sync_trace",
+      "visibility_note": "P17",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_waveform_venn": {
+      "path": "assets/listening/puzzle/r04_waveform_venn.png",
+      "width": 960,
+      "height": 144,
+      "mode": "RGBA",
+      "sha256": "bd5fe69ed78248fc360b8bf20faa58983e1483c4a537a199134a93ad4e2669e9",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        18,
+        7,
+        942,
+        133
+      ],
+      "visible_bbox_ltrb": [
+        18,
+        7,
+        942,
+        133
+      ],
+      "transparent_pixel_fraction": 0.943135,
+      "low_alpha_pixel_fraction": 0.004478,
+      "render_region_px": [
+        0,
+        0,
+        960,
+        144
+      ],
+      "source_svg": "assets/listening/puzzle/r04_waveform_venn.svg",
+      "source_svg_sha256": "da84ee119330e52430acd16cdd40158ba54f44f7f673708ec4938af2660016a8",
+      "class": "authored_graphic",
+      "role": "authored_sync_trace",
+      "visibility_note": "P17",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_witness_key_idle": {
+      "path": "assets/listening/puzzle/r04_witness_key_idle.png",
+      "width": 404,
+      "height": 110,
+      "mode": "RGBA",
+      "sha256": "0bc40ccb44e6514bb80f2c787112e17ce90a893107726b75cec06c1a321b15e7",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        403,
+        109
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        403,
+        109
+      ],
+      "transparent_pixel_fraction": 0.023762,
+      "low_alpha_pixel_fraction": 0.00036,
+      "render_region_px": [
+        0,
+        0,
+        404,
+        110
+      ],
+      "source_svg": "assets/listening/puzzle/r04_witness_key_idle.svg",
+      "source_svg_sha256": "4aee895f4dbcafdf9386f5470e76932c8eb8c7f1e4fff394f9c49f422de63b4b",
+      "class": "authored_graphic",
+      "role": "witness_control",
+      "visibility_note": "P19",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    },
+    "r04_witness_key_pressed": {
+      "path": "assets/listening/puzzle/r04_witness_key_pressed.png",
+      "width": 404,
+      "height": 110,
+      "mode": "RGBA",
+      "sha256": "0d4d65dc25bc69d00b985adb094813e94cb97b0a562737d38f6a4dcd547eac02",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_ltrb": [
+        1,
+        1,
+        403,
+        109
+      ],
+      "visible_bbox_ltrb": [
+        1,
+        1,
+        403,
+        109
+      ],
+      "transparent_pixel_fraction": 0.023762,
+      "low_alpha_pixel_fraction": 0.00036,
+      "render_region_px": [
+        0,
+        0,
+        404,
+        110
+      ],
+      "source_svg": "assets/listening/puzzle/r04_witness_key_pressed.svg",
+      "source_svg_sha256": "064700115beef405079793c64db6809b42d2cc415b8cdae7624f7bf159d4876f",
+      "class": "authored_graphic",
+      "role": "witness_control",
+      "visibility_note": "P19",
+      "integrity_status": "file_and_alpha_measured",
+      "runtime_integration_status": "not_implemented",
+      "runtime_use": "layered_art_candidate"
+    }
+  },
+  "room_layers": [
+    {
+      "id": "fixed_room",
+      "kind": "image",
+      "asset_id": "r04_clean_base",
+      "z": 0,
+      "source_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "target_rect": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "fit": "stretch",
+      "when": {}
+    },
+    {
+      "id": "window_exterior",
+      "kind": "image",
+      "asset_id": "@weather",
+      "z": 10,
+      "source_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "target_rect": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "fit": "stretch",
+      "when": {},
+      "clip_rects": [
+        [
+          1112,
+          137,
+          81,
+          112
+        ],
+        [
+          1205,
+          137,
+          83,
+          112
+        ],
+        [
+          1302,
+          137,
+          78,
+          112
+        ],
+        [
+          1112,
+          261,
+          81,
+          94
+        ],
+        [
+          1205,
+          261,
+          83,
+          94
+        ],
+        [
+          1302,
+          261,
+          78,
+          94
+        ],
+        [
+          1112,
+          372,
+          268,
+          207
+        ]
+      ]
+    },
+    {
+      "id": "door_portal",
+      "kind": "image",
+      "asset_id": "r04_door_open_plate",
+      "z": 12,
+      "source_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "target_rect": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "fit": "stretch",
+      "when": {
+        "door_open": true
+      },
+      "clip_rects": [
+        [
+          52,
+          160,
+          223,
+          733
+        ]
+      ]
+    },
+    {
+      "id": "rain",
+      "kind": "image",
+      "asset_id": "@rain",
+      "z": 13,
+      "source_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "target_rect": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "fit": "stretch",
+      "when": {
+        "weather_min": 2,
+        "weather_max": 7
+      },
+      "clip_rects": [
+        [
+          1112,
+          137,
+          81,
+          112
+        ],
+        [
+          1205,
+          137,
+          83,
+          112
+        ],
+        [
+          1302,
+          137,
+          78,
+          112
+        ],
+        [
+          1112,
+          261,
+          81,
+          94
+        ],
+        [
+          1205,
+          261,
+          83,
+          94
+        ],
+        [
+          1302,
+          261,
+          78,
+          94
+        ],
+        [
+          1112,
+          372,
+          268,
+          207
+        ]
+      ]
+    },
+    {
+      "id": "wall_damp",
+      "kind": "image",
+      "asset_id": "r04_wall_damp",
+      "z": 15,
+      "source_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "target_rect": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "fit": "stretch",
+      "when": {
+        "weather_min": 3
+      }
+    },
+    {
+      "id": "room_tint_3",
+      "kind": "rect",
+      "z": 16,
+      "target_rect": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "fill": "#10232f",
+      "when": {
+        "weather_min": 3,
+        "weather_max": 3
+      },
+      "opacity": 0.08
+    },
+    {
+      "id": "room_tint_4",
+      "kind": "rect",
+      "z": 16,
+      "target_rect": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "fill": "#10232f",
+      "when": {
+        "weather_min": 4,
+        "weather_max": 4
+      },
+      "opacity": 0.12
+    },
+    {
+      "id": "room_tint_5",
+      "kind": "rect",
+      "z": 16,
+      "target_rect": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "fill": "#10232f",
+      "when": {
+        "weather_min": 5,
+        "weather_max": 5
+      },
+      "opacity": 0.18
+    },
+    {
+      "id": "room_tint_6",
+      "kind": "rect",
+      "z": 16,
+      "target_rect": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "fill": "#10232f",
+      "when": {
+        "weather_min": 6,
+        "weather_max": 6
+      },
+      "opacity": 0.23
+    },
+    {
+      "id": "room_tint_7",
+      "kind": "rect",
+      "z": 16,
+      "target_rect": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "fill": "#10232f",
+      "when": {
+        "weather_min": 7,
+        "weather_max": 7
+      },
+      "opacity": 0.29
+    },
+    {
+      "id": "room_tint_8",
+      "kind": "rect",
+      "z": 16,
+      "target_rect": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "fill": "#10232f",
+      "when": {
+        "weather_min": 8,
+        "weather_max": 8
+      },
+      "opacity": 0.34
+    },
+    {
+      "id": "lamp_pool",
+      "kind": "image",
+      "asset_id": "r04_lamp_pool",
+      "z": 20,
+      "source_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "target_rect": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "fit": "stretch",
+      "when": {
+        "lamp_on": true
+      }
+    },
+    {
+      "id": "noticeboard_backing",
+      "kind": "rect",
+      "z": 30,
+      "target_rect": [
+        541,
+        173,
+        355,
+        237
+      ],
+      "fill": "#785436",
+      "when": {}
+    },
+    {
+      "id": "noticeboard",
+      "kind": "image",
+      "asset_id": "r04_noticeboard_panel",
+      "z": 31,
+      "source_region_px": [
+        0,
+        0,
+        1536,
+        1024
+      ],
+      "target_rect": [
+        541,
+        173,
+        355,
+        237
+      ],
+      "fit": "stretch",
+      "when": {}
+    },
+    {
+      "id": "recording_log_pinned",
+      "kind": "image",
+      "asset_id": "r04_recording_log",
+      "z": 32,
+      "source_region_px": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "target_rect": [
+        579,
+        211,
+        165,
+        156
+      ],
+      "fit": "stretch",
+      "when": {}
+    },
+    {
+      "id": "old_paper_mark",
+      "kind": "rect",
+      "z": 32,
+      "target_rect": [
+        812,
+        212,
+        48,
+        75
+      ],
+      "fill": "#a9825c",
+      "when": {}
+    },
+    {
+      "id": "correction_note_pinned",
+      "kind": "image",
+      "asset_id": "r04_correction_note",
+      "z": 33,
+      "source_region_px": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "target_rect": [
+        727,
+        217,
+        66,
+        83
+      ],
+      "fit": "stretch",
+      "when": {}
+    },
+    {
+      "id": "workers_photo_pinned",
+      "kind": "image",
+      "asset_id": "r04_workers_photo",
+      "z": 34,
+      "source_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "target_rect": [
+        772,
+        302,
+        97,
+        73
+      ],
+      "fit": "stretch",
+      "when": {}
+    },
+    {
+      "id": "headphone_hook",
+      "kind": "path",
+      "z": 35,
+      "svg_path": "M480 223 L480 212 C480 202 492 203 490 212 L485 218",
+      "stroke": "#172b36",
+      "stroke_width": 7,
+      "fill": "none",
+      "when": {}
+    },
+    {
+      "id": "headphone_hook_brass",
+      "kind": "path",
+      "z": 36,
+      "svg_path": "M480 223 L480 212 C480 202 492 203 490 212 L485 218",
+      "stroke": "#b99254",
+      "stroke_width": 3,
+      "fill": "none",
+      "when": {}
+    },
+    {
+      "id": "headphones",
+      "kind": "image",
+      "asset_id": "r04_headphones_hanging",
+      "z": 37,
+      "source_region_px": [
+        260,
+        70,
+        889,
+        1117
+      ],
+      "target_rect": [
+        437,
+        214,
+        143,
+        180
+      ],
+      "fit": "stretch",
+      "when": {}
+    },
+    {
+      "id": "headphone_cord",
+      "kind": "path",
+      "z": 38,
+      "svg_path": "M579 393 C571 445 548 490 584 534",
+      "stroke": "#18272c",
+      "stroke_width": 3,
+      "fill": "none",
+      "when": {}
+    },
+    {
+      "id": "lamp_off",
+      "kind": "image",
+      "asset_id": "r04_lamp_off",
+      "z": 41,
+      "source_region_px": [
+        193,
+        13,
+        909,
+        1143
+      ],
+      "target_rect": [
+        336,
+        414,
+        157,
+        220
+      ],
+      "fit": "stretch",
+      "when": {
+        "lamp_on": false
+      }
+    },
+    {
+      "id": "lamp_on",
+      "kind": "image",
+      "asset_id": "r04_lamp_on",
+      "z": 41,
+      "source_region_px": [
+        193,
+        11,
+        912,
+        1143
+      ],
+      "target_rect": [
+        336,
+        414,
+        157,
+        220
+      ],
+      "fit": "stretch",
+      "when": {
+        "lamp_on": true
+      },
+      "placement_note": "Generated swap pose; no pixel registration claim."
+    },
+    {
+      "id": "canister_a",
+      "kind": "image",
+      "asset_id": "r04_canister_closed",
+      "z": 42,
+      "source_region_px": [
+        263,
+        156,
+        676,
+        1007
+      ],
+      "target_rect": [
+        394,
+        561,
+        39,
+        59
+      ],
+      "fit": "stretch",
+      "when": {}
+    },
+    {
+      "id": "canister_b",
+      "kind": "image",
+      "asset_id": "r04_canister_closed",
+      "z": 42,
+      "source_region_px": [
+        263,
+        156,
+        676,
+        1007
+      ],
+      "target_rect": [
+        432,
+        552,
+        41,
+        66
+      ],
+      "fit": "stretch",
+      "when": {}
+    },
+    {
+      "id": "canister_c",
+      "kind": "image",
+      "asset_id": "r04_canister_closed",
+      "z": 42,
+      "source_region_px": [
+        263,
+        156,
+        676,
+        1007
+      ],
+      "target_rect": [
+        475,
+        558,
+        43,
+        63
+      ],
+      "fit": "stretch",
+      "when": {}
+    },
+    {
+      "id": "canister_label_a",
+      "kind": "image",
+      "asset_id": "r04_case_label_a",
+      "z": 43,
+      "source_region_px": [
+        0,
+        0,
+        180,
+        90
+      ],
+      "target_rect": [
+        400,
+        596,
+        27,
+        15
+      ],
+      "fit": "stretch",
+      "when": {}
+    },
+    {
+      "id": "canister_label_b",
+      "kind": "image",
+      "asset_id": "r04_case_label_b",
+      "z": 43,
+      "source_region_px": [
+        0,
+        0,
+        180,
+        90
+      ],
+      "target_rect": [
+        438,
+        591,
+        29,
+        15
+      ],
+      "fit": "stretch",
+      "when": {}
+    },
+    {
+      "id": "canister_label_c",
+      "kind": "image",
+      "asset_id": "r04_case_label_c",
+      "z": 43,
+      "source_region_px": [
+        0,
+        0,
+        180,
+        90
+      ],
+      "target_rect": [
+        481,
+        595,
+        31,
+        15
+      ],
+      "fit": "stretch",
+      "when": {}
+    },
+    {
+      "id": "brush_and_shavings",
+      "kind": "image",
+      "asset_id": "r04_brush_shavings",
+      "z": 44,
+      "source_region_px": [
+        187,
+        304,
+        1392,
+        322
+      ],
+      "target_rect": [
+        428,
+        607,
+        208,
+        36
+      ],
+      "fit": "stretch",
+      "when": {}
+    },
+    {
+      "id": "recorder_mechanism",
+      "kind": "image",
+      "asset_id": "r04_recorder_empty",
+      "z": 45,
+      "source_region_px": [
+        241,
+        95,
+        1442,
+        701
+      ],
+      "target_rect": [
+        544,
+        465,
+        320,
+        164
+      ],
+      "fit": "stretch",
+      "when": {}
+    },
+    {
+      "id": "recorder_band_slot_0",
+      "kind": "image",
+      "asset_id": "r04_wax_band",
+      "z": 46,
+      "source_region_px": [
+        427,
+        336,
+        585,
+        412
+      ],
+      "target_rect": [
+        632,
+        522,
+        36,
+        26
+      ],
+      "fit": "stretch",
+      "when": {
+        "recorder_slot": 0
+      }
+    },
+    {
+      "id": "recorder_band_slot_1",
+      "kind": "image",
+      "asset_id": "r04_wax_band",
+      "z": 46,
+      "source_region_px": [
+        427,
+        336,
+        585,
+        412
+      ],
+      "target_rect": [
+        668,
+        522,
+        36,
+        26
+      ],
+      "fit": "stretch",
+      "when": {
+        "recorder_slot": 1
+      }
+    },
+    {
+      "id": "recorder_band_slot_2",
+      "kind": "image",
+      "asset_id": "r04_wax_band",
+      "z": 46,
+      "source_region_px": [
+        427,
+        336,
+        585,
+        412
+      ],
+      "target_rect": [
+        704,
+        522,
+        36,
+        26
+      ],
+      "fit": "stretch",
+      "when": {
+        "recorder_slot": 2
+      }
+    },
+    {
+      "id": "case_closed",
+      "kind": "image",
+      "asset_id": "r04_case_closed",
+      "z": 47,
+      "source_region_px": [
+        144,
+        429,
+        1025,
+        392
+      ],
+      "target_rect": [
+        845,
+        597,
+        98,
+        33
+      ],
+      "fit": "stretch",
+      "when": {
+        "case_open": false
+      }
+    },
+    {
+      "id": "case_open",
+      "kind": "image",
+      "asset_id": "r04_case_open",
+      "z": 47,
+      "source_region_px": [
+        235,
+        156,
+        845,
+        863
+      ],
+      "target_rect": [
+        845,
+        537,
+        98,
+        93
+      ],
+      "fit": "stretch",
+      "when": {
+        "case_open": true
+      }
+    },
+    {
+      "id": "instruction_stand",
+      "kind": "image",
+      "asset_id": "r04_instruction_stand",
+      "z": 47,
+      "source_region_px": [
+        295,
+        156,
+        762,
+        849
+      ],
+      "target_rect": [
+        941,
+        504,
+        97,
+        125
+      ],
+      "fit": "stretch",
+      "when": {}
+    },
+    {
+      "id": "loose_band_in_case",
+      "kind": "image",
+      "asset_id": "r04_wax_band",
+      "z": 48,
+      "source_region_px": [
+        427,
+        336,
+        585,
+        412
+      ],
+      "target_rect": [
+        876,
+        581,
+        42,
+        29
+      ],
+      "fit": "stretch",
+      "when": {
+        "case_open": true,
+        "case_contains_band": true
+      }
+    },
+    {
+      "id": "instruction_card",
+      "kind": "image",
+      "asset_id": "r04_assembly_card",
+      "z": 48,
+      "source_region_px": [
+        0,
+        0,
+        800,
+        1000
+      ],
+      "target_rect": [
+        952,
+        520,
+        73,
+        91
+      ],
+      "fit": "stretch",
+      "when": {}
+    },
+    {
+      "id": "upper_shelf_case",
+      "kind": "image",
+      "asset_id": "r04_shelf_cylinder",
+      "z": 49,
+      "source_region_px": [
+        87,
+        248,
+        1596,
+        402
+      ],
+      "target_rect": [
+        863,
+        690,
+        158,
+        46
+      ],
+      "fit": "stretch",
+      "when": {}
+    },
+    {
+      "id": "middle_shelf_case",
+      "kind": "image",
+      "asset_id": "r04_shelf_cylinder",
+      "z": 49,
+      "source_region_px": [
+        87,
+        248,
+        1596,
+        402
+      ],
+      "target_rect": [
+        864,
+        768,
+        158,
+        45
+      ],
+      "fit": "stretch",
+      "when": {}
+    },
+    {
+      "id": "shelf_ledgers",
+      "kind": "image",
+      "asset_id": "r04_ledger_stack",
+      "z": 49,
+      "source_region_px": [
+        176,
+        260,
+        1423,
+        446
+      ],
+      "target_rect": [
+        864,
+        835,
+        154,
+        43
+      ],
+      "fit": "stretch",
+      "when": {}
+    },
+    {
+      "id": "top_drawer_open",
+      "kind": "image",
+      "asset_id": "r04_drawer_open",
+      "z": 50,
+      "source_region_px": [
+        129,
+        203,
+        1914,
+        350
+      ],
+      "target_rect": [
+        345,
+        665,
+        197,
+        67
+      ],
+      "fit": "stretch",
+      "when": {
+        "drawer_open": true
+      }
+    },
+    {
+      "id": "stool",
+      "kind": "image",
+      "asset_id": "r04_stool_dry",
+      "z": 60,
+      "source_region_px": [
+        213,
+        98,
+        798,
+        1105
+      ],
+      "target_rect": [
+        459,
+        737,
+        170,
+        249
+      ],
+      "fit": "stretch",
+      "when": {}
+    },
+    {
+      "id": "stool_damp_mark",
+      "kind": "image",
+      "asset_id": "r04_stool_damp_mark",
+      "z": 61,
+      "source_region_px": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "target_rect": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "fit": "stretch",
+      "when": {
+        "weather_min": 3
+      }
+    }
+  ],
+  "window_panes": [
+    [
+      1112,
+      137,
+      81,
+      112
+    ],
+    [
+      1205,
+      137,
+      83,
+      112
+    ],
+    [
+      1302,
+      137,
+      78,
+      112
+    ],
+    [
+      1112,
+      261,
+      81,
+      94
+    ],
+    [
+      1205,
+      261,
+      83,
+      94
+    ],
+    [
+      1302,
+      261,
+      78,
+      94
+    ],
+    [
+      1112,
+      372,
+      268,
+      207
+    ]
+  ],
+  "weather_states": [
+    {
+      "stage": 1,
+      "name": "Arrival / Tide I",
+      "all_completed": [],
+      "asset_id": "r04_weather_01_overcast",
+      "description": "Ordinary sea and a visible lighthouse.",
+      "rain_mode": "off",
+      "reduced_motion_rain_mode": "off",
+      "wall_damp": false,
+      "stool_damp": false,
+      "exterior_audio": "future_audio_required",
+      "selection": "Choose highest stage whose all_completed flags are true."
+    },
+    {
+      "stage": 2,
+      "name": "Tide II complete",
+      "all_completed": [
+        "P06"
+      ],
+      "asset_id": "r04_weather_02_rain",
+      "description": "Low cloud and rain on glass.",
+      "rain_mode": "cycle",
+      "reduced_motion_rain_mode": "freeze_0",
+      "wall_damp": false,
+      "stool_damp": false,
+      "exterior_audio": "future_audio_required",
+      "selection": "Choose highest stage whose all_completed flags are true."
+    },
+    {
+      "stage": 3,
+      "name": "Tide III complete",
+      "all_completed": [
+        "P09"
+      ],
+      "asset_id": "r04_weather_03_storm",
+      "description": "Dark sea, heavy rain and local damp.",
+      "rain_mode": "cycle",
+      "reduced_motion_rain_mode": "freeze_0",
+      "wall_damp": true,
+      "stool_damp": true,
+      "exterior_audio": "future_audio_required",
+      "selection": "Choose highest stage whose all_completed flags are true."
+    },
+    {
+      "stage": 4,
+      "name": "Tide IV complete",
+      "all_completed": [
+        "P12"
+      ],
+      "asset_id": "r04_weather_04_suspended",
+      "description": "Freeze glass rain while wave timing disagrees.",
+      "rain_mode": "freeze_0",
+      "reduced_motion_rain_mode": "freeze_0",
+      "wall_damp": true,
+      "stool_damp": true,
+      "exterior_audio": "future_audio_required",
+      "selection": "Choose highest stage whose all_completed flags are true."
+    },
+    {
+      "stage": 5,
+      "name": "Tide V complete",
+      "all_completed": [
+        "P15"
+      ],
+      "asset_id": "r04_weather_05_upright",
+      "description": "Compressed horizon and upright sea.",
+      "rain_mode": "cycle",
+      "reduced_motion_rain_mode": "freeze_0",
+      "wall_damp": true,
+      "stool_damp": true,
+      "exterior_audio": "future_audio_required",
+      "selection": "Choose highest stage whose all_completed flags are true."
+    },
+    {
+      "stage": 6,
+      "name": "Tide VI complete",
+      "all_completed": [
+        "P17",
+        "P18"
+      ],
+      "asset_id": "r04_weather_06_silent",
+      "description": "Rain remains visible after exterior weather sound falls away.",
+      "rain_mode": "cycle",
+      "reduced_motion_rain_mode": "freeze_0",
+      "wall_damp": true,
+      "stool_damp": true,
+      "exterior_audio": "silence",
+      "selection": "Choose highest stage whose all_completed flags are true."
+    },
+    {
+      "stage": 7,
+      "name": "Tide VII complete",
+      "all_completed": [
+        "P21"
+      ],
+      "asset_id": "r04_weather_07_bearing",
+      "description": "Lighthouse at an impossible bearing; darkness close to glass.",
+      "rain_mode": "cycle",
+      "reduced_motion_rain_mode": "freeze_0",
+      "wall_damp": true,
+      "stool_damp": true,
+      "exterior_audio": "silence",
+      "selection": "Choose highest stage whose all_completed flags are true."
+    },
+    {
+      "stage": 8,
+      "name": "Tide VIII complete / Tide IX",
+      "all_completed": [
+        "P24"
+      ],
+      "asset_id": "r04_weather_08_surface",
+      "description": "Near-featureless dark surface at the window.",
+      "rain_mode": "off",
+      "reduced_motion_rain_mode": "off",
+      "wall_damp": true,
+      "stool_damp": true,
+      "exterior_audio": "silence",
+      "selection": "Choose highest stage whose all_completed flags are true."
+    }
+  ],
+  "weather_rules": {
+    "clock_driven": false,
+    "tide_ix_holds_stage": 8,
+    "p01_alone_changes_weather": false,
+    "p02_and_p03_finish_tide_i_without_changing_stage": true,
+    "never_dim_inspection_text": true
+  },
+  "state_defaults": {
+    "weather_stage": 1,
+    "lamp_on": true,
+    "door_open": false,
+    "drawer_open": false,
+    "case_open": false,
+    "case_contains_band": false,
+    "recorder_slots": [
+      null,
+      null,
+      null
+    ],
+    "band_locations": {
+      "A": "canister_A",
+      "B": "canister_B",
+      "C": "canister_C"
+    },
+    "note": "P01 grants room access; task lamp is lit on arrival. OFF is an art-review option. Light/weather never marks a puzzle complete."
+  },
+  "hotspots": [
+    {
+      "id": "door",
+      "rect": [
+        44,
+        158,
+        236,
+        738
+      ],
+      "label": "Return to Intake Office",
+      "inspection_id": null,
+      "evidence_ids": [],
+      "requires_all": [
+        "P01"
+      ],
+      "minimum_touch_target_css_px": 44,
+      "persist_observed_evidence": true,
+      "action": "navigate_R02"
+    },
+    {
+      "id": "recording_log",
+      "rect": [
+        577,
+        209,
+        170,
+        160
+      ],
+      "label": "Read recording log",
+      "inspection_id": "recording_log",
+      "evidence_ids": [
+        "r04_recording_log"
+      ],
+      "requires_all": [
+        "P01"
+      ],
+      "minimum_touch_target_css_px": 44,
+      "persist_observed_evidence": true
+    },
+    {
+      "id": "correction_note",
+      "rect": [
+        722,
+        212,
+        77,
+        94
+      ],
+      "label": "Read pinned note",
+      "inspection_id": "correction_note",
+      "evidence_ids": [
+        "r04_correction_note"
+      ],
+      "requires_all": [
+        "P01"
+      ],
+      "minimum_touch_target_css_px": 44,
+      "persist_observed_evidence": true
+    },
+    {
+      "id": "workers_photo",
+      "rect": [
+        767,
+        296,
+        108,
+        85
+      ],
+      "label": "Inspect photograph",
+      "inspection_id": "workers_photo",
+      "evidence_ids": [
+        "r04_workers_photo"
+      ],
+      "requires_all": [
+        "P01"
+      ],
+      "minimum_touch_target_css_px": 44,
+      "persist_observed_evidence": true
+    },
+    {
+      "id": "headphones",
+      "rect": [
+        430,
+        205,
+        109,
+        134
+      ],
+      "label": "Inspect headphones and playback",
+      "inspection_id": "recorder",
+      "evidence_ids": [
+        "r04_playback_transcript"
+      ],
+      "requires_all": [
+        "P01"
+      ],
+      "minimum_touch_target_css_px": 44,
+      "persist_observed_evidence": true
+    },
+    {
+      "id": "lamp",
+      "rect": [
+        332,
+        411,
+        163,
+        223
+      ],
+      "label": "Inspect task lamp",
+      "inspection_id": "lamp",
+      "evidence_ids": [],
+      "requires_all": [
+        "P01"
+      ],
+      "minimum_touch_target_css_px": 44,
+      "persist_observed_evidence": true,
+      "action": "atmospheric_inspection"
+    },
+    {
+      "id": "canisters",
+      "rect": [
+        386,
+        545,
+        139,
+        81
+      ],
+      "label": "Inspect recording cases",
+      "inspection_id": "recording_cases",
+      "evidence_ids": [],
+      "requires_all": [
+        "P01"
+      ],
+      "minimum_touch_target_css_px": 44,
+      "persist_observed_evidence": true,
+      "action": "inspect_each_case_with_tap_buttons"
+    },
+    {
+      "id": "recorder",
+      "rect": [
+        540,
+        459,
+        329,
+        174
+      ],
+      "label": "Inspect wax recorder",
+      "inspection_id": "recorder",
+      "evidence_ids": [
+        "r04_assembly_card",
+        "r04_playback_transcript"
+      ],
+      "requires_all": [
+        "P01"
+      ],
+      "minimum_touch_target_css_px": 44,
+      "persist_observed_evidence": true
+    },
+    {
+      "id": "brush",
+      "rect": [
+        427,
+        606,
+        126,
+        39
+      ],
+      "label": "Inspect cleaning brush",
+      "inspection_id": "brush",
+      "evidence_ids": [],
+      "requires_all": [
+        "P01"
+      ],
+      "minimum_touch_target_css_px": 44,
+      "persist_observed_evidence": true,
+      "action": "atmospheric_inspection"
+    },
+    {
+      "id": "wooden_case",
+      "rect": [
+        840,
+        531,
+        107,
+        104
+      ],
+      "label": "Open cylinder case",
+      "inspection_id": "wooden_case",
+      "evidence_ids": [],
+      "requires_all": [
+        "P01"
+      ],
+      "minimum_touch_target_css_px": 44,
+      "persist_observed_evidence": true,
+      "action": "toggle_case_open"
+    },
+    {
+      "id": "assembly_card",
+      "rect": [
+        939,
+        501,
+        102,
+        132
+      ],
+      "label": "Read assembly instructions",
+      "inspection_id": "assembly_card",
+      "evidence_ids": [
+        "r04_assembly_card"
+      ],
+      "requires_all": [
+        "P01"
+      ],
+      "minimum_touch_target_css_px": 44,
+      "persist_observed_evidence": true
+    },
+    {
+      "id": "top_drawer",
+      "rect": [
+        343,
+        661,
+        201,
+        76
+      ],
+      "label": "Inspect shallow drawer",
+      "inspection_id": "drawer",
+      "evidence_ids": [],
+      "requires_all": [
+        "P01"
+      ],
+      "minimum_touch_target_css_px": 44,
+      "persist_observed_evidence": true,
+      "action": "toggle_drawer_open"
+    },
+    {
+      "id": "shelf_cases",
+      "rect": [
+        857,
+        683,
+        171,
+        138
+      ],
+      "label": "Inspect stored cylinders",
+      "inspection_id": "shelf_cases",
+      "evidence_ids": [],
+      "requires_all": [
+        "P01"
+      ],
+      "minimum_touch_target_css_px": 44,
+      "persist_observed_evidence": true,
+      "action": "atmospheric_inspection"
+    },
+    {
+      "id": "shelf_ledger",
+      "rect": [
+        860,
+        830,
+        164,
+        55
+      ],
+      "label": "Read maintenance ledger",
+      "inspection_id": "maintenance_ledger",
+      "evidence_ids": [
+        "r04_maintenance_ledger"
+      ],
+      "requires_all": [
+        "P01"
+      ],
+      "minimum_touch_target_css_px": 44,
+      "persist_observed_evidence": true
+    },
+    {
+      "id": "stool",
+      "rect": [
+        455,
+        735,
+        177,
+        255
+      ],
+      "label": "Inspect the worn stool",
+      "inspection_id": "stool",
+      "evidence_ids": [],
+      "requires_all": [
+        "P01"
+      ],
+      "minimum_touch_target_css_px": 44,
+      "persist_observed_evidence": true,
+      "action": "preserve_observed_damp_state"
+    },
+    {
+      "id": "weather_window",
+      "rect": [
+        1106,
+        132,
+        282,
+        453
+      ],
+      "label": "Observe the sea",
+      "inspection_id": "window",
+      "evidence_ids": [],
+      "requires_all": [
+        "P01"
+      ],
+      "minimum_touch_target_css_px": 44,
+      "persist_observed_evidence": true,
+      "action": "preserve_current_weather_observation"
+    }
+  ],
+  "inspections": {
+    "recording_log": {
+      "asset_id": "r04_recording_log",
+      "canvas": [
+        800,
+        1000
+      ],
+      "evidence_id": "r04_recording_log",
+      "preserve_on_first_read": true,
+      "allow_zoom": true,
+      "requires_all": [
+        "P01"
+      ]
+    },
+    "correction_note": {
+      "asset_id": "r04_correction_note",
+      "canvas": [
+        800,
+        1000
+      ],
+      "evidence_id": "r04_correction_note",
+      "preserve_on_first_read": true,
+      "allow_zoom": true,
+      "requires_all": [
+        "P01"
+      ]
+    },
+    "assembly_card": {
+      "asset_id": "r04_assembly_card",
+      "canvas": [
+        800,
+        1000
+      ],
+      "evidence_id": "r04_assembly_card",
+      "preserve_on_first_read": true,
+      "allow_zoom": true,
+      "requires_all": [
+        "P01"
+      ]
+    },
+    "playback_transcript": {
+      "asset_id": "r04_playback_transcript",
+      "canvas": [
+        800,
+        1000
+      ],
+      "evidence_id": "r04_playback_transcript",
+      "allow_zoom": true,
+      "persist_when_earned": true,
+      "evidence_rule": {
+        "requires_all": [
+          "P02"
+        ],
+        "grant_event": "successful_P02_playback_or_accessible_transcript",
+        "never_grant_on_room_visit": true
+      }
+    },
+    "maintenance_ledger": {
+      "asset_id": "r04_maintenance_ledger",
+      "canvas": [
+        800,
+        1000
+      ],
+      "evidence_id": "r04_maintenance_ledger",
+      "preserve_on_first_read": true,
+      "allow_zoom": true,
+      "requires_all": [
+        "P01"
+      ]
+    },
+    "witness_procedure": {
+      "asset_id": "r04_witness_procedure",
+      "canvas": [
+        800,
+        1000
+      ],
+      "evidence_id": "r04_witness_procedure",
+      "allow_zoom": true,
+      "persist_when_earned": true,
+      "evidence_rule": {
+        "requires_all": [
+          "P17"
+        ],
+        "grant_event": "both_P17_statements_preserved"
+      }
+    },
+    "workers_photo": {
+      "asset_id": "r04_workers_photo",
+      "canvas": [
+        1448,
+        1086
+      ],
+      "allow_zoom": true,
+      "evidence_id": "r04_workers_photo",
+      "preserve_on_first_read": true,
+      "description": "Two unnamed station workers by the coast. Atmospheric photograph, not a map or identity puzzle."
+    },
+    "recorder": {
+      "canvas": [
+        1448,
+        1086
+      ],
+      "requires_all": [
+        "P01"
+      ],
+      "base_asset_id": "r04_channel_panel_blank",
+      "panel_spec": {
+        "canvas": [
+          1448,
+          1086
+        ],
+        "panel_background": "r04_channel_panel_blank",
+        "overlay": "r04_p02_panel_overlay",
+        "assembly_rect": [
+          244,
+          290,
+          960,
+          480
+        ],
+        "assembly_source_size": [
+          600,
+          300
+        ],
+        "assembly_uniform_scale": 1.6,
+        "band_local_origins": [
+          [
+            30,
+            0
+          ],
+          [
+            210,
+            0
+          ],
+          [
+            390,
+            0
+          ]
+        ],
+        "band_face_asset": "r04_band_face",
+        "band_face_rect": [
+          0,
+          0,
+          180,
+          200
+        ],
+        "band_overlay_rect": [
+          0,
+          0,
+          180,
+          300
+        ],
+        "band_selection_controls": [
+          {
+            "band": "A",
+            "asset_id": "r04_case_label_a",
+            "rect": [
+              88,
+              346,
+              144,
+              72
+            ],
+            "accessible_label": "Select recording band A"
+          },
+          {
+            "band": "B",
+            "asset_id": "r04_case_label_b",
+            "rect": [
+              88,
+              448,
+              144,
+              72
+            ],
+            "accessible_label": "Select recording band B"
+          },
+          {
+            "band": "C",
+            "asset_id": "r04_case_label_c",
+            "rect": [
+              88,
+              550,
+              144,
+              72
+            ],
+            "accessible_label": "Select recording band C"
+          }
+        ],
+        "guides_asset": "r04_spindle_guides",
+        "guides_rect": [
+          0,
+          0,
+          600,
+          300
+        ],
+        "rotate_controls": [
+          {
+            "slot": 0,
+            "asset_id": "r04_rotate_band",
+            "rect": [
+              302,
+              795,
+              268,
+              96
+            ]
+          },
+          {
+            "slot": 1,
+            "asset_id": "r04_rotate_band",
+            "rect": [
+              590,
+              795,
+              268,
+              96
+            ]
+          },
+          {
+            "slot": 2,
+            "asset_id": "r04_rotate_band",
+            "rect": [
+              878,
+              795,
+              268,
+              96
+            ]
+          }
+        ],
+        "needle_control": {
+          "rect": [
+            150,
+            925,
+            350,
+            96
+          ],
+          "states": {
+            "raised": "r04_needle_raised",
+            "lowered": "r04_needle_lowered"
+          }
+        },
+        "play_control": {
+          "rect": [
+            948,
+            925,
+            350,
+            96
+          ],
+          "asset_id": "r04_play_key"
+        },
+        "successful_playback": {
+          "asset_id": "r04_p02_playback_readout",
+          "rect": [
+            184,
+            243,
+            1080,
+            600
+          ],
+          "transcript_asset": "r04_playback_transcript",
+          "speaker": "Elias Venn",
+          "calibration_zero": 4,
+          "future_label": "TOMORROW",
+          "future_line": "Mercer will be standing at the chart table.",
+          "trace_note": "Authored illustrative trace accompanying explicit numerical and text readouts. Not extracted from audio and not an amplitude decoding task.",
+          "visibility": "Only after valid assembly is successfully played; retained as evidence thereafter."
+        },
+        "interaction": [
+          "Tap a band then a slot; dragging is optional.",
+          "START notch belongs in first slot; END notch belongs in last slot.",
+          "TURN BAND advances selected slot one notch through steps 0,1,2.",
+          "The seam must match at both joins and both fixed guides.",
+          "Needle starts raised. Raise it before moving bands; a failed action consumes nothing.",
+          "Lower needle, then PLAY to evaluate complete assembly.",
+          "Failed seam checks mark each broken join and retain arrangement.",
+          "Successful playback awards zero 4 and preserves transcript, independently of animation."
+        ],
+        "initial_state": {
+          "slots": [
+            null,
+            null,
+            null
+          ],
+          "needle": "raised",
+          "completed": false
+        },
+        "room_art_note": "Generated recorder_assembled/partial and wax_band sprites are visual room props. Exact inspection uses the authored band face; do not stretch an angled generated cylinder under this seam geometry."
+      },
+      "room_mechanism_asset_id": "r04_recorder_empty",
+      "authoritative_source": "assets/listening/authored-spec.json#/panels/P02",
+      "solution": {
+        "order": [
+          "C",
+          "A",
+          "B"
+        ],
+        "steps": [
+          0,
+          0,
+          0
+        ],
+        "start_class": 0,
+        "end_class": 0
+      },
+      "reward_evidence_ids": [
+        "r04_playback_transcript"
+      ],
+      "room_band_rects": [
+        [
+          632,
+          522,
+          36,
+          26
+        ],
+        [
+          668,
+          522,
+          36,
+          26
+        ],
+        [
+          704,
+          522,
+          36,
+          26
+        ]
+      ],
+      "notes": [
+        "Room pose uses the fixed empty mechanism plus generated band skins.",
+        "The close-up uses the authored band face and 600x300 assembly canvas, with full 180x300 overlays. Keep the uniform transform from the source specification.",
+        "Do not stretch the angled generated wax skin beneath exact seam artwork.",
+        "Needle and crank are baked into the room mechanism. Exact inspection controls provide raised/lowered needle and playback states."
+      ]
+    },
+    "listening_sessions": {
+      "canvas": [
+        1448,
+        1086
+      ],
+      "requires_all": [
+        "P16"
+      ],
+      "base_asset_id": "r04_channel_panel_blank",
+      "panel_spec": {
+        "canvas": [
+          1448,
+          1086
+        ],
+        "panel_background": "r04_channel_panel_blank",
+        "overlay": "r04_p17_panel_overlay",
+        "requires": [
+          "P16"
+        ],
+        "guide_x": 724,
+        "shift_step_x": 20,
+        "shift_range_x": [
+          0,
+          400
+        ],
+        "initial_shift_x": {
+          "venn": 0,
+          "nora": 0
+        },
+        "controls": {
+          "venn": {
+            "left": {
+              "asset_id": "r04_trace_left",
+              "rect": [
+                144,
+                470,
+                104,
+                72
+              ]
+            },
+            "right": {
+              "asset_id": "r04_trace_right",
+              "rect": [
+                264,
+                470,
+                104,
+                72
+              ]
+            },
+            "listen": {
+              "rect": [
+                904,
+                470,
+                400,
+                72
+              ],
+              "states": {
+                "idle": "r04_listen_venn_idle",
+                "pressed": "r04_listen_venn_pressed"
+              }
+            }
+          },
+          "nora": {
+            "left": {
+              "asset_id": "r04_trace_left",
+              "rect": [
+                144,
+                740,
+                104,
+                72
+              ]
+            },
+            "right": {
+              "asset_id": "r04_trace_right",
+              "rect": [
+                264,
+                740,
+                104,
+                72
+              ]
+            },
+            "listen": {
+              "rect": [
+                904,
+                740,
+                400,
+                72
+              ],
+              "states": {
+                "idle": "r04_listen_nora_idle",
+                "pressed": "r04_listen_nora_pressed"
+              }
+            }
+          }
+        },
+        "voice_lines": {
+          "venn": "Leave the witness line open.",
+          "nora": "Tell them I was here."
+        },
+        "evidence_assets": {
+          "venn": "r04_venn_statement",
+          "nora": "r04_nora_statement"
+        },
+        "completion": "Both bell positions equal guide_x AND each separate voice has been heard or read through its accessible transcript action.",
+        "persistent_outputs": [
+          "r04_venn_statement",
+          "r04_nora_statement",
+          "r04_witness_procedure",
+          "r04_witness_margin"
+        ],
+        "audio_contract": "Separate authored speakers; exclusive channel playback. No audio file is delivered here. Caption/transcript access grants the same evidence as listening, with no hearing requirement.",
+        "layer_order": [
+          "panel_background",
+          "overlay",
+          "each clipped trace at initial_origin + shift_x",
+          "controls"
+        ]
+      },
+      "entry": "recorder_inspection_session_tab",
+      "authoritative_source": "assets/listening/authored-spec.json#/panels/P17",
+      "waveforms": {
+        "venn": {
+          "bell_x": 280,
+          "width": 960,
+          "height": 144,
+          "initial_origin": [
+            144,
+            312
+          ],
+          "clip_rect": [
+            144,
+            312,
+            1160,
+            144
+          ],
+          "solution_shift_x": 300,
+          "polyline_points": [
+            [
+              20,
+              72
+            ],
+            [
+              40,
+              53
+            ],
+            [
+              60,
+              79
+            ],
+            [
+              80,
+              58
+            ],
+            [
+              100,
+              93
+            ],
+            [
+              120,
+              63
+            ],
+            [
+              140,
+              88
+            ],
+            [
+              160,
+              49
+            ],
+            [
+              180,
+              83
+            ],
+            [
+              200,
+              54
+            ],
+            [
+              220,
+              78
+            ],
+            [
+              240,
+              56
+            ],
+            [
+              260,
+              108
+            ],
+            [
+              280,
+              16
+            ],
+            [
+              300,
+              108
+            ],
+            [
+              320,
+              56
+            ],
+            [
+              340,
+              82
+            ],
+            [
+              360,
+              55
+            ],
+            [
+              380,
+              77
+            ],
+            [
+              400,
+              60
+            ],
+            [
+              420,
+              91
+            ],
+            [
+              440,
+              65
+            ],
+            [
+              460,
+              86
+            ],
+            [
+              480,
+              51
+            ],
+            [
+              500,
+              81
+            ],
+            [
+              520,
+              56
+            ],
+            [
+              540,
+              95
+            ],
+            [
+              560,
+              61
+            ],
+            [
+              580,
+              90
+            ],
+            [
+              600,
+              66
+            ],
+            [
+              620,
+              85
+            ],
+            [
+              640,
+              52
+            ],
+            [
+              660,
+              80
+            ],
+            [
+              680,
+              57
+            ],
+            [
+              700,
+              94
+            ],
+            [
+              720,
+              62
+            ],
+            [
+              740,
+              89
+            ],
+            [
+              760,
+              67
+            ],
+            [
+              780,
+              84
+            ],
+            [
+              800,
+              53
+            ],
+            [
+              820,
+              79
+            ],
+            [
+              840,
+              58
+            ],
+            [
+              860,
+              93
+            ],
+            [
+              880,
+              63
+            ],
+            [
+              900,
+              88
+            ],
+            [
+              920,
+              49
+            ],
+            [
+              940,
+              83
+            ]
+          ],
+          "note": "Authored timing diagram, not a waveform extracted from recorded voice. Match later audio to the marked event."
+        },
+        "nora": {
+          "bell_x": 440,
+          "width": 960,
+          "height": 144,
+          "initial_origin": [
+            144,
+            582
+          ],
+          "clip_rect": [
+            144,
+            582,
+            1160,
+            144
+          ],
+          "solution_shift_x": 140,
+          "polyline_points": [
+            [
+              20,
+              72
+            ],
+            [
+              40,
+              64
+            ],
+            [
+              60,
+              91
+            ],
+            [
+              80,
+              61
+            ],
+            [
+              100,
+              94
+            ],
+            [
+              120,
+              58
+            ],
+            [
+              140,
+              78
+            ],
+            [
+              160,
+              55
+            ],
+            [
+              180,
+              81
+            ],
+            [
+              200,
+              52
+            ],
+            [
+              220,
+              84
+            ],
+            [
+              240,
+              49
+            ],
+            [
+              260,
+              87
+            ],
+            [
+              280,
+              65
+            ],
+            [
+              300,
+              90
+            ],
+            [
+              320,
+              62
+            ],
+            [
+              340,
+              93
+            ],
+            [
+              360,
+              59
+            ],
+            [
+              380,
+              77
+            ],
+            [
+              400,
+              56
+            ],
+            [
+              420,
+              108
+            ],
+            [
+              440,
+              16
+            ],
+            [
+              460,
+              108
+            ],
+            [
+              480,
+              56
+            ],
+            [
+              500,
+              86
+            ],
+            [
+              520,
+              66
+            ],
+            [
+              540,
+              89
+            ],
+            [
+              560,
+              63
+            ],
+            [
+              580,
+              92
+            ],
+            [
+              600,
+              60
+            ],
+            [
+              620,
+              95
+            ],
+            [
+              640,
+              57
+            ],
+            [
+              660,
+              79
+            ],
+            [
+              680,
+              54
+            ],
+            [
+              700,
+              82
+            ],
+            [
+              720,
+              51
+            ],
+            [
+              740,
+              85
+            ],
+            [
+              760,
+              67
+            ],
+            [
+              780,
+              88
+            ],
+            [
+              800,
+              64
+            ],
+            [
+              820,
+              91
+            ],
+            [
+              840,
+              61
+            ],
+            [
+              860,
+              94
+            ],
+            [
+              880,
+              58
+            ],
+            [
+              900,
+              78
+            ],
+            [
+              920,
+              55
+            ],
+            [
+              940,
+              81
+            ]
+          ],
+          "note": "Authored timing diagram, not a waveform extracted from recorded voice. Match later audio to the marked event."
+        }
+      },
+      "audio_status": "authored_timing_diagrams_only_recording_and_sync_required"
+    },
+    "witness_channel": {
+      "canvas": [
+        1448,
+        1086
+      ],
+      "requires_all": [
+        "P17",
+        "P18"
+      ],
+      "entry": "recorder_inspection_witness_tab",
+      "base_asset_id": "r04_channel_panel_blank",
+      "panel_spec": {
+        "canvas": [
+          1448,
+          1086
+        ],
+        "panel_background": "r04_channel_panel_blank",
+        "overlay": "r04_p19_panel_overlay",
+        "requires": [
+          "P17",
+          "P18"
+        ],
+        "seal_evidence_source": "P08 retained seal rubbing; three cuts",
+        "channel_cuts": {
+          "A": 1,
+          "B": 2,
+          "C": 3
+        },
+        "controls": {
+          "motor": {
+            "rect": [
+              144,
+              240,
+              260,
+              100
+            ],
+            "states": {
+              "off": "r04_motor_off",
+              "on": "r04_motor_on"
+            }
+          },
+          "A": {
+            "rect": [
+              190,
+              562,
+              260,
+              100
+            ],
+            "states": {
+              "open": "r04_channel_open",
+              "closed": "r04_channel_closed"
+            }
+          },
+          "B": {
+            "rect": [
+              594,
+              562,
+              260,
+              100
+            ],
+            "states": {
+              "open": "r04_channel_open",
+              "closed": "r04_channel_closed"
+            }
+          },
+          "C": {
+            "rect": [
+              998,
+              562,
+              260,
+              100
+            ],
+            "states": {
+              "open": "r04_channel_open",
+              "closed": "r04_channel_closed"
+            }
+          },
+          "witness": {
+            "rect": [
+              522,
+              827,
+              404,
+              110
+            ],
+            "states": {
+              "idle": "r04_witness_key_idle",
+              "pressed": "r04_witness_key_pressed"
+            }
+          }
+        },
+        "indicator": {
+          "rect": [
+            980,
+            850,
+            64,
+            64
+          ],
+          "states": {
+            "off": "r04_indicator_off",
+            "on": "r04_indicator_on"
+          }
+        },
+        "initial_state": {
+          "motor": "on",
+          "A": "open",
+          "B": "open",
+          "C": "closed",
+          "connected": false
+        },
+        "connection_rule": {
+          "motor": "off",
+          "A": "closed",
+          "B": "closed",
+          "C": "open",
+          "witness_key": "pressed"
+        },
+        "questions_overlay": "r04_p19_questions_overlay",
+        "questions": [
+          {
+            "id": "reach",
+            "question": "Did you save them?",
+            "answer": [
+              "I kept them within reach. I could",
+              "not bring them out. I cannot promise",
+              "that what remains is whole."
+            ],
+            "exact_answer": "I kept them within reach. I could not bring them out. I cannot promise that what remains is whole.",
+            "asset_id": "r04_question_reach",
+            "rect": [
+              120,
+              290,
+              1208,
+              140
+            ],
+            "evidence_asset": "r04_witness_answer_reach",
+            "first_play_requires_answer_ids": []
+          },
+          {
+            "id": "sever",
+            "question": "What happens if I sever the connection?",
+            "answer": [
+              "Their traces will end. You will be",
+              "able to leave. You will not be able",
+              "to reach them again."
+            ],
+            "exact_answer": "Their traces will end. You will be able to leave. You will not be able to reach them again.",
+            "asset_id": "r04_question_sever",
+            "rect": [
+              120,
+              480,
+              1208,
+              140
+            ],
+            "evidence_asset": "r04_witness_answer_sever",
+            "first_play_requires_answer_ids": [
+              "reach"
+            ]
+          },
+          {
+            "id": "remain",
+            "question": "What does taking your place mean?",
+            "answer": [
+              "You keep the witness record open,",
+              "and my duty ends. The traces remain",
+              "accessible.",
+              "",
+              "[The indicator goes dark.",
+              "Venn continues.]",
+              "",
+              "You must remain here, physically",
+              "at the station."
+            ],
+            "exact_answer": "You keep the witness record open, and my duty ends. The traces remain accessible. You must remain here, physically at the station.",
+            "asset_id": "r04_question_remain",
+            "rect": [
+              120,
+              670,
+              1208,
+              140
+            ],
+            "evidence_asset": "r04_witness_answer_remain",
+            "first_play_requires_answer_ids": [
+              "reach",
+              "sever"
+            ]
+          }
+        ],
+        "question_order": [
+          "reach",
+          "sever",
+          "remain"
+        ],
+        "question_availability": "Reveal the next question after preserving the preceding answer. Completed answers are always replayable. This guarantees the indicator-dark cue accompanies the final answer.",
+        "completion": "All three fixed answers are preserved, not merely pressing WITNESS.",
+        "indicator_dark_event": {
+          "answer_id": "remain",
+          "cue_before_text": "You must remain here, physically at the station.",
+          "on_cue": "Change circuit indicator to off; keep headphones voice and captions continuing.",
+          "circuit_state_does_not_cancel_answer": true,
+          "interruption_behavior": "Preserve the whole answer as evidence and allow replay; no reward depends on an animation callback."
+        },
+        "voice_delivery": "Headphones and hornless recorder. Do not restore rejected funnels or use real device microphone data.",
+        "copy_status": "The three fixed exchanges are newly authored wording of established GDD consequences."
+      },
+      "authoritative_source": "assets/listening/authored-spec.json#/panels/P19",
+      "audio_status": "not_recorded",
+      "device_data_access": "none"
+    },
+    "venn_statement": {
+      "asset_id": "r04_venn_statement",
+      "canvas": [
+        800,
+        1000
+      ],
+      "evidence_id": "r04_venn_statement",
+      "allow_zoom": true,
+      "persist_when_earned": true,
+      "evidence_rule": {
+        "requires_all": [
+          "P16"
+        ],
+        "grant_event": "both_bell_peaks_aligned_AND_venn_listened_or_read"
+      }
+    },
+    "nora_statement": {
+      "asset_id": "r04_nora_statement",
+      "canvas": [
+        800,
+        1000
+      ],
+      "evidence_id": "r04_nora_statement",
+      "allow_zoom": true,
+      "persist_when_earned": true,
+      "evidence_rule": {
+        "requires_all": [
+          "P16"
+        ],
+        "grant_event": "both_bell_peaks_aligned_AND_nora_listened_or_read"
+      }
+    },
+    "witness_margin": {
+      "asset_id": "r04_witness_margin",
+      "canvas": [
+        800,
+        1000
+      ],
+      "evidence_id": "r04_witness_margin",
+      "allow_zoom": true,
+      "persist_when_earned": true,
+      "evidence_rule": {
+        "requires_all": [
+          "P17"
+        ],
+        "grant_event": "both_P17_statements_preserved"
+      }
+    },
+    "witness_answer_reach": {
+      "asset_id": "r04_witness_answer_reach",
+      "canvas": [
+        800,
+        1000
+      ],
+      "evidence_id": "r04_witness_answer_reach",
+      "allow_zoom": true,
+      "persist_when_earned": true,
+      "evidence_rule": {
+        "requires_all": [
+          "P17",
+          "P18"
+        ],
+        "grant_event": "witness_connected_AND_answer_reach_heard_or_read",
+        "replayable": true,
+        "never_grant_on_panel_open": true
+      }
+    },
+    "witness_answer_sever": {
+      "asset_id": "r04_witness_answer_sever",
+      "canvas": [
+        800,
+        1000
+      ],
+      "evidence_id": "r04_witness_answer_sever",
+      "allow_zoom": true,
+      "persist_when_earned": true,
+      "evidence_rule": {
+        "requires_all": [
+          "P17",
+          "P18"
+        ],
+        "grant_event": "witness_connected_AND_answer_sever_heard_or_read",
+        "replayable": true,
+        "never_grant_on_panel_open": true
+      }
+    },
+    "witness_answer_remain": {
+      "asset_id": "r04_witness_answer_remain",
+      "canvas": [
+        800,
+        1000
+      ],
+      "evidence_id": "r04_witness_answer_remain",
+      "allow_zoom": true,
+      "persist_when_earned": true,
+      "evidence_rule": {
+        "requires_all": [
+          "P17",
+          "P18"
+        ],
+        "grant_event": "witness_connected_AND_answer_remain_heard_or_read",
+        "replayable": true,
+        "never_grant_on_panel_open": true
+      }
+    },
+    "lamp": {
+      "asset_id": "r04_lamp_on",
+      "allow_zoom": true,
+      "description": "Warm task lamp. Its switch is an art-review control, not another puzzle."
+    },
+    "recording_cases": {
+      "case_ids": [
+        "A",
+        "B",
+        "C"
+      ],
+      "closed_asset_id": "r04_canister_closed",
+      "open_asset_id": "r04_canister_open",
+      "label_assets": [
+        "r04_case_label_a",
+        "r04_case_label_b",
+        "r04_case_label_c"
+      ],
+      "band_asset_id": "r04_wax_band",
+      "interaction": "Select one case with a tap button, open it, recover that labeled band. A recovered band cannot appear simultaneously in its case and a spindle slot."
+    },
+    "brush": {
+      "asset_id": "r04_brush_shavings",
+      "allow_zoom": true,
+      "description": "Wax dust in the old bristles. No hidden code."
+    },
+    "wooden_case": {
+      "open_asset_id": "r04_case_open",
+      "closed_asset_id": "r04_case_closed",
+      "band_asset_id": "r04_wax_band",
+      "allow_zoom": true,
+      "description": "An empty repair case by default. A band is shown only when explicitly placed here in saved object state."
+    },
+    "drawer": {
+      "open_asset_id": "r04_drawer_open",
+      "allow_zoom": true,
+      "description": "Shallow service drawer. No additional required item or puzzle dependency is introduced."
+    },
+    "shelf_cases": {
+      "asset_id": "r04_shelf_cylinder",
+      "allow_zoom": true,
+      "description": "Two retained cylinders. Atmospheric storage, no newly invented recordings or clue lettering."
+    },
+    "stool": {
+      "asset_id": "r04_stool_dry",
+      "damp_overlay_asset_id": "r04_stool_damp_mark",
+      "allow_zoom": true,
+      "description": "Preserve an observation of the dry or damp seat. The full damp sprite is a pose reference, not a changing silhouette."
+    },
+    "window": {
+      "asset_id": "@weather",
+      "source_region_px": [
+        1112,
+        137,
+        268,
+        442
+      ],
+      "allow_zoom": true,
+      "description": "Observe the current sea state and retain that observed version. No magnification-derived numerical clue."
+    }
+  },
+  "aliases": {
+    "band_A": {
+      "skin_asset_id": "r04_wax_band",
+      "inspection_face_asset_id": "r04_band_face",
+      "overlay_assets": [
+        "r04_band_a_step_0",
+        "r04_band_a_step_1",
+        "r04_band_a_step_2"
+      ]
+    },
+    "band_B": {
+      "skin_asset_id": "r04_wax_band",
+      "inspection_face_asset_id": "r04_band_face",
+      "overlay_assets": [
+        "r04_band_b_step_0",
+        "r04_band_b_step_1",
+        "r04_band_b_step_2"
+      ]
+    },
+    "band_C": {
+      "skin_asset_id": "r04_wax_band",
+      "inspection_face_asset_id": "r04_band_face",
+      "overlay_assets": [
+        "r04_band_c_step_0",
+        "r04_band_c_step_1",
+        "r04_band_c_step_2"
+      ]
+    },
+    "storage_cases_A_B_C": {
+      "closed_asset_id": "r04_canister_closed",
+      "open_asset_id": "r04_canister_open",
+      "label_assets": [
+        "r04_case_label_a",
+        "r04_case_label_b",
+        "r04_case_label_c"
+      ]
+    },
+    "shelf_cylinders_upper_middle": {
+      "asset_id": "r04_shelf_cylinder",
+      "instances": 2,
+      "clue": false
+    },
+    "dry_to_damp_stool": {
+      "base_asset_id": "r04_stool_dry",
+      "overlay_asset_id": "r04_stool_damp_mark",
+      "generated_pose_reference": "r04_stool_damp"
+    },
+    "recording_skin_in_case_and_slots": {
+      "asset_id": "r04_wax_band",
+      "mutually_exclusive_locations": true
+    },
+    "tide_ix": {
+      "weather_stage": 8,
+      "new_image_required": false
+    }
+  },
+  "evidence_rules": {
+    "r04_playback_transcript": {
+      "requires_all": [
+        "P02"
+      ],
+      "grant_event": "successful_P02_playback_or_accessible_transcript",
+      "never_grant_on_room_visit": true
+    },
+    "r04_venn_statement": {
+      "requires_all": [
+        "P16"
+      ],
+      "grant_event": "both_bell_peaks_aligned_AND_venn_listened_or_read"
+    },
+    "r04_nora_statement": {
+      "requires_all": [
+        "P16"
+      ],
+      "grant_event": "both_bell_peaks_aligned_AND_nora_listened_or_read"
+    },
+    "r04_witness_procedure": {
+      "requires_all": [
+        "P17"
+      ],
+      "grant_event": "both_P17_statements_preserved"
+    },
+    "r04_witness_margin": {
+      "requires_all": [
+        "P17"
+      ],
+      "grant_event": "both_P17_statements_preserved"
+    },
+    "r04_witness_answer_reach": {
+      "requires_all": [
+        "P17",
+        "P18"
+      ],
+      "grant_event": "witness_connected_AND_answer_reach_heard_or_read",
+      "replayable": true,
+      "never_grant_on_panel_open": true
+    },
+    "r04_witness_answer_sever": {
+      "requires_all": [
+        "P17",
+        "P18"
+      ],
+      "grant_event": "witness_connected_AND_answer_sever_heard_or_read",
+      "replayable": true,
+      "never_grant_on_panel_open": true
+    },
+    "r04_witness_answer_remain": {
+      "requires_all": [
+        "P17",
+        "P18"
+      ],
+      "grant_event": "witness_connected_AND_answer_remain_heard_or_read",
+      "replayable": true,
+      "never_grant_on_panel_open": true
+    }
+  },
+  "master_prop_coverage": [
+    {
+      "prop": "Room, door, trim, bench, shelf structure, four closed drawer fronts",
+      "asset_ids": [
+        "r04_clean_base"
+      ],
+      "implementation": "Fixed base; no duplicate prop layer."
+    },
+    {
+      "prop": "Open doorway",
+      "asset_ids": [
+        "r04_door_open_plate"
+      ],
+      "implementation": "Clip portal only; door leaf is out of view."
+    },
+    {
+      "prop": "Window, storm and impossible sea states",
+      "asset_ids": [
+        "r04_weather_01_overcast",
+        "r04_weather_02_rain",
+        "r04_weather_03_storm",
+        "r04_weather_04_suspended",
+        "r04_weather_05_upright",
+        "r04_weather_06_silent",
+        "r04_weather_07_bearing",
+        "r04_weather_08_surface"
+      ],
+      "implementation": "Seven shared glazing panes; fixed frame."
+    },
+    {
+      "prop": "Window rain and local damp",
+      "asset_ids": [
+        "r04_rain_0",
+        "r04_rain_1",
+        "r04_rain_2",
+        "r04_wall_damp"
+      ],
+      "implementation": "Authored overlays; motion remains optional."
+    },
+    {
+      "prop": "Noticeboard and four corner pins",
+      "asset_ids": [
+        "r04_noticeboard_panel"
+      ],
+      "implementation": "Opaque backing primitive supplied; corner pins part of board texture."
+    },
+    {
+      "prop": "Pinned recording log, note and photograph",
+      "asset_ids": [
+        "r04_recording_log",
+        "r04_correction_note",
+        "r04_workers_photo"
+      ],
+      "implementation": "Readable close-ups; text generated in original master is superseded."
+    },
+    {
+      "prop": "Old paper rectangle at noticeboard upper right",
+      "asset_ids": [],
+      "implementation": "Native brown rectangle, atmospheric stain with no code."
+    },
+    {
+      "prop": "Headphones, hook and connecting cord",
+      "asset_ids": [
+        "r04_headphones_hanging"
+      ],
+      "implementation": "Cutout plus native hook and cord continuation paths in room_layers."
+    },
+    {
+      "prop": "Task lamp off and light pool",
+      "asset_ids": [
+        "r04_lamp_off",
+        "r04_lamp_pool",
+        "r04_lamp_on"
+      ],
+      "implementation": "Lit shade is included only when measured in current asset set."
+    },
+    {
+      "prop": "Three vertical recording canisters",
+      "asset_ids": [
+        "r04_canister_closed",
+        "r04_canister_open",
+        "r04_case_label_a",
+        "r04_case_label_b",
+        "r04_case_label_c"
+      ],
+      "implementation": "Reusable closed/open skin and three exact labels."
+    },
+    {
+      "prop": "Wax recorder, spindle, brass uprights, needle and crank",
+      "asset_ids": [
+        "r04_recorder_empty",
+        "r04_recorder_partial",
+        "r04_recorder_assembled"
+      ],
+      "implementation": "Fixed empty mechanism plus band layers is authoritative; whole poses are references."
+    },
+    {
+      "prop": "Three recording bands and loose band in wooden case",
+      "asset_ids": [
+        "r04_wax_band",
+        "r04_band_face",
+        "r04_band_a_step_0",
+        "r04_band_a_step_1",
+        "r04_band_a_step_2",
+        "r04_band_b_step_0",
+        "r04_band_b_step_1",
+        "r04_band_b_step_2",
+        "r04_band_c_step_0",
+        "r04_band_c_step_1",
+        "r04_band_c_step_2"
+      ],
+      "implementation": "One skin, nine exact overlays; no physical band can exist twice."
+    },
+    {
+      "prop": "Brush and wax shavings",
+      "asset_ids": [
+        "r04_brush_shavings"
+      ],
+      "implementation": "Single combined prop retains small debris."
+    },
+    {
+      "prop": "Small wooden case",
+      "asset_ids": [
+        "r04_case_open",
+        "r04_case_closed"
+      ],
+      "implementation": "Swap pose on inspection/re-entry; not registered hinge animation."
+    },
+    {
+      "prop": "Instruction card and stand",
+      "asset_ids": [
+        "r04_instruction_stand",
+        "r04_assembly_card"
+      ],
+      "implementation": "Readable authored sheet covers blank stand face."
+    },
+    {
+      "prop": "Two horizontal shelf cylinders and ledger stack",
+      "asset_ids": [
+        "r04_shelf_cylinder",
+        "r04_ledger_stack",
+        "r04_maintenance_ledger"
+      ],
+      "implementation": "Two repeated shelf cylinders; ledger inspection has authored text."
+    },
+    {
+      "prop": "Functional top drawer",
+      "asset_ids": [
+        "r04_drawer_open"
+      ],
+      "implementation": "One interactive drawer; remaining three fronts remain fixed furniture."
+    },
+    {
+      "prop": "Worn stool and damp impression",
+      "asset_ids": [
+        "r04_stool_dry",
+        "r04_stool_damp_mark",
+        "r04_stool_damp"
+      ],
+      "implementation": "Registered overlay over dry prop; alternate full damp pose retained as reference."
+    },
+    {
+      "prop": "Later P17/P19 listening controls",
+      "asset_ids": [
+        "r04_channel_panel_blank",
+        "r04_p17_panel_overlay",
+        "r04_p19_panel_overlay"
+      ],
+      "implementation": "Inspection-only panel; no extra room horns or wall machinery."
+    }
+  ],
+  "actual_map_props_in_room": [],
+  "map_policy": "The visible pinned image is a photograph, not a chart. If an actual map is later added, give it a readable close-up and preserve each observed version.",
+  "excluded_review_directories": [
+    "art/listening-review/"
+  ],
+  "missing_art": [],
+  "remaining_integration": [
+    "P02/P17/P19 scene and save-state wiring",
+    "Final interactive placement and touch-size checks",
+    "Voice recording, room tone and synchronization with authored timing traces",
+    "Needle/crank motion if desired; static control states do not require new raster art",
+    "Godot rendered preview, browser/iPad, iOS and Android validation"
+  ],
+  "verified": [
+    "PNG dimensions and decoded mode",
+    "SHA-256 for every PNG and paired SVG",
+    "Actual and visible alpha bounds",
+    "Deterministic file references"
+  ]
+}

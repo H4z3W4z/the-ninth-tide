@@ -1,0 +1,494 @@
+{
+  "status": "in_progress",
+  "master": "art/concepts/listening-room-approved-master-v4.png",
+  "master_prompt": "Use case: precise-object-edit.\nEdit target: the supplied Listening Room image from The Ninth Tide.\nUser-approved revision direction: replace the three huge empty cork panels with a smaller working noticeboard; make the recorder recognizable and prominent; give the room a purpose-built recording bench; add restrained human wear; retain the important sea window and add warm local task light; a faint damp seat impression is the first unsettling detail.\n\nCreate ONE polished revised full-room illustration, same 1448 x 1086 / 4:3 framing. Preserve the LEFT BLUE DOOR, RIGHT SEA WINDOW with rainy water/lighthouse, sage plaster, blue wainscoting, floor and flat front-facing composition in their existing locations. Same fine navy ink contours, broad matte colors, subtle paper grain, restrained brass, warm brown wood. Absolutely no horns, speaking trumpets, ornate wall apparatus, angled walls, vanishing points, receding desktop planes or photorealism.\n\nComposition:\n1. REMOVE all three giant cork panels. Restore sage plaster. Replace them with ONE modest rectangular dark-wood-framed cork noticeboard, about 400 pixels wide by 260 tall, centered above the recorder around x=760,y=340. Leave generous sage wall around it. On it pin a slightly crooked cream recording log with a few neat columns, a smaller handwritten correction slipped over its corner, and one small curled sepia photograph showing two station workers by the coast. Add subtle pinholes and a pale mark from a removed paper. The papers should feel handled, not like decorative scrapbook clutter. No legible puzzle answers, no exact labels, no readable dates or numbers: final evidence is authored separately.\n\n2. REDESIGN the big office-style desk into a purpose-built narrow oak recording bench, maintaining its approximate footprint below the wall board and leaving both door and window clear. Front elevation only: its working surface is a narrow horizontal strip, not an angled tabletop. LEFT SIDE: four shallow full-width cylinder drawers stacked vertically with small brass label holders. RIGHT SIDE: one open rectangular storage compartment with a few horizontal cylindrical storage cases and a thin ledger on a lower shelf. Use clear flat silhouettes with no perspective shelf sides. Center is a open knee space with the blue wall visible, making the furniture lighter and distinct from the Intake Office desk. No symmetrical office drawer pedestals or giant decorative central door panel.\n\n3. The MAIN FOCAL OBJECT on the bench is now a larger unmistakable HORNLESS wax-cylinder recording/playback machine in flat side elevation. A substantial dark oak plinth and a compact brass drive housing support a thick dark honey-brown grooved recording cylinder. Show TWO short adjoining wax sleeves seated on its spindle, with the THIRD matching loose sleeve clearly visible in a small open storage case beside it. This is a partially assembled visual study, not the locked new-game configuration. The needle arm visibly rests over the grooved wax; add a clear small winding crank on the right and a simple transport lever on the plinth. Do not make it look like an exposed empty lathe. The cylinder and needle must read at room scale. No horn or large cone anywhere. Precise seam geometry and C/A/B markings will be added separately, so do not generate those clues.\n\n4. Hang the modest old black leather-and-ebonite HEADPHONES from a simple peg just left of the small noticeboard, within reach of someone at the bench. The headband has a tiny stitched repair, subtly visible. Their cloth cord leads down to the recorder. Add a small brush, a few wax shavings around it, and a visibly rubbed elbow patch on the narrow wooden bench edge. Keep props limited and purposeful. Retain the existing upright cream instruction card at the right of the recorder, with a discreet suggested diagram but no legible writing.\n\n5. Add ONE small practical shaded brass task lamp fixed to the left end of the recording bench. A modest low hood, not a flared horn shape. It casts a restrained warm amber pool across the cylinder, wax pieces and hands' working area. Render the warmth as broad subtle flat color, not a cinematic beam or volumetric glow. The rest stays cool and softly lit by the important right-hand storm window. The warm recorder should attract the eye first, the window second.\n\n6. Preserve the worn wooden stool near the left half of the bench, front elevation. On its seat add a FAINT irregular darker damp oval where someone would have sat. No puddle on the floor, no dripping water, no human outline or spectral body. The headphones, surrounding cork and other furniture remain dry. A small intimate wrongness, easy to miss until examined.\n\nOverall: a convincing abandoned recording workplace, tangible and lived-in, with focused detail around the machine and quiet wall space elsewhere. Dark maritime atmosphere through restraint. NO skulls, eyes, blood, tentacles, runes, theatrical horror props, modern screens, additional maps, captions, UI, borders or watermark. Preserve clean room geometry and clue readability.",
+  "assets": [
+    {
+      "id": "r04_clean_base",
+      "kind": "base",
+      "path": "assets/listening/backgrounds/r04_clean_base.png",
+      "prompt": "The Ninth Tide accepted Listening Room master is the reference. Match its thin navy contours, matte sage/storm-blue/brown/brass palette, subtle paper grain and strict flat front elevation. No horns, angled room perspective, logos, UI or exact clue text. Create a CLEAN STATIC ROOM PLATE, same exact 1448x1086 framing and geometry as reference. Keep door closed, right window frame and all glazing bars, sage wall, floor, blue wainscoting and the new oak bench with four shallow drawers, open right shelving and open knee space. Remove ALL movable/interactable small props: recorder, lamp and its glow, cases/canisters, headphones and cord/hook, noticeboard and papers, brush/dust, instruction-card holder, stool, shelf cylinders and books. Cleanly restore wall and bench surfaces behind them. Do not redesign the furniture. Inside every glass pane remove the scenery/rain and replace with a uniform muted blue-gray placeholder; keep the wooden window frame opaque and untouched. No lighting pool on wall. This must remain an opaque clean background that receives separate sprites. One image, no panels.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-d8146164-e8fe-4ff4-a1cb-0dad931f9c95.png"
+    },
+    {
+      "id": "r04_headphones_hanging",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_headphones_hanging.png",
+      "prompt": "The Ninth Tide accepted Listening Room master is the reference. Match its thin navy contours, matte sage/storm-blue/brown/brass palette, subtle paper grain and strict flat front elevation. No horns, angled room perspective, logos, UI or exact clue text. Extract/recreate ONLY the worn black leather-and-ebonite headphones from the reference, including repaired headband and single cloth cord curling to the right as in the room. Isolated centered object, large enough for close inspection, strict front elevation, complete cord visible, no peg, wall, board, furniture, shade or floor shadow. A game sprite on REAL FULLY TRANSPARENT RGBA background. Pixels outside the object must have alpha zero. No checkerboard pattern, no white/gray/backdrop rectangle. Preserve silhouette and materials; cord is attached to the earcup. Canvas 1024x1024 if possible, generous transparent margin.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-52c969d6-8c5e-4702-bc76-8ac4e78eb759.png",
+      "target": [
+        437,
+        203,
+        157,
+        340
+      ]
+    },
+    {
+      "id": "r04_weather_01_overcast",
+      "kind": "weather",
+      "milestone": "arrival through Tide I",
+      "path": "assets/listening/backgrounds/r04_weather_01_overcast.png",
+      "prompt": "The Ninth Tide accepted Listening Room master is the reference. Match its thin navy contours, matte sage/storm-blue/brown/brass palette, subtle paper grain and strict flat front elevation. No horns, angled room perspective, logos, UI or exact clue text. Edit ONLY WEATHER AND AMBIENT COLOR of the reference. Preserve every object and room edge in EXACTLY the same position and scale, including papers, lamp, stool, partially assembled recorder and headphones. Stage ARRIVAL / TIDE I: overcast but legible calm gray daylight, distant lighthouse in its present right-side bearing clearly visible, modest ordinary wave motion. REMOVE rain streaks from glass. Warm small task lamp remains on and highlights the work area. No supernatural details, no changed papers, no extra object. Same 1448x1086 full room. Interior clarity identical to reference.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-3289eba7-c4db-4143-a7f2-02aadee544af.png"
+    },
+    {
+      "id": "r04_weather_02_rain",
+      "kind": "weather",
+      "milestone": "P06",
+      "path": "assets/listening/backgrounds/r04_weather_02_rain.png",
+      "prompt": "Edit the accepted Listening Room reference ONLY for weather and local light, same exact 1448x1086 composition. Preserve every door/window/bench edge and every prop, paper, headphone, recorder and stool position and shape. Do not redesign geometry or change puzzle marks. Flat matte front elevation, navy contours, sage and storm blue with old brass, subtle paper texture. No horns, cinematic lighting, side walls, UI or typography. This is a full room state review image; runtime will clip its window scenery over a fixed clean plate. Stage: P06. Low cloud and rain stippling the panes, distant coast loses contrast. Ordinary sea. Slightly cooler room daylight. Lamp keeps controls readable.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-67114fe9-adb7-41b9-8811-84c9ff0e46e2.png"
+    },
+    {
+      "id": "r04_weather_04_suspended",
+      "kind": "weather",
+      "milestone": "P12",
+      "path": "assets/listening/backgrounds/r04_weather_04_suspended.png",
+      "prompt": "Edit the accepted Listening Room reference ONLY for weather and local light, same exact 1448x1086 composition. Preserve every door/window/bench edge and every prop, paper, headphone, recorder and stool position and shape. Do not redesign geometry or change puzzle marks. Flat matte front elevation, navy contours, sage and storm blue with old brass, subtle paper texture. No horns, cinematic lighting, side walls, UI or typography. This is a full room state review image; runtime will clip its window scenery over a fixed clean plate. Stage: P12. Dark sea with visible moving-looking white wave lines while a handful of large rain drops hang almost vertically still on the glass, less slanting rain. Visibility shortened. A faint mismatched reflection confined to glass. Same scene, no new creature.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-5f503eb1-4d0e-446e-ac00-0f01443350f3.png"
+    },
+    {
+      "id": "r04_weather_03_storm",
+      "kind": "weather",
+      "milestone": "P09",
+      "path": "assets/listening/backgrounds/r04_weather_03_storm.png",
+      "prompt": "Edit the accepted Listening Room reference ONLY for weather and local light, same exact 1448x1086 composition. Preserve every door/window/bench edge and every prop, paper, headphone, recorder and stool position and shape. Do not redesign geometry or change puzzle marks. Flat matte front elevation, navy contours, sage and storm blue with old brass, subtle paper texture. No horns, cinematic lighting, side walls, UI or typography. This is a full room state review image; runtime will clip its window scenery over a fixed clean plate. Stage: P09. Heavy slanting rain, dark rough sea, lighthouse partly lost in gray weather. Fine damp tide marks below the window. Lamp and paper readable, room cooler, no solid darkness.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-6715d2da-af16-45ec-87ac-2782004a176d.png"
+    },
+    {
+      "id": "r04_weather_05_upright",
+      "kind": "weather",
+      "milestone": "P15",
+      "path": "assets/listening/backgrounds/r04_weather_05_upright.png",
+      "prompt": "Edit the accepted Listening Room reference ONLY for weather and local light, same exact 1448x1086 composition. Preserve every door/window/bench edge and every prop, paper, headphone, recorder and stool position and shape. Do not redesign geometry or change puzzle marks. Flat matte front elevation, navy contours, sage and storm blue with old brass, subtle paper texture. No horns, cinematic lighting, side walls, UI or typography. This is a full room state review image; runtime will clip its window scenery over a fixed clean plate. Stage: P15. Compressed horizon and a very subtle vertical sea surface beyond the window; its wave bands now run unnaturally upright near one side. Dim blue-green outdoors, readable room and lamp. Subtle wrong reflected bench line inside glass only, no monster.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-c20dc160-5e22-46f8-a27b-20c6a655c58c.png"
+    },
+    {
+      "id": "r04_weather_07_bearing",
+      "kind": "weather",
+      "milestone": "P21",
+      "path": "assets/listening/backgrounds/r04_weather_07_bearing.png",
+      "prompt": "Edit the accepted Listening Room reference ONLY for weather and local light, same exact 1448x1086 composition. Preserve every door/window/bench edge and every prop, paper, headphone, recorder and stool position and shape. Do not redesign geometry or change puzzle marks. Flat matte front elevation, navy contours, sage and storm blue with old brass, subtle paper texture. No horns, cinematic lighting, side walls, UI or typography. This is a full room state review image; runtime will clip its window scenery over a fixed clean plate. Stage: P21. Close darkness at panes. One faint small lighthouse silhouette now appears toward the LEFT side of the lower window pane instead of the established right side, as if bearing moved impossibly. Very restrained ambiguous shadow beside the empty stool, no visible person. Keep clue surfaces bright enough.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-9e075039-53c3-4672-9787-ddcfe794a789.png"
+    },
+    {
+      "id": "r04_weather_08_surface",
+      "kind": "weather",
+      "milestone": "P24; held through Tide IX",
+      "path": "assets/listening/backgrounds/r04_weather_08_surface.png",
+      "prompt": "Edit the accepted Listening Room reference ONLY for weather and local light, same exact 1448x1086 composition. Preserve every door/window/bench edge and every prop, paper, headphone, recorder and stool position and shape. Do not redesign geometry or change puzzle marks. Flat matte front elevation, navy contours, sage and storm blue with old brass, subtle paper texture. No horns, cinematic lighting, side walls, UI or typography. This is a full room state review image; runtime will clip its window scenery over a fixed clean plate. Stage: P24; held through Tide IX. Outside is a near-featureless dark petrol-blue vertical surface pressed close to the glass. Only one very soft broad curved band hints at slow motion, no eye or face. Almost no rain or horizon remains. Exterior darkness close, interior still readable in small warm lamp pool. Room door/bench/notes never disappear into black.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-bb9b4516-568a-46e9-a6c4-6eed95f38ba3.png"
+    },
+    {
+      "id": "r04_weather_06_silent",
+      "kind": "weather",
+      "milestone": "P17 AND P18",
+      "path": "assets/listening/backgrounds/r04_weather_06_silent.png",
+      "prompt": "Edit the accepted Listening Room reference ONLY for weather and local light, same exact 1448x1086 composition. Preserve every door/window/bench edge and every prop, paper, headphone, recorder and stool position and shape. Do not redesign geometry or change puzzle marks. Flat matte front elevation, navy contours, sage and storm blue with old brass, subtle paper texture. No horns, cinematic lighting, side walls, UI or typography. This is a full room state review image; runtime will clip its window scenery over a fixed clean plate. Stage: P17 AND P18. Near-black indigo sea and sky merge, distant lighthouse almost lost. Rain remains visibly streaking on glass but an eerie windless stillness is implied. Deep cool room margins, warm work surface remains highly readable. No changed document content.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-cf09277c-7369-4168-b14b-18419bc7d58b.png"
+    },
+    {
+      "id": "r04_lamp_off_draft",
+      "issue": "Baked checkerboard; no alpha channel. Must regenerate.",
+      "kind": "draft",
+      "path": "art/listening-review/r04_lamp_off_draft.png",
+      "prompt": "Game sprite from The Ninth Tide room reference. Strict flat hand-illustrated front/side elevation as seen in room, broad matte fills, thin navy ink contours, subtle paper grain, only two or three flat shade tones, NOT photorealistic or 3D/PBR. Preserve the referenced object's silhouette and construction. Isolate ONLY the requested object, centered with generous clear margin, enlarge for clean inspection. REAL TRANSPARENT RGBA background: alpha zero outside object, no checkerboard or solid backdrop, no floor cast shadow. No horns, UI, watermark or text. ONLY the small articulated brass task lamp from left side of bench. Preserve circular base, slim vertical stem, two arm joints, small rounded dark brass shade tilted over working area. OFF state: bulb and underside unlit, no glow. No cord necessary, no furniture, no headphones or canisters. Whole lamp visible including base.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-a4a27d44-a718-4c32-b513-d8faefc3e74a.png",
+      "target": [
+        336,
+        414,
+        157,
+        220
+      ]
+    },
+    {
+      "id": "r04_recorder_empty_draft",
+      "issue": "Visible background halo; needs clean alpha and a bare spindle.",
+      "kind": "draft",
+      "path": "art/listening-review/r04_recorder_empty_draft.png",
+      "prompt": "Game sprite from The Ninth Tide room reference. Strict flat hand-illustrated front/side elevation as seen in room, broad matte fills, thin navy ink contours, subtle paper grain, only two or three flat shade tones, NOT photorealistic or 3D/PBR. Preserve the referenced object's silhouette and construction. Isolate ONLY the requested object, centered with generous clear margin, enlarge for clean inspection. REAL TRANSPARENT RGBA background: alpha zero outside object, no checkerboard or solid backdrop, no floor cast shadow. No horns, UI, watermark or text. The complete hornless cylinder playback machine from the middle of the bench: dark oak rectangular plinth, brass supports, horizontal spindle, right hand crank and needle arm. REMOVE ALL WAX SLEEVES so spindle is completely bare. Needle raised. Keep the original substantial base and mechanism proportions; no extra wheels/dials. Draw complete machine alone, horizontal composition, 1536x1024 if supported.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-726a85ea-e5f4-4a9c-9123-fae8e78dedfb.png",
+      "target": [
+        544,
+        465,
+        320,
+        164
+      ]
+    },
+    {
+      "id": "r04_stool_dry",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_stool_dry.png",
+      "prompt": "Game sprite from The Ninth Tide room reference. Strict flat hand-illustrated front/side elevation as seen in room, broad matte fills, thin navy ink contours, subtle paper grain, only two or three flat shade tones, NOT photorealistic or 3D/PBR. Preserve the referenced object's silhouette and construction. Isolate ONLY the requested object, centered with generous clear margin, enlarge for clean inspection. REAL TRANSPARENT RGBA background: alpha zero outside object, no checkerboard or solid backdrop, no floor cast shadow. No horns, UI, watermark or text. ONLY the worn wooden stool from in front of bench: round oval-in-elevation seat, four slim legs and low rungs. Same straight-on orientation, restrained rubbed pale edge and old brown wood. DRY state: seat uniformly worn and dry, no damp spot. No floor, no background.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-06a7949b-6e26-4951-b684-db2e895e51ff.png",
+      "target": [
+        459,
+        737,
+        170,
+        249
+      ]
+    },
+    {
+      "id": "r04_lamp_off_retry1",
+      "issue": "Opaque generated checkerboard; do not use as a transparent sprite.",
+      "kind": "draft",
+      "path": "art/listening-review/r04_lamp_off_retry1.png",
+      "prompt": "Edit this lamp cutout. KEEP the lamp object unchanged. REMOVE the entire gray/white checkerboard and every white paper-texture pixel behind it; they are a failed background, not part of the artwork. Output ONLY lamp on actual transparent RGBA. All pixels beyond the solid lamp outline must have alpha exactly zero. Lamp itself solid opaque, crisp illustrated edges. OFF bulb. No painted grid or background, no glow, no shadow. Keep full lamp including arm, base and shade, same orientation and canvas.",
+      "refs": [
+        "/workspace/scratch/caf0649b63b9/the-ninth-tide/art/listening-review/r04_lamp_off_draft.png"
+      ],
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-36c000e1-ff1e-4e9e-af51-0eab3b3f1de5.png",
+      "target": [
+        336,
+        414,
+        157,
+        220
+      ]
+    },
+    {
+      "id": "r04_stool_damp_retry1",
+      "issue": "Opaque generated checkerboard; do not use as a transparent sprite.",
+      "kind": "draft",
+      "path": "art/listening-review/r04_stool_damp_retry1.png",
+      "prompt": "Edit only the SEAT SURFACE of this illustrated wooden stool. Add a subtle irregular darker damp oval as if someone has just stood up; surrounding rubbed seat rim stays dry. Preserve exact stool geometry, silhouette, crop, all legs and rungs, colors, and transparent background. No puddle, drips, human outline, body or extra shadow. True RGBA alpha zero outside stool, opaque object. Same canvas and placement.",
+      "refs": [
+        "/workspace/scratch/caf0649b63b9/the-ninth-tide/assets/listening/props/r04_stool_dry.png"
+      ],
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-8cb1918c-b894-4fe0-b850-7da575e9d62d.png",
+      "target": [
+        459,
+        737,
+        170,
+        249
+      ]
+    },
+    {
+      "id": "r04_recorder_empty_retry1",
+      "issue": "Opaque generated checkerboard; do not use as a transparent sprite.",
+      "kind": "draft",
+      "path": "art/listening-review/r04_recorder_empty_retry1.png",
+      "prompt": "Edit this exact machine. Remove ALL surrounding black/brown/amber background halo and glow, leaving genuine zero-alpha transparent pixels outside the solid machine silhouette. Make actual machine surfaces opaque alpha255. Replace the large thick central metal drum with a THIN BARE BRASS SPINDLE ROD between the same end bearings, ready to accept three hollow wax sleeves. Retain all oak base, supports, needle arm and right hand crank positions exactly; needle stays raised. No large drum or cylinder remains on the rod. This is flat hand-illustrated game sprite, no floor shadow, no backdrop or checkerboard.",
+      "refs": [
+        "/workspace/scratch/caf0649b63b9/the-ninth-tide/art/listening-review/r04_recorder_empty_draft.png"
+      ],
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-b34ff155-da9d-4a82-a1ff-064b398ee6bd.png",
+      "target": [
+        544,
+        465,
+        320,
+        164
+      ]
+    },
+    {
+      "id": "r04_lamp_off",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_lamp_off.png",
+      "prompt": "A transparent PNG game sprite of only the small brass desk lamp shown at the left of this room reference. Full lamp, same jointed shape and rounded shade, bulb off. Centered isolated cutout, transparent background. Flat ink-and-matte-color illustration matching the room. No room, table, other objects, text or shadows.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-0603eca1-4cbd-4d37-941d-203db642da83.png",
+      "target": [
+        336,
+        414,
+        157,
+        220
+      ]
+    },
+    {
+      "id": "r04_recorder_empty",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_recorder_empty.png",
+      "prompt": "A transparent PNG game sprite of only the hornless cylinder recorder in the middle of the reference room. Dark oak plinth, brass bearings, raised needle arm and right-hand crank. No wax cylinder: just a thin bare brass spindle between the two bearings. Centered isolated cutout with transparent background. Flat ink-and-matte-color illustration, same front elevation and design as reference. No room, ground, other props, glow, shadow or writing.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-a4456e94-d3b2-4fe8-8c4c-a9772db6ee52.png",
+      "target": [
+        544,
+        465,
+        320,
+        164
+      ]
+    },
+    {
+      "id": "r04_stool_damp",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_stool_damp.png",
+      "prompt": "A transparent PNG game sprite of only the worn wooden stool shown in front of the reference room's desk. Four legs, rungs, worn oval seat with a subtle dark damp oval in its center. Match its front elevation and proportions. Centered isolated cutout with transparent background. Flat ink-and-matte-color illustration. No floor, room, cast shadow, other objects or writing.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-f8cea74e-b4cc-433a-b69a-e77b8ab30c93.png",
+      "target": [
+        459,
+        737,
+        170,
+        249
+      ]
+    },
+    {
+      "id": "r04_wax_band_blank",
+      "issue": "Broad amber halo around the sleeve; reference only, not a compositable sprite.",
+      "kind": "draft",
+      "path": "art/listening-review/r04_wax_band_blank_draft.png",
+      "prompt": "A transparent PNG game sprite of a single short hollow brown wax recording sleeve belonging to the hornless recorder in the reference room. Horizontal barrel seen straight from the side, with a narrow visible circular opening at its right end, warm worn wax, fine closely spaced recording grooves, plain surface for a later precise seam overlay. Centered isolated cutout with transparent background. Flat ink-and-matte-color illustration. No room, spindle, ground, text, symbols or other objects.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-6742af44-a155-43a5-8dc8-946c029c338b.png",
+      "target": [
+        0,
+        0,
+        100,
+        100
+      ]
+    },
+    {
+      "id": "r04_case_open",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_case_open.png",
+      "prompt": "A transparent PNG game sprite of the small open wooden recording-sleeve box shown to the right of the recorder in the reference room. Empty dark felt-lined cavity, upright hinged lid, small brass catch, warm dark oak. Straight front elevation, minimal visible interior edge. Centered isolated cutout with transparent background. Flat ink-and-matte-color illustration. No room, recording sleeve, ground, text or other objects.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-b89f21de-734f-49a2-abe8-9d7ac3771243.png",
+      "target": [
+        845,
+        537,
+        98,
+        93
+      ]
+    },
+    {
+      "id": "r04_canister_closed",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_canister_closed.png",
+      "prompt": "A transparent PNG game sprite of one closed upright brown cardboard wax-cylinder storage canister shown left of the recorder in the reference room. Dark brown cylindrical body, round fitted lid, small blank cream rectangular label, modest wear. Straight front view. Centered isolated cutout with transparent background. Flat ink-and-matte-color illustration. No room, ground, text or other objects.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-0b3e01c9-cac3-4572-95f9-835a7b6f0ae1.png",
+      "target": [
+        393,
+        560,
+        46,
+        59
+      ]
+    },
+    {
+      "id": "r04_wax_band",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_wax_band.png",
+      "prompt": "A transparent PNG sprite of one short hollow brown wax recording band for the reference recorder. A stubby sleeve, its horizontal length about equal to its diameter. Side elevation, narrow visible opening at the right, fine grooves. Centered isolated cutout with transparent background. Flat matte illustration with fine navy outlines, simple restrained texture. No glow, lighting aura, background, text or other objects.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-1ca63785-a529-4727-85df-4aa1fbcd2d33.png"
+    },
+    {
+      "id": "r04_noticeboard_bare",
+      "issue": "Unwanted broad aura around board; excluded from runtime.",
+      "kind": "draft",
+      "path": "art/listening-review/r04_noticeboard_bare_draft.png",
+      "prompt": "A transparent PNG game sprite of only the rectangular wooden-framed cork noticeboard in the reference room. Straight front elevation, width to height ratio three to two, worn dark oak frame, plain warm cork center and a few small brass pins around the edges. Empty board. Centered isolated cutout with transparent background. Flat ink-and-matte-color illustration. No papers, photographs, room, ground or writing.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-b1947956-ee97-4d29-bc7f-45438fcfa50e.png",
+      "target": [
+        541,
+        173,
+        355,
+        237
+      ]
+    },
+    {
+      "id": "r04_canister_open",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_canister_open.png",
+      "prompt": "A transparent PNG game sprite of this same upright brown storage canister with its lid removed and absent, leaving the dark empty opening visible. Keep the shape, blank label, colors and straight front view of the reference. Centered isolated cutout with transparent background. Flat ink-and-matte-color illustration. No room, ground, text or other objects.",
+      "refs": [
+        "/workspace/scratch/caf0649b63b9/the-ninth-tide/assets/listening/props/r04_canister_closed.png"
+      ],
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-13c5c52b-ca3c-4580-adef-075595ecb7b0.png",
+      "target": [
+        393,
+        560,
+        46,
+        59
+      ]
+    },
+    {
+      "id": "r04_case_closed",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_case_closed.png",
+      "prompt": "A transparent PNG game sprite of this same small wooden recording box with its lid shut. Low rectangular warm dark oak case, small centered brass catch, straight front elevation, thin top edge. Centered isolated cutout with transparent background. Flat ink-and-matte-color illustration. No room, ground, text or other objects.",
+      "refs": [
+        "/workspace/scratch/caf0649b63b9/the-ninth-tide/assets/listening/props/r04_case_open.png"
+      ],
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-50fd6907-8f6b-43a6-86da-2ac569a8f961.png",
+      "target": [
+        845,
+        597,
+        98,
+        33
+      ]
+    },
+    {
+      "id": "r04_recorder_partial",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_recorder_partial.png",
+      "prompt": "Transparent PNG sprite of this exact hornless brass-and-oak recorder, with one short brown wax sleeve seated on the LEFT third of its bare spindle, remaining two thirds bare. Keep raised needle, supports, crank and wooden base. Straight side elevation. Flat matte illustrated colors. Isolated on transparent background. No words, glow, room or other props.",
+      "refs": [
+        "/workspace/scratch/caf0649b63b9/the-ninth-tide/assets/listening/props/r04_recorder_empty.png"
+      ],
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-97f94ec4-ef7b-4769-9ef1-54cdb86bdc83.png",
+      "target": [
+        544,
+        465,
+        320,
+        164
+      ]
+    },
+    {
+      "id": "r04_recorder_assembled",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_recorder_assembled.png",
+      "prompt": "Transparent PNG sprite of this exact hornless brass-and-oak recorder, with three equal brown wax sleeves seated snugly side by side filling the spindle, two fine join lines. Needle lowered to the wax at the right. Keep supports, crank and wooden base. Straight side elevation. Flat matte illustrated colors. Isolated on transparent background. No words, glow, room or other props.",
+      "refs": [
+        "/workspace/scratch/caf0649b63b9/the-ninth-tide/assets/listening/props/r04_recorder_empty.png"
+      ],
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-2dd9f2a2-f553-4f20-af8c-0b09e96357a2.png",
+      "target": [
+        544,
+        465,
+        320,
+        164
+      ]
+    },
+    {
+      "id": "r04_brush_shavings",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_brush_shavings.png",
+      "prompt": "Transparent PNG sprite of the small recorder cleaning brush and a few scattered wax shavings on the reference workbench. Brush lies horizontally, dark bristles at left, worn oak handle at right. Very small curled golden-brown wax scraps around it. Flat matte ink illustration, straight elevation. Isolated on transparent background. No glow, shadow, workbench, writing or other props.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-dc93851c-8c41-425c-b45e-e4d73e26d738.png",
+      "target": [
+        432,
+        608,
+        206,
+        31
+      ]
+    },
+    {
+      "id": "r04_noticeboard",
+      "issue": "Replacement still has broad baked aura; not a runtime cutout.",
+      "kind": "draft",
+      "path": "art/listening-review/r04_noticeboard_retry_draft.png",
+      "prompt": "Transparent PNG sprite of the empty wooden framed cork noticeboard from the reference room. Straight frontal rectangle, three to two proportions, dark oak frame and warm matte cork. Plain cork surface. Thin navy ink contours. Isolated on transparent background. No glow, shadow, papers, wall or text.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-72f51954-a52e-49f3-9bbb-f36d799fe506.png",
+      "target": [
+        541,
+        173,
+        355,
+        237
+      ]
+    },
+    {
+      "backing_color": "#745B36",
+      "id": "r04_noticeboard_panel",
+      "issue": "Alpha is 200–250 throughout; place over an opaque matching brown rectangle. No transparent margin or halo.",
+      "kind": "rectangular_prop",
+      "path": "assets/listening/props/r04_noticeboard_panel.png",
+      "prompt": "Generate the empty cork noticeboard from this room as a flat rectangular game texture. The OUTSIDE edges of its dark oak wooden frame coincide exactly with all four edges of the entire image, with zero surrounding wall or margin. Landscape 3:2 canvas. Straight-on elevation. Broad matte cork center, fine navy contours on warm worn oak frame, small brass pin in each corner. No papers, writing, glow, shadows outside the frame or other props. The entire opaque image is the rectangular noticeboard.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-7d9db493-0204-47be-bab9-86f3b753ec0c.png",
+      "target": [
+        541,
+        173,
+        355,
+        237
+      ]
+    },
+    {
+      "id": "r04_workers_photo",
+      "kind": "opaque_prop",
+      "path": "assets/listening/closeups/r04_workers_photo.png",
+      "prompt": "Create the small sepia photograph pinned to the noticeboard in the reference room as its own readable inspection illustration. Two adult coastal survey workers in worn oilskin coats and ordinary caps stand side by side on a sea wall, distant lighthouse on their right, gray waves behind. They look tired and quietly familiar with one another. 1920s photographic composition interpreted as flat muted ink illustration, not photorealism. Rectangular landscape paper print fills the entire image, narrow aged cream border, slight water damage only at the bottom edge. No words, numbers, occult symbols, frame, pins, horns or room. The photograph is an ordinary human memory, with nothing monstrous hidden in it.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-de937b2a-86ac-4c9d-8a55-fff4caeec0be.png",
+      "target": [
+        771,
+        300,
+        100,
+        87
+      ]
+    },
+    {
+      "id": "r04_paper_blank",
+      "kind": "alpha",
+      "path": "assets/listening/closeups/r04_paper_blank.png",
+      "prompt": "A transparent PNG sprite of one blank rectangular sheet of aged cream station stationery. Straight front view, portrait proportions, softly worn uneven edges, two old pinholes near the top, very faint folded crease, restrained brown water stain near bottom left. Keep the broad center pale and completely blank for readable typesetting later. Flat matte ink illustration with very subtle paper texture. Isolated on transparent background. No glow, shadow, writing, ruled lines, objects or room.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-3a8acb3d-78fc-4b05-a86d-fec2a59973d6.png"
+    },
+    {
+      "id": "r04_instruction_stand",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_instruction_stand.png",
+      "prompt": "A transparent PNG sprite of only the instruction-card stand on the right end of the reference workbench. Small upright warm oak clipboard on a narrow wooden foot, two brass clips at its top gripping a single blank pale cream card. Exact straight front elevation. Simple flat matte illustration, fine navy outlines and light wear. Isolated on transparent background. No glow, shadow, words, diagrams, room or other props.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-73c3cf3c-1e00-44ec-8ac3-6e49e44235ed.png",
+      "target": [
+        941,
+        504,
+        97,
+        125
+      ]
+    },
+    {
+      "id": "r04_ledger_stack",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_ledger_stack.png",
+      "prompt": "Transparent PNG sprite of the short horizontal stack of two worn station ledgers on the bottom-right shelf in the reference room. Dark muted olive cloth covers, cream page edges facing forward, thin navy ink contours. Flat straight front elevation, narrow top edge. Isolated on transparent background. No glow, shadow, lettering, shelf or other objects.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-f37ebfc1-91a2-4155-ac4a-b443040ad4f7.png",
+      "target": [
+        864,
+        835,
+        154,
+        43
+      ]
+    },
+    {
+      "id": "r04_shelf_cylinder",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_shelf_cylinder.png",
+      "prompt": "Transparent PNG sprite of one long brown cardboard recording-cylinder storage tube lying horizontally, from the right-hand shelves of the reference room. Dark brown tube with fitted end caps, blank pale cream label wrapped around its center. Side elevation, narrow oval end visible at left, restrained matte worn texture, fine navy ink outlines. Isolated on transparent background. No glow, shadow, writing, shelf or other objects.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-3cce2146-b41d-4554-a074-8cc1c49250fa.png",
+      "target": [
+        863,
+        690,
+        158,
+        46
+      ]
+    },
+    {
+      "id": "r04_drawer_open",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_drawer_open.png",
+      "prompt": "Transparent PNG sprite of a shallow open oak drawer matching the four small drawers at the left of this reference workbench. Exact flat frontal elevation. A narrow black interior slot runs above its low horizontal worn oak front, with a centered rectangular brass label-holder handle left blank. Width about four times overall height. No receding sidewalls or angled planes. Isolated on transparent background. Fine navy ink, broad matte brown colors. No glow, shadow, contents, cabinet, text or other props.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-e2aee1f7-e191-4fa1-9bc2-e48ca90e50b4.png",
+      "target": [
+        345,
+        665,
+        197,
+        67
+      ]
+    },
+    {
+      "id": "r04_door_open_plate",
+      "kind": "detail_plate",
+      "path": "assets/listening/backgrounds/r04_door_open_plate.png",
+      "prompt": "Edit only the closed blue door at the far left of this clean room plate: the door leaf is now fully out of sight, revealing a quiet, dark empty doorway. Preserve the exact blue outer frame, threshold and rectangular opening. Beyond it a flat dark petrol-blue interior, with one faint vertical plaster repair line; no receding corridor perspective. Keep the entire rest of the room absolutely unchanged, including the empty bench, wall, blank window panes and composition. Fixed straight-on flat ink illustration. No figure, eyes, writing or new props. Output the complete same 4:3 room frame.",
+      "refs": [
+        "/workspace/scratch/caf0649b63b9/the-ninth-tide/assets/listening/backgrounds/r04_clean_base.png"
+      ],
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-b8c32190-d363-4366-be25-6a9a55b33675.png",
+      "target": [
+        44,
+        158,
+        236,
+        738
+      ]
+    },
+    {
+      "id": "r04_channel_panel_blank",
+      "kind": "panel",
+      "path": "assets/listening/closeups/r04_channel_panel_blank.png",
+      "prompt": "Create a flat front-elevation game texture of a rectangular 1931 listening calibration board matching the dark oak, tarnished brass and fine navy ink of the reference room. The board fills the complete 4:3 image edge to edge with no outside margin. A narrow dark oak perimeter, a large quiet flat desaturated charcoal-bronze metal center, four brass corner screws, restrained wear. The central 85 percent is plain empty metal reserved for precise graphic controls. Broad matte shapes, light paper grain, no perspective. No text, gauges, knobs, sockets, horns, lights, decorative symbols or room. This is an empty opaque instrument faceplate for separately authored controls.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-1e82289b-eff7-4350-99d3-342cf521906a.png"
+    },
+    {
+      "id": "r04_lamp_on",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_lamp_on.png",
+      "prompt": "Edit this transparent game sprite: switch this brass task lamp ON. Change only the bulb and inner surface of the shade to a warm cream-amber illumination. Keep the exact silhouette, brass arm, base, wear, position, canvas and transparent background. Flat matte ink illustration. No external glow, light rays, backdrop, ground, text or other objects. The background stays genuinely transparent.",
+      "refs": [
+        "/workspace/scratch/caf0649b63b9/the-ninth-tide/assets/listening/props/r04_lamp_off.png"
+      ],
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-9f3ebe49-bd39-41fb-bcf1-47dec88ec3aa.png"
+    }
+  ]
+}

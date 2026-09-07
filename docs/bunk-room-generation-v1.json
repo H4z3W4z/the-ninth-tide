@@ -1,0 +1,17 @@
+{
+  "approved_by_user": false,
+  "asset": "art/concepts/bunk-room-concept-v1.png",
+  "method": "built-in Imagegen",
+  "prompt": "Use case: stylized-concept.\nAsset type: R06 Bunk Room first room-master concept for The Ninth Tide, an illustrated point-and-click cosmic horror game. Landscape 4:3, request 1448 x 1086.\nInput images: the two supplied local images are STYLE REFERENCES ONLY: approved Kitchen and Listening Room. Create a DIFFERENT room in exactly their visual language. Do not duplicate either room or its equipment.\nScene: the disused staff sleeping quarters of Greywake coastal survey station, 1931. Strictly straight-on flat room elevation like the references, thin navy ink contours, broad matte sea-glass green plaster, storm-blue painted timber, worn warm oak, muted cream linen, restrained tarnished brass, slight paper grain. No angled side walls, no converging floor lines, no deep perspective.\nComposition: compact lived-in staff quarters, single continuous back wall. A closed storm-blue door at far left, two narrow iron bunks stacked vertically and shown perfectly broadside across the middle-left, with plain cream pillows and neatly folded faded sea-green wool blankets. Simple ladder at one end. A faded linen privacy curtain drawn halfway across a short rail by the right end of the bunks, clearly a divider and not a person silhouette. A tiny pencil shelf close to one pillow holds a stub pencil and folded letter. At right a front-facing oak cabinet with four clearly separate vertical locker doors, each with a blank brass nameplate and its own plain pinned personal card, ready for precise authored labels later. Four loose personal belongings are visibly separated on a low shallow oak shelf above a closed travel trunk in the lower-right foreground: one old cream enamel cup with a modest repaired handle, measuring calipers, a small worn wooden pencil holder, and a stitched work glove. Keep these tactile objects distinctive and large enough to notice; their exact clue markings will be separate production overlays. Additional unclaimed suitcase under lower bunk. One modest paper calendar on the wall with a clear blank lower annotation strip for later authored names.\nLighting and mood: an upper-right small high frosted window, with diffuse grey-blue rainy daylight only, no grand direct sea panorama. One dim warm brass wall light supplies a small domestic glow. Quiet, abandoned, intimate rather than overtly monstrous. First-entry state: all beds empty and unoccupied, no pillow depression yet. Leave the center foreground floor fairly open.\nConstraints: all furniture edges and wall divisions mainly horizontal or vertical, broadside shallow furniture. Keep bed geometry plausible, no warped ladders. No people, faces, ghosts, occult symbols, tentacles, horns, recorders, stove, dining table, interface, title, watermark, or exact clue lettering. No photorealism, 3D render, dramatic cinematic perspective or oversized dark vignette. Materials, line weight, palette and level of detail should strongly match both reference images. Full-bleed single game-room image.",
+  "puzzles": [
+    "P08",
+    "P22"
+  ],
+  "reference_images": [
+    "art/concepts/kitchen-room-master-v1.png",
+    "art/concepts/listening-room-approved-master-v4.png"
+  ],
+  "room": "R06",
+  "source": "/workspace/scratch/62b81168bbb1/generated_images/exec-1f75dc6a-ad95-46bc-a14e-b7264ef1d9f8.png",
+  "status": "concept_for_user_review"
+}

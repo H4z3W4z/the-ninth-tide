@@ -3,11 +3,13 @@
 
 **Working project:** Lovecraft Lake  
 **Prepared for:** Mike Pearson and Kristi  
-**Version:** 1.1, September 7, 2026  
+**Version:** 1.4, September 7, 2026  
 **Format:** Original, single-player, illustrated point-and-click cosmic horror mystery  
 **Target:** Approximately three hours for a first playthrough  
 **Status:** Complete creative design proposal; pacing and implementation remain to be validated through playtesting  
 **Spoilers:** This document contains the entire story, all mandatory puzzle solutions, and both endings.
+
+**Version 1.4 art continuity:** Kitchen staging uses Nora's provisioning-page repair sketch; her physical cup stays in the Bunk Room for P08/P22 and the continuing-witness ending. Mike approved the Kitchen master v1 with “Looks good. Proceed.” Puzzle solutions, dependencies and ending consequences are unchanged.
 
 > You were hired to close the station. The station has been waiting for someone who knows how to finish a record.
 
@@ -151,7 +153,7 @@ Twelve playable locations are the scope cap. R01 and R09 are exterior; the other
 | R01 | Jetty, opening | A boat rope hangs over the water with no reflection | P06 |
 | R02 | Intake Office, opening | Eight empty coat hooks and a ninth still wet | P01, P20 |
 | R03 | Chart Room, P01 | A tide pen scratches against a motionless drum | P03–P05, P21 |
-| R04 | Listening Room, P01 | Ear trumpets point into a sealed plaster wall | P02, P17, P19 |
+| R04 | Listening Room, P01 | Headphones hang beside a recorder whose motor has stopped | P02, P17, P19 |
 | R05 | Kitchen and Mess, P06 | Eight place settings; nine spoon depressions in the cloth | P07, P09 |
 | R06 | Bunk Room, P06 | An occupied indentation settles into an empty mattress | P08, P22 |
 | R07 | Wet Laboratory, P09 | Specimen jars hold seawater at different angles | P10, P13, P14 |
@@ -177,9 +179,9 @@ An illustrated plan becomes available in the notebook after P05. After visiting 
 
 **R03, Chart Room.** The central instrument is an elegant object designed to invite handling: bone-colored paper, a copper float mechanism, a polished lever. During P05 the pen records a short list of Ada's actual completed interactions, not a generic boast. Later, compass lines curve toward the standing position in front of the desk. The final chart describes the station in the outline of a seated person. Do not animate the full transformation until the player has read enough conventional diagrams to recognize it.
 
-**R04, Listening Room.** Cork walls, wax dust, a stool polished by use. Sound enters through funnels whose pipes disappear into plaster. Early playback has a reassuring click and a human throat clearing. At Tide VI, the player hears Venn begin a sentence, then Nora finishes it from another recording. Their voices remain distinct. At Tide VII the dead channel speaks once after the motor stops. The transcript labels the event accurately; accessibility presentation does not conceal the scare.
+**R04, Listening Room.** A small used noticeboard, wax dust, a stool polished by use. Headphones hang beside a hornless wax recorder on a specialized oak bench; a warm task lamp makes the abandoned work look recently interrupted. The large right-hand sea window carries the weather changes. The accepted v4 composition replaces the earlier horn and speaking-tube studies. Early playback has a reassuring click and a human throat clearing. At Tide VI, the player hears Venn begin a sentence, then Nora finishes it from another recording. Their voices remain distinct. At Tide VII the dead channel speaks once after the motor stops. The transcript labels the event accurately; accessibility presentation does not conceal the scare. The later channel controls appear in an inspection view of the recording installation, without adding a new horn assembly to the room.
 
-**R05, Kitchen and Mess.** This is the emotional center. Nora's routine was careful rather than occult. A towel is folded beside a cup with a repaired handle. Condensation travels inward across a bowl when the player reconstructs the supper table. A spoon lifts half an inch, waits for someone who cannot take it, and lowers. The only joke is penciled beside a ration correction: “Rook has discovered a ninth appetite. It belongs to Rook.” Later evidence reveals why the headcount mattered.
+**R05, Kitchen and Mess.** This is the emotional center. Nora's routine was careful rather than occult. A towel is folded beside Nora's provisioning page, which includes a sketch of her repaired cup. The actual cup remains on its marked Bunk Room shelf for P08 and P22. Condensation travels inward across a bowl when the player reconstructs the supper table. A spoon lifts half an inch, waits for someone who cannot take it, and lowers. The only joke is penciled beside a ration correction: “Rook has discovered a ninth appetite. It belongs to Rook.” Later evidence reveals why the headcount mattered.
 
 **R06, Bunk Room.** Narrow beds, luggage without owners, a curtain partition. An indentation appears only after the player correctly assigns an object to its owner. A wall calendar's dates never change; the names written beneath them do. One bed has a little pencil shelf that Venn installed for a colleague who wrote lying down. The room provides individual habits that later resist the Index's generic portraits.
 
@@ -224,7 +226,7 @@ These are proposed authored treatments beneath the approved principle. Transitio
 | R01 Jetty | Sky, water, mooring rope, distant lighthouse | Shrinking visibility, unnatural stillness, missing or contradictory reflections |
 | R02 Intake Office | Large window, lamp contrast, wet coat | Darker weather outside; increasingly isolated warm desk; coat and shadow diverge |
 | R03 Chart Room | Sea window, paper, recording pen | Exterior darkness grows while the pen continues reporting conditions that cannot be seen |
-| R04 Listening Room | Funnels, indicators, reflected light, room tone | Weather leaks through the wrong channel, then stops; a dead channel carries presence |
+| R04 Listening Room | Headphones, channel indicators, weather window, reflected light, room tone | Weather leaks through the wrong channel, then stops; a dead channel carries presence |
 | R05 Kitchen and Mess | Condensation, bowls, spoon, ambient light | Condensation moves inward, meal traces appear, spoon movement suggests an absent diner |
 | R06 Bunk Room | Beds, curtain, calendar, indirect light | Indentations and shadows imply increasing occupancy without displaying people |
 | R07 Wet Laboratory | Jar surfaces, tank reflections, pressure traces | Water angles and reflected light become less physical; samples increasingly respond to identity |
@@ -241,6 +243,7 @@ Late-unlocked rooms inherit the current global condition immediately and need on
 - Author each room's reachable environmental states alongside its puzzle content. Each state specifies visual layers, audio layers, triggering puzzle flags, and the detail the returning player should notice.
 - Separate window scenery, rain, glass/reflection effects, interior color treatment, and local anomaly overlays from the fixed room illustration. Use flat graphic color changes and drawn overlays consistent with the approved style.
 - Reuse station-wide weather treatments while preserving each window's established view. Do not independently regenerate room geometry for later tides.
+- R04's generated weather plates are full-room visual studies. In the interactive scene, clip only their glazing over the fixed clean base and layer the actual recorder arrangement independently. Eight appearances cover arrival through Tide VIII; Tide IX holds the eighth. The partial cylinder visible in a mood plate never grants puzzle progress. Use the R04 placement/state manifest rather than moving hotspots to match generation drift.
 - Keep clues, item silhouettes, controls, and document contrast readable at the darkest stage. Increasing dread is not permission to obscure a required hotspot or clue.
 - On re-entry, render the latest state directly. Never replay an obsolete earlier state because a player skipped visits. A brief arrival hold can draw attention to a major change, but never forces repeat inspection or extra backtracking.
 - Capture essential evidence before any state replaces its source. Atmospheric changes cannot silently change a solved answer, lock a route, or invalidate the notebook.
@@ -258,6 +261,18 @@ Click/tap selects a hotspot. A second click/tap performs its clearly named actio
 Inventory has named slots and no capacity puzzle. Consumed repair parts leave a small “installed” record in the notebook. Durable tools are a pencil, inspection lens, and chart clips; these remain available. Combination recipes are contextual at work surfaces, with visible sockets and ingredient labels. A wrong target produces a relevant observation, never a random joke that obscures the rule.
 
 The notebook automatically preserves essential clues in readable text and image form. Tabs hold the current objective, station plan, observations, people, and completed procedures. Comparison tables populate with evidence but do not silently solve an unfinished deduction. Captured evidence remains accessible after every tide change.
+
+### Inspectable maps and assembled charts
+
+**User-approved interaction rule:** Every visible map or nautical chart in a playable room opens an inspectable close-up when tapped or clicked, including maps whose purpose is atmosphere or local history. Maps visible only as part of a distant reflection need not become independent hotspots. Author a readable close-up for each actual map prop; enlarging a small crop of the room background is insufficient.
+
+The close-up supports zoom and pan, a fit-to-page reset, and an obvious return control. On touch screens offer pinch/pan as well as visible zoom buttons and tap-operated pan controls; mouse and keyboard have equivalent controls. Zooming is for comfortable reading, never for finding a one-pixel clue. A map's title, significant annotations, and essential symbols have a text or diagram equivalent. Maps can be inspected from the opening; the notebook's fast-travel plan still becomes available after P05.
+
+Some maps reward inspection with geography, crossed-out place names, or a worker's note. Others carry explicit operational evidence. A torn chart visibly advertises missing pieces; corresponding edges, shoreline continuity, and printed reference marks establish the assembly rule. The player selects a piece and taps a board position, with snap placement and step rotation controls; dragging is optional. Wrong placements remain reversible and identify a broken edge or line. Keep found pieces and partial arrangements when the close-up closes or the game resumes.
+
+P03 is the opening's concrete map-assembly puzzle: reconstruct one torn tide sheet from three local pieces, then compare it with the intact reference sheet. This remains one compound puzzle in the 27-puzzle chain, with the same prerequisites and interval-3 reward. The reconstruction should take roughly one to two minutes of the existing P03 pacing allowance; validate the opening's 18-minute Tide I target through playtesting.
+
+The Office's coastal survey map initially serves orientation and atmosphere. After P21, its lighthouse engraving can shift to the impossible bearing already expressed by the weather outside, while the notebook preserves the earlier survey as a separate observed version. This is an optional environmental discrepancy, not a new lock or required puzzle. Essential map evidence is captured before a changed state replaces it; changing weather or ink never invalidates a solved answer.
 
 ### Puzzle conventions
 
@@ -293,10 +308,10 @@ The settings below are proposed shipped answers, not placeholders. Named documen
 
 **P03. The Missing Curve: Chart Room**  
 **Requires:** P01.  
-**Goal and evidence:** Compare two tide sheets. Both have a lighthouse registration cross, north arrow, and the same date. A clipped example shows how registration reveals a line crossing numbered interval bands.  
-**Solution:** Align the lighthouse crosses, match north arrows, and clip the overlays. The resulting curve crosses band **3** and resembles three scratches on the observation hatch. The chart UI snaps only at marked registration points and still permits several incorrect alignments.  
-**Reward:** Interval **3**, preserved composite chart, and a clear prompt to combine the chart with the recording's zero.  
-**Failure:** Nonmatching north arrows or date marks are identified separately. This is alignment reasoning, not pixel precision. **Tide I completes when P02 and P03 are both solved.**
+**Goal and evidence:** Reconstruct one torn tide sheet and compare it with an intact reference sheet. All three fragments are available in this room after P01: an upper coastline piece clipped to the board, a middle shoal piece in its unlocked chart drawer, and a lower soundings piece visibly held beneath the chart weight. The board has a full-sheet outline. Distinct torn edges and continuing coastline/contour lines show how the pieces fit. Both complete sheets have a lighthouse registration cross, north arrow, and the same date. A clipped example shows how registration reveals a line crossing numbered interval bands.  
+**Solution:** Seat the coastline, shoal, and soundings pieces in the upper, middle, and lower board positions, respectively, matching their edges and continuous lines. Use the intact reference sheet to align the lighthouse crosses, match north arrows, and clip the overlays. The resulting curve crosses band **3** and resembles three scratches on the observation hatch. Fragment placement and step rotations snap; the comparison stage snaps only at marked registration points and still permits several incorrect alignments.  
+**Reward:** Interval **3**, preserved reconstructed sheet and composite chart, and a clear prompt to combine the chart with the recording's zero. The fragments remain recorded as assembled and leave active inventory together.  
+**Failure:** A misplaced fragment highlights its broken edge or contour; the comparison identifies nonmatching north arrows or date marks separately. No fragment is consumed on a wrong placement. Partial reconstruction persists on close and save/resume. This is spatial reasoning and chart comparison, not pixel precision. Hints progress from checking the board/drawer/weight, to matching edges and then registration marks, to the complete arrangement and alignment. **Tide I completes when P02 and P03 are both solved.**
 
 ### Tide II: The Boat at the Window
 
@@ -420,7 +435,7 @@ The settings below are proposed shipped answers, not placeholders. Named documen
 **Goal and evidence:** Contact the witness position. P17 identifies the dead channel. Venn's seal from P08 has three cuts; the channel board maps one, two, and three cuts to sockets A, B, and C. A printed procedure says to isolate live playback before addressing a witness.  
 **Solution:** Stop the motor, close live channels A and B, open **C**, and press the labeled WITNESS key.  
 **Reward:** A brief exchange with Venn using three fixed questions. He admits he kept the people accessible but could not free them; he cannot promise that they remain whole. He explains that severance will end the traces and that a successor must remain physically at the station. All three answers are required evidence and can be replayed.  
-**Horror:** His final answer continues through the brass funnel after the channel indicator goes dark. No free-form dialogue system is required.
+**Horror:** His final answer continues through the headphones after the channel indicator goes dark. The caption preserves his identity and the continuation; the dark indicator does not hide the text. No free-form dialogue system is required.
 
 **P20. Why Ada Mercer: Office / Venn's Correspondence**  
 **Requires:** P17 and P18.  
@@ -506,6 +521,7 @@ This structure deliberately alternates limited parallel investigation with stron
 
 | Output | Source | Required use | Lifetime rule |
 | --- | --- | --- | --- |
+| Three torn tide-sheet fragments | R03 board, unlocked chart drawer, chart weight after P01 | P03 reconstruction | Acquisition and partial arrangement persist; all three become one preserved sheet on assembly |
 | Zero 4 / interval 3 | P02 / P03 | P04 | Notebook retains both forever |
 | Movement trace | P05 | P25 | Store ordered event IDs and readable text |
 | Service key | P06 | R05 / R06 | Unlocks both permanently; then retired |
@@ -541,9 +557,9 @@ The final image is the corrected page drying in daylight. A small water stain co
 
 ### Ending B: The Last Observer
 
-Ada transfers the witness line from Venn to herself. His funnel is silent. In the office, the wet coat collapses into an ordinary garment. His duty has ended; the game does not claim he has physically returned.
+Ada transfers the witness line from Venn to herself. His listening channel is silent. In the office, the wet coat collapses into an ordinary garment. His duty has ended; the game does not claim he has physically returned.
 
-Ada sits in the chamber. The Index offers the first automatic sentence: “Subject Bell possesses no surviving personal effects.” She adds a correction about the repaired cup. Its handle becomes warm in the kitchen. Another line appears. She adds another correction.
+Ada sits in the chamber. The Index offers the first automatic sentence: “Subject Bell possesses no surviving personal effects.” She adds a correction about the repaired cup. On its marked Bunk Room shelf, the cup's handle becomes warm. In the kitchen, a small patch of condensation gathers inside the supper bowl. Another line appears. She adds another correction.
 
 Morning reaches the windows but the station does not return to the ordinary shore. Ada has freely accepted confinement and an ongoing task. The eight traces remain accessible as fragments of people, not restored bodies. She can interrupt the Counter's claim to finality, but she cannot promise that she can do so forever.
 
@@ -616,6 +632,8 @@ Target **24 base room views**, **32 dedicated instrument/prop close-ups**, and a
 
 Close-ups are reusable interfaces where practical: record frames, chart clips, notebook comparisons, and signal controls share interaction behavior but retain room-specific art. Tide changes selectively update these scenes. Do not commission nine versions of every background.
 
+Map inspection uses one shared viewer with separate readable art and transcripts for every map prop actually shown in the room views. Include the P03 reconstruction board within its existing dedicated close-up allowance. Inventory all visible maps during each room's asset pass so incidental maps receive inspection artwork too. Preserve coherent coastline geometry across fragment exports and their completed sheet. Generated decorative map marks in room concepts are placeholders; shipped evidence comes from authored sources.
+
 Target approximately 25 short animation events and 10 reusable ambient loops. Prioritize the impossible stair reveal, self-writing record, lifting spoon, moving diaphragm, vertical sea, and ending transitions. Secondary events can use a few strong poses and controlled sound rather than costly full animation.
 
 ### Horror intensity curve
@@ -661,6 +679,8 @@ Separate five categories: puzzle completion, puzzle-local arrangements, inventor
 
 Every puzzle has a stable ID P01–P27, required evidence IDs, input state, validation rule, outputs, hint levels, and one-time consequence events. World reactions listen to completion events. The puzzle validator must not depend on whether an animation has finished.
 
+Each inspectable map has a stable prop ID, room placement, close-up asset, readable annotation/transcript, and authored presentation version. Persist observed versions in evidence separately from the current room presentation. P03 also stores acquired fragment IDs, their board positions/step rotations, the reconstructed-sheet flag, and the comparison alignment. Reconstruction alone does not complete P03, grant interval 3, or advance the tide.
+
 P05's movement record stores a capped list of recognized in-game interaction events. P25 displays the same saved record. It does not query the device or improvise an inconsistent history.
 
 ### Save behavior
@@ -676,6 +696,9 @@ If the application closes during a reveal, load the solved state with its eviden
 | Branch order changes output | Both orders tested for each of the six parallel pairs |
 | Lost or consumed bridge | P24 always returns it; both P27 routes remain possible |
 | Hidden essential evidence | Every critical clue can be reopened from notebook after collection |
+| Inert or unreadable map prop | Every actual map shown in a playable room has a legible, operable close-up, including atmospheric maps |
+| Lost map assembly | Close/reopen and save/resume retain P03 pieces and arrangements; reconstruction alone never awards the comparison result |
+| Map changes erase evidence | An observed earlier map version remains available after its room art changes |
 | Duplicate completion | Repeated commit does not duplicate rewards or advance a tide twice |
 | Interrupted transition | Save/resume at each tide retains outputs and reachable exits |
 | Prediction mismatch | P05 and P25 display the same persisted interaction history |
@@ -728,7 +751,7 @@ The next concrete deliverable should be the six-puzzle opening slice, built agai
 
 ## Appendix A. First-playthrough experience in brief
 
-You arrive expecting clerical work. You make a lamp function. You hear your name in tomorrow's record. You align two charts and discover a curve that belongs to neither. You activate the signal, and the sea sends back a boat containing your room.
+You arrive expecting clerical work. You make a lamp function. You hear your name in tomorrow's record. You piece a torn tide sheet together, align it with another chart, and discover a curve that belongs to neither. You activate the signal, and the sea sends back a boat containing your room.
 
 Inside the station, you set a table for someone the attendance register omitted. You put a repaired cup beside the right bed. You restore a machine that does not need its motor to breathe. The water provides a name. The horizon turns to look through the building.
 
@@ -744,4 +767,6 @@ All Greywake characters, scenes, dialogue, puzzle settings, history, and endings
 
 ## Revision history
 
+- **1.3:** Adopted the accepted Listening Room v4 composition: hornless wax recorder, hooked headphones, small used noticeboard, specialized bench and prominent weather window. Replaced obsolete funnel/trumpet staging while preserving P02/P17/P19 solutions, voices, dependencies and ending consequences. Documented fixed room geometry, clipped weather and independent recorder state. This art revision adds no gameplay or platform-validation claim.
+- **1.2:** Made every actual map prop inspectable, including atmospheric maps; specified zoom/pan alternatives, readable close-up assets, and preservation of changing map evidence. Expanded P03 with three-fragment reconstruction before its existing chart comparison. Prerequisites, interval-3 reward, 27-puzzle count, and ending choices remain intact. Added map asset and save-state requirements.
 - **1.1:** Recorded the approved flat, front-facing art direction and made progress-driven environmental escalation mandatory in all 12 locations. Added the window/weather milestone table, room-specific treatments, reusable layer requirements, and save/revisit behavior. Puzzle count, solutions, and ending choices remain as specified.

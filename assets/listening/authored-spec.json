@@ -1,0 +1,1774 @@
+{
+  "schema": 2,
+  "generated_by": "tools/build_listening_vectors.py",
+  "bands": {
+    "C": {
+      "start_notch": true,
+      "end_notch": false,
+      "rotations": [
+        {
+          "step": 0,
+          "left_class": 0,
+          "right_class": 1,
+          "asset_id": "r04_band_c_step_0"
+        },
+        {
+          "step": 1,
+          "left_class": 1,
+          "right_class": 2,
+          "asset_id": "r04_band_c_step_1"
+        },
+        {
+          "step": 2,
+          "left_class": 2,
+          "right_class": 0,
+          "asset_id": "r04_band_c_step_2"
+        }
+      ]
+    },
+    "A": {
+      "start_notch": false,
+      "end_notch": false,
+      "rotations": [
+        {
+          "step": 0,
+          "left_class": 1,
+          "right_class": 2,
+          "asset_id": "r04_band_a_step_0"
+        },
+        {
+          "step": 1,
+          "left_class": 2,
+          "right_class": 0,
+          "asset_id": "r04_band_a_step_1"
+        },
+        {
+          "step": 2,
+          "left_class": 0,
+          "right_class": 1,
+          "asset_id": "r04_band_a_step_2"
+        }
+      ]
+    },
+    "B": {
+      "start_notch": false,
+      "end_notch": true,
+      "rotations": [
+        {
+          "step": 0,
+          "left_class": 2,
+          "right_class": 0,
+          "asset_id": "r04_band_b_step_0"
+        },
+        {
+          "step": 1,
+          "left_class": 0,
+          "right_class": 1,
+          "asset_id": "r04_band_b_step_1"
+        },
+        {
+          "step": 2,
+          "left_class": 1,
+          "right_class": 2,
+          "asset_id": "r04_band_b_step_2"
+        }
+      ]
+    }
+  },
+  "solution": {
+    "order": [
+      "C",
+      "A",
+      "B"
+    ],
+    "steps": [
+      0,
+      0,
+      0
+    ],
+    "start_class": 0,
+    "end_class": 0
+  },
+  "band_canvas": [
+    180,
+    300
+  ],
+  "wax_skin_rect": [
+    0,
+    0,
+    180,
+    200
+  ],
+  "seam_levels_y": [
+    42,
+    100,
+    158
+  ],
+  "waveforms": {
+    "venn": {
+      "bell_x": 280,
+      "width": 960,
+      "height": 144,
+      "initial_origin": [
+        144,
+        312
+      ],
+      "clip_rect": [
+        144,
+        312,
+        1160,
+        144
+      ],
+      "solution_shift_x": 300,
+      "polyline_points": [
+        [
+          20,
+          72
+        ],
+        [
+          40,
+          53
+        ],
+        [
+          60,
+          79
+        ],
+        [
+          80,
+          58
+        ],
+        [
+          100,
+          93
+        ],
+        [
+          120,
+          63
+        ],
+        [
+          140,
+          88
+        ],
+        [
+          160,
+          49
+        ],
+        [
+          180,
+          83
+        ],
+        [
+          200,
+          54
+        ],
+        [
+          220,
+          78
+        ],
+        [
+          240,
+          56
+        ],
+        [
+          260,
+          108
+        ],
+        [
+          280,
+          16
+        ],
+        [
+          300,
+          108
+        ],
+        [
+          320,
+          56
+        ],
+        [
+          340,
+          82
+        ],
+        [
+          360,
+          55
+        ],
+        [
+          380,
+          77
+        ],
+        [
+          400,
+          60
+        ],
+        [
+          420,
+          91
+        ],
+        [
+          440,
+          65
+        ],
+        [
+          460,
+          86
+        ],
+        [
+          480,
+          51
+        ],
+        [
+          500,
+          81
+        ],
+        [
+          520,
+          56
+        ],
+        [
+          540,
+          95
+        ],
+        [
+          560,
+          61
+        ],
+        [
+          580,
+          90
+        ],
+        [
+          600,
+          66
+        ],
+        [
+          620,
+          85
+        ],
+        [
+          640,
+          52
+        ],
+        [
+          660,
+          80
+        ],
+        [
+          680,
+          57
+        ],
+        [
+          700,
+          94
+        ],
+        [
+          720,
+          62
+        ],
+        [
+          740,
+          89
+        ],
+        [
+          760,
+          67
+        ],
+        [
+          780,
+          84
+        ],
+        [
+          800,
+          53
+        ],
+        [
+          820,
+          79
+        ],
+        [
+          840,
+          58
+        ],
+        [
+          860,
+          93
+        ],
+        [
+          880,
+          63
+        ],
+        [
+          900,
+          88
+        ],
+        [
+          920,
+          49
+        ],
+        [
+          940,
+          83
+        ]
+      ],
+      "note": "Authored timing diagram, not a waveform extracted from recorded voice. Match later audio to the marked event."
+    },
+    "nora": {
+      "bell_x": 440,
+      "width": 960,
+      "height": 144,
+      "initial_origin": [
+        144,
+        582
+      ],
+      "clip_rect": [
+        144,
+        582,
+        1160,
+        144
+      ],
+      "solution_shift_x": 140,
+      "polyline_points": [
+        [
+          20,
+          72
+        ],
+        [
+          40,
+          64
+        ],
+        [
+          60,
+          91
+        ],
+        [
+          80,
+          61
+        ],
+        [
+          100,
+          94
+        ],
+        [
+          120,
+          58
+        ],
+        [
+          140,
+          78
+        ],
+        [
+          160,
+          55
+        ],
+        [
+          180,
+          81
+        ],
+        [
+          200,
+          52
+        ],
+        [
+          220,
+          84
+        ],
+        [
+          240,
+          49
+        ],
+        [
+          260,
+          87
+        ],
+        [
+          280,
+          65
+        ],
+        [
+          300,
+          90
+        ],
+        [
+          320,
+          62
+        ],
+        [
+          340,
+          93
+        ],
+        [
+          360,
+          59
+        ],
+        [
+          380,
+          77
+        ],
+        [
+          400,
+          56
+        ],
+        [
+          420,
+          108
+        ],
+        [
+          440,
+          16
+        ],
+        [
+          460,
+          108
+        ],
+        [
+          480,
+          56
+        ],
+        [
+          500,
+          86
+        ],
+        [
+          520,
+          66
+        ],
+        [
+          540,
+          89
+        ],
+        [
+          560,
+          63
+        ],
+        [
+          580,
+          92
+        ],
+        [
+          600,
+          60
+        ],
+        [
+          620,
+          95
+        ],
+        [
+          640,
+          57
+        ],
+        [
+          660,
+          79
+        ],
+        [
+          680,
+          54
+        ],
+        [
+          700,
+          82
+        ],
+        [
+          720,
+          51
+        ],
+        [
+          740,
+          85
+        ],
+        [
+          760,
+          67
+        ],
+        [
+          780,
+          88
+        ],
+        [
+          800,
+          64
+        ],
+        [
+          820,
+          91
+        ],
+        [
+          840,
+          61
+        ],
+        [
+          860,
+          94
+        ],
+        [
+          880,
+          58
+        ],
+        [
+          900,
+          78
+        ],
+        [
+          920,
+          55
+        ],
+        [
+          940,
+          81
+        ]
+      ],
+      "note": "Authored timing diagram, not a waveform extracted from recorded voice. Match later audio to the marked event."
+    }
+  },
+  "window_panes": [
+    [
+      1112,
+      137,
+      81,
+      112
+    ],
+    [
+      1205,
+      137,
+      83,
+      112
+    ],
+    [
+      1302,
+      137,
+      78,
+      112
+    ],
+    [
+      1112,
+      261,
+      81,
+      94
+    ],
+    [
+      1205,
+      261,
+      83,
+      94
+    ],
+    [
+      1302,
+      261,
+      78,
+      94
+    ],
+    [
+      1112,
+      372,
+      268,
+      207
+    ]
+  ],
+  "panels": {
+    "P02": {
+      "canvas": [
+        1448,
+        1086
+      ],
+      "panel_background": "r04_channel_panel_blank",
+      "overlay": "r04_p02_panel_overlay",
+      "assembly_rect": [
+        244,
+        290,
+        960,
+        480
+      ],
+      "assembly_source_size": [
+        600,
+        300
+      ],
+      "assembly_uniform_scale": 1.6,
+      "band_local_origins": [
+        [
+          30,
+          0
+        ],
+        [
+          210,
+          0
+        ],
+        [
+          390,
+          0
+        ]
+      ],
+      "band_face_asset": "r04_band_face",
+      "band_face_rect": [
+        0,
+        0,
+        180,
+        200
+      ],
+      "band_overlay_rect": [
+        0,
+        0,
+        180,
+        300
+      ],
+      "band_selection_controls": [
+        {
+          "band": "A",
+          "asset_id": "r04_case_label_a",
+          "rect": [
+            88,
+            346,
+            144,
+            72
+          ],
+          "accessible_label": "Select recording band A"
+        },
+        {
+          "band": "B",
+          "asset_id": "r04_case_label_b",
+          "rect": [
+            88,
+            448,
+            144,
+            72
+          ],
+          "accessible_label": "Select recording band B"
+        },
+        {
+          "band": "C",
+          "asset_id": "r04_case_label_c",
+          "rect": [
+            88,
+            550,
+            144,
+            72
+          ],
+          "accessible_label": "Select recording band C"
+        }
+      ],
+      "guides_asset": "r04_spindle_guides",
+      "guides_rect": [
+        0,
+        0,
+        600,
+        300
+      ],
+      "rotate_controls": [
+        {
+          "slot": 0,
+          "asset_id": "r04_rotate_band",
+          "rect": [
+            302,
+            795,
+            268,
+            96
+          ]
+        },
+        {
+          "slot": 1,
+          "asset_id": "r04_rotate_band",
+          "rect": [
+            590,
+            795,
+            268,
+            96
+          ]
+        },
+        {
+          "slot": 2,
+          "asset_id": "r04_rotate_band",
+          "rect": [
+            878,
+            795,
+            268,
+            96
+          ]
+        }
+      ],
+      "needle_control": {
+        "rect": [
+          150,
+          925,
+          350,
+          96
+        ],
+        "states": {
+          "raised": "r04_needle_raised",
+          "lowered": "r04_needle_lowered"
+        }
+      },
+      "play_control": {
+        "rect": [
+          948,
+          925,
+          350,
+          96
+        ],
+        "asset_id": "r04_play_key"
+      },
+      "successful_playback": {
+        "asset_id": "r04_p02_playback_readout",
+        "rect": [
+          184,
+          243,
+          1080,
+          600
+        ],
+        "transcript_asset": "r04_playback_transcript",
+        "speaker": "Elias Venn",
+        "calibration_zero": 4,
+        "future_label": "TOMORROW",
+        "future_line": "Mercer will be standing at the chart table.",
+        "trace_note": "Authored illustrative trace accompanying explicit numerical and text readouts. Not extracted from audio and not an amplitude decoding task.",
+        "visibility": "Only after valid assembly is successfully played; retained as evidence thereafter."
+      },
+      "interaction": [
+        "Tap a band then a slot; dragging is optional.",
+        "START notch belongs in first slot; END notch belongs in last slot.",
+        "TURN BAND advances selected slot one notch through steps 0,1,2.",
+        "The seam must match at both joins and both fixed guides.",
+        "Needle starts raised. Raise it before moving bands; a failed action consumes nothing.",
+        "Lower needle, then PLAY to evaluate complete assembly.",
+        "Failed seam checks mark each broken join and retain arrangement.",
+        "Successful playback awards zero 4 and preserves transcript, independently of animation."
+      ],
+      "initial_state": {
+        "slots": [
+          null,
+          null,
+          null
+        ],
+        "needle": "raised",
+        "completed": false
+      },
+      "room_art_note": "Generated recorder_assembled/partial and wax_band sprites are visual room props. Exact inspection uses the authored band face; do not stretch an angled generated cylinder under this seam geometry."
+    },
+    "P17": {
+      "canvas": [
+        1448,
+        1086
+      ],
+      "panel_background": "r04_channel_panel_blank",
+      "overlay": "r04_p17_panel_overlay",
+      "requires": [
+        "P16"
+      ],
+      "guide_x": 724,
+      "shift_step_x": 20,
+      "shift_range_x": [
+        0,
+        400
+      ],
+      "initial_shift_x": {
+        "venn": 0,
+        "nora": 0
+      },
+      "controls": {
+        "venn": {
+          "left": {
+            "asset_id": "r04_trace_left",
+            "rect": [
+              144,
+              470,
+              104,
+              72
+            ]
+          },
+          "right": {
+            "asset_id": "r04_trace_right",
+            "rect": [
+              264,
+              470,
+              104,
+              72
+            ]
+          },
+          "listen": {
+            "rect": [
+              904,
+              470,
+              400,
+              72
+            ],
+            "states": {
+              "idle": "r04_listen_venn_idle",
+              "pressed": "r04_listen_venn_pressed"
+            }
+          }
+        },
+        "nora": {
+          "left": {
+            "asset_id": "r04_trace_left",
+            "rect": [
+              144,
+              740,
+              104,
+              72
+            ]
+          },
+          "right": {
+            "asset_id": "r04_trace_right",
+            "rect": [
+              264,
+              740,
+              104,
+              72
+            ]
+          },
+          "listen": {
+            "rect": [
+              904,
+              740,
+              400,
+              72
+            ],
+            "states": {
+              "idle": "r04_listen_nora_idle",
+              "pressed": "r04_listen_nora_pressed"
+            }
+          }
+        }
+      },
+      "voice_lines": {
+        "venn": "Leave the witness line open.",
+        "nora": "Tell them I was here."
+      },
+      "evidence_assets": {
+        "venn": "r04_venn_statement",
+        "nora": "r04_nora_statement"
+      },
+      "completion": "Both bell positions equal guide_x AND each separate voice has been heard or read through its accessible transcript action.",
+      "persistent_outputs": [
+        "r04_venn_statement",
+        "r04_nora_statement",
+        "r04_witness_procedure",
+        "r04_witness_margin"
+      ],
+      "audio_contract": "Separate authored speakers; exclusive channel playback. No audio file is delivered here. Caption/transcript access grants the same evidence as listening, with no hearing requirement.",
+      "layer_order": [
+        "panel_background",
+        "overlay",
+        "each clipped trace at initial_origin + shift_x",
+        "controls"
+      ]
+    },
+    "P19": {
+      "canvas": [
+        1448,
+        1086
+      ],
+      "panel_background": "r04_channel_panel_blank",
+      "overlay": "r04_p19_panel_overlay",
+      "requires": [
+        "P17",
+        "P18"
+      ],
+      "seal_evidence_source": "P08 retained seal rubbing; three cuts",
+      "channel_cuts": {
+        "A": 1,
+        "B": 2,
+        "C": 3
+      },
+      "controls": {
+        "motor": {
+          "rect": [
+            144,
+            240,
+            260,
+            100
+          ],
+          "states": {
+            "off": "r04_motor_off",
+            "on": "r04_motor_on"
+          }
+        },
+        "A": {
+          "rect": [
+            190,
+            562,
+            260,
+            100
+          ],
+          "states": {
+            "open": "r04_channel_open",
+            "closed": "r04_channel_closed"
+          }
+        },
+        "B": {
+          "rect": [
+            594,
+            562,
+            260,
+            100
+          ],
+          "states": {
+            "open": "r04_channel_open",
+            "closed": "r04_channel_closed"
+          }
+        },
+        "C": {
+          "rect": [
+            998,
+            562,
+            260,
+            100
+          ],
+          "states": {
+            "open": "r04_channel_open",
+            "closed": "r04_channel_closed"
+          }
+        },
+        "witness": {
+          "rect": [
+            522,
+            827,
+            404,
+            110
+          ],
+          "states": {
+            "idle": "r04_witness_key_idle",
+            "pressed": "r04_witness_key_pressed"
+          }
+        }
+      },
+      "indicator": {
+        "rect": [
+          980,
+          850,
+          64,
+          64
+        ],
+        "states": {
+          "off": "r04_indicator_off",
+          "on": "r04_indicator_on"
+        }
+      },
+      "initial_state": {
+        "motor": "on",
+        "A": "open",
+        "B": "open",
+        "C": "closed",
+        "connected": false
+      },
+      "connection_rule": {
+        "motor": "off",
+        "A": "closed",
+        "B": "closed",
+        "C": "open",
+        "witness_key": "pressed"
+      },
+      "questions_overlay": "r04_p19_questions_overlay",
+      "questions": [
+        {
+          "id": "reach",
+          "question": "Did you save them?",
+          "answer": [
+            "I kept them within reach. I could",
+            "not bring them out. I cannot promise",
+            "that what remains is whole."
+          ],
+          "exact_answer": "I kept them within reach. I could not bring them out. I cannot promise that what remains is whole.",
+          "asset_id": "r04_question_reach",
+          "rect": [
+            120,
+            290,
+            1208,
+            140
+          ],
+          "evidence_asset": "r04_witness_answer_reach",
+          "first_play_requires_answer_ids": []
+        },
+        {
+          "id": "sever",
+          "question": "What happens if I sever the connection?",
+          "answer": [
+            "Their traces will end. You will be",
+            "able to leave. You will not be able",
+            "to reach them again."
+          ],
+          "exact_answer": "Their traces will end. You will be able to leave. You will not be able to reach them again.",
+          "asset_id": "r04_question_sever",
+          "rect": [
+            120,
+            480,
+            1208,
+            140
+          ],
+          "evidence_asset": "r04_witness_answer_sever",
+          "first_play_requires_answer_ids": [
+            "reach"
+          ]
+        },
+        {
+          "id": "remain",
+          "question": "What does taking your place mean?",
+          "answer": [
+            "You keep the witness record open,",
+            "and my duty ends. The traces remain",
+            "accessible.",
+            "",
+            "[The indicator goes dark.",
+            "Venn continues.]",
+            "",
+            "You must remain here, physically",
+            "at the station."
+          ],
+          "exact_answer": "You keep the witness record open, and my duty ends. The traces remain accessible. You must remain here, physically at the station.",
+          "asset_id": "r04_question_remain",
+          "rect": [
+            120,
+            670,
+            1208,
+            140
+          ],
+          "evidence_asset": "r04_witness_answer_remain",
+          "first_play_requires_answer_ids": [
+            "reach",
+            "sever"
+          ]
+        }
+      ],
+      "question_order": [
+        "reach",
+        "sever",
+        "remain"
+      ],
+      "question_availability": "Reveal the next question after preserving the preceding answer. Completed answers are always replayable. This guarantees the indicator-dark cue accompanies the final answer.",
+      "completion": "All three fixed answers are preserved, not merely pressing WITNESS.",
+      "indicator_dark_event": {
+        "answer_id": "remain",
+        "cue_before_text": "You must remain here, physically at the station.",
+        "on_cue": "Change circuit indicator to off; keep headphones voice and captions continuing.",
+        "circuit_state_does_not_cancel_answer": true,
+        "interruption_behavior": "Preserve the whole answer as evidence and allow replay; no reward depends on an animation callback."
+      },
+      "voice_delivery": "Headphones and hornless recorder. Do not restore rejected funnels or use real device microphone data.",
+      "copy_status": "The three fixed exchanges are newly authored wording of established GDD consequences."
+    }
+  },
+  "validation": {
+    "P02_enumerated_arrangements": 162,
+    "P02_valid_arrangements": [
+      {
+        "order": [
+          "C",
+          "A",
+          "B"
+        ],
+        "steps": [
+          0,
+          0,
+          0
+        ]
+      }
+    ],
+    "P17_enumerated_shift_pairs": 441,
+    "P17_valid_shift_pairs": [
+      [
+        300,
+        140
+      ]
+    ],
+    "P19_enumerated_control_states": 32,
+    "P19_valid_control_states": [
+      [
+        false,
+        false,
+        false,
+        true,
+        true
+      ]
+    ],
+    "touch_target_reference_size": [
+      1024,
+      768
+    ],
+    "minimum_control_target": 44,
+    "checks": [
+      "P02 three-band guide span and touching band joins",
+      "Unique solution includes START/END notch constraints",
+      "Both P17 bell peaks are uniquely largest and align on discrete steps",
+      "P17 traces and speaker statements remain distinct",
+      "P19 only OFF/closed/closed/open/WITNESS connects",
+      "Referenced controls exist and fit canvas with >=44px minimum at reference size"
+    ]
+  },
+  "assets": [
+    {
+      "id": "r04_recording_log",
+      "path": "assets/listening/documents/r04_recording_log.png",
+      "source_svg": "assets/listening/documents/r04_recording_log.svg",
+      "size": [
+        800,
+        1000
+      ],
+      "role": "readable_document",
+      "visible_when": "R04 visited"
+    },
+    {
+      "id": "r04_correction_note",
+      "path": "assets/listening/documents/r04_correction_note.png",
+      "source_svg": "assets/listening/documents/r04_correction_note.svg",
+      "size": [
+        800,
+        1000
+      ],
+      "role": "readable_document",
+      "visible_when": "R04 visited"
+    },
+    {
+      "id": "r04_assembly_card",
+      "path": "assets/listening/documents/r04_assembly_card.png",
+      "source_svg": "assets/listening/documents/r04_assembly_card.svg",
+      "size": [
+        800,
+        1000
+      ],
+      "role": "readable_document",
+      "visible_when": "R04 visited"
+    },
+    {
+      "id": "r04_playback_transcript",
+      "path": "assets/listening/documents/r04_playback_transcript.png",
+      "source_svg": "assets/listening/documents/r04_playback_transcript.svg",
+      "size": [
+        800,
+        1000
+      ],
+      "role": "readable_document",
+      "visible_when": "P02 complete"
+    },
+    {
+      "id": "r04_maintenance_ledger",
+      "path": "assets/listening/documents/r04_maintenance_ledger.png",
+      "source_svg": "assets/listening/documents/r04_maintenance_ledger.svg",
+      "size": [
+        800,
+        1000
+      ],
+      "role": "readable_document",
+      "visible_when": "R04 visited"
+    },
+    {
+      "id": "r04_witness_procedure",
+      "path": "assets/listening/documents/r04_witness_procedure.png",
+      "source_svg": "assets/listening/documents/r04_witness_procedure.svg",
+      "size": [
+        800,
+        1000
+      ],
+      "role": "readable_document",
+      "visible_when": "P17 complete; P19 interaction requires P17 AND P18"
+    },
+    {
+      "id": "r04_venn_statement",
+      "path": "assets/listening/documents/r04_venn_statement.png",
+      "source_svg": "assets/listening/documents/r04_venn_statement.svg",
+      "size": [
+        800,
+        1000
+      ],
+      "role": "readable_document",
+      "visible_when": "P17 bell peaks aligned AND Venn channel heard"
+    },
+    {
+      "id": "r04_nora_statement",
+      "path": "assets/listening/documents/r04_nora_statement.png",
+      "source_svg": "assets/listening/documents/r04_nora_statement.svg",
+      "size": [
+        800,
+        1000
+      ],
+      "role": "readable_document",
+      "visible_when": "P17 bell peaks aligned AND Nora channel heard"
+    },
+    {
+      "id": "r04_witness_margin",
+      "path": "assets/listening/documents/r04_witness_margin.png",
+      "source_svg": "assets/listening/documents/r04_witness_margin.svg",
+      "size": [
+        800,
+        1000
+      ],
+      "role": "readable_document",
+      "visible_when": "P17 complete; retain in notebook"
+    },
+    {
+      "id": "r04_witness_answer_reach",
+      "path": "assets/listening/documents/r04_witness_answer_reach.png",
+      "source_svg": "assets/listening/documents/r04_witness_answer_reach.svg",
+      "size": [
+        800,
+        1000
+      ],
+      "role": "readable_document",
+      "visible_when": "P19 witness connected AND question reach asked; retain after indicator dark"
+    },
+    {
+      "id": "r04_witness_answer_sever",
+      "path": "assets/listening/documents/r04_witness_answer_sever.png",
+      "source_svg": "assets/listening/documents/r04_witness_answer_sever.svg",
+      "size": [
+        800,
+        1000
+      ],
+      "role": "readable_document",
+      "visible_when": "P19 witness connected AND question sever asked; retain after indicator dark"
+    },
+    {
+      "id": "r04_witness_answer_remain",
+      "path": "assets/listening/documents/r04_witness_answer_remain.png",
+      "source_svg": "assets/listening/documents/r04_witness_answer_remain.svg",
+      "size": [
+        800,
+        1000
+      ],
+      "role": "readable_document",
+      "visible_when": "P19 witness connected AND question remain asked; retain after indicator dark"
+    },
+    {
+      "id": "r04_band_face",
+      "path": "assets/listening/puzzle/r04_band_face.png",
+      "source_svg": "assets/listening/puzzle/r04_band_face.svg",
+      "size": [
+        180,
+        200
+      ],
+      "role": "authored_front_elevation_wax_face",
+      "visible_when": "P02 inspection; use beneath exact seam overlay"
+    },
+    {
+      "id": "r04_band_c_step_0",
+      "path": "assets/listening/puzzle/r04_band_c_step_0.png",
+      "source_svg": "assets/listening/puzzle/r04_band_c_step_0.svg",
+      "size": [
+        180,
+        300
+      ],
+      "role": "exact_band_overlay",
+      "visible_when": "P02 sleeve visible"
+    },
+    {
+      "id": "r04_band_c_step_1",
+      "path": "assets/listening/puzzle/r04_band_c_step_1.png",
+      "source_svg": "assets/listening/puzzle/r04_band_c_step_1.svg",
+      "size": [
+        180,
+        300
+      ],
+      "role": "exact_band_overlay",
+      "visible_when": "P02 sleeve visible"
+    },
+    {
+      "id": "r04_band_c_step_2",
+      "path": "assets/listening/puzzle/r04_band_c_step_2.png",
+      "source_svg": "assets/listening/puzzle/r04_band_c_step_2.svg",
+      "size": [
+        180,
+        300
+      ],
+      "role": "exact_band_overlay",
+      "visible_when": "P02 sleeve visible"
+    },
+    {
+      "id": "r04_band_a_step_0",
+      "path": "assets/listening/puzzle/r04_band_a_step_0.png",
+      "source_svg": "assets/listening/puzzle/r04_band_a_step_0.svg",
+      "size": [
+        180,
+        300
+      ],
+      "role": "exact_band_overlay",
+      "visible_when": "P02 sleeve visible"
+    },
+    {
+      "id": "r04_band_a_step_1",
+      "path": "assets/listening/puzzle/r04_band_a_step_1.png",
+      "source_svg": "assets/listening/puzzle/r04_band_a_step_1.svg",
+      "size": [
+        180,
+        300
+      ],
+      "role": "exact_band_overlay",
+      "visible_when": "P02 sleeve visible"
+    },
+    {
+      "id": "r04_band_a_step_2",
+      "path": "assets/listening/puzzle/r04_band_a_step_2.png",
+      "source_svg": "assets/listening/puzzle/r04_band_a_step_2.svg",
+      "size": [
+        180,
+        300
+      ],
+      "role": "exact_band_overlay",
+      "visible_when": "P02 sleeve visible"
+    },
+    {
+      "id": "r04_band_b_step_0",
+      "path": "assets/listening/puzzle/r04_band_b_step_0.png",
+      "source_svg": "assets/listening/puzzle/r04_band_b_step_0.svg",
+      "size": [
+        180,
+        300
+      ],
+      "role": "exact_band_overlay",
+      "visible_when": "P02 sleeve visible"
+    },
+    {
+      "id": "r04_band_b_step_1",
+      "path": "assets/listening/puzzle/r04_band_b_step_1.png",
+      "source_svg": "assets/listening/puzzle/r04_band_b_step_1.svg",
+      "size": [
+        180,
+        300
+      ],
+      "role": "exact_band_overlay",
+      "visible_when": "P02 sleeve visible"
+    },
+    {
+      "id": "r04_band_b_step_2",
+      "path": "assets/listening/puzzle/r04_band_b_step_2.png",
+      "source_svg": "assets/listening/puzzle/r04_band_b_step_2.svg",
+      "size": [
+        180,
+        300
+      ],
+      "role": "exact_band_overlay",
+      "visible_when": "P02 sleeve visible"
+    },
+    {
+      "id": "r04_spindle_guides",
+      "path": "assets/listening/puzzle/r04_spindle_guides.png",
+      "source_svg": "assets/listening/puzzle/r04_spindle_guides.svg",
+      "size": [
+        600,
+        300
+      ],
+      "role": "fixed_end_guides",
+      "visible_when": "P02 inspection"
+    },
+    {
+      "id": "r04_case_label_a",
+      "path": "assets/listening/puzzle/r04_case_label_a.png",
+      "source_svg": "assets/listening/puzzle/r04_case_label_a.svg",
+      "size": [
+        180,
+        90
+      ],
+      "role": "case_label",
+      "visible_when": "R04"
+    },
+    {
+      "id": "r04_case_label_b",
+      "path": "assets/listening/puzzle/r04_case_label_b.png",
+      "source_svg": "assets/listening/puzzle/r04_case_label_b.svg",
+      "size": [
+        180,
+        90
+      ],
+      "role": "case_label",
+      "visible_when": "R04"
+    },
+    {
+      "id": "r04_case_label_c",
+      "path": "assets/listening/puzzle/r04_case_label_c.png",
+      "source_svg": "assets/listening/puzzle/r04_case_label_c.svg",
+      "size": [
+        180,
+        90
+      ],
+      "role": "case_label",
+      "visible_when": "R04"
+    },
+    {
+      "id": "r04_p02_panel_overlay",
+      "path": "assets/listening/puzzle/r04_p02_panel_overlay.png",
+      "source_svg": "assets/listening/puzzle/r04_p02_panel_overlay.svg",
+      "size": [
+        1448,
+        1086
+      ],
+      "role": "P02_inspection_overlay",
+      "visible_when": "P01 complete"
+    },
+    {
+      "id": "r04_rotate_band",
+      "path": "assets/listening/puzzle/r04_rotate_band.png",
+      "source_svg": "assets/listening/puzzle/r04_rotate_band.svg",
+      "size": [
+        268,
+        96
+      ],
+      "role": "discrete_rotation_control",
+      "visible_when": "P02"
+    },
+    {
+      "id": "r04_needle_raised",
+      "path": "assets/listening/puzzle/r04_needle_raised.png",
+      "source_svg": "assets/listening/puzzle/r04_needle_raised.svg",
+      "size": [
+        350,
+        96
+      ],
+      "role": "needle_control",
+      "visible_when": "P02"
+    },
+    {
+      "id": "r04_needle_lowered",
+      "path": "assets/listening/puzzle/r04_needle_lowered.png",
+      "source_svg": "assets/listening/puzzle/r04_needle_lowered.svg",
+      "size": [
+        350,
+        96
+      ],
+      "role": "needle_control",
+      "visible_when": "P02"
+    },
+    {
+      "id": "r04_play_key",
+      "path": "assets/listening/puzzle/r04_play_key.png",
+      "source_svg": "assets/listening/puzzle/r04_play_key.svg",
+      "size": [
+        350,
+        96
+      ],
+      "role": "playback_control",
+      "visible_when": "P02"
+    },
+    {
+      "id": "r04_p02_playback_readout",
+      "path": "assets/listening/puzzle/r04_p02_playback_readout.png",
+      "source_svg": "assets/listening/puzzle/r04_p02_playback_readout.svg",
+      "size": [
+        1080,
+        600
+      ],
+      "role": "P02_exact_playback_readout",
+      "visible_when": "P02 successful playback only"
+    },
+    {
+      "id": "r04_p17_panel_overlay",
+      "path": "assets/listening/puzzle/r04_p17_panel_overlay.png",
+      "source_svg": "assets/listening/puzzle/r04_p17_panel_overlay.svg",
+      "size": [
+        1448,
+        1086
+      ],
+      "role": "P17_inspection_overlay",
+      "visible_when": "P16 complete"
+    },
+    {
+      "id": "r04_trace_left",
+      "path": "assets/listening/puzzle/r04_trace_left.png",
+      "source_svg": "assets/listening/puzzle/r04_trace_left.svg",
+      "size": [
+        104,
+        72
+      ],
+      "role": "discrete_trace_shift",
+      "visible_when": "P17"
+    },
+    {
+      "id": "r04_trace_right",
+      "path": "assets/listening/puzzle/r04_trace_right.png",
+      "source_svg": "assets/listening/puzzle/r04_trace_right.svg",
+      "size": [
+        104,
+        72
+      ],
+      "role": "discrete_trace_shift",
+      "visible_when": "P17"
+    },
+    {
+      "id": "r04_listen_venn_idle",
+      "path": "assets/listening/puzzle/r04_listen_venn_idle.png",
+      "source_svg": "assets/listening/puzzle/r04_listen_venn_idle.svg",
+      "size": [
+        400,
+        72
+      ],
+      "role": "single_voice_control",
+      "visible_when": "P17"
+    },
+    {
+      "id": "r04_listen_venn_pressed",
+      "path": "assets/listening/puzzle/r04_listen_venn_pressed.png",
+      "source_svg": "assets/listening/puzzle/r04_listen_venn_pressed.svg",
+      "size": [
+        400,
+        72
+      ],
+      "role": "single_voice_control",
+      "visible_when": "P17"
+    },
+    {
+      "id": "r04_listen_nora_idle",
+      "path": "assets/listening/puzzle/r04_listen_nora_idle.png",
+      "source_svg": "assets/listening/puzzle/r04_listen_nora_idle.svg",
+      "size": [
+        400,
+        72
+      ],
+      "role": "single_voice_control",
+      "visible_when": "P17"
+    },
+    {
+      "id": "r04_listen_nora_pressed",
+      "path": "assets/listening/puzzle/r04_listen_nora_pressed.png",
+      "source_svg": "assets/listening/puzzle/r04_listen_nora_pressed.svg",
+      "size": [
+        400,
+        72
+      ],
+      "role": "single_voice_control",
+      "visible_when": "P17"
+    },
+    {
+      "id": "r04_waveform_venn",
+      "path": "assets/listening/puzzle/r04_waveform_venn.png",
+      "source_svg": "assets/listening/puzzle/r04_waveform_venn.svg",
+      "size": [
+        960,
+        144
+      ],
+      "role": "authored_sync_trace",
+      "visible_when": "P17"
+    },
+    {
+      "id": "r04_waveform_nora",
+      "path": "assets/listening/puzzle/r04_waveform_nora.png",
+      "source_svg": "assets/listening/puzzle/r04_waveform_nora.svg",
+      "size": [
+        960,
+        144
+      ],
+      "role": "authored_sync_trace",
+      "visible_when": "P17"
+    },
+    {
+      "id": "r04_p19_panel_overlay",
+      "path": "assets/listening/puzzle/r04_p19_panel_overlay.png",
+      "source_svg": "assets/listening/puzzle/r04_p19_panel_overlay.svg",
+      "size": [
+        1448,
+        1086
+      ],
+      "role": "P19_inspection_overlay",
+      "visible_when": "P17 AND P18 complete"
+    },
+    {
+      "id": "r04_channel_open",
+      "path": "assets/listening/puzzle/r04_channel_open.png",
+      "source_svg": "assets/listening/puzzle/r04_channel_open.svg",
+      "size": [
+        260,
+        100
+      ],
+      "role": "shared_channel_control",
+      "visible_when": "P19"
+    },
+    {
+      "id": "r04_channel_closed",
+      "path": "assets/listening/puzzle/r04_channel_closed.png",
+      "source_svg": "assets/listening/puzzle/r04_channel_closed.svg",
+      "size": [
+        260,
+        100
+      ],
+      "role": "shared_channel_control",
+      "visible_when": "P19"
+    },
+    {
+      "id": "r04_motor_off",
+      "path": "assets/listening/puzzle/r04_motor_off.png",
+      "source_svg": "assets/listening/puzzle/r04_motor_off.svg",
+      "size": [
+        260,
+        100
+      ],
+      "role": "motor_control",
+      "visible_when": "P19"
+    },
+    {
+      "id": "r04_motor_on",
+      "path": "assets/listening/puzzle/r04_motor_on.png",
+      "source_svg": "assets/listening/puzzle/r04_motor_on.svg",
+      "size": [
+        260,
+        100
+      ],
+      "role": "motor_control",
+      "visible_when": "P19"
+    },
+    {
+      "id": "r04_witness_key_idle",
+      "path": "assets/listening/puzzle/r04_witness_key_idle.png",
+      "source_svg": "assets/listening/puzzle/r04_witness_key_idle.svg",
+      "size": [
+        404,
+        110
+      ],
+      "role": "witness_control",
+      "visible_when": "P19"
+    },
+    {
+      "id": "r04_witness_key_pressed",
+      "path": "assets/listening/puzzle/r04_witness_key_pressed.png",
+      "source_svg": "assets/listening/puzzle/r04_witness_key_pressed.svg",
+      "size": [
+        404,
+        110
+      ],
+      "role": "witness_control",
+      "visible_when": "P19"
+    },
+    {
+      "id": "r04_indicator_off",
+      "path": "assets/listening/puzzle/r04_indicator_off.png",
+      "source_svg": "assets/listening/puzzle/r04_indicator_off.svg",
+      "size": [
+        64,
+        64
+      ],
+      "role": "circuit_indicator",
+      "visible_when": "P19"
+    },
+    {
+      "id": "r04_indicator_on",
+      "path": "assets/listening/puzzle/r04_indicator_on.png",
+      "source_svg": "assets/listening/puzzle/r04_indicator_on.svg",
+      "size": [
+        64,
+        64
+      ],
+      "role": "circuit_indicator",
+      "visible_when": "P19"
+    },
+    {
+      "id": "r04_p19_questions_overlay",
+      "path": "assets/listening/puzzle/r04_p19_questions_overlay.png",
+      "source_svg": "assets/listening/puzzle/r04_p19_questions_overlay.svg",
+      "size": [
+        1448,
+        1086
+      ],
+      "role": "P19_question_selection_overlay",
+      "visible_when": "P19 witness connected"
+    },
+    {
+      "id": "r04_question_reach",
+      "path": "assets/listening/puzzle/r04_question_reach.png",
+      "source_svg": "assets/listening/puzzle/r04_question_reach.svg",
+      "size": [
+        1208,
+        140
+      ],
+      "role": "fixed_question",
+      "visible_when": "P19 witness connected"
+    },
+    {
+      "id": "r04_question_sever",
+      "path": "assets/listening/puzzle/r04_question_sever.png",
+      "source_svg": "assets/listening/puzzle/r04_question_sever.svg",
+      "size": [
+        1208,
+        140
+      ],
+      "role": "fixed_question",
+      "visible_when": "P19 witness connected"
+    },
+    {
+      "id": "r04_question_remain",
+      "path": "assets/listening/puzzle/r04_question_remain.png",
+      "source_svg": "assets/listening/puzzle/r04_question_remain.svg",
+      "size": [
+        1208,
+        140
+      ],
+      "role": "fixed_question",
+      "visible_when": "P19 witness connected"
+    },
+    {
+      "id": "r04_rain_0",
+      "path": "assets/listening/effects/r04_rain_0.png",
+      "source_svg": "assets/listening/effects/r04_rain_0.svg",
+      "size": [
+        1448,
+        1086
+      ],
+      "role": "window_rain_frame",
+      "visible_when": "weather 2\u20137; freeze frame 0 at weather 4; no motion in reduced-motion mode"
+    },
+    {
+      "id": "r04_rain_1",
+      "path": "assets/listening/effects/r04_rain_1.png",
+      "source_svg": "assets/listening/effects/r04_rain_1.svg",
+      "size": [
+        1448,
+        1086
+      ],
+      "role": "window_rain_frame",
+      "visible_when": "weather 2\u20137; freeze frame 0 at weather 4; no motion in reduced-motion mode"
+    },
+    {
+      "id": "r04_rain_2",
+      "path": "assets/listening/effects/r04_rain_2.png",
+      "source_svg": "assets/listening/effects/r04_rain_2.svg",
+      "size": [
+        1448,
+        1086
+      ],
+      "role": "window_rain_frame",
+      "visible_when": "weather 2\u20137; freeze frame 0 at weather 4; no motion in reduced-motion mode"
+    },
+    {
+      "id": "r04_window_mask",
+      "path": "assets/listening/effects/r04_window_mask.png",
+      "source_svg": "assets/listening/effects/r04_window_mask.svg",
+      "size": [
+        1448,
+        1086
+      ],
+      "role": "window_alpha_mask",
+      "visible_when": null
+    },
+    {
+      "id": "r04_wall_damp",
+      "path": "assets/listening/effects/r04_wall_damp.png",
+      "source_svg": "assets/listening/effects/r04_wall_damp.svg",
+      "size": [
+        1448,
+        1086
+      ],
+      "role": "local_damp_layer",
+      "visible_when": "weather >= 3"
+    },
+    {
+      "id": "r04_lamp_pool",
+      "path": "assets/listening/effects/r04_lamp_pool.png",
+      "source_svg": "assets/listening/effects/r04_lamp_pool.svg",
+      "size": [
+        1448,
+        1086
+      ],
+      "role": "local_light_behind_props",
+      "visible_when": "task lamp lit"
+    },
+    {
+      "id": "r04_stool_damp_mark",
+      "path": "assets/listening/effects/r04_stool_damp_mark.png",
+      "source_svg": "assets/listening/effects/r04_stool_damp_mark.svg",
+      "size": [
+        1448,
+        1086
+      ],
+      "role": "registered_seat_mark",
+      "visible_when": "weather >= 3; layer over dry stool; alignment requires integration review"
+    }
+  ],
+  "limitations": [
+    "Graphic specification only; no puzzle implementation or audio files.",
+    "Waveform diagrams must be synchronized with future voice recordings.",
+    "Inspect touch and overlay alignment in the engine before release.",
+    "Graphic enumeration validates authored rules, not unimplemented game code."
+  ]
+}

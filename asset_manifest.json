@@ -25,6 +25,15 @@
   "coordinates": "logical pixels",
   "assets": [
     {
+      "id": "chart_arrival",
+      "path": "assets/backgrounds/chart_arrival.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "46c4ea09400e26f7542b779143db32ed6032f5ce6fea04bef8cc97c5c737d314",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
       "id": "office_arrival",
       "path": "assets/backgrounds/office_arrival.png",
       "width": 1448,
@@ -50,6 +59,1887 @@
       "sha256": "4ed8aa8b1d1cbe4d2f658dd110e3fbbf4685e6be7f84e5fbba7ebd8e5b4ce746",
       "kind": "background",
       "source_svg": null
+    },
+    {
+      "id": "r06_clean_base",
+      "path": "assets/bunks/backgrounds/r06_clean_base.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "cded646af901f2b3e6ab6bc69b957a524ed358d214f902faa08700bb13fb3de0",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r06_amendment_rule",
+      "path": "assets/bunks/documents/r06_amendment_rule.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "4095dcc9d34b2598654ea19b93542f984c7e0aa16d377005b2c7a9273367489e",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_amendment_rule.svg"
+    },
+    {
+      "id": "r06_assignment_rule",
+      "path": "assets/bunks/documents/r06_assignment_rule.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "209e24206705f107bd5c09f64bdf64a51cfc3c3a02f80bd0669fcb330437f0df",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_assignment_rule.svg"
+    },
+    {
+      "id": "r06_card_bell",
+      "path": "assets/bunks/documents/r06_card_bell.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "0b6989d640fdcb5c28c44cc959b33046eceac974d673bdad9bed407968dacec0",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_card_bell.svg"
+    },
+    {
+      "id": "r06_card_ives",
+      "path": "assets/bunks/documents/r06_card_ives.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "6ff63de46301cb1c5721200291866900b4ec17a865505a0e924611e2b9f3a200",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_card_ives.svg"
+    },
+    {
+      "id": "r06_card_rook",
+      "path": "assets/bunks/documents/r06_card_rook.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "c71aa31bf69ac270c4e2d2838fdcc0233fee710f9cc7f2e7faf103ff750a43b1",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_card_rook.svg"
+    },
+    {
+      "id": "r06_card_venn",
+      "path": "assets/bunks/documents/r06_card_venn.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "241bcd0eea97610c70130b5c42a51d5428b12a243a0f7d61cff56a30b6552a2a",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_card_venn.svg"
+    },
+    {
+      "id": "r06_index_original",
+      "path": "assets/bunks/documents/r06_index_original.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "4844b06320c0b30a5aa89e6842b74ebd9db0d9fc0aa41c1a79c8c02d94bc9b72",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_index_original.svg"
+    },
+    {
+      "id": "r06_ives_letter",
+      "path": "assets/bunks/documents/r06_ives_letter.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "9f09b3707f95c93ca77e97ca63b124af2a984f22b79a081e3260857cf720311b",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_ives_letter.svg"
+    },
+    {
+      "id": "r06_p08_record",
+      "path": "assets/bunks/documents/r06_p08_record.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "ba5e00125bd16428e32d55cfba3b048c06da12ec3c1b32be9dee2fa8c4a158bd",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_p08_record.svg"
+    },
+    {
+      "id": "r06_p22_record",
+      "path": "assets/bunks/documents/r06_p22_record.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "30dce0e706bebaa95828098b8ec7f65988332dc390df9295f2a7f1caed753c5c",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_p22_record.svg"
+    },
+    {
+      "id": "r06_venn_seal",
+      "path": "assets/bunks/documents/r06_venn_seal.png",
+      "width": 900,
+      "height": 1100,
+      "sha256": "7ac664037e3b5fd845b0382c1c44dd592c69eb7fcf14108381099174e3a5fd62",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/documents/r06_venn_seal.svg"
+    },
+    {
+      "id": "r06_calipers",
+      "path": "assets/bunks/props/r06_calipers.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "6b63198a01799fe7da5584670d2ce252d46e80ab977becded54ab1b0db46288f",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r06_cup",
+      "path": "assets/bunks/props/r06_cup.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "b934e2fb02cda89adc7af2c2874efd40f25b12b4a390d91d28f389f4560de008",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r06_glove",
+      "path": "assets/bunks/props/r06_glove.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "b4275fc690726f0c33f5285aaaebd58c61e7b6fe22c0c85a2fff1187c75ef0b6",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r06_pencil_holder",
+      "path": "assets/bunks/props/r06_pencil_holder.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "3060eb23d6e9e4cb0c16dfd4eb784816ad8df5d2f85f51fa1eae4d34acb46b50",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r06_calipers_mark",
+      "path": "assets/bunks/puzzle/r06_calipers_mark.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "967ad918baa0dcc852c0951523fa43a63209f73f0f43ddab2abfc0d7ab2331ff",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/puzzle/r06_calipers_mark.svg"
+    },
+    {
+      "id": "r06_cup_mark",
+      "path": "assets/bunks/puzzle/r06_cup_mark.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "bb5dbc87befbc18f710d77d68cf77baffd965fa94ead616c02f3b8f5633e469c",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/puzzle/r06_cup_mark.svg"
+    },
+    {
+      "id": "r06_label_bell",
+      "path": "assets/bunks/puzzle/r06_label_bell.png",
+      "width": 280,
+      "height": 96,
+      "sha256": "b74051f3cf2eee26c1ec4ee964917f0817b837df6a37761c40dd9295183cc924",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/puzzle/r06_label_bell.svg"
+    },
+    {
+      "id": "r06_label_ives",
+      "path": "assets/bunks/puzzle/r06_label_ives.png",
+      "width": 280,
+      "height": 96,
+      "sha256": "89739b65ec51b8aebaefc047982a76f6fd830ec9051eae82b12f0ddd5505e54a",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/puzzle/r06_label_ives.svg"
+    },
+    {
+      "id": "r06_label_rook",
+      "path": "assets/bunks/puzzle/r06_label_rook.png",
+      "width": 280,
+      "height": 96,
+      "sha256": "8e9c6414689cc849ad08dee3c6fa534e4bbad8d4895b78b97cf348b9b5330d4e",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/puzzle/r06_label_rook.svg"
+    },
+    {
+      "id": "r06_label_venn",
+      "path": "assets/bunks/puzzle/r06_label_venn.png",
+      "width": 280,
+      "height": 96,
+      "sha256": "1d314fdb55982f69dd1417f26ca79d0c77bc37e8b94065ed81be4c67017a8262",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/puzzle/r06_label_venn.svg"
+    },
+    {
+      "id": "r06_pencil_holder_mark",
+      "path": "assets/bunks/puzzle/r06_pencil_holder_mark.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "24d070337077d1780183de187ae1f05c1ab354db8d69d39270e85b96b1c99bbc",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/bunks/puzzle/r06_pencil_holder_mark.svg"
+    },
+    {
+      "id": "r05_clean_base",
+      "path": "assets/kitchen/backgrounds/r05_clean_base.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "3f9221691a6e5b908fc450fea3c6a6d8ebbefd3e96b947726d3b39a8a3eef4f4",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r05_amendment_rules",
+      "path": "assets/kitchen/documents/r05_amendment_rules.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "4ffb224db06d61db8d990767d96f8dae9a1cbe549537d0b3115595041f6d5884",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/documents/r05_amendment_rules.svg"
+    },
+    {
+      "id": "r05_duplicate_board",
+      "path": "assets/kitchen/documents/r05_duplicate_board.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "8884c2756b46aa438c7270098e08c292bb43cc2d82ea9afe754d85e88e643bce",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/documents/r05_duplicate_board.svg"
+    },
+    {
+      "id": "r05_extra_diner_note",
+      "path": "assets/kitchen/documents/r05_extra_diner_note.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "52826f7fa92fceb77fc247bba129d618859bf7fc827caa623366b8e1b17e5cde",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/documents/r05_extra_diner_note.svg"
+    },
+    {
+      "id": "r05_kitchen_work_card",
+      "path": "assets/kitchen/documents/r05_kitchen_work_card.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "809a675faff2434b89fb6420ec9bc5623d1639554f0d65b27460d18447c24ec8",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/documents/r05_kitchen_work_card.svg"
+    },
+    {
+      "id": "r05_menu_objection",
+      "path": "assets/kitchen/documents/r05_menu_objection.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "378b4fa2aa86efbe30e23313e9675eea2ad2064db65aef212fc67332f5409d75",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/documents/r05_menu_objection.svg"
+    },
+    {
+      "id": "r05_p07_record",
+      "path": "assets/kitchen/documents/r05_p07_record.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "e2153ed68965daea2a8650539132a6363dcc78f280dce36a04aaa1c6f8ad01dc",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/documents/r05_p07_record.svg"
+    },
+    {
+      "id": "r05_p09_record",
+      "path": "assets/kitchen/documents/r05_p09_record.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "9a448d1283d9c354c8d36eafd9447f1a69ec2e14dec0a73118b39f70a53ad16a",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/documents/r05_p09_record.svg"
+    },
+    {
+      "id": "r05_provisioning_repair",
+      "path": "assets/kitchen/documents/r05_provisioning_repair.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "01e59a4c7dbd7f93d9b7093839805578a6f039270cabb2da1a9cd3a5c909384c",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/documents/r05_provisioning_repair.svg"
+    },
+    {
+      "id": "r05_serving_ledger",
+      "path": "assets/kitchen/documents/r05_serving_ledger.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "8805a847942a9ff704a6a16300f5675ed944d5b7b9ba26117c2b675fc83f5734",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/documents/r05_serving_ledger.svg"
+    },
+    {
+      "id": "r05_table_instructions",
+      "path": "assets/kitchen/documents/r05_table_instructions.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "de4abf381037e0e114754a2fbca99ac1962df36dd24fd8730173370424c92662",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/documents/r05_table_instructions.svg"
+    },
+    {
+      "id": "r05_board_condensation",
+      "path": "assets/kitchen/effects/r05_board_condensation.png",
+      "width": 1000,
+      "height": 580,
+      "sha256": "b5d51fa362ebd7f15f623adea40143c0abc3abbc29241d85a87a6bbae5ca97b8",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/effects/r05_board_condensation.svg"
+    },
+    {
+      "id": "r05_bowl_condensation_0",
+      "path": "assets/kitchen/effects/r05_bowl_condensation_0.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "eb6a46b5180b2916bc694d4d18953bd6351f8ce048b0aa497fcfe2d9343dba5b",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/effects/r05_bowl_condensation_0.svg"
+    },
+    {
+      "id": "r05_bowl_condensation_1",
+      "path": "assets/kitchen/effects/r05_bowl_condensation_1.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "6c99d3f95437109097e754ba3569bc6747a5fb90bd27d36836be40e02f630da4",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/effects/r05_bowl_condensation_1.svg"
+    },
+    {
+      "id": "r05_bowl_condensation_2",
+      "path": "assets/kitchen/effects/r05_bowl_condensation_2.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "7c9ce0a8c7b8f856a66029fd2a1175603ed7e0b0ab7c69f1925c1fef23c6d5d9",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/effects/r05_bowl_condensation_2.svg"
+    },
+    {
+      "id": "r05_spoon_raised",
+      "path": "assets/kitchen/effects/r05_spoon_raised.png",
+      "width": 112,
+      "height": 210,
+      "sha256": "b0237bb0c3c436426cb4a18c4834d1eb1ce3e09b5daaa8052308e766be7db51f",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/effects/r05_spoon_raised.svg"
+    },
+    {
+      "id": "r05_spoon_rest",
+      "path": "assets/kitchen/effects/r05_spoon_rest.png",
+      "width": 112,
+      "height": 210,
+      "sha256": "4cf11bb2ed9019413bd6ecda25f219e66e984258e17e66d838436cfaa67e3a8b",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/effects/r05_spoon_rest.svg"
+    },
+    {
+      "id": "r05_bowl_plain",
+      "path": "assets/kitchen/props/r05_bowl_plain.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "8c5d3c9e9b918d31929a533b5293abeffbbcfbf78522499500643de74a985e3d",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r05_drawer_open",
+      "path": "assets/kitchen/props/r05_drawer_open.png",
+      "width": 2172,
+      "height": 724,
+      "sha256": "ce4cd19bbd4eebfc9f0f77727debade54d2a215a10a395fdc120a8624b158135",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r05_ledger_closed",
+      "path": "assets/kitchen/props/r05_ledger_closed.png",
+      "width": 1619,
+      "height": 971,
+      "sha256": "99f697c9a023283b1f0fdefff2eb2ec780757b4ac8ac9dd09c80a2b6e5cf0236",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r05_stockpot",
+      "path": "assets/kitchen/props/r05_stockpot.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "19290f3fb2cbc0c1979664031af842fec96f8b133601d0087b7e42894dbd57fd",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r05_towel",
+      "path": "assets/kitchen/props/r05_towel.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "310b36950df89f2270d6d0e49ae819a6d0e01b221a8c812a33f25683022297a3",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r05_amendment_stamp",
+      "path": "assets/kitchen/puzzle/r05_amendment_stamp.png",
+      "width": 200,
+      "height": 180,
+      "sha256": "bba0d49b725f283d79ee58809163dcae4433e48c6886a2f7b05cd98843cc3293",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_amendment_stamp.svg"
+    },
+    {
+      "id": "r05_back",
+      "path": "assets/kitchen/puzzle/r05_back.png",
+      "width": 180,
+      "height": 76,
+      "sha256": "7e532efa85097deba62f5237335e794b2bcfc44436552ea7c30bb7409813fc33",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_back.svg"
+    },
+    {
+      "id": "r05_bowl_al",
+      "path": "assets/kitchen/puzzle/r05_bowl_al.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "ab744939d8d8c53c079d4690cdc926bee324db0c519d41e6eb9384fdaa3df822",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_bowl_al.svg"
+    },
+    {
+      "id": "r05_bowl_cm",
+      "path": "assets/kitchen/puzzle/r05_bowl_cm.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "2d74919f7c1c7f3ed319a3551988293f72beb73ccff35529d988e3e0cb81f8fe",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_bowl_cm.svg"
+    },
+    {
+      "id": "r05_bowl_dh",
+      "path": "assets/kitchen/puzzle/r05_bowl_dh.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "b7c2e9a04fef7dd8403c563a7fbdfab7230bd37836132743c6de452ba480df73",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_bowl_dh.svg"
+    },
+    {
+      "id": "r05_bowl_ep",
+      "path": "assets/kitchen/puzzle/r05_bowl_ep.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "d19214ce218462c8da298bba9140d2d51f3d8620d4fc0750a9080cb98184c22f",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_bowl_ep.svg"
+    },
+    {
+      "id": "r05_bowl_jw",
+      "path": "assets/kitchen/puzzle/r05_bowl_jw.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "c780b42b0acad2d3769ed9950d731dcea19995194521d64e7a7b471903151384",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_bowl_jw.svg"
+    },
+    {
+      "id": "r05_bowl_nb",
+      "path": "assets/kitchen/puzzle/r05_bowl_nb.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "b4d0b59ed8987b15cf19856177dc6745bd3f7c7bb1d7fff4e0346b8310595d97",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_bowl_nb.svg"
+    },
+    {
+      "id": "r05_bowl_selected",
+      "path": "assets/kitchen/puzzle/r05_bowl_selected.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "d3fa3da714993c7fe7efd0cbf3d199b00d38230a70a3befa2d8aa8ae2fb8e70a",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_bowl_selected.svg"
+    },
+    {
+      "id": "r05_bowl_sr",
+      "path": "assets/kitchen/puzzle/r05_bowl_sr.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "a844c7e592fa447569ca928604c99f94320ac0b6dae0144c05cb1fac20e6a974",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_bowl_sr.svg"
+    },
+    {
+      "id": "r05_bowl_ti",
+      "path": "assets/kitchen/puzzle/r05_bowl_ti.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "9a61489a986716dcc72f00eef5d0c18735356d145ea9697d01430876c03f3d86",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_bowl_ti.svg"
+    },
+    {
+      "id": "r05_bowl_unsigned",
+      "path": "assets/kitchen/puzzle/r05_bowl_unsigned.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "632a616143aa68fb8a023005ca3c55e9ceba3ca6a24bf96238d998405c0ba14b",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_bowl_unsigned.svg"
+    },
+    {
+      "id": "r05_clear_places",
+      "path": "assets/kitchen/puzzle/r05_clear_places.png",
+      "width": 298,
+      "height": 76,
+      "sha256": "23e921f198537eb0f87462420f2478640905dfb1e54dab0729a4b41396d8856e",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_clear_places.svg"
+    },
+    {
+      "id": "r05_compare",
+      "path": "assets/kitchen/puzzle/r05_compare.png",
+      "width": 298,
+      "height": 90,
+      "sha256": "42d8580e83cff2008efad1333454231ebd23e2dcdf62002a5fbab6f5a35d78c3",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_compare.svg"
+    },
+    {
+      "id": "r05_delta_0",
+      "path": "assets/kitchen/puzzle/r05_delta_0.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "5054452817651dc570babba7eaeccc5ccb8d4e6d7f979d3804fb8bdf5bfa8764",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_delta_0.svg"
+    },
+    {
+      "id": "r05_delta_plus1",
+      "path": "assets/kitchen/puzzle/r05_delta_plus1.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "60566b1e61576f10be91f1f03383bd63a9fff188de16f79fbbb3a42b3ced7465",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_delta_plus1.svg"
+    },
+    {
+      "id": "r05_delta_plus2",
+      "path": "assets/kitchen/puzzle/r05_delta_plus2.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "55f5927434d27a55d0e32dcb247f3712346f8b8b603be69df6f8b4d21f22f330",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_delta_plus2.svg"
+    },
+    {
+      "id": "r05_duplicate_board_reveal",
+      "path": "assets/kitchen/puzzle/r05_duplicate_board_reveal.png",
+      "width": 1000,
+      "height": 580,
+      "sha256": "6c57ceecac503d8714bb8e9565c1a0fce7135c2d555ef0c9b8a14b2c228d062c",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_duplicate_board_reveal.svg"
+    },
+    {
+      "id": "r05_initial_al",
+      "path": "assets/kitchen/puzzle/r05_initial_al.png",
+      "width": 100,
+      "height": 50,
+      "sha256": "06a58099bbd10fe5972c8504a6f885d5f64ff736e62205dab56b22ff73f3b951",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_initial_al.svg"
+    },
+    {
+      "id": "r05_initial_cm",
+      "path": "assets/kitchen/puzzle/r05_initial_cm.png",
+      "width": 100,
+      "height": 50,
+      "sha256": "cad6a8d045ce8fcea12bc759a0657da57ef97bbc19859655e4427fc8711a1b0e",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_initial_cm.svg"
+    },
+    {
+      "id": "r05_initial_dh",
+      "path": "assets/kitchen/puzzle/r05_initial_dh.png",
+      "width": 100,
+      "height": 50,
+      "sha256": "b36d5024d6f1917cffe6ac7add6662cc8a8cca90d241a1c13df19adc8434f24d",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_initial_dh.svg"
+    },
+    {
+      "id": "r05_initial_ep",
+      "path": "assets/kitchen/puzzle/r05_initial_ep.png",
+      "width": 100,
+      "height": 50,
+      "sha256": "a1aef2bfda2f74132300aeec992c8371db876612c2ba763d5d025e1992f0e2cd",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_initial_ep.svg"
+    },
+    {
+      "id": "r05_initial_jw",
+      "path": "assets/kitchen/puzzle/r05_initial_jw.png",
+      "width": 100,
+      "height": 50,
+      "sha256": "97653c451eef86171a9ada041664b12c58731855f6f0a5fc03a3a976754401cf",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_initial_jw.svg"
+    },
+    {
+      "id": "r05_initial_nb",
+      "path": "assets/kitchen/puzzle/r05_initial_nb.png",
+      "width": 100,
+      "height": 50,
+      "sha256": "a3eba2229c1014dcc9bf52a8641463e543a8a32ccb6ced18f76f49dd785672da",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_initial_nb.svg"
+    },
+    {
+      "id": "r05_initial_sr",
+      "path": "assets/kitchen/puzzle/r05_initial_sr.png",
+      "width": 100,
+      "height": 50,
+      "sha256": "21a42df5fe3f4aadeb88d53ed7a297ab801d2c91c6d395fa2f371ca10eed67dc",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_initial_sr.svg"
+    },
+    {
+      "id": "r05_initial_ti",
+      "path": "assets/kitchen/puzzle/r05_initial_ti.png",
+      "width": 100,
+      "height": 50,
+      "sha256": "862be5989adda93996ef82fd896c66c28282510d88a15a69b3c1d3d33e3b8ea1",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_initial_ti.svg"
+    },
+    {
+      "id": "r05_inspect_ledger",
+      "path": "assets/kitchen/puzzle/r05_inspect_ledger.png",
+      "width": 298,
+      "height": 76,
+      "sha256": "98c86ca8a43a918ede2297d220cccf4ced6f5f93baab02c434c098848d02d5fb",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_inspect_ledger.svg"
+    },
+    {
+      "id": "r05_name_bell",
+      "path": "assets/kitchen/puzzle/r05_name_bell.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "fc16616a5eb90488e01c59d57dadfde84d1a9117379761a13e7ed68559c8a242",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_name_bell.svg"
+    },
+    {
+      "id": "r05_name_ives",
+      "path": "assets/kitchen/puzzle/r05_name_ives.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "67f050b05ce042ff72463b3832a87d1bee67554ffb61c8148f3b437605b5f5c4",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_name_ives.svg"
+    },
+    {
+      "id": "r05_name_rook",
+      "path": "assets/kitchen/puzzle/r05_name_rook.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "92c23ed33b9f851837ad82c5f081202320a83e777de76b1a8d4348cfe3285ebf",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_name_rook.svg"
+    },
+    {
+      "id": "r05_name_venn",
+      "path": "assets/kitchen/puzzle/r05_name_venn.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "d3cb26597b5090264e95aeb6e43115652fd5925231904252ac84ba8a630825d0",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_name_venn.svg"
+    },
+    {
+      "id": "r05_next",
+      "path": "assets/kitchen/puzzle/r05_next.png",
+      "width": 116,
+      "height": 76,
+      "sha256": "0d48aa272d3951ae1e01bfd11495d4f61434a6ef01b45d13336739595457ac90",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_next.svg"
+    },
+    {
+      "id": "r05_p07_panel",
+      "path": "assets/kitchen/puzzle/r05_p07_panel.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "eea5a63300e23c9852c5fbcb3ee7e3d94829469fe8c3ef7440dcb749d66c5039",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_p07_panel.svg"
+    },
+    {
+      "id": "r05_p07_places_disagree",
+      "path": "assets/kitchen/puzzle/r05_p07_places_disagree.png",
+      "width": 940,
+      "height": 142,
+      "sha256": "a06a94dfd1969d6a1141e0cbc20626fe5b8ab497d9de295644ec41401647ed4f",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_p07_places_disagree.svg"
+    },
+    {
+      "id": "r05_p07_success",
+      "path": "assets/kitchen/puzzle/r05_p07_success.png",
+      "width": 940,
+      "height": 142,
+      "sha256": "cdf1a440084fbe628c84eba1363dc2286851245f039bc1ee9fb4765c5ed38be4",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_p07_success.svg"
+    },
+    {
+      "id": "r05_p07_tally_disagrees",
+      "path": "assets/kitchen/puzzle/r05_p07_tally_disagrees.png",
+      "width": 940,
+      "height": 142,
+      "sha256": "d5157d430d9dec62449001a0ae6b8cb7c2ba1a32c64dd1acde60c3615f0e4439",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_p07_tally_disagrees.svg"
+    },
+    {
+      "id": "r05_p09_amendment_incorrect",
+      "path": "assets/kitchen/puzzle/r05_p09_amendment_incorrect.png",
+      "width": 940,
+      "height": 142,
+      "sha256": "0dd7c5b41a1a350421c7bb3f612e73220d5455c35cc5be2dfd1f09fc93ddeae6",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_p09_amendment_incorrect.svg"
+    },
+    {
+      "id": "r05_p09_original_changed",
+      "path": "assets/kitchen/puzzle/r05_p09_original_changed.png",
+      "width": 940,
+      "height": 142,
+      "sha256": "50a753a0f4fdb0e5bdb81967ea61115bab519d86269dde2b271b7293d9efc953",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_p09_original_changed.svg"
+    },
+    {
+      "id": "r05_p09_panel",
+      "path": "assets/kitchen/puzzle/r05_p09_panel.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "68bdcadac7c076b7089fbed90a0e9258c6478c8be4cc6952deffcd99dfeb08a6",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_p09_panel.svg"
+    },
+    {
+      "id": "r05_p09_success",
+      "path": "assets/kitchen/puzzle/r05_p09_success.png",
+      "width": 940,
+      "height": 142,
+      "sha256": "27f663f24849bae2cfba96471d516dd42cab9068ee3e4995a03544275bcf7dce",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_p09_success.svg"
+    },
+    {
+      "id": "r05_p09_tokens_missing",
+      "path": "assets/kitchen/puzzle/r05_p09_tokens_missing.png",
+      "width": 940,
+      "height": 142,
+      "sha256": "3a2cf7a07d6beb663009daddb4c128983342d38cc0bb0aed0a09403a1fa9531f",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_p09_tokens_missing.svg"
+    },
+    {
+      "id": "r05_place_cloth",
+      "path": "assets/kitchen/puzzle/r05_place_cloth.png",
+      "width": 970,
+      "height": 730,
+      "sha256": "0630b6ec891d68de5623bc92f397a7607d0542a657fa4a3cecc35b4f3696c95c",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_place_cloth.svg"
+    },
+    {
+      "id": "r05_previous",
+      "path": "assets/kitchen/puzzle/r05_previous.png",
+      "width": 116,
+      "height": 76,
+      "sha256": "58a9292e1d5e63d458b7d0f6cb57e5e5161413b5ffea11c59bbb5af1758e11fd",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_previous.svg"
+    },
+    {
+      "id": "r05_read_rule",
+      "path": "assets/kitchen/puzzle/r05_read_rule.png",
+      "width": 335,
+      "height": 76,
+      "sha256": "90be301eb2fc365694af2bfacf9fc9643d7b67ab52282a3e3f7d37a9f9b80eb3",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_read_rule.svg"
+    },
+    {
+      "id": "r05_seal_1",
+      "path": "assets/kitchen/puzzle/r05_seal_1.png",
+      "width": 140,
+      "height": 140,
+      "sha256": "50b8eb4732f47a96669795cf2ed3f23d41292add10f37665e61b2838f1a0cc24",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_seal_1.svg"
+    },
+    {
+      "id": "r05_seal_2",
+      "path": "assets/kitchen/puzzle/r05_seal_2.png",
+      "width": 140,
+      "height": 140,
+      "sha256": "a083ef3b3fa28818033fc8ad0d137cc278336a163261a2aa522e0f1301b03338",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_seal_2.svg"
+    },
+    {
+      "id": "r05_seal_3",
+      "path": "assets/kitchen/puzzle/r05_seal_3.png",
+      "width": 140,
+      "height": 140,
+      "sha256": "06bac40da1b91292731d569923e8ef4401d5602df03016236baaa73e5f0fa310",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_seal_3.svg"
+    },
+    {
+      "id": "r05_seal_selected",
+      "path": "assets/kitchen/puzzle/r05_seal_selected.png",
+      "width": 160,
+      "height": 160,
+      "sha256": "8bd435e8e184bbc98630b02c87f4ad211477ca67e8ee90fce744937ce29d7e0e",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_seal_selected.svg"
+    },
+    {
+      "id": "r05_square_patch",
+      "path": "assets/kitchen/puzzle/r05_square_patch.png",
+      "width": 50,
+      "height": 50,
+      "sha256": "3cee4a3c0b744994396fe341505391de02da737ac5301b0864f59cd9c0261f8a",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_square_patch.svg"
+    },
+    {
+      "id": "r05_square_place",
+      "path": "assets/kitchen/puzzle/r05_square_place.png",
+      "width": 50,
+      "height": 50,
+      "sha256": "1255caa3fa65b6f40b2b73260b16802bfc641bf003efc8ee9b1bbce2cbed23db",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_square_place.svg"
+    },
+    {
+      "id": "r05_stamp",
+      "path": "assets/kitchen/puzzle/r05_stamp.png",
+      "width": 280,
+      "height": 96,
+      "sha256": "fa8e1fcc33edf4b9d820742063363e4d0bd4dd467d53db2905b327015a32a8b0",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_stamp.svg"
+    },
+    {
+      "id": "r05_status_absent",
+      "path": "assets/kitchen/puzzle/r05_status_absent.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "a3ae7237c7e6a55bd5aeb3fe9843d92d2c7cb08e94278bb324671f419268d317",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_status_absent.svg"
+    },
+    {
+      "id": "r05_status_present",
+      "path": "assets/kitchen/puzzle/r05_status_present.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "d5180f21e3b770ec3b3abe251608c8331b1d78248c45a4e6e1cb1903d9f62fac",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_status_present.svg"
+    },
+    {
+      "id": "r05_tally_10",
+      "path": "assets/kitchen/puzzle/r05_tally_10.png",
+      "width": 150,
+      "height": 110,
+      "sha256": "d30fa5546e0281eb2b89a304f6255c9e774da3d7f9699175fa2f81e90901a8c8",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_tally_10.svg"
+    },
+    {
+      "id": "r05_tally_7",
+      "path": "assets/kitchen/puzzle/r05_tally_7.png",
+      "width": 150,
+      "height": 110,
+      "sha256": "927e3e8719d7e517d06dcf90a4e1ba1f8402db9c22eb37c2a8da5eee98380975",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_tally_7.svg"
+    },
+    {
+      "id": "r05_tally_8",
+      "path": "assets/kitchen/puzzle/r05_tally_8.png",
+      "width": 150,
+      "height": 110,
+      "sha256": "a94779dba97b51b6f51cf3929af7c1c1f97f1ba3b4bf8d2d009dd076e60d36ad",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_tally_8.svg"
+    },
+    {
+      "id": "r05_tally_9",
+      "path": "assets/kitchen/puzzle/r05_tally_9.png",
+      "width": 150,
+      "height": 110,
+      "sha256": "32bf5d3c4bd57c1de0d094ea77d18b7a70db3fad12fb613568d02be9709a027f",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_tally_9.svg"
+    },
+    {
+      "id": "r05_tally_minus",
+      "path": "assets/kitchen/puzzle/r05_tally_minus.png",
+      "width": 96,
+      "height": 80,
+      "sha256": "656974a43be3b816b51757097b0cc0faf7f65f35475c90d31f329a3407a12ad1",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_tally_minus.svg"
+    },
+    {
+      "id": "r05_tally_plus",
+      "path": "assets/kitchen/puzzle/r05_tally_plus.png",
+      "width": 96,
+      "height": 80,
+      "sha256": "140f9361b12c41046ed612494acc90b462d1cd49ba4cc54b7b99fbc3098b21bf",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_tally_plus.svg"
+    },
+    {
+      "id": "r05_token_bunk",
+      "path": "assets/kitchen/puzzle/r05_token_bunk.png",
+      "width": 230,
+      "height": 230,
+      "sha256": "4d4143f89cc2f6204d56c94dc367d44584293ede06a36c188867f2b20909e984",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_token_bunk.svg"
+    },
+    {
+      "id": "r05_token_pantry",
+      "path": "assets/kitchen/puzzle/r05_token_pantry.png",
+      "width": 230,
+      "height": 230,
+      "sha256": "edfb268c3a0a73ad5942174988f67c0681366382b4285c361cb8760d62a5712f",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_token_pantry.svg"
+    },
+    {
+      "id": "r05_token_socket",
+      "path": "assets/kitchen/puzzle/r05_token_socket.png",
+      "width": 456,
+      "height": 180,
+      "sha256": "330e43e194ffa29eddb85bb5f3f3f2e3d88d7e49d66b6cd7334811504f3e2b4a",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_token_socket.svg"
+    },
+    {
+      "id": "r04_clean_base",
+      "path": "assets/listening/backgrounds/r04_clean_base.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "f165753f280093bbae39145442fae67ac2296a33d1da0e1c07947af2a9e3d2c6",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r04_door_open_plate",
+      "path": "assets/listening/backgrounds/r04_door_open_plate.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "0360092adcbaf6c9a3da88f293161eed215e778b158ba1b1fb4cb810a2c3c275",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r04_weather_01_overcast",
+      "path": "assets/listening/backgrounds/r04_weather_01_overcast.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "018cd36d8f2eda813c6d4a958b146374ee62c88cbe480a1046a70a2e78c7af1b",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r04_weather_02_rain",
+      "path": "assets/listening/backgrounds/r04_weather_02_rain.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "e075bbe6fe06ac466fbad7008f27c62984d170cce16ce2bd68d352290349fa7e",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r04_weather_03_storm",
+      "path": "assets/listening/backgrounds/r04_weather_03_storm.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "7447df6d05aaadfda916bb11badf79e8e64bea91d33cedd7fa8c1ec80178304f",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r04_weather_04_suspended",
+      "path": "assets/listening/backgrounds/r04_weather_04_suspended.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "f774d2a7dd2dcd3b96bf8dac99bdd8a72e1c8d9530c3b0a1ad93276ff8338a1d",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r04_weather_05_upright",
+      "path": "assets/listening/backgrounds/r04_weather_05_upright.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "bb80c2ee32089473f74e1148e616d8c2272fe3d56dd6fae1ba71cec5e2b3536e",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r04_weather_06_silent",
+      "path": "assets/listening/backgrounds/r04_weather_06_silent.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "8cf3407454dea3987ff17dc1ccb8519d67f4a324f33c0602f609b0d3bbe9dfb8",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r04_weather_07_bearing",
+      "path": "assets/listening/backgrounds/r04_weather_07_bearing.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "6e49f740d9545a4293fb63295f629b99b8dff20059db65c14a0f61475b3096b4",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r04_weather_08_surface",
+      "path": "assets/listening/backgrounds/r04_weather_08_surface.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "029c9b46428f1db2f9d54d78738307dc37b182f176d5459ea81b2c4de5f6b26e",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r04_channel_panel_blank",
+      "path": "assets/listening/closeups/r04_channel_panel_blank.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "ff294f65cd550aef04ec0f6da8bc86a6e903796b142195048db789d82be762e5",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_paper_blank",
+      "path": "assets/listening/closeups/r04_paper_blank.png",
+      "width": 1086,
+      "height": 1448,
+      "sha256": "792cdaed6bbc23fc4ec80cc58720ac5148aca0d47685ea742f4861b8fe89b624",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_workers_photo",
+      "path": "assets/listening/closeups/r04_workers_photo.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "e9bb946cb0c3b4b331d706f3da30734abd49322def628cd7b6465dde759c377e",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_assembly_card",
+      "path": "assets/listening/documents/r04_assembly_card.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "a79a1381fd888704ffa0a571bca3fe797d5e4396362160f5864cacbcf2620ced",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_assembly_card.svg"
+    },
+    {
+      "id": "r04_correction_note",
+      "path": "assets/listening/documents/r04_correction_note.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "98ed811ca885c9ff2e8c24f28c1094c67e098bfdc93e6d1c94f47e8e35d8495a",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_correction_note.svg"
+    },
+    {
+      "id": "r04_maintenance_ledger",
+      "path": "assets/listening/documents/r04_maintenance_ledger.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "00be499560e1a24b5ad99c39ccd2dc7240b8f7ca056769d59747b7f2eb182804",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_maintenance_ledger.svg"
+    },
+    {
+      "id": "r04_nora_statement",
+      "path": "assets/listening/documents/r04_nora_statement.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "dca67565ce7f36ea072c7fddc5a6e8a3300a451e5ed4080a7718502ff9266d0e",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_nora_statement.svg"
+    },
+    {
+      "id": "r04_playback_transcript",
+      "path": "assets/listening/documents/r04_playback_transcript.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "4a0e6a60f5efbe3711bc496b06b5a8bace95d123e7d342dc762a6bced82ff6b5",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_playback_transcript.svg"
+    },
+    {
+      "id": "r04_recording_log",
+      "path": "assets/listening/documents/r04_recording_log.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "63af5700f0d3b7c6d6c26fb984c22d30313d1a8e2b444dbe76dcfc3253c4493a",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_recording_log.svg"
+    },
+    {
+      "id": "r04_venn_statement",
+      "path": "assets/listening/documents/r04_venn_statement.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "b0fed32543f6fe5e142ec3b717fcf45e62399365991f42683add036bddcf7859",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_venn_statement.svg"
+    },
+    {
+      "id": "r04_witness_answer_reach",
+      "path": "assets/listening/documents/r04_witness_answer_reach.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "f730a692b71ce010d7a1aa230a07de3a2c9b284daebad02160916a82aa1169f8",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_witness_answer_reach.svg"
+    },
+    {
+      "id": "r04_witness_answer_remain",
+      "path": "assets/listening/documents/r04_witness_answer_remain.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "1a3c6bea4268c22d6c9a18cb1c787394e17cb047005076d44af9b544fd7895b4",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_witness_answer_remain.svg"
+    },
+    {
+      "id": "r04_witness_answer_sever",
+      "path": "assets/listening/documents/r04_witness_answer_sever.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "75ece5d440a9801e8842fde5b951c11ef7a66b2b17902fee61cee5c6d0d65064",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_witness_answer_sever.svg"
+    },
+    {
+      "id": "r04_witness_margin",
+      "path": "assets/listening/documents/r04_witness_margin.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "e5663146842b2aa15e018ce89d402eb8a3948356f09012d0bdcb2aae3addfd0c",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_witness_margin.svg"
+    },
+    {
+      "id": "r04_witness_procedure",
+      "path": "assets/listening/documents/r04_witness_procedure.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "cc365241f03122cfc2d77e6b3af5cebf4a9368d8dc5cf03ddbb9bb7c879421a5",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_witness_procedure.svg"
+    },
+    {
+      "id": "r04_lamp_pool",
+      "path": "assets/listening/effects/r04_lamp_pool.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "32c3a367f4f0a0c78eddbf39cee944e0eb30837c4605aa2dbffce68eafbd229a",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/effects/r04_lamp_pool.svg"
+    },
+    {
+      "id": "r04_rain_0",
+      "path": "assets/listening/effects/r04_rain_0.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "e552168cfb4e2644908933f2a1260f09c8f186923bc1adbe6e3d819104261e30",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/effects/r04_rain_0.svg"
+    },
+    {
+      "id": "r04_rain_1",
+      "path": "assets/listening/effects/r04_rain_1.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "509fb8a5457ff0fbca2a08a431f873a4a5453407855d63f3a019cb7031a0a652",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/effects/r04_rain_1.svg"
+    },
+    {
+      "id": "r04_rain_2",
+      "path": "assets/listening/effects/r04_rain_2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "ee8aaf4154d9b1eb16eac57ea508b0019901312a3cd437065195268b16d7e4ab",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/effects/r04_rain_2.svg"
+    },
+    {
+      "id": "r04_stool_damp_mark",
+      "path": "assets/listening/effects/r04_stool_damp_mark.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "5bf576e69af5f282477df8c937ad130fc7b93a320f5df475163a651eacf867b2",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/effects/r04_stool_damp_mark.svg"
+    },
+    {
+      "id": "r04_wall_damp",
+      "path": "assets/listening/effects/r04_wall_damp.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "a63a1ca94b288568be42db11b17a3b16de3fb1d39148438c2c66db3983eec333",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/effects/r04_wall_damp.svg"
+    },
+    {
+      "id": "r04_window_mask",
+      "path": "assets/listening/effects/r04_window_mask.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "7bc3b784e9644a278bc7f5b185d7f63015a90e02a7357f002fb407e953a62e89",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/effects/r04_window_mask.svg"
+    },
+    {
+      "id": "r04_brush_shavings",
+      "path": "assets/listening/props/r04_brush_shavings.png",
+      "width": 1774,
+      "height": 887,
+      "sha256": "8872d4624a5db35e6b6ae1b9b276fbe23834c2ae1bdbffbd90e4084d8f79c0b9",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_canister_closed",
+      "path": "assets/listening/props/r04_canister_closed.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "2f7a7a7e328ec31436945e854c5ee8b904cd9fc4bfcae4103cb6c3f2e88bf809",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_canister_open",
+      "path": "assets/listening/props/r04_canister_open.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "912053044996571731e59f7ade715771ab4a1760b92791c2b431a57684bbca71",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_case_closed",
+      "path": "assets/listening/props/r04_case_closed.png",
+      "width": 1313,
+      "height": 1198,
+      "sha256": "c446a2e16550def067e0d94384e63764003f572439e4a33e709d40785aaf930a",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_case_open",
+      "path": "assets/listening/props/r04_case_open.png",
+      "width": 1314,
+      "height": 1197,
+      "sha256": "81b6a5011b0e32bfef29e0f4814d3270b721351bfdd24e3900099c1495e2e4c6",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_drawer_open",
+      "path": "assets/listening/props/r04_drawer_open.png",
+      "width": 2172,
+      "height": 724,
+      "sha256": "1de6c57d620c263a50624058fe24a857e499e4d9b453257760ec0379969885da",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_headphones_hanging",
+      "path": "assets/listening/props/r04_headphones_hanging.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "c348e4b4dcc149a9fa41de40e3c471f092495236c4bfd66978e9ee2583427110",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_instruction_stand",
+      "path": "assets/listening/props/r04_instruction_stand.png",
+      "width": 1351,
+      "height": 1164,
+      "sha256": "a585d62dad77f1306b65a95a44194b77b4cb21314db76bd147b9fce2b787e4fb",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_lamp_off",
+      "path": "assets/listening/props/r04_lamp_off.png",
+      "width": 1322,
+      "height": 1190,
+      "sha256": "efe909e27ae8fd848557ca43aef837e81f4bbb415aef60d252f6238614c9ba62",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_lamp_on",
+      "path": "assets/listening/props/r04_lamp_on.png",
+      "width": 1323,
+      "height": 1189,
+      "sha256": "3380ba3095d0f8b0a57153b7a90efde430426affcf54069ea0816a7eefe13172",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_ledger_stack",
+      "path": "assets/listening/props/r04_ledger_stack.png",
+      "width": 1774,
+      "height": 887,
+      "sha256": "cd71cae0474c9a1a8eafb11c76bae7585335c577e32c39af95c273ce803d3e25",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_noticeboard_panel",
+      "path": "assets/listening/props/r04_noticeboard_panel.png",
+      "width": 1536,
+      "height": 1024,
+      "sha256": "c2c79faadd0112bbe36d2aae96f72e1174a87f1251d7bfaf80628ab1314a53cc",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_recorder_assembled",
+      "path": "assets/listening/props/r04_recorder_assembled.png",
+      "width": 1774,
+      "height": 887,
+      "sha256": "9165aba9dfcb8fbfa548622239351a694c0bea60402f988d04c7d24618b9ee1c",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_recorder_empty",
+      "path": "assets/listening/props/r04_recorder_empty.png",
+      "width": 1774,
+      "height": 887,
+      "sha256": "a8a7f845e79fb1af4f4415a19b22ec1b5b65536a5131bd857a21943bf30c26f3",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_recorder_partial",
+      "path": "assets/listening/props/r04_recorder_partial.png",
+      "width": 1774,
+      "height": 887,
+      "sha256": "f035e362ab931db9318d041b8818f4a0a52c83bc5da65716b1b62cbb6454e078",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_shelf_cylinder",
+      "path": "assets/listening/props/r04_shelf_cylinder.png",
+      "width": 1774,
+      "height": 887,
+      "sha256": "c40674a7c0fe24807abf3b8d9487667fec3703b1bb713f9fd8d43939d8be8e5f",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_stool_damp",
+      "path": "assets/listening/props/r04_stool_damp.png",
+      "width": 1214,
+      "height": 1295,
+      "sha256": "9b89dda827fab6f9ac260dec7b9e023a4b69551ba9c8792c8bff41a611c6abf6",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_stool_dry",
+      "path": "assets/listening/props/r04_stool_dry.png",
+      "width": 1223,
+      "height": 1286,
+      "sha256": "611539f08ab5d1a2f52d4fb0ab65a4b4f4b1b9b173fd6287e23dceb856d9dec0",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_wax_band",
+      "path": "assets/listening/props/r04_wax_band.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "8ee53683ab7400a554497fbed4d7781031c0746fb7f73444696d179bb00996a0",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_band_a_step_0",
+      "path": "assets/listening/puzzle/r04_band_a_step_0.png",
+      "width": 180,
+      "height": 300,
+      "sha256": "7dea680d1496b9943f0af33388c13711f6239f4226766e284b86160d9963ab90",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_band_a_step_0.svg"
+    },
+    {
+      "id": "r04_band_a_step_1",
+      "path": "assets/listening/puzzle/r04_band_a_step_1.png",
+      "width": 180,
+      "height": 300,
+      "sha256": "a8e5ab9da63df49fe425dc6a0f824bac2ae1db2c237173e6539e06274ee39b20",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_band_a_step_1.svg"
+    },
+    {
+      "id": "r04_band_a_step_2",
+      "path": "assets/listening/puzzle/r04_band_a_step_2.png",
+      "width": 180,
+      "height": 300,
+      "sha256": "b1fae64f4d62bf3108847308d601a4111ef8d0a22c3ed60ac5b5c19a66cda432",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_band_a_step_2.svg"
+    },
+    {
+      "id": "r04_band_b_step_0",
+      "path": "assets/listening/puzzle/r04_band_b_step_0.png",
+      "width": 180,
+      "height": 300,
+      "sha256": "e888d7cff058f370d88cfc379c0eeb8041d5724cbeb0112f2595729900c52402",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_band_b_step_0.svg"
+    },
+    {
+      "id": "r04_band_b_step_1",
+      "path": "assets/listening/puzzle/r04_band_b_step_1.png",
+      "width": 180,
+      "height": 300,
+      "sha256": "48a23f3a68264f2b77cf1a7536445700f6270a1ed64360e5f80add7d92aa42ea",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_band_b_step_1.svg"
+    },
+    {
+      "id": "r04_band_b_step_2",
+      "path": "assets/listening/puzzle/r04_band_b_step_2.png",
+      "width": 180,
+      "height": 300,
+      "sha256": "1464554e7bb3c7b0bbd111c7d4c5c1ff9fba146309c3a0417a6ec9f21da7afa4",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_band_b_step_2.svg"
+    },
+    {
+      "id": "r04_band_c_step_0",
+      "path": "assets/listening/puzzle/r04_band_c_step_0.png",
+      "width": 180,
+      "height": 300,
+      "sha256": "545b80ea84d2b385a45059bed5c8853e0fa578798c25bcacef783f2ef4cea279",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_band_c_step_0.svg"
+    },
+    {
+      "id": "r04_band_c_step_1",
+      "path": "assets/listening/puzzle/r04_band_c_step_1.png",
+      "width": 180,
+      "height": 300,
+      "sha256": "8e6a759d5ff5ebf77727392c2463f3a5669f534d8781060e9f35e169d250609b",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_band_c_step_1.svg"
+    },
+    {
+      "id": "r04_band_c_step_2",
+      "path": "assets/listening/puzzle/r04_band_c_step_2.png",
+      "width": 180,
+      "height": 300,
+      "sha256": "0fd97dd879b73ae24cb7f0712cbbabbb883f3e116bdf481061a236eeee4defa8",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_band_c_step_2.svg"
+    },
+    {
+      "id": "r04_band_face",
+      "path": "assets/listening/puzzle/r04_band_face.png",
+      "width": 180,
+      "height": 200,
+      "sha256": "239c1c80ab092b37245bb30aa5d55e7e7d6af1bc49ef48571f8332cf54d4bfbc",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_band_face.svg"
+    },
+    {
+      "id": "r04_case_label_a",
+      "path": "assets/listening/puzzle/r04_case_label_a.png",
+      "width": 180,
+      "height": 90,
+      "sha256": "5482edc5e55178f558d97e93e918ddbf6be0a80d0bbcf24b1ddbffc1175cba65",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_case_label_a.svg"
+    },
+    {
+      "id": "r04_case_label_b",
+      "path": "assets/listening/puzzle/r04_case_label_b.png",
+      "width": 180,
+      "height": 90,
+      "sha256": "8c3a2a3845b40ad72d867dd24be864878f9ba283dec64825cd2d79499da4d9de",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_case_label_b.svg"
+    },
+    {
+      "id": "r04_case_label_c",
+      "path": "assets/listening/puzzle/r04_case_label_c.png",
+      "width": 180,
+      "height": 90,
+      "sha256": "4b50b1af487020f125791237adce0c62a8a57442d83d511ede9484e86654d49e",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_case_label_c.svg"
+    },
+    {
+      "id": "r04_channel_closed",
+      "path": "assets/listening/puzzle/r04_channel_closed.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "866e737f52a56171ba3d1f6562fc0b8e2a1a673b0ecac43f92c68e2f906f72f4",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_channel_closed.svg"
+    },
+    {
+      "id": "r04_channel_open",
+      "path": "assets/listening/puzzle/r04_channel_open.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "b7445b2f79e0f8d6bbef1cdf59552e338cca85b9c8f75a6c3ae68780292e89a3",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_channel_open.svg"
+    },
+    {
+      "id": "r04_indicator_off",
+      "path": "assets/listening/puzzle/r04_indicator_off.png",
+      "width": 64,
+      "height": 64,
+      "sha256": "88f131a64180c55d075a37d464260b33f992308ddab79f416437fb4a04dfaf3f",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_indicator_off.svg"
+    },
+    {
+      "id": "r04_indicator_on",
+      "path": "assets/listening/puzzle/r04_indicator_on.png",
+      "width": 64,
+      "height": 64,
+      "sha256": "6ab60f1671504f56bd22177a59373e865d3138e670fef76c5ec2d16644b9c9a1",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_indicator_on.svg"
+    },
+    {
+      "id": "r04_listen_nora_idle",
+      "path": "assets/listening/puzzle/r04_listen_nora_idle.png",
+      "width": 400,
+      "height": 72,
+      "sha256": "de5f9abae40d7409c338a0a8b7e87cd34511b6c3966a10b7d5c6d09a782cf2d5",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_listen_nora_idle.svg"
+    },
+    {
+      "id": "r04_listen_nora_pressed",
+      "path": "assets/listening/puzzle/r04_listen_nora_pressed.png",
+      "width": 400,
+      "height": 72,
+      "sha256": "f629d9a7caf6404ec3f40b2d945fc1bcb5488a35dab238e58ec9a6ca06989313",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_listen_nora_pressed.svg"
+    },
+    {
+      "id": "r04_listen_venn_idle",
+      "path": "assets/listening/puzzle/r04_listen_venn_idle.png",
+      "width": 400,
+      "height": 72,
+      "sha256": "bcd135b4b9be53956355a501d0d403eb0704d47dd96a955f30e0238090bab8da",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_listen_venn_idle.svg"
+    },
+    {
+      "id": "r04_listen_venn_pressed",
+      "path": "assets/listening/puzzle/r04_listen_venn_pressed.png",
+      "width": 400,
+      "height": 72,
+      "sha256": "8e3ca40ae4dc2731efaa980d72dd0a82f8b418ea0ebf068784a2860a470a1b39",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_listen_venn_pressed.svg"
+    },
+    {
+      "id": "r04_motor_off",
+      "path": "assets/listening/puzzle/r04_motor_off.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "5b44302a465756d7e28e1535480dfd1eabf728d77a2323d991ca520409d0d5cb",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_motor_off.svg"
+    },
+    {
+      "id": "r04_motor_on",
+      "path": "assets/listening/puzzle/r04_motor_on.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "219ad780a576e5bd76744f732a651c54b1fe24b4ebc6239f9bbab3bcf1803c04",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_motor_on.svg"
+    },
+    {
+      "id": "r04_needle_lowered",
+      "path": "assets/listening/puzzle/r04_needle_lowered.png",
+      "width": 350,
+      "height": 96,
+      "sha256": "f0c207611b6bc551a2e95713e98a9e6cf070deccefb70ef9e5a756ba888ebb81",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_needle_lowered.svg"
+    },
+    {
+      "id": "r04_needle_raised",
+      "path": "assets/listening/puzzle/r04_needle_raised.png",
+      "width": 350,
+      "height": 96,
+      "sha256": "fafe0ddd6cd00b259f92549931207a78db2b2e9b3cdc902362b4821567391b18",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_needle_raised.svg"
+    },
+    {
+      "id": "r04_p02_panel_overlay",
+      "path": "assets/listening/puzzle/r04_p02_panel_overlay.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "1d6b488ff361cb0d555b959b5b5dcb8d995313fd55774f19cd922b87b31b9ca9",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_p02_panel_overlay.svg"
+    },
+    {
+      "id": "r04_p02_playback_readout",
+      "path": "assets/listening/puzzle/r04_p02_playback_readout.png",
+      "width": 1080,
+      "height": 600,
+      "sha256": "bf346c2c91ee5f752dc4c79c4e92357cd2cf9946666bbfe8933c886a6f1feb95",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_p02_playback_readout.svg"
+    },
+    {
+      "id": "r04_p17_panel_overlay",
+      "path": "assets/listening/puzzle/r04_p17_panel_overlay.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "f630738dff885944dbc3e9f4850ec2021dba8d7cee3591cbd7770f66ad1641b7",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_p17_panel_overlay.svg"
+    },
+    {
+      "id": "r04_p19_panel_overlay",
+      "path": "assets/listening/puzzle/r04_p19_panel_overlay.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "74c1edb5446920566d73a6f202c1251d6fe642d3ce2d2f56c102e97146e68210",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_p19_panel_overlay.svg"
+    },
+    {
+      "id": "r04_p19_questions_overlay",
+      "path": "assets/listening/puzzle/r04_p19_questions_overlay.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "7cb4cd9f5a119784e4c3dadb50806c17dee56e2e80f60113687076c42e6f5d81",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_p19_questions_overlay.svg"
+    },
+    {
+      "id": "r04_play_key",
+      "path": "assets/listening/puzzle/r04_play_key.png",
+      "width": 350,
+      "height": 96,
+      "sha256": "b410052add9d14707ed973b0f169a9d7cfb776fed5ffae4d093a73cb3f734f05",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_play_key.svg"
+    },
+    {
+      "id": "r04_question_reach",
+      "path": "assets/listening/puzzle/r04_question_reach.png",
+      "width": 1208,
+      "height": 140,
+      "sha256": "74b2cf6fb160e653aa586e18f1b603a0cec86d0a0a6cedc1f3f785e874302127",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_question_reach.svg"
+    },
+    {
+      "id": "r04_question_remain",
+      "path": "assets/listening/puzzle/r04_question_remain.png",
+      "width": 1208,
+      "height": 140,
+      "sha256": "b903102ab40af48121b7a3fcf97772a3b95dc49a772b5b73b4ca75650c523e77",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_question_remain.svg"
+    },
+    {
+      "id": "r04_question_sever",
+      "path": "assets/listening/puzzle/r04_question_sever.png",
+      "width": 1208,
+      "height": 140,
+      "sha256": "aa6a6bb4d4ef773d997661956bcf608946755fa1b2fc74d8926f81d02defc26e",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_question_sever.svg"
+    },
+    {
+      "id": "r04_rotate_band",
+      "path": "assets/listening/puzzle/r04_rotate_band.png",
+      "width": 268,
+      "height": 96,
+      "sha256": "54df3db6ca4c957fdd4f4f542abb05b6f20cb417d700a7f8af23fb62ce1d69f3",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_rotate_band.svg"
+    },
+    {
+      "id": "r04_spindle_guides",
+      "path": "assets/listening/puzzle/r04_spindle_guides.png",
+      "width": 600,
+      "height": 300,
+      "sha256": "d50668076db936feacc8965bb00413e67f61ea2c53aafc0d9671809cfc99264b",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_spindle_guides.svg"
+    },
+    {
+      "id": "r04_trace_left",
+      "path": "assets/listening/puzzle/r04_trace_left.png",
+      "width": 104,
+      "height": 72,
+      "sha256": "000344d8527a3968b997454456efcc1514669b509b878487f5ba7ea5c1b10b6b",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_trace_left.svg"
+    },
+    {
+      "id": "r04_trace_right",
+      "path": "assets/listening/puzzle/r04_trace_right.png",
+      "width": 104,
+      "height": 72,
+      "sha256": "82d2706bf0cc2fa92c488b49d8333fd7ff8568e07140ca0bd7253df63b778c43",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_trace_right.svg"
+    },
+    {
+      "id": "r04_waveform_nora",
+      "path": "assets/listening/puzzle/r04_waveform_nora.png",
+      "width": 960,
+      "height": 144,
+      "sha256": "886131346923f528bfeefa870095721cfeb4b5c19e36a44274ad8157f75604cd",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_waveform_nora.svg"
+    },
+    {
+      "id": "r04_waveform_venn",
+      "path": "assets/listening/puzzle/r04_waveform_venn.png",
+      "width": 960,
+      "height": 144,
+      "sha256": "bd5fe69ed78248fc360b8bf20faa58983e1483c4a537a199134a93ad4e2669e9",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_waveform_venn.svg"
+    },
+    {
+      "id": "r04_witness_key_idle",
+      "path": "assets/listening/puzzle/r04_witness_key_idle.png",
+      "width": 404,
+      "height": 110,
+      "sha256": "0bc40ccb44e6514bb80f2c787112e17ce90a893107726b75cec06c1a321b15e7",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_witness_key_idle.svg"
+    },
+    {
+      "id": "r04_witness_key_pressed",
+      "path": "assets/listening/puzzle/r04_witness_key_pressed.png",
+      "width": 404,
+      "height": 110,
+      "sha256": "0d4d65dc25bc69d00b985adb094813e94cb97b0a562737d38f6a4dcd547eac02",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_witness_key_pressed.svg"
+    },
+    {
+      "id": "office_survey",
+      "path": "assets/maps/office_survey.png",
+      "width": 1200,
+      "height": 900,
+      "sha256": "aa721f82d977f9d93d165b02e326f223ab15472f3e1eecefdd79827a0c8b827b",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/maps/office_survey.svg"
+    },
+    {
+      "id": "office_survey_shifted",
+      "path": "assets/maps/office_survey_shifted.png",
+      "width": 1200,
+      "height": 900,
+      "sha256": "de235a10116e6d491628d398495e5943c2cc674d77423174b82dec907a63cd46",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/maps/office_survey_shifted.svg"
+    },
+    {
+      "id": "tide_example",
+      "path": "assets/maps/tide_example.png",
+      "width": 1200,
+      "height": 900,
+      "sha256": "035ec41383e3a3b9ff8f9192f2ca4f3b0f71734c477bbb5eea6a6e463d8bd177",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/maps/tide_example.svg"
+    },
+    {
+      "id": "tide_fragment_0",
+      "path": "assets/maps/tide_fragment_0.png",
+      "width": 1200,
+      "height": 900,
+      "sha256": "273131e95422599343ac0c1a32d36d1e0ed38f1f7ff4e4daad52a60277f43b48",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/maps/tide_fragment_0.svg"
+    },
+    {
+      "id": "tide_fragment_1",
+      "path": "assets/maps/tide_fragment_1.png",
+      "width": 1200,
+      "height": 900,
+      "sha256": "7eccd4cafdedd77e0dcdebc1794281da3da89197fd4c770d04e771f62edec2cf",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/maps/tide_fragment_1.svg"
+    },
+    {
+      "id": "tide_fragment_2",
+      "path": "assets/maps/tide_fragment_2.png",
+      "width": 1200,
+      "height": 900,
+      "sha256": "c83b420aab948ea34393f9a44be32aa2eeb72bd11e17cb3651ad0e5192f6f810",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/maps/tide_fragment_2.svg"
+    },
+    {
+      "id": "tide_reference_16",
+      "path": "assets/maps/tide_reference_16.png",
+      "width": 1200,
+      "height": 900,
+      "sha256": "81ccfc1b1b89cea478c2d01d696aa83321578dce07b831d470ee987bb5518e66",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/maps/tide_reference_16.svg"
+    },
+    {
+      "id": "tide_reference_17",
+      "path": "assets/maps/tide_reference_17.png",
+      "width": 1200,
+      "height": 900,
+      "sha256": "9f0cd55eb13d280904f90d8d655f044961ff5467d1f157c5c23561b14f2e07f7",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/maps/tide_reference_17.svg"
+    },
+    {
+      "id": "tide_sheet",
+      "path": "assets/maps/tide_sheet.png",
+      "width": 1200,
+      "height": 900,
+      "sha256": "626d5f8ba22496bdec4f5d0e21c40f17eed41f804381ec6685126641a21986d5",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/maps/tide_sheet.svg"
     },
     {
       "id": "lamp_light",
@@ -366,6 +2256,26 @@
         780
       ],
       "action": "locked_until_P06"
+    },
+    {
+      "id": "office_map",
+      "rect": [
+        127,
+        179,
+        263,
+        290
+      ],
+      "action": "open_map_inspector"
+    },
+    {
+      "id": "chart_workbench",
+      "rect": [
+        38,
+        922,
+        215,
+        64
+      ],
+      "action": "open_chart_workbench_after_P01"
     }
   ],
   "puzzle_hotspots": [
@@ -411,6 +2321,31 @@
     "Coat, its late shadow, documents and most furniture are baked into room plates in this first-room preview.",
     "Lamp is a separate alpha sprite; on state uses a precise separate lamp_light overlay.",
     "Window rain is a separate three-frame overlay; base weather is baked into each plate.",
-    "Contains initial P01 asset set, not later P20 puzzle art or the remaining game."
-  ]
+    "Includes the P01 asset set and P03 map workbench; other puzzles are not implemented."
+  ],
+  "map_inspection": {
+    "viewer": "scripts/maps/map_viewer.gd",
+    "workbench": "scripts/maps/map_workbench.gd",
+    "puzzle": "P03",
+    "progress_schema": 1,
+    "maps": [
+      "office_survey",
+      "office_survey_shifted",
+      "tide_sheet",
+      "tide_reference_17"
+    ],
+    "fragments": [
+      "tide_fragment_0",
+      "tide_fragment_1",
+      "tide_fragment_2"
+    ],
+    "comparison": {
+      "anchor": "lighthouse",
+      "north": "up",
+      "date": "17 October 1924",
+      "interval": 3
+    },
+    "chart_weather": "arrival_only",
+    "weather_review_changes_evidence": false
+  }
 }
