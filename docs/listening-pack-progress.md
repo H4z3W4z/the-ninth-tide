@@ -32,4 +32,8 @@ Partial and assembled recorder sprites and the cleaning brush with wax shavings 
 
 Still to finish: clean noticeboard; document and photograph inspection art; instruction-card stand; shelf contents; open drawer/door states; local lighting and damp overlays; later channel-panel art; precise placement manifest and final Codex integration notes. The current pack is not complete or integrated into gameplay.
 
+## Checkpoint 6
+
+The noticeboard now has a clean edge-to-edge opaque rectangular texture. Its pinned photograph has a dedicated readable close-up, and blank stationery and the instruction-card stand have separate alpha artwork. The two workers in the photo are unnamed: no new identity or puzzle dependency is implied. Papers will receive precise authored lettering. The prior noticeboard failures remain excluded from runtime assets.
+
 Generation prompts, source paths, intended placements and draft status are recorded in `listening-pack-generation.json`. Checkpoint commits will continue as batches finish. The final delivery will include the full inventory and integration guide.

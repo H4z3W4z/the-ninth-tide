@@ -369,6 +369,52 @@
         355,
         237
       ]
+    },
+    {
+      "id": "r04_noticeboard_panel",
+      "kind": "opaque_prop",
+      "path": "assets/listening/props/r04_noticeboard_panel.png",
+      "prompt": "Generate the empty cork noticeboard from this room as a flat rectangular game texture. The OUTSIDE edges of its dark oak wooden frame coincide exactly with all four edges of the entire image, with zero surrounding wall or margin. Landscape 3:2 canvas. Straight-on elevation. Broad matte cork center, fine navy contours on warm worn oak frame, small brass pin in each corner. No papers, writing, glow, shadows outside the frame or other props. The entire opaque image is the rectangular noticeboard.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-7d9db493-0204-47be-bab9-86f3b753ec0c.png",
+      "target": [
+        541,
+        173,
+        355,
+        237
+      ]
+    },
+    {
+      "id": "r04_workers_photo",
+      "kind": "opaque_prop",
+      "path": "assets/listening/closeups/r04_workers_photo.png",
+      "prompt": "Create the small sepia photograph pinned to the noticeboard in the reference room as its own readable inspection illustration. Two adult coastal survey workers in worn oilskin coats and ordinary caps stand side by side on a sea wall, distant lighthouse on their right, gray waves behind. They look tired and quietly familiar with one another. 1920s photographic composition interpreted as flat muted ink illustration, not photorealism. Rectangular landscape paper print fills the entire image, narrow aged cream border, slight water damage only at the bottom edge. No words, numbers, occult symbols, frame, pins, horns or room. The photograph is an ordinary human memory, with nothing monstrous hidden in it.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-de937b2a-86ac-4c9d-8a55-fff4caeec0be.png",
+      "target": [
+        771,
+        300,
+        100,
+        87
+      ]
+    },
+    {
+      "id": "r04_paper_blank",
+      "kind": "alpha",
+      "path": "assets/listening/closeups/r04_paper_blank.png",
+      "prompt": "A transparent PNG sprite of one blank rectangular sheet of aged cream station stationery. Straight front view, portrait proportions, softly worn uneven edges, two old pinholes near the top, very faint folded crease, restrained brown water stain near bottom left. Keep the broad center pale and completely blank for readable typesetting later. Flat matte ink illustration with very subtle paper texture. Isolated on transparent background. No glow, shadow, writing, ruled lines, objects or room.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-3a8acb3d-78fc-4b05-a86d-fec2a59973d6.png"
+    },
+    {
+      "id": "r04_instruction_stand",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_instruction_stand.png",
+      "prompt": "A transparent PNG sprite of only the instruction-card stand on the right end of the reference workbench. Small upright warm oak clipboard on a narrow wooden foot, two brass clips at its top gripping a single blank pale cream card. Exact straight front elevation. Simple flat matte illustration, fine navy outlines and light wear. Isolated on transparent background. No glow, shadow, words, diagrams, room or other props.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-73c3cf3c-1e00-44ec-8ac3-6e49e44235ed.png",
+      "target": [
+        941,
+        504,
+        97,
+        125
+      ]
     }
   ]
 }
