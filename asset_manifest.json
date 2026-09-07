@@ -178,6 +178,123 @@
       "source_svg": null
     },
     {
+      "id": "r04_assembly_card",
+      "path": "assets/listening/documents/r04_assembly_card.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "a79a1381fd888704ffa0a571bca3fe797d5e4396362160f5864cacbcf2620ced",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_assembly_card.svg"
+    },
+    {
+      "id": "r04_correction_note",
+      "path": "assets/listening/documents/r04_correction_note.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "98ed811ca885c9ff2e8c24f28c1094c67e098bfdc93e6d1c94f47e8e35d8495a",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_correction_note.svg"
+    },
+    {
+      "id": "r04_maintenance_ledger",
+      "path": "assets/listening/documents/r04_maintenance_ledger.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "3d111fd7b97b5273204a8f48995935b3dc3f9d36c08c13a87132366b36a351cc",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_maintenance_ledger.svg"
+    },
+    {
+      "id": "r04_playback_transcript",
+      "path": "assets/listening/documents/r04_playback_transcript.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "aef39b770d773478b85002ae962453c7715bbf47790b050c4d8a217e09d080b5",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_playback_transcript.svg"
+    },
+    {
+      "id": "r04_recording_log",
+      "path": "assets/listening/documents/r04_recording_log.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "63af5700f0d3b7c6d6c26fb984c22d30313d1a8e2b444dbe76dcfc3253c4493a",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_recording_log.svg"
+    },
+    {
+      "id": "r04_witness_procedure",
+      "path": "assets/listening/documents/r04_witness_procedure.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "f6c49506d611f4674cc4ac126d68f72aef64411e9b517ca5b959813ca3fe9038",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/documents/r04_witness_procedure.svg"
+    },
+    {
+      "id": "r04_lamp_pool",
+      "path": "assets/listening/effects/r04_lamp_pool.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "d82072714baa2dd41d28b5cf438795fea9d251cb132cd62b8acd439bf6753f36",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/effects/r04_lamp_pool.svg"
+    },
+    {
+      "id": "r04_rain_0",
+      "path": "assets/listening/effects/r04_rain_0.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "e552168cfb4e2644908933f2a1260f09c8f186923bc1adbe6e3d819104261e30",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/effects/r04_rain_0.svg"
+    },
+    {
+      "id": "r04_rain_1",
+      "path": "assets/listening/effects/r04_rain_1.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "509fb8a5457ff0fbca2a08a431f873a4a5453407855d63f3a019cb7031a0a652",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/effects/r04_rain_1.svg"
+    },
+    {
+      "id": "r04_rain_2",
+      "path": "assets/listening/effects/r04_rain_2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "ee8aaf4154d9b1eb16eac57ea508b0019901312a3cd437065195268b16d7e4ab",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/effects/r04_rain_2.svg"
+    },
+    {
+      "id": "r04_stool_damp_mark",
+      "path": "assets/listening/effects/r04_stool_damp_mark.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "5bf576e69af5f282477df8c937ad130fc7b93a320f5df475163a651eacf867b2",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/effects/r04_stool_damp_mark.svg"
+    },
+    {
+      "id": "r04_wall_damp",
+      "path": "assets/listening/effects/r04_wall_damp.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "a63a1ca94b288568be42db11b17a3b16de3fb1d39148438c2c66db3983eec333",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/effects/r04_wall_damp.svg"
+    },
+    {
+      "id": "r04_window_mask",
+      "path": "assets/listening/effects/r04_window_mask.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "7bc3b784e9644a278bc7f5b185d7f63015a90e02a7357f002fb407e953a62e89",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/effects/r04_window_mask.svg"
+    },
+    {
       "id": "r04_brush_shavings",
       "path": "assets/listening/props/r04_brush_shavings.png",
       "width": 1774,
@@ -338,6 +455,231 @@
       "sha256": "8ee53683ab7400a554497fbed4d7781031c0746fb7f73444696d179bb00996a0",
       "kind": "overlay_or_sprite",
       "source_svg": null
+    },
+    {
+      "id": "r04_band_a_step_0",
+      "path": "assets/listening/puzzle/r04_band_a_step_0.png",
+      "width": 180,
+      "height": 300,
+      "sha256": "7dea680d1496b9943f0af33388c13711f6239f4226766e284b86160d9963ab90",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_band_a_step_0.svg"
+    },
+    {
+      "id": "r04_band_a_step_1",
+      "path": "assets/listening/puzzle/r04_band_a_step_1.png",
+      "width": 180,
+      "height": 300,
+      "sha256": "a8e5ab9da63df49fe425dc6a0f824bac2ae1db2c237173e6539e06274ee39b20",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_band_a_step_1.svg"
+    },
+    {
+      "id": "r04_band_a_step_2",
+      "path": "assets/listening/puzzle/r04_band_a_step_2.png",
+      "width": 180,
+      "height": 300,
+      "sha256": "b1fae64f4d62bf3108847308d601a4111ef8d0a22c3ed60ac5b5c19a66cda432",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_band_a_step_2.svg"
+    },
+    {
+      "id": "r04_band_b_step_0",
+      "path": "assets/listening/puzzle/r04_band_b_step_0.png",
+      "width": 180,
+      "height": 300,
+      "sha256": "e266bb253a60b31cb932a2d7f3f888a4b1ba1b1230e07c500dd1b6f2be73070e",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_band_b_step_0.svg"
+    },
+    {
+      "id": "r04_band_b_step_1",
+      "path": "assets/listening/puzzle/r04_band_b_step_1.png",
+      "width": 180,
+      "height": 300,
+      "sha256": "daa1209762f6bd75c60b6680e3709a1cff197b962f971588720fa5779f6a21c7",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_band_b_step_1.svg"
+    },
+    {
+      "id": "r04_band_b_step_2",
+      "path": "assets/listening/puzzle/r04_band_b_step_2.png",
+      "width": 180,
+      "height": 300,
+      "sha256": "73878424e339250e13ce3af147f2fb5289921443c4a138628d9ec3b6f537835e",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_band_b_step_2.svg"
+    },
+    {
+      "id": "r04_band_c_step_0",
+      "path": "assets/listening/puzzle/r04_band_c_step_0.png",
+      "width": 180,
+      "height": 300,
+      "sha256": "f308e771efa161ae24d37c3874110eba94e138d55e2a4bf789005f37f13a7e14",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_band_c_step_0.svg"
+    },
+    {
+      "id": "r04_band_c_step_1",
+      "path": "assets/listening/puzzle/r04_band_c_step_1.png",
+      "width": 180,
+      "height": 300,
+      "sha256": "1ee0e8784fa43d90b49fce21add5e5eee2b8294e43b0216a39c9bfd5d5bf3fe1",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_band_c_step_1.svg"
+    },
+    {
+      "id": "r04_band_c_step_2",
+      "path": "assets/listening/puzzle/r04_band_c_step_2.png",
+      "width": 180,
+      "height": 300,
+      "sha256": "fcf666cc8812bdd4cb6350b55439caffd4fea46cc5c40d284d7b2143fca5f8ce",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_band_c_step_2.svg"
+    },
+    {
+      "id": "r04_case_label_a",
+      "path": "assets/listening/puzzle/r04_case_label_a.png",
+      "width": 180,
+      "height": 90,
+      "sha256": "5482edc5e55178f558d97e93e918ddbf6be0a80d0bbcf24b1ddbffc1175cba65",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_case_label_a.svg"
+    },
+    {
+      "id": "r04_case_label_b",
+      "path": "assets/listening/puzzle/r04_case_label_b.png",
+      "width": 180,
+      "height": 90,
+      "sha256": "8c3a2a3845b40ad72d867dd24be864878f9ba283dec64825cd2d79499da4d9de",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_case_label_b.svg"
+    },
+    {
+      "id": "r04_case_label_c",
+      "path": "assets/listening/puzzle/r04_case_label_c.png",
+      "width": 180,
+      "height": 90,
+      "sha256": "4b50b1af487020f125791237adce0c62a8a57442d83d511ede9484e86654d49e",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_case_label_c.svg"
+    },
+    {
+      "id": "r04_channel_closed",
+      "path": "assets/listening/puzzle/r04_channel_closed.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "866e737f52a56171ba3d1f6562fc0b8e2a1a673b0ecac43f92c68e2f906f72f4",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_channel_closed.svg"
+    },
+    {
+      "id": "r04_channel_open",
+      "path": "assets/listening/puzzle/r04_channel_open.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "b7445b2f79e0f8d6bbef1cdf59552e338cca85b9c8f75a6c3ae68780292e89a3",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_channel_open.svg"
+    },
+    {
+      "id": "r04_indicator_off",
+      "path": "assets/listening/puzzle/r04_indicator_off.png",
+      "width": 64,
+      "height": 64,
+      "sha256": "88f131a64180c55d075a37d464260b33f992308ddab79f416437fb4a04dfaf3f",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_indicator_off.svg"
+    },
+    {
+      "id": "r04_indicator_on",
+      "path": "assets/listening/puzzle/r04_indicator_on.png",
+      "width": 64,
+      "height": 64,
+      "sha256": "6ab60f1671504f56bd22177a59373e865d3138e670fef76c5ec2d16644b9c9a1",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_indicator_on.svg"
+    },
+    {
+      "id": "r04_motor_off",
+      "path": "assets/listening/puzzle/r04_motor_off.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "5b44302a465756d7e28e1535480dfd1eabf728d77a2323d991ca520409d0d5cb",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_motor_off.svg"
+    },
+    {
+      "id": "r04_motor_on",
+      "path": "assets/listening/puzzle/r04_motor_on.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "219ad780a576e5bd76744f732a651c54b1fe24b4ebc6239f9bbab3bcf1803c04",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_motor_on.svg"
+    },
+    {
+      "id": "r04_p17_panel_overlay",
+      "path": "assets/listening/puzzle/r04_p17_panel_overlay.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "03291acd78fd7ef078264ef87424097a1a2606fac0536d182bbed23e8ce12fe7",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_p17_panel_overlay.svg"
+    },
+    {
+      "id": "r04_p19_panel_overlay",
+      "path": "assets/listening/puzzle/r04_p19_panel_overlay.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "618ca3b677462f875206c516aeda642c6429ed5a9c125b00af017513c42c5b90",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_p19_panel_overlay.svg"
+    },
+    {
+      "id": "r04_spindle_guides",
+      "path": "assets/listening/puzzle/r04_spindle_guides.png",
+      "width": 240,
+      "height": 300,
+      "sha256": "84837a6b83f940780d0eaaf1fd0d001c98fb42b879ab6a882bc9c79c54db8e87",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_spindle_guides.svg"
+    },
+    {
+      "id": "r04_waveform_nora",
+      "path": "assets/listening/puzzle/r04_waveform_nora.png",
+      "width": 960,
+      "height": 144,
+      "sha256": "6e96f4f7b3d198dae8df20db55c5384768fc0d13317ae44e40d1846480cfbbe3",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_waveform_nora.svg"
+    },
+    {
+      "id": "r04_waveform_venn",
+      "path": "assets/listening/puzzle/r04_waveform_venn.png",
+      "width": 960,
+      "height": 144,
+      "sha256": "7ac2b87e59c2d8d0821298c7e3282df52c6a05c76f339e70408e2cd717910d48",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_waveform_venn.svg"
+    },
+    {
+      "id": "r04_witness_key_idle",
+      "path": "assets/listening/puzzle/r04_witness_key_idle.png",
+      "width": 404,
+      "height": 110,
+      "sha256": "0bc40ccb44e6514bb80f2c787112e17ce90a893107726b75cec06c1a321b15e7",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_witness_key_idle.svg"
+    },
+    {
+      "id": "r04_witness_key_pressed",
+      "path": "assets/listening/puzzle/r04_witness_key_pressed.png",
+      "width": 404,
+      "height": 110,
+      "sha256": "0d4d65dc25bc69d00b985adb094813e94cb97b0a562737d38f6a4dcd547eac02",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/listening/puzzle/r04_witness_key_pressed.svg"
     },
     {
       "id": "office_survey",

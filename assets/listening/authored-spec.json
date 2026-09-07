@@ -1,0 +1,436 @@
+{
+  "schema": 1,
+  "generated_by": "tools/build_listening_vectors.py",
+  "bands": {
+    "C": {
+      "start_notch": true,
+      "end_notch": false,
+      "rotations": [
+        {
+          "step": 0,
+          "left_class": 0,
+          "right_class": 1,
+          "asset_id": "r04_band_c_step_0"
+        },
+        {
+          "step": 1,
+          "left_class": 1,
+          "right_class": 2,
+          "asset_id": "r04_band_c_step_1"
+        },
+        {
+          "step": 2,
+          "left_class": 2,
+          "right_class": 0,
+          "asset_id": "r04_band_c_step_2"
+        }
+      ]
+    },
+    "A": {
+      "start_notch": false,
+      "end_notch": false,
+      "rotations": [
+        {
+          "step": 0,
+          "left_class": 1,
+          "right_class": 2,
+          "asset_id": "r04_band_a_step_0"
+        },
+        {
+          "step": 1,
+          "left_class": 2,
+          "right_class": 0,
+          "asset_id": "r04_band_a_step_1"
+        },
+        {
+          "step": 2,
+          "left_class": 0,
+          "right_class": 1,
+          "asset_id": "r04_band_a_step_2"
+        }
+      ]
+    },
+    "B": {
+      "start_notch": false,
+      "end_notch": true,
+      "rotations": [
+        {
+          "step": 0,
+          "left_class": 2,
+          "right_class": 0,
+          "asset_id": "r04_band_b_step_0"
+        },
+        {
+          "step": 1,
+          "left_class": 0,
+          "right_class": 1,
+          "asset_id": "r04_band_b_step_1"
+        },
+        {
+          "step": 2,
+          "left_class": 1,
+          "right_class": 2,
+          "asset_id": "r04_band_b_step_2"
+        }
+      ]
+    }
+  },
+  "solution": {
+    "order": [
+      "C",
+      "A",
+      "B"
+    ],
+    "steps": [
+      0,
+      0,
+      0
+    ],
+    "start_class": 0,
+    "end_class": 0
+  },
+  "band_canvas": [
+    180,
+    300
+  ],
+  "wax_skin_rect": [
+    0,
+    0,
+    180,
+    200
+  ],
+  "seam_levels_y": [
+    42,
+    100,
+    158
+  ],
+  "waveforms": {
+    "venn": {
+      "bell_x": 280,
+      "width": 960,
+      "note": "Authored timing diagram, not a waveform extracted from recorded voice. Match later audio to the marked event."
+    },
+    "nora": {
+      "bell_x": 440,
+      "width": 960,
+      "note": "Authored timing diagram, not a waveform extracted from recorded voice. Match later audio to the marked event."
+    }
+  },
+  "window_panes": [
+    [
+      1112,
+      137,
+      81,
+      112
+    ],
+    [
+      1205,
+      137,
+      83,
+      112
+    ],
+    [
+      1302,
+      137,
+      78,
+      112
+    ],
+    [
+      1112,
+      261,
+      81,
+      94
+    ],
+    [
+      1205,
+      261,
+      83,
+      94
+    ],
+    [
+      1302,
+      261,
+      78,
+      94
+    ],
+    [
+      1112,
+      372,
+      268,
+      207
+    ]
+  ],
+  "assets": [
+    {
+      "id": "r04_recording_log",
+      "path": "assets/listening/documents/r04_recording_log.png",
+      "source_svg": "assets/listening/documents/r04_recording_log.svg",
+      "role": "readable_document",
+      "visible_when": "R04 visited"
+    },
+    {
+      "id": "r04_correction_note",
+      "path": "assets/listening/documents/r04_correction_note.png",
+      "source_svg": "assets/listening/documents/r04_correction_note.svg",
+      "role": "readable_document",
+      "visible_when": "R04 visited"
+    },
+    {
+      "id": "r04_assembly_card",
+      "path": "assets/listening/documents/r04_assembly_card.png",
+      "source_svg": "assets/listening/documents/r04_assembly_card.svg",
+      "role": "readable_document",
+      "visible_when": "R04 visited"
+    },
+    {
+      "id": "r04_playback_transcript",
+      "path": "assets/listening/documents/r04_playback_transcript.png",
+      "source_svg": "assets/listening/documents/r04_playback_transcript.svg",
+      "role": "readable_document",
+      "visible_when": "P02 complete"
+    },
+    {
+      "id": "r04_maintenance_ledger",
+      "path": "assets/listening/documents/r04_maintenance_ledger.png",
+      "source_svg": "assets/listening/documents/r04_maintenance_ledger.svg",
+      "role": "readable_document",
+      "visible_when": "R04 visited"
+    },
+    {
+      "id": "r04_witness_procedure",
+      "path": "assets/listening/documents/r04_witness_procedure.png",
+      "source_svg": "assets/listening/documents/r04_witness_procedure.svg",
+      "role": "readable_document",
+      "visible_when": "P17 complete; P19 interaction requires P17 AND P18"
+    },
+    {
+      "id": "r04_band_c_step_0",
+      "path": "assets/listening/puzzle/r04_band_c_step_0.png",
+      "source_svg": "assets/listening/puzzle/r04_band_c_step_0.svg",
+      "role": "exact_band_overlay",
+      "visible_when": "P02 sleeve visible"
+    },
+    {
+      "id": "r04_band_c_step_1",
+      "path": "assets/listening/puzzle/r04_band_c_step_1.png",
+      "source_svg": "assets/listening/puzzle/r04_band_c_step_1.svg",
+      "role": "exact_band_overlay",
+      "visible_when": "P02 sleeve visible"
+    },
+    {
+      "id": "r04_band_c_step_2",
+      "path": "assets/listening/puzzle/r04_band_c_step_2.png",
+      "source_svg": "assets/listening/puzzle/r04_band_c_step_2.svg",
+      "role": "exact_band_overlay",
+      "visible_when": "P02 sleeve visible"
+    },
+    {
+      "id": "r04_band_a_step_0",
+      "path": "assets/listening/puzzle/r04_band_a_step_0.png",
+      "source_svg": "assets/listening/puzzle/r04_band_a_step_0.svg",
+      "role": "exact_band_overlay",
+      "visible_when": "P02 sleeve visible"
+    },
+    {
+      "id": "r04_band_a_step_1",
+      "path": "assets/listening/puzzle/r04_band_a_step_1.png",
+      "source_svg": "assets/listening/puzzle/r04_band_a_step_1.svg",
+      "role": "exact_band_overlay",
+      "visible_when": "P02 sleeve visible"
+    },
+    {
+      "id": "r04_band_a_step_2",
+      "path": "assets/listening/puzzle/r04_band_a_step_2.png",
+      "source_svg": "assets/listening/puzzle/r04_band_a_step_2.svg",
+      "role": "exact_band_overlay",
+      "visible_when": "P02 sleeve visible"
+    },
+    {
+      "id": "r04_band_b_step_0",
+      "path": "assets/listening/puzzle/r04_band_b_step_0.png",
+      "source_svg": "assets/listening/puzzle/r04_band_b_step_0.svg",
+      "role": "exact_band_overlay",
+      "visible_when": "P02 sleeve visible"
+    },
+    {
+      "id": "r04_band_b_step_1",
+      "path": "assets/listening/puzzle/r04_band_b_step_1.png",
+      "source_svg": "assets/listening/puzzle/r04_band_b_step_1.svg",
+      "role": "exact_band_overlay",
+      "visible_when": "P02 sleeve visible"
+    },
+    {
+      "id": "r04_band_b_step_2",
+      "path": "assets/listening/puzzle/r04_band_b_step_2.png",
+      "source_svg": "assets/listening/puzzle/r04_band_b_step_2.svg",
+      "role": "exact_band_overlay",
+      "visible_when": "P02 sleeve visible"
+    },
+    {
+      "id": "r04_spindle_guides",
+      "path": "assets/listening/puzzle/r04_spindle_guides.png",
+      "source_svg": "assets/listening/puzzle/r04_spindle_guides.svg",
+      "role": "fixed_end_guides",
+      "visible_when": "P02 inspection"
+    },
+    {
+      "id": "r04_case_label_a",
+      "path": "assets/listening/puzzle/r04_case_label_a.png",
+      "source_svg": "assets/listening/puzzle/r04_case_label_a.svg",
+      "role": "case_label",
+      "visible_when": "R04"
+    },
+    {
+      "id": "r04_case_label_b",
+      "path": "assets/listening/puzzle/r04_case_label_b.png",
+      "source_svg": "assets/listening/puzzle/r04_case_label_b.svg",
+      "role": "case_label",
+      "visible_when": "R04"
+    },
+    {
+      "id": "r04_case_label_c",
+      "path": "assets/listening/puzzle/r04_case_label_c.png",
+      "source_svg": "assets/listening/puzzle/r04_case_label_c.svg",
+      "role": "case_label",
+      "visible_when": "R04"
+    },
+    {
+      "id": "r04_p17_panel_overlay",
+      "path": "assets/listening/puzzle/r04_p17_panel_overlay.png",
+      "source_svg": "assets/listening/puzzle/r04_p17_panel_overlay.svg",
+      "role": "P17_inspection_overlay",
+      "visible_when": "P16 complete"
+    },
+    {
+      "id": "r04_waveform_venn",
+      "path": "assets/listening/puzzle/r04_waveform_venn.png",
+      "source_svg": "assets/listening/puzzle/r04_waveform_venn.svg",
+      "role": "authored_sync_trace",
+      "visible_when": "P17"
+    },
+    {
+      "id": "r04_waveform_nora",
+      "path": "assets/listening/puzzle/r04_waveform_nora.png",
+      "source_svg": "assets/listening/puzzle/r04_waveform_nora.svg",
+      "role": "authored_sync_trace",
+      "visible_when": "P17"
+    },
+    {
+      "id": "r04_p19_panel_overlay",
+      "path": "assets/listening/puzzle/r04_p19_panel_overlay.png",
+      "source_svg": "assets/listening/puzzle/r04_p19_panel_overlay.svg",
+      "role": "P19_inspection_overlay",
+      "visible_when": "P17 AND P18 complete"
+    },
+    {
+      "id": "r04_channel_open",
+      "path": "assets/listening/puzzle/r04_channel_open.png",
+      "source_svg": "assets/listening/puzzle/r04_channel_open.svg",
+      "role": "shared_channel_control",
+      "visible_when": "P19"
+    },
+    {
+      "id": "r04_channel_closed",
+      "path": "assets/listening/puzzle/r04_channel_closed.png",
+      "source_svg": "assets/listening/puzzle/r04_channel_closed.svg",
+      "role": "shared_channel_control",
+      "visible_when": "P19"
+    },
+    {
+      "id": "r04_motor_off",
+      "path": "assets/listening/puzzle/r04_motor_off.png",
+      "source_svg": "assets/listening/puzzle/r04_motor_off.svg",
+      "role": "motor_control",
+      "visible_when": "P19"
+    },
+    {
+      "id": "r04_motor_on",
+      "path": "assets/listening/puzzle/r04_motor_on.png",
+      "source_svg": "assets/listening/puzzle/r04_motor_on.svg",
+      "role": "motor_control",
+      "visible_when": "P19"
+    },
+    {
+      "id": "r04_witness_key_idle",
+      "path": "assets/listening/puzzle/r04_witness_key_idle.png",
+      "source_svg": "assets/listening/puzzle/r04_witness_key_idle.svg",
+      "role": "witness_control",
+      "visible_when": "P19"
+    },
+    {
+      "id": "r04_witness_key_pressed",
+      "path": "assets/listening/puzzle/r04_witness_key_pressed.png",
+      "source_svg": "assets/listening/puzzle/r04_witness_key_pressed.svg",
+      "role": "witness_control",
+      "visible_when": "P19"
+    },
+    {
+      "id": "r04_indicator_off",
+      "path": "assets/listening/puzzle/r04_indicator_off.png",
+      "source_svg": "assets/listening/puzzle/r04_indicator_off.svg",
+      "role": "circuit_indicator",
+      "visible_when": "P19"
+    },
+    {
+      "id": "r04_indicator_on",
+      "path": "assets/listening/puzzle/r04_indicator_on.png",
+      "source_svg": "assets/listening/puzzle/r04_indicator_on.svg",
+      "role": "circuit_indicator",
+      "visible_when": "P19"
+    },
+    {
+      "id": "r04_rain_0",
+      "path": "assets/listening/effects/r04_rain_0.png",
+      "source_svg": "assets/listening/effects/r04_rain_0.svg",
+      "role": "window_rain_frame",
+      "visible_when": "weather 2\u20137; freeze frame 0 at weather 4; no motion in reduced-motion mode"
+    },
+    {
+      "id": "r04_rain_1",
+      "path": "assets/listening/effects/r04_rain_1.png",
+      "source_svg": "assets/listening/effects/r04_rain_1.svg",
+      "role": "window_rain_frame",
+      "visible_when": "weather 2\u20137; freeze frame 0 at weather 4; no motion in reduced-motion mode"
+    },
+    {
+      "id": "r04_rain_2",
+      "path": "assets/listening/effects/r04_rain_2.png",
+      "source_svg": "assets/listening/effects/r04_rain_2.svg",
+      "role": "window_rain_frame",
+      "visible_when": "weather 2\u20137; freeze frame 0 at weather 4; no motion in reduced-motion mode"
+    },
+    {
+      "id": "r04_window_mask",
+      "path": "assets/listening/effects/r04_window_mask.png",
+      "source_svg": "assets/listening/effects/r04_window_mask.svg",
+      "role": "window_alpha_mask",
+      "visible_when": null
+    },
+    {
+      "id": "r04_wall_damp",
+      "path": "assets/listening/effects/r04_wall_damp.png",
+      "source_svg": "assets/listening/effects/r04_wall_damp.svg",
+      "role": "local_damp_layer",
+      "visible_when": "weather >= 3"
+    },
+    {
+      "id": "r04_lamp_pool",
+      "path": "assets/listening/effects/r04_lamp_pool.png",
+      "source_svg": "assets/listening/effects/r04_lamp_pool.svg",
+      "role": "local_light_behind_props",
+      "visible_when": "task lamp lit"
+    },
+    {
+      "id": "r04_stool_damp_mark",
+      "path": "assets/listening/effects/r04_stool_damp_mark.png",
+      "source_svg": "assets/listening/effects/r04_stool_damp_mark.svg",
+      "role": "registered_seat_mark",
+      "visible_when": "weather >= 3; layer over dry stool; alignment requires integration review"
+    }
+  ],
+  "limitations": [
+    "Graphic specification only; no puzzle implementation or audio files.",
+    "Waveform diagrams must be synchronized with future voice recordings.",
+    "Inspect touch and overlay alignment in the engine before release."
+  ]
+}

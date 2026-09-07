@@ -44,4 +44,10 @@ Separate shelf ledgers, a reusable horizontal cylinder case, and an open shallow
 
 The later listening calibration board now has a separate blank faceplate matching the recorder's materials. Exact channel labels, waveform strips and witness controls will sit above it. This is an inspection surface, not a new horn assembly or a change to the approved room composition.
 
-Generation prompts, source paths, intended placements and draft status are recorded in `listening-pack-generation.json`. Checkpoint commits will continue as batches finish. The final delivery will include the full inventory and integration guide.
+## Checkpoint 9
+
+Added 38 editable SVG/PNG pairs: six readable documents; nine band/seam orientations; fixed spindle guides; three case labels; P17/P19 panel overlays; two timing traces; shared channel, motor, witness and indicator states; three rain frames; window mask; wall damp, lamp pool and stool mark. `tools/build_listening_vectors.py` reproduces them without editing the generated raster images. `assets/listening/authored-spec.json` contains the exact band endpoint classes and timing-diagram reference points.
+
+Asset integrity checks pass. An exhaustive check of all 162 order/orientation combinations found exactly one valid band assembly: C/A/B at steps 0/0/0. This checks the graphic specification, not implemented gameplay. The assembly card, correction note and P19 overlay received a first visual check; complete scene composition, document review, lamp-shade illumination, precise placement and platform checks remain. Timing traces are authored diagrams and must be synchronized with future voice recordings.
+
+For the next bounded continuation, read `listening-resume.md`. Generation prompts, source paths, intended placements and draft status are recorded in `listening-pack-generation.json`. No Listening Room gameplay or audio is implemented by this pack.
