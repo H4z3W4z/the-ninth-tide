@@ -1,0 +1,132 @@
+{
+  "status": "in_progress",
+  "master": "art/concepts/listening-room-approved-master-v4.png",
+  "master_prompt": "Use case: precise-object-edit.\nEdit target: the supplied Listening Room image from The Ninth Tide.\nUser-approved revision direction: replace the three huge empty cork panels with a smaller working noticeboard; make the recorder recognizable and prominent; give the room a purpose-built recording bench; add restrained human wear; retain the important sea window and add warm local task light; a faint damp seat impression is the first unsettling detail.\n\nCreate ONE polished revised full-room illustration, same 1448 x 1086 / 4:3 framing. Preserve the LEFT BLUE DOOR, RIGHT SEA WINDOW with rainy water/lighthouse, sage plaster, blue wainscoting, floor and flat front-facing composition in their existing locations. Same fine navy ink contours, broad matte colors, subtle paper grain, restrained brass, warm brown wood. Absolutely no horns, speaking trumpets, ornate wall apparatus, angled walls, vanishing points, receding desktop planes or photorealism.\n\nComposition:\n1. REMOVE all three giant cork panels. Restore sage plaster. Replace them with ONE modest rectangular dark-wood-framed cork noticeboard, about 400 pixels wide by 260 tall, centered above the recorder around x=760,y=340. Leave generous sage wall around it. On it pin a slightly crooked cream recording log with a few neat columns, a smaller handwritten correction slipped over its corner, and one small curled sepia photograph showing two station workers by the coast. Add subtle pinholes and a pale mark from a removed paper. The papers should feel handled, not like decorative scrapbook clutter. No legible puzzle answers, no exact labels, no readable dates or numbers: final evidence is authored separately.\n\n2. REDESIGN the big office-style desk into a purpose-built narrow oak recording bench, maintaining its approximate footprint below the wall board and leaving both door and window clear. Front elevation only: its working surface is a narrow horizontal strip, not an angled tabletop. LEFT SIDE: four shallow full-width cylinder drawers stacked vertically with small brass label holders. RIGHT SIDE: one open rectangular storage compartment with a few horizontal cylindrical storage cases and a thin ledger on a lower shelf. Use clear flat silhouettes with no perspective shelf sides. Center is a open knee space with the blue wall visible, making the furniture lighter and distinct from the Intake Office desk. No symmetrical office drawer pedestals or giant decorative central door panel.\n\n3. The MAIN FOCAL OBJECT on the bench is now a larger unmistakable HORNLESS wax-cylinder recording/playback machine in flat side elevation. A substantial dark oak plinth and a compact brass drive housing support a thick dark honey-brown grooved recording cylinder. Show TWO short adjoining wax sleeves seated on its spindle, with the THIRD matching loose sleeve clearly visible in a small open storage case beside it. This is a partially assembled visual study, not the locked new-game configuration. The needle arm visibly rests over the grooved wax; add a clear small winding crank on the right and a simple transport lever on the plinth. Do not make it look like an exposed empty lathe. The cylinder and needle must read at room scale. No horn or large cone anywhere. Precise seam geometry and C/A/B markings will be added separately, so do not generate those clues.\n\n4. Hang the modest old black leather-and-ebonite HEADPHONES from a simple peg just left of the small noticeboard, within reach of someone at the bench. The headband has a tiny stitched repair, subtly visible. Their cloth cord leads down to the recorder. Add a small brush, a few wax shavings around it, and a visibly rubbed elbow patch on the narrow wooden bench edge. Keep props limited and purposeful. Retain the existing upright cream instruction card at the right of the recorder, with a discreet suggested diagram but no legible writing.\n\n5. Add ONE small practical shaded brass task lamp fixed to the left end of the recording bench. A modest low hood, not a flared horn shape. It casts a restrained warm amber pool across the cylinder, wax pieces and hands' working area. Render the warmth as broad subtle flat color, not a cinematic beam or volumetric glow. The rest stays cool and softly lit by the important right-hand storm window. The warm recorder should attract the eye first, the window second.\n\n6. Preserve the worn wooden stool near the left half of the bench, front elevation. On its seat add a FAINT irregular darker damp oval where someone would have sat. No puddle on the floor, no dripping water, no human outline or spectral body. The headphones, surrounding cork and other furniture remain dry. A small intimate wrongness, easy to miss until examined.\n\nOverall: a convincing abandoned recording workplace, tangible and lived-in, with focused detail around the machine and quiet wall space elsewhere. Dark maritime atmosphere through restraint. NO skulls, eyes, blood, tentacles, runes, theatrical horror props, modern screens, additional maps, captions, UI, borders or watermark. Preserve clean room geometry and clue readability.",
+  "assets": [
+    {
+      "id": "r04_clean_base",
+      "kind": "base",
+      "path": "assets/listening/backgrounds/r04_clean_base.png",
+      "prompt": "The Ninth Tide accepted Listening Room master is the reference. Match its thin navy contours, matte sage/storm-blue/brown/brass palette, subtle paper grain and strict flat front elevation. No horns, angled room perspective, logos, UI or exact clue text. Create a CLEAN STATIC ROOM PLATE, same exact 1448x1086 framing and geometry as reference. Keep door closed, right window frame and all glazing bars, sage wall, floor, blue wainscoting and the new oak bench with four shallow drawers, open right shelving and open knee space. Remove ALL movable/interactable small props: recorder, lamp and its glow, cases/canisters, headphones and cord/hook, noticeboard and papers, brush/dust, instruction-card holder, stool, shelf cylinders and books. Cleanly restore wall and bench surfaces behind them. Do not redesign the furniture. Inside every glass pane remove the scenery/rain and replace with a uniform muted blue-gray placeholder; keep the wooden window frame opaque and untouched. No lighting pool on wall. This must remain an opaque clean background that receives separate sprites. One image, no panels.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-d8146164-e8fe-4ff4-a1cb-0dad931f9c95.png"
+    },
+    {
+      "id": "r04_headphones_hanging",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_headphones_hanging.png",
+      "prompt": "The Ninth Tide accepted Listening Room master is the reference. Match its thin navy contours, matte sage/storm-blue/brown/brass palette, subtle paper grain and strict flat front elevation. No horns, angled room perspective, logos, UI or exact clue text. Extract/recreate ONLY the worn black leather-and-ebonite headphones from the reference, including repaired headband and single cloth cord curling to the right as in the room. Isolated centered object, large enough for close inspection, strict front elevation, complete cord visible, no peg, wall, board, furniture, shade or floor shadow. A game sprite on REAL FULLY TRANSPARENT RGBA background. Pixels outside the object must have alpha zero. No checkerboard pattern, no white/gray/backdrop rectangle. Preserve silhouette and materials; cord is attached to the earcup. Canvas 1024x1024 if possible, generous transparent margin.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-52c969d6-8c5e-4702-bc76-8ac4e78eb759.png",
+      "target": [
+        437,
+        203,
+        157,
+        340
+      ]
+    },
+    {
+      "id": "r04_weather_01_overcast",
+      "kind": "weather",
+      "milestone": "arrival through Tide I",
+      "path": "assets/listening/backgrounds/r04_weather_01_overcast.png",
+      "prompt": "The Ninth Tide accepted Listening Room master is the reference. Match its thin navy contours, matte sage/storm-blue/brown/brass palette, subtle paper grain and strict flat front elevation. No horns, angled room perspective, logos, UI or exact clue text. Edit ONLY WEATHER AND AMBIENT COLOR of the reference. Preserve every object and room edge in EXACTLY the same position and scale, including papers, lamp, stool, partially assembled recorder and headphones. Stage ARRIVAL / TIDE I: overcast but legible calm gray daylight, distant lighthouse in its present right-side bearing clearly visible, modest ordinary wave motion. REMOVE rain streaks from glass. Warm small task lamp remains on and highlights the work area. No supernatural details, no changed papers, no extra object. Same 1448x1086 full room. Interior clarity identical to reference.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-3289eba7-c4db-4143-a7f2-02aadee544af.png"
+    },
+    {
+      "id": "r04_weather_02_rain",
+      "kind": "weather",
+      "milestone": "P06",
+      "path": "assets/listening/backgrounds/r04_weather_02_rain.png",
+      "prompt": "Edit the accepted Listening Room reference ONLY for weather and local light, same exact 1448x1086 composition. Preserve every door/window/bench edge and every prop, paper, headphone, recorder and stool position and shape. Do not redesign geometry or change puzzle marks. Flat matte front elevation, navy contours, sage and storm blue with old brass, subtle paper texture. No horns, cinematic lighting, side walls, UI or typography. This is a full room state review image; runtime will clip its window scenery over a fixed clean plate. Stage: P06. Low cloud and rain stippling the panes, distant coast loses contrast. Ordinary sea. Slightly cooler room daylight. Lamp keeps controls readable.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-67114fe9-adb7-41b9-8811-84c9ff0e46e2.png"
+    },
+    {
+      "id": "r04_weather_04_suspended",
+      "kind": "weather",
+      "milestone": "P12",
+      "path": "assets/listening/backgrounds/r04_weather_04_suspended.png",
+      "prompt": "Edit the accepted Listening Room reference ONLY for weather and local light, same exact 1448x1086 composition. Preserve every door/window/bench edge and every prop, paper, headphone, recorder and stool position and shape. Do not redesign geometry or change puzzle marks. Flat matte front elevation, navy contours, sage and storm blue with old brass, subtle paper texture. No horns, cinematic lighting, side walls, UI or typography. This is a full room state review image; runtime will clip its window scenery over a fixed clean plate. Stage: P12. Dark sea with visible moving-looking white wave lines while a handful of large rain drops hang almost vertically still on the glass, less slanting rain. Visibility shortened. A faint mismatched reflection confined to glass. Same scene, no new creature.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-5f503eb1-4d0e-446e-ac00-0f01443350f3.png"
+    },
+    {
+      "id": "r04_weather_03_storm",
+      "kind": "weather",
+      "milestone": "P09",
+      "path": "assets/listening/backgrounds/r04_weather_03_storm.png",
+      "prompt": "Edit the accepted Listening Room reference ONLY for weather and local light, same exact 1448x1086 composition. Preserve every door/window/bench edge and every prop, paper, headphone, recorder and stool position and shape. Do not redesign geometry or change puzzle marks. Flat matte front elevation, navy contours, sage and storm blue with old brass, subtle paper texture. No horns, cinematic lighting, side walls, UI or typography. This is a full room state review image; runtime will clip its window scenery over a fixed clean plate. Stage: P09. Heavy slanting rain, dark rough sea, lighthouse partly lost in gray weather. Fine damp tide marks below the window. Lamp and paper readable, room cooler, no solid darkness.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-6715d2da-af16-45ec-87ac-2782004a176d.png"
+    },
+    {
+      "id": "r04_weather_05_upright",
+      "kind": "weather",
+      "milestone": "P15",
+      "path": "assets/listening/backgrounds/r04_weather_05_upright.png",
+      "prompt": "Edit the accepted Listening Room reference ONLY for weather and local light, same exact 1448x1086 composition. Preserve every door/window/bench edge and every prop, paper, headphone, recorder and stool position and shape. Do not redesign geometry or change puzzle marks. Flat matte front elevation, navy contours, sage and storm blue with old brass, subtle paper texture. No horns, cinematic lighting, side walls, UI or typography. This is a full room state review image; runtime will clip its window scenery over a fixed clean plate. Stage: P15. Compressed horizon and a very subtle vertical sea surface beyond the window; its wave bands now run unnaturally upright near one side. Dim blue-green outdoors, readable room and lamp. Subtle wrong reflected bench line inside glass only, no monster.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-c20dc160-5e22-46f8-a27b-20c6a655c58c.png"
+    },
+    {
+      "id": "r04_weather_07_bearing",
+      "kind": "weather",
+      "milestone": "P21",
+      "path": "assets/listening/backgrounds/r04_weather_07_bearing.png",
+      "prompt": "Edit the accepted Listening Room reference ONLY for weather and local light, same exact 1448x1086 composition. Preserve every door/window/bench edge and every prop, paper, headphone, recorder and stool position and shape. Do not redesign geometry or change puzzle marks. Flat matte front elevation, navy contours, sage and storm blue with old brass, subtle paper texture. No horns, cinematic lighting, side walls, UI or typography. This is a full room state review image; runtime will clip its window scenery over a fixed clean plate. Stage: P21. Close darkness at panes. One faint small lighthouse silhouette now appears toward the LEFT side of the lower window pane instead of the established right side, as if bearing moved impossibly. Very restrained ambiguous shadow beside the empty stool, no visible person. Keep clue surfaces bright enough.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-9e075039-53c3-4672-9787-ddcfe794a789.png"
+    },
+    {
+      "id": "r04_weather_08_surface",
+      "kind": "weather",
+      "milestone": "P24; held through Tide IX",
+      "path": "assets/listening/backgrounds/r04_weather_08_surface.png",
+      "prompt": "Edit the accepted Listening Room reference ONLY for weather and local light, same exact 1448x1086 composition. Preserve every door/window/bench edge and every prop, paper, headphone, recorder and stool position and shape. Do not redesign geometry or change puzzle marks. Flat matte front elevation, navy contours, sage and storm blue with old brass, subtle paper texture. No horns, cinematic lighting, side walls, UI or typography. This is a full room state review image; runtime will clip its window scenery over a fixed clean plate. Stage: P24; held through Tide IX. Outside is a near-featureless dark petrol-blue vertical surface pressed close to the glass. Only one very soft broad curved band hints at slow motion, no eye or face. Almost no rain or horizon remains. Exterior darkness close, interior still readable in small warm lamp pool. Room door/bench/notes never disappear into black.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-bb9b4516-568a-46e9-a6c4-6eed95f38ba3.png"
+    },
+    {
+      "id": "r04_weather_06_silent",
+      "kind": "weather",
+      "milestone": "P17 AND P18",
+      "path": "assets/listening/backgrounds/r04_weather_06_silent.png",
+      "prompt": "Edit the accepted Listening Room reference ONLY for weather and local light, same exact 1448x1086 composition. Preserve every door/window/bench edge and every prop, paper, headphone, recorder and stool position and shape. Do not redesign geometry or change puzzle marks. Flat matte front elevation, navy contours, sage and storm blue with old brass, subtle paper texture. No horns, cinematic lighting, side walls, UI or typography. This is a full room state review image; runtime will clip its window scenery over a fixed clean plate. Stage: P17 AND P18. Near-black indigo sea and sky merge, distant lighthouse almost lost. Rain remains visibly streaking on glass but an eerie windless stillness is implied. Deep cool room margins, warm work surface remains highly readable. No changed document content.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-cf09277c-7369-4168-b14b-18419bc7d58b.png"
+    },
+    {
+      "id": "r04_lamp_off_draft",
+      "kind": "draft",
+      "path": "art/listening-review/r04_lamp_off_draft.png",
+      "prompt": "Game sprite from The Ninth Tide room reference. Strict flat hand-illustrated front/side elevation as seen in room, broad matte fills, thin navy ink contours, subtle paper grain, only two or three flat shade tones, NOT photorealistic or 3D/PBR. Preserve the referenced object's silhouette and construction. Isolate ONLY the requested object, centered with generous clear margin, enlarge for clean inspection. REAL TRANSPARENT RGBA background: alpha zero outside object, no checkerboard or solid backdrop, no floor cast shadow. No horns, UI, watermark or text. ONLY the small articulated brass task lamp from left side of bench. Preserve circular base, slim vertical stem, two arm joints, small rounded dark brass shade tilted over working area. OFF state: bulb and underside unlit, no glow. No cord necessary, no furniture, no headphones or canisters. Whole lamp visible including base.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-a4a27d44-a718-4c32-b513-d8faefc3e74a.png",
+      "target": [
+        336,
+        414,
+        157,
+        220
+      ],
+      "issue": "Baked checkerboard; no alpha channel. Must regenerate."
+    },
+    {
+      "id": "r04_recorder_empty_draft",
+      "kind": "draft",
+      "path": "art/listening-review/r04_recorder_empty_draft.png",
+      "prompt": "Game sprite from The Ninth Tide room reference. Strict flat hand-illustrated front/side elevation as seen in room, broad matte fills, thin navy ink contours, subtle paper grain, only two or three flat shade tones, NOT photorealistic or 3D/PBR. Preserve the referenced object's silhouette and construction. Isolate ONLY the requested object, centered with generous clear margin, enlarge for clean inspection. REAL TRANSPARENT RGBA background: alpha zero outside object, no checkerboard or solid backdrop, no floor cast shadow. No horns, UI, watermark or text. The complete hornless cylinder playback machine from the middle of the bench: dark oak rectangular plinth, brass supports, horizontal spindle, right hand crank and needle arm. REMOVE ALL WAX SLEEVES so spindle is completely bare. Needle raised. Keep the original substantial base and mechanism proportions; no extra wheels/dials. Draw complete machine alone, horizontal composition, 1536x1024 if supported.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-726a85ea-e5f4-4a9c-9123-fae8e78dedfb.png",
+      "target": [
+        544,
+        465,
+        320,
+        164
+      ],
+      "issue": "Visible background halo; needs clean alpha and a bare spindle."
+    },
+    {
+      "id": "r04_stool_dry",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_stool_dry.png",
+      "prompt": "Game sprite from The Ninth Tide room reference. Strict flat hand-illustrated front/side elevation as seen in room, broad matte fills, thin navy ink contours, subtle paper grain, only two or three flat shade tones, NOT photorealistic or 3D/PBR. Preserve the referenced object's silhouette and construction. Isolate ONLY the requested object, centered with generous clear margin, enlarge for clean inspection. REAL TRANSPARENT RGBA background: alpha zero outside object, no checkerboard or solid backdrop, no floor cast shadow. No horns, UI, watermark or text. ONLY the worn wooden stool from in front of bench: round oval-in-elevation seat, four slim legs and low rungs. Same straight-on orientation, restrained rubbed pale edge and old brown wood. DRY state: seat uniformly worn and dry, no damp spot. No floor, no background.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-06a7949b-6e26-4951-b684-db2e895e51ff.png",
+      "target": [
+        459,
+        737,
+        170,
+        249
+      ]
+    }
+  ]
+}

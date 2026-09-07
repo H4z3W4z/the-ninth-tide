@@ -61,6 +61,105 @@
       "source_svg": null
     },
     {
+      "id": "r04_clean_base",
+      "path": "assets/listening/backgrounds/r04_clean_base.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "f165753f280093bbae39145442fae67ac2296a33d1da0e1c07947af2a9e3d2c6",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r04_weather_01_overcast",
+      "path": "assets/listening/backgrounds/r04_weather_01_overcast.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "018cd36d8f2eda813c6d4a958b146374ee62c88cbe480a1046a70a2e78c7af1b",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r04_weather_02_rain",
+      "path": "assets/listening/backgrounds/r04_weather_02_rain.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "e075bbe6fe06ac466fbad7008f27c62984d170cce16ce2bd68d352290349fa7e",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r04_weather_03_storm",
+      "path": "assets/listening/backgrounds/r04_weather_03_storm.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "7447df6d05aaadfda916bb11badf79e8e64bea91d33cedd7fa8c1ec80178304f",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r04_weather_04_suspended",
+      "path": "assets/listening/backgrounds/r04_weather_04_suspended.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "f774d2a7dd2dcd3b96bf8dac99bdd8a72e1c8d9530c3b0a1ad93276ff8338a1d",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r04_weather_05_upright",
+      "path": "assets/listening/backgrounds/r04_weather_05_upright.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "bb80c2ee32089473f74e1148e616d8c2272fe3d56dd6fae1ba71cec5e2b3536e",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r04_weather_06_silent",
+      "path": "assets/listening/backgrounds/r04_weather_06_silent.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "8cf3407454dea3987ff17dc1ccb8519d67f4a324f33c0602f609b0d3bbe9dfb8",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r04_weather_07_bearing",
+      "path": "assets/listening/backgrounds/r04_weather_07_bearing.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "6e49f740d9545a4293fb63295f629b99b8dff20059db65c14a0f61475b3096b4",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r04_weather_08_surface",
+      "path": "assets/listening/backgrounds/r04_weather_08_surface.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "029c9b46428f1db2f9d54d78738307dc37b182f176d5459ea81b2c4de5f6b26e",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r04_headphones_hanging",
+      "path": "assets/listening/props/r04_headphones_hanging.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "c348e4b4dcc149a9fa41de40e3c471f092495236c4bfd66978e9ee2583427110",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_stool_dry",
+      "path": "assets/listening/props/r04_stool_dry.png",
+      "width": 1223,
+      "height": 1286,
+      "sha256": "611539f08ab5d1a2f52d4fb0ab65a4b4f4b1b9b173fd6287e23dceb856d9dec0",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "office_survey",
       "path": "assets/maps/office_survey.png",
       "width": 1200,
