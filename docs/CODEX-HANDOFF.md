@@ -7,6 +7,8 @@
 
 **Art update, September 7:** The accepted Listening Room v4 reference and its generated/authored asset pack are now documented in [Listening Room assets](listening-room-assets.md), [inventory](listening-inventory.md), [placement/state manifest](../assets/listening/manifest.json), and [composed review](../art/listening-review/composed/index.html). These art additions do not change the code baseline or resolve the rendered map-input failure below. Use asset status and review notes when integrating; the gallery is not a running Godot room.
 
+**Kitchen art update, September 7:** Mike approved [Kitchen master v1](../art/concepts/kitchen-room-master-v1.png). The complete [R05 graphics handoff](kitchen-room-assets.md) specifies P07/P09 evidence and visual states, with [84 local PNG assets](kitchen-inventory.md), 78 editable SVG sources, seven reused R04 weather plates, a [measured manifest](../assets/kitchen/manifest.json) and [offline art gallery](../art/kitchen-review/composed/index.html). Nora's physical repaired cup stays in R06; the Kitchen provisioning page supplies the corresponding repair sketch. These art additions do not implement R05 or change the dated code baseline below.
+
 ## 1. Start here
 
 The project already contains a Godot prototype, approved Office references, a new Chart Room concept, and implemented P01/P03 puzzle logic. Continue from this work. The immediate task is to resolve the failing rendered map-input test, verify the actual interface, and produce the first local-network Web preview for an iPad.
@@ -23,7 +25,7 @@ The project already contains a Godot prototype, approved Office references, a ne
 | Subsequent targets | Native iOS and Android from the same game project, validated early |
 | Current release status | Prototype only; no tested Web export or native device build |
 
-Read `AGENTS.md`, this document, `README.md`, `docs/design/game-design.md`, and `docs/art-direction.md` before editing. The GDD is version 1.3 and contains the complete proposed game, including all 27 puzzles. Version 1.3 updates the Listening Room's art staging without changing puzzle solutions or dependencies. This handoff describes what exists in code and where to resume. It does not replace the full design.
+Read `AGENTS.md`, this document, `README.md`, `docs/design/game-design.md`, and `docs/art-direction.md` before editing. The GDD is version 1.4 and contains the complete proposed game, including all 27 puzzles. Version 1.3 updated Listening Room art staging; version 1.4 keeps Nora's physical cup in the Bunk Room and uses its provisioning-page sketch in the Kitchen. These revisions do not change puzzle solutions, dependencies or ending consequences. This handoff describes what exists in code and where to resume. It does not replace the full design.
 
 For a fresh checkout:
 
@@ -165,6 +167,7 @@ Approved references:
 - `art/concepts/intake-approved-calm.png`
 - `art/concepts/intake-approved-ominous.png`
 - `art/concepts/listening-room-approved-master-v4.png`
+- `art/concepts/kitchen-room-master-v1.png`
 
 Use flat, straight-on elevations with **no angled walls, receding tabletops or perspective camera**. Fine navy contours, matte sea-glass/sage plaster, storm/petrol blue, tarnished copper/brass, restrained brown wood, and subtle paper texture establish the identity. Rusty Lake informed tactile puzzle design and flatness; its characters, signature imagery and exact visual identity are not production assets.
 
@@ -181,6 +184,8 @@ Current Chart Room source: `art/concepts/chart-room-arrival-v1.png`; runtime cop
 Listening Room v4 uses a hornless wax recorder, hooked headphones, a small used noticeboard, a specialized oak bench and the right-hand weather window. Earlier speaking-tube and horn studies are superseded. Keep `r04_clean_base.png` fixed and clip only the glazing from `r04_weather_*` plates. Their partially assembled recorder is part of the visual study; it must never override saved P02 arrangement. Use separate props and authored band layers, with local damp/light effects. Generated alternate poses are references or discrete state swaps, not registered animation frames.
 
 R04 composition order is fixed room → clipped exterior/door details → local effects behind props → props/papers and puzzle pieces → exact control overlays → inspection/focus UI. The manifest records source regions and placement; transparent canvas margins are not hitboxes. Tide IX holds weather appearance eight. The P17/P19 calibration faceplate belongs to an inspection view, not a new wall apparatus. Keep Venn and Nora's channels separately selectable with transcripts, and preserve Venn's P19 continuation through the headphones after the indicator goes dark. See the R04 handoff for complete triggers, document gates and reuse rules.
+
+Kitchen and Mess uses a fixed room base, with shared R04 weather sources mapped into its own window glazing. It opens after P06 at weather appearance two. Preserve the table's separate bowl arrangement and spoon, pantry drawer, paired-token state and correction board independently of weather. P07 compares nine portions against the unchanged official eight. P09 requires both P07 and P08, appends `+1 / VENN / present`, uses the three-cut seal and retains the duplicate board's text before condensation. The physical repaired cup remains on its R06 shelf; the square-patched Kitchen bowl is a different object. See the R05 handoff for exact asset and evidence contracts.
 
 ## 9. Graphics-to-code asset contract
 
@@ -245,6 +250,9 @@ python3 tools/build_maps.py
 python3 tools/build_listening_vectors.py
 python3 tools/build_listening_manifest.py
 python3 tools/build_listening_review.py
+python3 tools/build_kitchen_vectors.py
+python3 tools/build_kitchen_manifest.py
+python3 tools/build_kitchen_review.py
 python3 tools/build_manifest.py
 python3 tools/validate_assets.py
 ```

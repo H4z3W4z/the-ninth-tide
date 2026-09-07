@@ -3,11 +3,13 @@
 
 **Working project:** Lovecraft Lake  
 **Prepared for:** Mike Pearson and Kristi  
-**Version:** 1.3, September 7, 2026  
+**Version:** 1.4, September 7, 2026  
 **Format:** Original, single-player, illustrated point-and-click cosmic horror mystery  
 **Target:** Approximately three hours for a first playthrough  
 **Status:** Complete creative design proposal; pacing and implementation remain to be validated through playtesting  
 **Spoilers:** This document contains the entire story, all mandatory puzzle solutions, and both endings.
+
+**Version 1.4 art continuity:** Kitchen staging uses Nora's provisioning-page repair sketch; her physical cup stays in the Bunk Room for P08/P22 and the continuing-witness ending. Mike approved the Kitchen master v1 with “Looks good. Proceed.” Puzzle solutions, dependencies and ending consequences are unchanged.
 
 > You were hired to close the station. The station has been waiting for someone who knows how to finish a record.
 
@@ -179,7 +181,7 @@ An illustrated plan becomes available in the notebook after P05. After visiting 
 
 **R04, Listening Room.** A small used noticeboard, wax dust, a stool polished by use. Headphones hang beside a hornless wax recorder on a specialized oak bench; a warm task lamp makes the abandoned work look recently interrupted. The large right-hand sea window carries the weather changes. The accepted v4 composition replaces the earlier horn and speaking-tube studies. Early playback has a reassuring click and a human throat clearing. At Tide VI, the player hears Venn begin a sentence, then Nora finishes it from another recording. Their voices remain distinct. At Tide VII the dead channel speaks once after the motor stops. The transcript labels the event accurately; accessibility presentation does not conceal the scare. The later channel controls appear in an inspection view of the recording installation, without adding a new horn assembly to the room.
 
-**R05, Kitchen and Mess.** This is the emotional center. Nora's routine was careful rather than occult. A towel is folded beside a cup with a repaired handle. Condensation travels inward across a bowl when the player reconstructs the supper table. A spoon lifts half an inch, waits for someone who cannot take it, and lowers. The only joke is penciled beside a ration correction: “Rook has discovered a ninth appetite. It belongs to Rook.” Later evidence reveals why the headcount mattered.
+**R05, Kitchen and Mess.** This is the emotional center. Nora's routine was careful rather than occult. A towel is folded beside Nora's provisioning page, which includes a sketch of her repaired cup. The actual cup remains on its marked Bunk Room shelf for P08 and P22. Condensation travels inward across a bowl when the player reconstructs the supper table. A spoon lifts half an inch, waits for someone who cannot take it, and lowers. The only joke is penciled beside a ration correction: “Rook has discovered a ninth appetite. It belongs to Rook.” Later evidence reveals why the headcount mattered.
 
 **R06, Bunk Room.** Narrow beds, luggage without owners, a curtain partition. An indentation appears only after the player correctly assigns an object to its owner. A wall calendar's dates never change; the names written beneath them do. One bed has a little pencil shelf that Venn installed for a colleague who wrote lying down. The room provides individual habits that later resist the Index's generic portraits.
 
@@ -557,7 +559,7 @@ The final image is the corrected page drying in daylight. A small water stain co
 
 Ada transfers the witness line from Venn to herself. His listening channel is silent. In the office, the wet coat collapses into an ordinary garment. His duty has ended; the game does not claim he has physically returned.
 
-Ada sits in the chamber. The Index offers the first automatic sentence: “Subject Bell possesses no surviving personal effects.” She adds a correction about the repaired cup. Its handle becomes warm in the kitchen. Another line appears. She adds another correction.
+Ada sits in the chamber. The Index offers the first automatic sentence: “Subject Bell possesses no surviving personal effects.” She adds a correction about the repaired cup. On its marked Bunk Room shelf, the cup's handle becomes warm. In the kitchen, a small patch of condensation gathers inside the supper bowl. Another line appears. She adds another correction.
 
 Morning reaches the windows but the station does not return to the ordinary shore. Ada has freely accepted confinement and an ongoing task. The eight traces remain accessible as fragments of people, not restored bodies. She can interrupt the Counter's claim to finality, but she cannot promise that she can do so forever.
 

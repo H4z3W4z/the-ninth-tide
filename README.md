@@ -8,9 +8,11 @@ An illustrated point-and-click cosmic horror game set in a coastal survey statio
 
 **New art handoff:** The [Listening Room v4 pack](docs/listening-room-assets.md) supplies the accepted hornless recorder/headphones direction, eight weather appearances, separate props, inspection art, and authored puzzle graphics. Review its [inventory](docs/listening-inventory.md), [placement/state manifest](assets/listening/manifest.json), and [composed art review](art/listening-review/composed/index.html). These additions do not implement R04 or repair the prototype's rendered-input failure.
 
+**Kitchen art handoff:** Mike approved the [Kitchen and Mess master v1](art/concepts/kitchen-room-master-v1.png). The [R05 asset handoff](docs/kitchen-room-assets.md) preserves P07's nine-served/eight-recorded supper and P09's additive correction, with Nora's personal cup remaining in the Bunk Room. The completed graphics pack includes 84 local PNGs and 78 editable SVG sources, with seven shared weather plates. Review its [inventory](docs/kitchen-inventory.md), [manifest](assets/kitchen/manifest.json) and [offline art gallery](art/kitchen-review/composed/index.html). R05/P07/P09 gameplay remains unimplemented.
+
 ## Included
 
-- The original P01/P03 prototype assets, plus a separate Listening Room illustration and exact-graphics pack. Current dimensions and hashes are recorded in the asset manifests.
+- The original P01/P03 prototype assets, plus separate Listening Room and Kitchen illustration and exact-graphics packs. Current dimensions and hashes are recorded in the asset manifests.
 - Three office background plates: arrival, gathering rain, and ominous Tide VI.
 - Transparent lamp sprite plus an aligned illuminated-shade overlay.
 - Precise bridge B / spare C, socket, supply-switch states, and indicator.
@@ -18,7 +20,7 @@ An illustrated point-and-click cosmic horror game set in a coastal survey statio
 - Three clipped window-rain frames, tray artwork, and UI elements.
 - Godot preview with click/tap repair interaction, hints, notebook, weather review, motion toggle, and local save/resume.
 - Asset manifest containing dimensions, hashes, placement rectangles, hotspots, and state triggers.
-- Full game design v1.3, original research brief, approved concept references, and production notes.
+- Full game design v1.4, original research brief, approved concept references, and production notes.
 - Chart Room master, nine authored map assets, reusable inspection controls, partial-assembly persistence, and a [playable map walkthrough](docs/map-interaction.md).
 - Listening Room clean base, window weather plates, reusable prop states, readable documents, cylinder seam orientations, P17/P19 control art, and local effects; R04/P02/P17/P19 gameplay remains unimplemented.
 
@@ -41,13 +43,14 @@ Mouse and touch share tap targets. Map controls use native focusable buttons, wi
 | `project.godot`, `intake_preview.*` | Runnable Office and map-workbench host |
 | `scripts/maps/`, `assets/maps/` | Reusable viewer, P03 state/UI, and authored map evidence |
 | `assets/listening/` | R04 illustrations, exact SVG/PNG graphics, and its placement/state manifest |
+| `assets/kitchen/` | R05 fixed room/props, exact supper and correction graphics, documents and manifest |
 | `assets/backgrounds/` | Generated full-room state plates |
 | `assets/props/` | Lamp, light overlay, parts tray, rain frames |
 | `assets/puzzle/` | Precise P01 assets and readable documents |
 | `assets/ui/` | Reusable buttons and inventory frames |
 | `asset_manifest.json` | Runtime asset registry and placement specification |
 | `art/concepts/` | Approved visual references; not loaded at runtime |
-| `art/listening-review/` | Clearly labeled rejected drafts and composed art review; not runtime content |
+| `art/listening-review/`, `art/kitchen-review/` | Clearly labeled rejected drafts and composed art review; not runtime content |
 | `docs/design/` | Full game design and research |
 | `docs/` | Art direction, production limits, validation and GitHub setup |
 | `tools/` | Rebuild, manifest and asset-check scripts |
@@ -64,6 +67,9 @@ python3 tools/build_maps.py
 python3 tools/build_listening_vectors.py
 python3 tools/build_listening_manifest.py
 python3 tools/build_listening_review.py
+python3 tools/build_kitchen_vectors.py
+python3 tools/build_kitchen_manifest.py
+python3 tools/build_kitchen_review.py
 python3 tools/build_manifest.py
 python3 tools/validate_assets.py
 godot --headless --path . --editor --import
@@ -82,6 +88,8 @@ The repository is structured around one Godot project. The next gate is a single
 The Office room plates are generated full images. Tiny texture/edge differences remain, so swap them on re-entry rather than slowly crossfading every pixel. Furniture, coat, and the late shadow are baked into each Office plate. Its lamp, lighting state, rain effects, and puzzle pieces are separate.
 
 The Listening Room uses a fixed clean base. Clip only the window panes from its full-room weather plates and layer props independently; the recorder pictured in those mood plates is not puzzle state. Eight exterior appearances cover arrival through Tide VIII, and Tide IX holds the eighth. Use the R04 manifest for crop rectangles, placement and state rules. Generated alternate prop poses have minor geometry differences and are not registered animation frames. The composed review demonstrates artwork layout, not Godot gameplay or device behavior.
+
+The Kitchen pack similarly uses a fixed clean base, five generated prop cutouts and exact authored room/inspection overlays. Its seven reachable weather stages reuse measured exterior crops from R04. P07 bowl arrangement and P09 correction/token state remain independent of weather. The gallery is an art composition proof, with no implemented Kitchen gameplay.
 
 P01 and the P03 map workbench are implemented. Other exits are descriptive; the service door remains locked until P06. P02 and P04-P27 are not implemented. The Chart Room currently uses its arrival plate and explicit prop buttons; later weather layers and final drawer/weight animation remain. There is no audio. Headless checks pass, but the rendered map workflow failed on the first Office map click at baseline commit `85639ff`, before producing screenshots. See the handoff for the failure and investigation steps. Actual iPad/Safari and native exports remain untested.
 
