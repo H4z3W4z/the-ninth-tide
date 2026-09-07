@@ -61,6 +61,762 @@
       "source_svg": null
     },
     {
+      "id": "r05_clean_base",
+      "path": "assets/kitchen/backgrounds/r05_clean_base.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "3f9221691a6e5b908fc450fea3c6a6d8ebbefd3e96b947726d3b39a8a3eef4f4",
+      "kind": "background",
+      "source_svg": null
+    },
+    {
+      "id": "r05_amendment_rules",
+      "path": "assets/kitchen/documents/r05_amendment_rules.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "4ffb224db06d61db8d990767d96f8dae9a1cbe549537d0b3115595041f6d5884",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/documents/r05_amendment_rules.svg"
+    },
+    {
+      "id": "r05_duplicate_board",
+      "path": "assets/kitchen/documents/r05_duplicate_board.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "8884c2756b46aa438c7270098e08c292bb43cc2d82ea9afe754d85e88e643bce",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/documents/r05_duplicate_board.svg"
+    },
+    {
+      "id": "r05_extra_diner_note",
+      "path": "assets/kitchen/documents/r05_extra_diner_note.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "52826f7fa92fceb77fc247bba129d618859bf7fc827caa623366b8e1b17e5cde",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/documents/r05_extra_diner_note.svg"
+    },
+    {
+      "id": "r05_kitchen_work_card",
+      "path": "assets/kitchen/documents/r05_kitchen_work_card.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "809a675faff2434b89fb6420ec9bc5623d1639554f0d65b27460d18447c24ec8",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/documents/r05_kitchen_work_card.svg"
+    },
+    {
+      "id": "r05_menu_objection",
+      "path": "assets/kitchen/documents/r05_menu_objection.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "378b4fa2aa86efbe30e23313e9675eea2ad2064db65aef212fc67332f5409d75",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/documents/r05_menu_objection.svg"
+    },
+    {
+      "id": "r05_p07_record",
+      "path": "assets/kitchen/documents/r05_p07_record.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "e2153ed68965daea2a8650539132a6363dcc78f280dce36a04aaa1c6f8ad01dc",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/documents/r05_p07_record.svg"
+    },
+    {
+      "id": "r05_p09_record",
+      "path": "assets/kitchen/documents/r05_p09_record.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "9a448d1283d9c354c8d36eafd9447f1a69ec2e14dec0a73118b39f70a53ad16a",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/documents/r05_p09_record.svg"
+    },
+    {
+      "id": "r05_provisioning_repair",
+      "path": "assets/kitchen/documents/r05_provisioning_repair.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "01e59a4c7dbd7f93d9b7093839805578a6f039270cabb2da1a9cd3a5c909384c",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/documents/r05_provisioning_repair.svg"
+    },
+    {
+      "id": "r05_serving_ledger",
+      "path": "assets/kitchen/documents/r05_serving_ledger.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "8805a847942a9ff704a6a16300f5675ed944d5b7b9ba26117c2b675fc83f5734",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/documents/r05_serving_ledger.svg"
+    },
+    {
+      "id": "r05_table_instructions",
+      "path": "assets/kitchen/documents/r05_table_instructions.png",
+      "width": 800,
+      "height": 1000,
+      "sha256": "de4abf381037e0e114754a2fbca99ac1962df36dd24fd8730173370424c92662",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/documents/r05_table_instructions.svg"
+    },
+    {
+      "id": "r05_board_condensation",
+      "path": "assets/kitchen/effects/r05_board_condensation.png",
+      "width": 1000,
+      "height": 580,
+      "sha256": "b5d51fa362ebd7f15f623adea40143c0abc3abbc29241d85a87a6bbae5ca97b8",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/effects/r05_board_condensation.svg"
+    },
+    {
+      "id": "r05_bowl_condensation_0",
+      "path": "assets/kitchen/effects/r05_bowl_condensation_0.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "eb6a46b5180b2916bc694d4d18953bd6351f8ce048b0aa497fcfe2d9343dba5b",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/effects/r05_bowl_condensation_0.svg"
+    },
+    {
+      "id": "r05_bowl_condensation_1",
+      "path": "assets/kitchen/effects/r05_bowl_condensation_1.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "6c99d3f95437109097e754ba3569bc6747a5fb90bd27d36836be40e02f630da4",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/effects/r05_bowl_condensation_1.svg"
+    },
+    {
+      "id": "r05_bowl_condensation_2",
+      "path": "assets/kitchen/effects/r05_bowl_condensation_2.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "7c9ce0a8c7b8f856a66029fd2a1175603ed7e0b0ab7c69f1925c1fef23c6d5d9",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/effects/r05_bowl_condensation_2.svg"
+    },
+    {
+      "id": "r05_spoon_raised",
+      "path": "assets/kitchen/effects/r05_spoon_raised.png",
+      "width": 112,
+      "height": 210,
+      "sha256": "b0237bb0c3c436426cb4a18c4834d1eb1ce3e09b5daaa8052308e766be7db51f",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/effects/r05_spoon_raised.svg"
+    },
+    {
+      "id": "r05_spoon_rest",
+      "path": "assets/kitchen/effects/r05_spoon_rest.png",
+      "width": 112,
+      "height": 210,
+      "sha256": "4cf11bb2ed9019413bd6ecda25f219e66e984258e17e66d838436cfaa67e3a8b",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/effects/r05_spoon_rest.svg"
+    },
+    {
+      "id": "r05_bowl_plain",
+      "path": "assets/kitchen/props/r05_bowl_plain.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "8c5d3c9e9b918d31929a533b5293abeffbbcfbf78522499500643de74a985e3d",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r05_drawer_open",
+      "path": "assets/kitchen/props/r05_drawer_open.png",
+      "width": 2172,
+      "height": 724,
+      "sha256": "ce4cd19bbd4eebfc9f0f77727debade54d2a215a10a395fdc120a8624b158135",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r05_ledger_closed",
+      "path": "assets/kitchen/props/r05_ledger_closed.png",
+      "width": 1619,
+      "height": 971,
+      "sha256": "99f697c9a023283b1f0fdefff2eb2ec780757b4ac8ac9dd09c80a2b6e5cf0236",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r05_stockpot",
+      "path": "assets/kitchen/props/r05_stockpot.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "19290f3fb2cbc0c1979664031af842fec96f8b133601d0087b7e42894dbd57fd",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r05_towel",
+      "path": "assets/kitchen/props/r05_towel.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "310b36950df89f2270d6d0e49ae819a6d0e01b221a8c812a33f25683022297a3",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r05_amendment_stamp",
+      "path": "assets/kitchen/puzzle/r05_amendment_stamp.png",
+      "width": 200,
+      "height": 180,
+      "sha256": "bba0d49b725f283d79ee58809163dcae4433e48c6886a2f7b05cd98843cc3293",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_amendment_stamp.svg"
+    },
+    {
+      "id": "r05_back",
+      "path": "assets/kitchen/puzzle/r05_back.png",
+      "width": 180,
+      "height": 76,
+      "sha256": "7e532efa85097deba62f5237335e794b2bcfc44436552ea7c30bb7409813fc33",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_back.svg"
+    },
+    {
+      "id": "r05_bowl_al",
+      "path": "assets/kitchen/puzzle/r05_bowl_al.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "ab744939d8d8c53c079d4690cdc926bee324db0c519d41e6eb9384fdaa3df822",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_bowl_al.svg"
+    },
+    {
+      "id": "r05_bowl_cm",
+      "path": "assets/kitchen/puzzle/r05_bowl_cm.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "2d74919f7c1c7f3ed319a3551988293f72beb73ccff35529d988e3e0cb81f8fe",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_bowl_cm.svg"
+    },
+    {
+      "id": "r05_bowl_dh",
+      "path": "assets/kitchen/puzzle/r05_bowl_dh.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "b7c2e9a04fef7dd8403c563a7fbdfab7230bd37836132743c6de452ba480df73",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_bowl_dh.svg"
+    },
+    {
+      "id": "r05_bowl_ep",
+      "path": "assets/kitchen/puzzle/r05_bowl_ep.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "d19214ce218462c8da298bba9140d2d51f3d8620d4fc0750a9080cb98184c22f",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_bowl_ep.svg"
+    },
+    {
+      "id": "r05_bowl_jw",
+      "path": "assets/kitchen/puzzle/r05_bowl_jw.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "c780b42b0acad2d3769ed9950d731dcea19995194521d64e7a7b471903151384",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_bowl_jw.svg"
+    },
+    {
+      "id": "r05_bowl_nb",
+      "path": "assets/kitchen/puzzle/r05_bowl_nb.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "b4d0b59ed8987b15cf19856177dc6745bd3f7c7bb1d7fff4e0346b8310595d97",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_bowl_nb.svg"
+    },
+    {
+      "id": "r05_bowl_selected",
+      "path": "assets/kitchen/puzzle/r05_bowl_selected.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "d3fa3da714993c7fe7efd0cbf3d199b00d38230a70a3befa2d8aa8ae2fb8e70a",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_bowl_selected.svg"
+    },
+    {
+      "id": "r05_bowl_sr",
+      "path": "assets/kitchen/puzzle/r05_bowl_sr.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "a844c7e592fa447569ca928604c99f94320ac0b6dae0144c05cb1fac20e6a974",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_bowl_sr.svg"
+    },
+    {
+      "id": "r05_bowl_ti",
+      "path": "assets/kitchen/puzzle/r05_bowl_ti.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "9a61489a986716dcc72f00eef5d0c18735356d145ea9697d01430876c03f3d86",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_bowl_ti.svg"
+    },
+    {
+      "id": "r05_bowl_unsigned",
+      "path": "assets/kitchen/puzzle/r05_bowl_unsigned.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "632a616143aa68fb8a023005ca3c55e9ceba3ca6a24bf96238d998405c0ba14b",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_bowl_unsigned.svg"
+    },
+    {
+      "id": "r05_clear_places",
+      "path": "assets/kitchen/puzzle/r05_clear_places.png",
+      "width": 298,
+      "height": 76,
+      "sha256": "23e921f198537eb0f87462420f2478640905dfb1e54dab0729a4b41396d8856e",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_clear_places.svg"
+    },
+    {
+      "id": "r05_compare",
+      "path": "assets/kitchen/puzzle/r05_compare.png",
+      "width": 298,
+      "height": 90,
+      "sha256": "42d8580e83cff2008efad1333454231ebd23e2dcdf62002a5fbab6f5a35d78c3",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_compare.svg"
+    },
+    {
+      "id": "r05_delta_0",
+      "path": "assets/kitchen/puzzle/r05_delta_0.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "5054452817651dc570babba7eaeccc5ccb8d4e6d7f979d3804fb8bdf5bfa8764",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_delta_0.svg"
+    },
+    {
+      "id": "r05_delta_plus1",
+      "path": "assets/kitchen/puzzle/r05_delta_plus1.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "60566b1e61576f10be91f1f03383bd63a9fff188de16f79fbbb3a42b3ced7465",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_delta_plus1.svg"
+    },
+    {
+      "id": "r05_delta_plus2",
+      "path": "assets/kitchen/puzzle/r05_delta_plus2.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "55f5927434d27a55d0e32dcb247f3712346f8b8b603be69df6f8b4d21f22f330",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_delta_plus2.svg"
+    },
+    {
+      "id": "r05_duplicate_board_reveal",
+      "path": "assets/kitchen/puzzle/r05_duplicate_board_reveal.png",
+      "width": 1000,
+      "height": 580,
+      "sha256": "6c57ceecac503d8714bb8e9565c1a0fce7135c2d555ef0c9b8a14b2c228d062c",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_duplicate_board_reveal.svg"
+    },
+    {
+      "id": "r05_initial_al",
+      "path": "assets/kitchen/puzzle/r05_initial_al.png",
+      "width": 100,
+      "height": 50,
+      "sha256": "06a58099bbd10fe5972c8504a6f885d5f64ff736e62205dab56b22ff73f3b951",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_initial_al.svg"
+    },
+    {
+      "id": "r05_initial_cm",
+      "path": "assets/kitchen/puzzle/r05_initial_cm.png",
+      "width": 100,
+      "height": 50,
+      "sha256": "cad6a8d045ce8fcea12bc759a0657da57ef97bbc19859655e4427fc8711a1b0e",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_initial_cm.svg"
+    },
+    {
+      "id": "r05_initial_dh",
+      "path": "assets/kitchen/puzzle/r05_initial_dh.png",
+      "width": 100,
+      "height": 50,
+      "sha256": "b36d5024d6f1917cffe6ac7add6662cc8a8cca90d241a1c13df19adc8434f24d",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_initial_dh.svg"
+    },
+    {
+      "id": "r05_initial_ep",
+      "path": "assets/kitchen/puzzle/r05_initial_ep.png",
+      "width": 100,
+      "height": 50,
+      "sha256": "a1aef2bfda2f74132300aeec992c8371db876612c2ba763d5d025e1992f0e2cd",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_initial_ep.svg"
+    },
+    {
+      "id": "r05_initial_jw",
+      "path": "assets/kitchen/puzzle/r05_initial_jw.png",
+      "width": 100,
+      "height": 50,
+      "sha256": "97653c451eef86171a9ada041664b12c58731855f6f0a5fc03a3a976754401cf",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_initial_jw.svg"
+    },
+    {
+      "id": "r05_initial_nb",
+      "path": "assets/kitchen/puzzle/r05_initial_nb.png",
+      "width": 100,
+      "height": 50,
+      "sha256": "a3eba2229c1014dcc9bf52a8641463e543a8a32ccb6ced18f76f49dd785672da",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_initial_nb.svg"
+    },
+    {
+      "id": "r05_initial_sr",
+      "path": "assets/kitchen/puzzle/r05_initial_sr.png",
+      "width": 100,
+      "height": 50,
+      "sha256": "21a42df5fe3f4aadeb88d53ed7a297ab801d2c91c6d395fa2f371ca10eed67dc",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_initial_sr.svg"
+    },
+    {
+      "id": "r05_initial_ti",
+      "path": "assets/kitchen/puzzle/r05_initial_ti.png",
+      "width": 100,
+      "height": 50,
+      "sha256": "862be5989adda93996ef82fd896c66c28282510d88a15a69b3c1d3d33e3b8ea1",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_initial_ti.svg"
+    },
+    {
+      "id": "r05_inspect_ledger",
+      "path": "assets/kitchen/puzzle/r05_inspect_ledger.png",
+      "width": 298,
+      "height": 76,
+      "sha256": "98c86ca8a43a918ede2297d220cccf4ced6f5f93baab02c434c098848d02d5fb",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_inspect_ledger.svg"
+    },
+    {
+      "id": "r05_name_bell",
+      "path": "assets/kitchen/puzzle/r05_name_bell.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "fc16616a5eb90488e01c59d57dadfde84d1a9117379761a13e7ed68559c8a242",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_name_bell.svg"
+    },
+    {
+      "id": "r05_name_ives",
+      "path": "assets/kitchen/puzzle/r05_name_ives.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "67f050b05ce042ff72463b3832a87d1bee67554ffb61c8148f3b437605b5f5c4",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_name_ives.svg"
+    },
+    {
+      "id": "r05_name_rook",
+      "path": "assets/kitchen/puzzle/r05_name_rook.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "92c23ed33b9f851837ad82c5f081202320a83e777de76b1a8d4348cfe3285ebf",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_name_rook.svg"
+    },
+    {
+      "id": "r05_name_venn",
+      "path": "assets/kitchen/puzzle/r05_name_venn.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "d3cb26597b5090264e95aeb6e43115652fd5925231904252ac84ba8a630825d0",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_name_venn.svg"
+    },
+    {
+      "id": "r05_next",
+      "path": "assets/kitchen/puzzle/r05_next.png",
+      "width": 116,
+      "height": 76,
+      "sha256": "0d48aa272d3951ae1e01bfd11495d4f61434a6ef01b45d13336739595457ac90",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_next.svg"
+    },
+    {
+      "id": "r05_p07_panel",
+      "path": "assets/kitchen/puzzle/r05_p07_panel.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "eea5a63300e23c9852c5fbcb3ee7e3d94829469fe8c3ef7440dcb749d66c5039",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_p07_panel.svg"
+    },
+    {
+      "id": "r05_p07_places_disagree",
+      "path": "assets/kitchen/puzzle/r05_p07_places_disagree.png",
+      "width": 940,
+      "height": 142,
+      "sha256": "a06a94dfd1969d6a1141e0cbc20626fe5b8ab497d9de295644ec41401647ed4f",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_p07_places_disagree.svg"
+    },
+    {
+      "id": "r05_p07_success",
+      "path": "assets/kitchen/puzzle/r05_p07_success.png",
+      "width": 940,
+      "height": 142,
+      "sha256": "cdf1a440084fbe628c84eba1363dc2286851245f039bc1ee9fb4765c5ed38be4",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_p07_success.svg"
+    },
+    {
+      "id": "r05_p07_tally_disagrees",
+      "path": "assets/kitchen/puzzle/r05_p07_tally_disagrees.png",
+      "width": 940,
+      "height": 142,
+      "sha256": "d5157d430d9dec62449001a0ae6b8cb7c2ba1a32c64dd1acde60c3615f0e4439",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_p07_tally_disagrees.svg"
+    },
+    {
+      "id": "r05_p09_amendment_incorrect",
+      "path": "assets/kitchen/puzzle/r05_p09_amendment_incorrect.png",
+      "width": 940,
+      "height": 142,
+      "sha256": "0dd7c5b41a1a350421c7bb3f612e73220d5455c35cc5be2dfd1f09fc93ddeae6",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_p09_amendment_incorrect.svg"
+    },
+    {
+      "id": "r05_p09_original_changed",
+      "path": "assets/kitchen/puzzle/r05_p09_original_changed.png",
+      "width": 940,
+      "height": 142,
+      "sha256": "50a753a0f4fdb0e5bdb81967ea61115bab519d86269dde2b271b7293d9efc953",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_p09_original_changed.svg"
+    },
+    {
+      "id": "r05_p09_panel",
+      "path": "assets/kitchen/puzzle/r05_p09_panel.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "68bdcadac7c076b7089fbed90a0e9258c6478c8be4cc6952deffcd99dfeb08a6",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_p09_panel.svg"
+    },
+    {
+      "id": "r05_p09_success",
+      "path": "assets/kitchen/puzzle/r05_p09_success.png",
+      "width": 940,
+      "height": 142,
+      "sha256": "27f663f24849bae2cfba96471d516dd42cab9068ee3e4995a03544275bcf7dce",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_p09_success.svg"
+    },
+    {
+      "id": "r05_p09_tokens_missing",
+      "path": "assets/kitchen/puzzle/r05_p09_tokens_missing.png",
+      "width": 940,
+      "height": 142,
+      "sha256": "3a2cf7a07d6beb663009daddb4c128983342d38cc0bb0aed0a09403a1fa9531f",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_p09_tokens_missing.svg"
+    },
+    {
+      "id": "r05_place_cloth",
+      "path": "assets/kitchen/puzzle/r05_place_cloth.png",
+      "width": 970,
+      "height": 730,
+      "sha256": "0630b6ec891d68de5623bc92f397a7607d0542a657fa4a3cecc35b4f3696c95c",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_place_cloth.svg"
+    },
+    {
+      "id": "r05_previous",
+      "path": "assets/kitchen/puzzle/r05_previous.png",
+      "width": 116,
+      "height": 76,
+      "sha256": "58a9292e1d5e63d458b7d0f6cb57e5e5161413b5ffea11c59bbb5af1758e11fd",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_previous.svg"
+    },
+    {
+      "id": "r05_read_rule",
+      "path": "assets/kitchen/puzzle/r05_read_rule.png",
+      "width": 335,
+      "height": 76,
+      "sha256": "90be301eb2fc365694af2bfacf9fc9643d7b67ab52282a3e3f7d37a9f9b80eb3",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_read_rule.svg"
+    },
+    {
+      "id": "r05_seal_1",
+      "path": "assets/kitchen/puzzle/r05_seal_1.png",
+      "width": 140,
+      "height": 140,
+      "sha256": "50b8eb4732f47a96669795cf2ed3f23d41292add10f37665e61b2838f1a0cc24",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_seal_1.svg"
+    },
+    {
+      "id": "r05_seal_2",
+      "path": "assets/kitchen/puzzle/r05_seal_2.png",
+      "width": 140,
+      "height": 140,
+      "sha256": "a083ef3b3fa28818033fc8ad0d137cc278336a163261a2aa522e0f1301b03338",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_seal_2.svg"
+    },
+    {
+      "id": "r05_seal_3",
+      "path": "assets/kitchen/puzzle/r05_seal_3.png",
+      "width": 140,
+      "height": 140,
+      "sha256": "06bac40da1b91292731d569923e8ef4401d5602df03016236baaa73e5f0fa310",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_seal_3.svg"
+    },
+    {
+      "id": "r05_seal_selected",
+      "path": "assets/kitchen/puzzle/r05_seal_selected.png",
+      "width": 160,
+      "height": 160,
+      "sha256": "8bd435e8e184bbc98630b02c87f4ad211477ca67e8ee90fce744937ce29d7e0e",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_seal_selected.svg"
+    },
+    {
+      "id": "r05_square_patch",
+      "path": "assets/kitchen/puzzle/r05_square_patch.png",
+      "width": 50,
+      "height": 50,
+      "sha256": "3cee4a3c0b744994396fe341505391de02da737ac5301b0864f59cd9c0261f8a",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_square_patch.svg"
+    },
+    {
+      "id": "r05_square_place",
+      "path": "assets/kitchen/puzzle/r05_square_place.png",
+      "width": 50,
+      "height": 50,
+      "sha256": "1255caa3fa65b6f40b2b73260b16802bfc641bf003efc8ee9b1bbce2cbed23db",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_square_place.svg"
+    },
+    {
+      "id": "r05_stamp",
+      "path": "assets/kitchen/puzzle/r05_stamp.png",
+      "width": 280,
+      "height": 96,
+      "sha256": "fa8e1fcc33edf4b9d820742063363e4d0bd4dd467d53db2905b327015a32a8b0",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_stamp.svg"
+    },
+    {
+      "id": "r05_status_absent",
+      "path": "assets/kitchen/puzzle/r05_status_absent.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "a3ae7237c7e6a55bd5aeb3fe9843d92d2c7cb08e94278bb324671f419268d317",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_status_absent.svg"
+    },
+    {
+      "id": "r05_status_present",
+      "path": "assets/kitchen/puzzle/r05_status_present.png",
+      "width": 260,
+      "height": 100,
+      "sha256": "d5180f21e3b770ec3b3abe251608c8331b1d78248c45a4e6e1cb1903d9f62fac",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_status_present.svg"
+    },
+    {
+      "id": "r05_tally_10",
+      "path": "assets/kitchen/puzzle/r05_tally_10.png",
+      "width": 150,
+      "height": 110,
+      "sha256": "d30fa5546e0281eb2b89a304f6255c9e774da3d7f9699175fa2f81e90901a8c8",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_tally_10.svg"
+    },
+    {
+      "id": "r05_tally_7",
+      "path": "assets/kitchen/puzzle/r05_tally_7.png",
+      "width": 150,
+      "height": 110,
+      "sha256": "927e3e8719d7e517d06dcf90a4e1ba1f8402db9c22eb37c2a8da5eee98380975",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_tally_7.svg"
+    },
+    {
+      "id": "r05_tally_8",
+      "path": "assets/kitchen/puzzle/r05_tally_8.png",
+      "width": 150,
+      "height": 110,
+      "sha256": "a94779dba97b51b6f51cf3929af7c1c1f97f1ba3b4bf8d2d009dd076e60d36ad",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_tally_8.svg"
+    },
+    {
+      "id": "r05_tally_9",
+      "path": "assets/kitchen/puzzle/r05_tally_9.png",
+      "width": 150,
+      "height": 110,
+      "sha256": "32bf5d3c4bd57c1de0d094ea77d18b7a70db3fad12fb613568d02be9709a027f",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_tally_9.svg"
+    },
+    {
+      "id": "r05_tally_minus",
+      "path": "assets/kitchen/puzzle/r05_tally_minus.png",
+      "width": 96,
+      "height": 80,
+      "sha256": "656974a43be3b816b51757097b0cc0faf7f65f35475c90d31f329a3407a12ad1",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_tally_minus.svg"
+    },
+    {
+      "id": "r05_tally_plus",
+      "path": "assets/kitchen/puzzle/r05_tally_plus.png",
+      "width": 96,
+      "height": 80,
+      "sha256": "140f9361b12c41046ed612494acc90b462d1cd49ba4cc54b7b99fbc3098b21bf",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_tally_plus.svg"
+    },
+    {
+      "id": "r05_token_bunk",
+      "path": "assets/kitchen/puzzle/r05_token_bunk.png",
+      "width": 230,
+      "height": 230,
+      "sha256": "4d4143f89cc2f6204d56c94dc367d44584293ede06a36c188867f2b20909e984",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_token_bunk.svg"
+    },
+    {
+      "id": "r05_token_pantry",
+      "path": "assets/kitchen/puzzle/r05_token_pantry.png",
+      "width": 230,
+      "height": 230,
+      "sha256": "edfb268c3a0a73ad5942174988f67c0681366382b4285c361cb8760d62a5712f",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_token_pantry.svg"
+    },
+    {
+      "id": "r05_token_socket",
+      "path": "assets/kitchen/puzzle/r05_token_socket.png",
+      "width": 456,
+      "height": 180,
+      "sha256": "330e43e194ffa29eddb85bb5f3f3f2e3d88d7e49d66b6cd7334811504f3e2b4a",
+      "kind": "overlay_or_sprite",
+      "source_svg": "assets/kitchen/puzzle/r05_token_socket.svg"
+    },
+    {
       "id": "r04_clean_base",
       "path": "assets/listening/backgrounds/r04_clean_base.png",
       "width": 1448,
