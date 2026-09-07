@@ -18,4 +18,8 @@ The full-room weather renders are review images with the master's partial cylind
 
 Exact labels, coherent cylinder seams, instruction diagrams and P17/P19 channel controls remain authored graphics/integration work. No Listening Room gameplay, audio, Web or native-device validation is delivered by these images.
 
+## Checkpoint 3
+
+The closed storage canister and open empty wooden case are separate RGBA props with genuine transparency. Their blank labels are reserved for authored lettering. The first recording-sleeve attempt is preserved as a review draft because it has a broad amber halo; it is excluded from runtime assets and will be regenerated.
+
 Generation prompts, source paths, intended placements and draft status are recorded in `listening-pack-generation.json`. Checkpoint commits will continue as batches finish. The final delivery will include the full inventory and integration guide.

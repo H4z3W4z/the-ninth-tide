@@ -217,6 +217,46 @@
         170,
         249
       ]
+    },
+    {
+      "id": "r04_wax_band_blank",
+      "issue": "Broad amber halo around the sleeve; reference only, not a compositable sprite.",
+      "kind": "draft",
+      "path": "art/listening-review/r04_wax_band_blank_draft.png",
+      "prompt": "A transparent PNG game sprite of a single short hollow brown wax recording sleeve belonging to the hornless recorder in the reference room. Horizontal barrel seen straight from the side, with a narrow visible circular opening at its right end, warm worn wax, fine closely spaced recording grooves, plain surface for a later precise seam overlay. Centered isolated cutout with transparent background. Flat ink-and-matte-color illustration. No room, spindle, ground, text, symbols or other objects.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-6742af44-a155-43a5-8dc8-946c029c338b.png",
+      "target": [
+        0,
+        0,
+        100,
+        100
+      ]
+    },
+    {
+      "id": "r04_case_open",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_case_open.png",
+      "prompt": "A transparent PNG game sprite of the small open wooden recording-sleeve box shown to the right of the recorder in the reference room. Empty dark felt-lined cavity, upright hinged lid, small brass catch, warm dark oak. Straight front elevation, minimal visible interior edge. Centered isolated cutout with transparent background. Flat ink-and-matte-color illustration. No room, recording sleeve, ground, text or other objects.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-b89f21de-734f-49a2-abe8-9d7ac3771243.png",
+      "target": [
+        845,
+        537,
+        98,
+        93
+      ]
+    },
+    {
+      "id": "r04_canister_closed",
+      "kind": "alpha",
+      "path": "assets/listening/props/r04_canister_closed.png",
+      "prompt": "A transparent PNG game sprite of one closed upright brown cardboard wax-cylinder storage canister shown left of the recorder in the reference room. Dark brown cylindrical body, round fitted lid, small blank cream rectangular label, modest wear. Straight front view. Centered isolated cutout with transparent background. Flat ink-and-matte-color illustration. No room, ground, text or other objects.",
+      "source": "/workspace/scratch/caf0649b63b9/generated_images/exec-0b3e01c9-cac3-4572-95f9-835a7b6f0ae1.png",
+      "target": [
+        393,
+        560,
+        46,
+        59
+      ]
     }
   ]
 }

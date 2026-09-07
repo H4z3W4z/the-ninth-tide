@@ -142,6 +142,24 @@
       "source_svg": null
     },
     {
+      "id": "r04_canister_closed",
+      "path": "assets/listening/props/r04_canister_closed.png",
+      "width": 1207,
+      "height": 1303,
+      "sha256": "2f7a7a7e328ec31436945e854c5ee8b904cd9fc4bfcae4103cb6c3f2e88bf809",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r04_case_open",
+      "path": "assets/listening/props/r04_case_open.png",
+      "width": 1314,
+      "height": 1197,
+      "sha256": "81b6a5011b0e32bfef29e0f4814d3270b721351bfdd24e3900099c1495e2e4c6",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "r04_headphones_hanging",
       "path": "assets/listening/props/r04_headphones_hanging.png",
       "width": 1254,
