@@ -55,12 +55,13 @@ func _panel(rect: Rect2, color: Color):
 
 func _label(value: String, rect: Rect2, font_size=24) -> Label:
 	var label = Label.new()
+	# Set wrapping before text/size so an unwrapped minimum cannot expand the panel.
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.text = value
 	label.position = rect.position
-	label.size = rect.size
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_font_size_override("font_size",font_size)
 	label.add_theme_color_override("font_color",PAPER)
+	label.size = rect.size
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(label)
 	return label
@@ -79,10 +80,11 @@ func _button(id: String, title: String, rect: Rect2, action: Callable, enabled=t
 
 func _image(tex: Texture2D, rect: Rect2):
 	var image = TextureRect.new()
+	# Ignore the source image's minimum size before assigning its display rectangle.
+	image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	image.texture = tex
 	image.position = rect.position
 	image.size = rect.size
-	image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	image.stretch_mode = TextureRect.STRETCH_SCALE
 	image.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(image)

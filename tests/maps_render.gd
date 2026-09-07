@@ -27,6 +27,17 @@ func click_at(point: Vector2):
 		await process_frame
 
 func capture(name: String) -> bool:
+	# Direct panel children must stay inside the design canvas. The viewer's
+	# nested image is intentionally larger while zoomed and is clipped separately.
+	await process_frame
+	for control in scene.map_widget.get_children():
+		if control is Control:
+			var transform = control.get_transform()
+			var bounds = Rect2(transform * Vector2.ZERO, Vector2.ZERO)
+			for corner in [Vector2(control.size.x,0), control.size, Vector2(0,control.size.y)]:
+				bounds = bounds.expand(transform * corner)
+			if not require(Rect2(0,0,1448,1086).encloses(bounds),
+				"Panel content stays in bounds: " + name + " / " + str(bounds)): return false
 	if input_only: return true
 	await process_frame
 	await RenderingServer.frame_post_draw
