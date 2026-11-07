@@ -30,3 +30,6 @@ The office slice should **feel like a Rusty Lake room escape** while staying ori
 
 ### Owner decision (Nov 6 2026): painted art for later stages
 New painted plates and overlays for the later, ominous stages are approved. Add them as NEW files under assets/stages/ with repeatable sources (SVG and/or a seeded tools/build_art.py); never overwrite existing approved PNGs. Match the approved flat front elevation and palette, keep every hotspot registered and legible, and keep clue marks deterministic. Later stages should read as wrong at a glance in a screenshot.
+
+### Owner note (Nov 6 2026, after round 3): let the painted art show
+In-game, the stage-3 and threshold darkness (CanvasModulate, vignette, torch falloff) swallows the new painted art: the tide line, palms, look-away changes and the threshold corridor/figure barely read in screenshots. Dread should come from what the player clearly SEES being wrong, not from not being able to see. Raise ambient light in late stages until every painted change reads at 1024x768, make the threshold corridor and its figure large and legible, and judge art in the in-game captures, not as raw PNGs. Where code-painted detail fails (coat hood, footprints, sea rings), prefer stark flat silhouettes and simple graphic shapes over fussy rendering.
