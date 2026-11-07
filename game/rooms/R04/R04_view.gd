@@ -26,6 +26,10 @@ const THROAT := Color("0e161c")
 const GUIDE := Color("805434")       # brown ink: the guide ruled on the chart glass
 const PENCIL := Color(0.30, 0.31, 0.34)
 const SEAGLASS_HI := Color("96b2a6")
+const BRASS_LO := Color("745c32")
+const BRASS_DK := Color("544224")
+const THROAT_DEEP := Color("06090c")
+const SHADOW := Color("261e16")
 
 ## [id, rect, label]; first match wins, so small objects come first.
 const HOTSPOTS := [
@@ -69,10 +73,13 @@ const CHANNEL_CONTROLS := [
 	["key_c", Rect2(880, 250, 190, 380), "Channel C key"],
 	["witness", Rect2(1120, 300, 220, 260), "WITNESS key"],
 	["procedure", Rect2(150, 660, 940, 120), "Procedure"],
-	["q_where", Rect2(150, 820, 370, 120), "Where are they?"],
-	["q_whole", Rect2(540, 820, 370, 120), "Are they still themselves?"],
-	["q_need", Rect2(930, 820, 370, 120), "What do you need from me?"],
+	["q_where", Rect2(200, 840, 1000, 38), "Where are they?"],
+	["q_whole", Rect2(200, 882, 1000, 38), "Are they still themselves?"],
+	["q_need", Rect2(200, 924, 1000, 38), "What do you need from me?"],
 ]
+## The session log pinned under the procedure: her three questions in pencil, one per ruled line.
+const LOG_HEAD_Y := 832.0
+const LOG_TEXT_X := 214.0
 
 ## Base levels for one-shots (dB), and the sudden ones "Soften sudden sounds" turns down.
 const SFX_DB := {"throat_clear": -10.0, "motor_click": -12.0, "band_seat": -8.0, "band_lift": -9.0,
@@ -93,18 +100,33 @@ const DUCK_IDS := ["recording_p02", "mix_overlap", "mix_combined", "mix_venn", "
 const LOOP_RATE := 0.11        # linear units / s: a ~1.5 s fade at these levels
 const DARK_SILENCE := 4.0      # seconds of silence round the funnel voice after channel C goes dark
 
-## Interior tint per weather band. The stage's light and cold are painted (the light maps),
-## so this only cools the room a touch more as the band rises.
-const TINT := [Color(1, 1, 1), Color(1, 1, 1), Color(0.99, 0.99, 1), Color(0.98, 0.99, 1),
-	Color(0.97, 0.98, 1), Color(0.96, 0.975, 0.99), Color(0.95, 0.97, 0.99), Color(0.94, 0.96, 0.98)]
+## Interior tint per weather band: an even 8-step grade from white to a storm-cold (0.80, 0.84,
+## 0.90). The cabinet lamp's additive pool (a_glow_*) is the only warm island left.
+const TINT := [Color(1, 1, 1), Color(0.9714, 0.9771, 0.9857), Color(0.9429, 0.9543, 0.9714),
+	Color(0.9143, 0.9314, 0.9571), Color(0.8857, 0.9086, 0.9429), Color(0.8571, 0.8857, 0.9286),
+	Color(0.8286, 0.8629, 0.9143), Color(0.80, 0.84, 0.90)]
+## The seated stain: painted at its band-4 strength (alpha 0.6); before band 4 it shows at 0.35.
+const STAIN_EARLY := 0.35 / 0.6
 
 ## Funnel number tabs (centre x, top y), hung on wires painted in tools/art/rooms/R04.py
 ## (TABS / TABS_TURNED there). Turned: the bells aimed at the seat (band 4+).
-const TABS := [Vector2(353, 262), Vector2(553, 262), Vector2(753, 262), Vector2(353, 452),
-	Vector2(456, 364), Vector2(753, 452)]
+## At rest every bell aims at the seated stain (tools/art/rooms/R04.py TABS_W1 / STAIN_AIM).
+const TABS := [Vector2(300, 270), Vector2(466, 262), Vector2(652, 252), Vector2(268, 448),
+	Vector2(452, 470), Vector2(626, 416)]
 const TABS_TURNED := [Vector2(294, 267), Vector2(465, 266), Vector2(644, 261), Vector2(292, 457),
 	Vector2(471, 509), Vector2(702, 394)]
 const TAG5_EYELET := Vector2(540, 392)
+## Funnel 5 is drawn here, not painted, so it can turn toward the viewer (R04Sim.funnel5_pose):
+## its knuckle, the rest aim (the stain, bell into the wall), the turned aim (the seat), and the
+## projected bell depth `az` per pose (negative: seen from behind; 1: full on the viewer).
+const F5_N := Vector2(530, 400)
+const F5_REST_AIM := Vector2(160, 440)
+const F5_SEAT_AIM := Vector2(266, 712)
+const F5_AZ := {"rest": -0.56, "half": 0.71, "turned": 0.42, "facing": 1.0}
+const HORN_L := 92.0
+const HORN_R := 46.0
+const HORN_R0 := 9.0
+const F5_TURN_TIME := 1.5
 ## Band 7: the plaster swells about this point, 1-2 px on a 6 s breath.
 const BULGE_CENTRE := Vector2(510, 300)
 const BULGE_PERIOD := 6.0
@@ -121,7 +143,7 @@ const CLOSE_X := {"A": 515.0, "B": 745.0, "C": 975.0}
 const HOLD_TIME := 1.5
 const NOTICE_FOCUS := {
 	"throat": Rect2(630, 145, 140, 140),
-	"leak_wind": Rect2(430, 310, 140, 140),
+	"leak_wind": Rect2(390, 330, 160, 140),
 	"leak_silence": Rect2(160, 100, 660, 420),
 	"funnels_turned": Rect2(150, 100, 680, 810),
 	"plaster_bulge": Rect2(90, 96, 820, 420),
@@ -134,9 +156,16 @@ const SLOT_Y := 370.0
 const BAND_SIZE := Vector2(320, 220)
 const PHASE_Y0 := 50.0         # band-local y of snap I (absolute 420 when seated)
 const PHASE_DY := 60.0
-const TRAY_RECTS := {"C": Rect2(300, 740, 250, 170), "A": Rect2(600, 740, 250, 170), "B": Rect2(900, 740, 250, 170)}
-const TRAY_TINT := {"C": Color(0.74, 0.67, 0.59), "A": Color(0.93, 0.90, 0.84), "B": Color(1, 1, 1)}
+## The felt tray's four cradles, in tray order B, D, A, C (R04.py TRAY4_X); bands sit 144 px tall.
+const TRAY_RECTS := {"B": Rect2(220, 740, 210, 170), "D": Rect2(467, 740, 210, 170),
+	"A": Rect2(714, 740, 210, 170), "C": Rect2(961, 740, 210, 170)}
+const TRAY_BAND_H := 144.0
+const TRAY_TINT := {"C": Color(0.74, 0.67, 0.59), "A": Color(0.93, 0.90, 0.84), "B": Color(1, 1, 1),
+	"D": Color(0.72, 0.76, 0.74)}
 const BREAK_X := {"start_end": 260.0, "start_arrow": 260.0, "join1": 585.0, "join2": 915.0}
+## Where the day is written: D's rim (band-local) and the transcript card's heading.
+const RIM_DATE := Vector2(160, 30)
+const CARD_DATE := Vector2(1120, 146)
 const PLAY_RECT := Rect2(1250, 380, 170, 220)
 const ARROW_RECT := Rect2(192, 380, 64, 90)
 const CARD_RECT := Rect2(260, 110, 980, 230)
@@ -199,6 +228,8 @@ var dark_t := 0.0              # seconds left of the silence after channel C goe
 var soft_cut_t := 0.0
 var needles := {"A": -40.0, "B": -40.0, "C": -40.0}
 var tint := Color(1, 1, 1)
+var f5_k := 1.0                # funnel 5's turn to the viewer: 0 waiting .. 1 done
+var f5_pending := false        # the turn waits until the funnel wall is on screen
 
 func _ready() -> void:
 	mono = SystemFont.new()
@@ -285,23 +316,31 @@ func _side() -> String:
 func plate_id() -> String:
 	var b := _band()
 	if _side() == "b":
-		return {"s1": "view_b", "s2": "view_b_s2", "s3": "view_b_s3", "s4": "view_b_s4", "sever": "view_b"}[stage()]
+		return {"s1": "room_b", "s2": "room_b_s2", "s3": "room_b_s3", "s4": "room_b_s4", "sever": "room_b"}[stage()]
 	if stage() == "sever":
-		return "view_a_sever"
+		return "room_a_sever"
 	if b <= 2:
-		return "view_a"
+		return "room_a"
 	if b == 3:
-		return "view_a_s2"
+		return "room_a_s2"
 	if b == 4:
-		return "view_a_turned"
-	return "view_a_s3" if b <= 6 else "view_a_s4"
+		return "room_a_turned"
+	return "room_a_s3" if b <= 6 else "room_a_s4"
 
 ## The bells aim at the seat from band 4, until the room is released.
 func turned() -> bool:
 	return _band() >= 4 and r.ending() != "sever"
 
+## The light map drawn for `kind` ("mul" or "add"), or "" for none. The warm additive light is
+## the cabinet lamp's pool alone (a_glow_*, no rake on the plaster); the board gets none.
+func light_id(kind: String) -> String:
+	if kind == "add":
+		return "a_glow_" + stage() if _side() == "a" else ""
+	return "%s_mul_%s" % [_side(), stage()]
+
 func _draw_light(n: Node2D, kind: String) -> void:
-	var t := _tex("%s_%s_%s" % [_side(), kind, stage()])
+	var id := light_id(kind)
+	var t := _tex(id) if id != "" else null
 	if t:
 		n.draw_texture_rect(t, Rect2(Vector2.ZERO, SIZE), false)
 
@@ -397,6 +436,10 @@ func tick(dt: float) -> void:
 	_tick_lamps()
 	dark_t = maxf(0.0, dark_t - dt)
 	soft_cut_t = maxf(0.0, soft_cut_t - dt)
+	if f5_pending and _side() == "a" and not r.is_closeup():
+		f5_pending = false
+	if not f5_pending and f5_k < 1.0:
+		f5_k = minf(1.0, f5_k + dt / F5_TURN_TIME) if motion else 1.0
 	_tick_audio(dt)
 	redraw()
 
@@ -409,10 +452,10 @@ func loop_targets() -> Dictionary:
 	var b := _band()
 	var ending := r.ending()
 	var db := {}
-	db["r04_room"] = -16.0 if b <= 2 else (-21.0 if b <= 6 else -18.0)
+	db["r04_room"] = -8.0 if b <= 2 else (-12.0 if b <= 6 else -10.0)
 	if ending == "":
 		if r.state.motor_on:
-			db["r04_motor"] = -22.0
+			db["r04_motor"] = -14.0
 		if b == 1:
 			db["r04_leak_wind"] = -20.0
 		elif b == 2:
@@ -481,7 +524,11 @@ func play_fx(id: String, _e: Dictionary) -> void:
 			# The sim closes the line at once; the lamp holds until the relay drops.
 			c_hold = true
 			c_dark_pending = true
-		"c_presence", "funnel_voice":
+		"funnel_voice":
+			# Funnel 5 turns full on the viewer; the turn plays when the wall is next on screen.
+			f5_k = 0.0
+			f5_pending = true
+		"c_presence":
 			pass
 
 func on_sfx(id: String) -> void:
@@ -553,6 +600,8 @@ func reset_presentation() -> void:
 	c_dark_pending = false
 	dark_t = 0.0
 	soft_cut_t = 0.0
+	f5_k = 1.0
+	f5_pending = false
 
 func redraw() -> void:
 	room.queue_redraw()
@@ -600,7 +649,7 @@ static func spindle_controls() -> Array:
 		out.append(["rot_down_%d" % k, Rect2(270 + SLOT_STEP * k, 610, 140, 70), "◁ I-II-III"])
 		out.append(["rot_up_%d" % k, Rect2(430 + SLOT_STEP * k, 610, 140, 70), "I-II-III ▷"])
 		out.append(["slot_%d" % k, Rect2(SLOT_X0 + SLOT_STEP * k, SLOT_Y, 320, 220), "Spindle position %d" % (k + 1)])
-	for b in ["C", "A", "B"]:
+	for b in R04Sim.BANDS:
 		out.append(["tray_" + b, TRAY_RECTS[b], "Band " + b])
 	out.append(["play", PLAY_RECT, "PLAY"])
 	out.append(["look_arrow", ARROW_RECT, "START arrow"])
@@ -704,14 +753,22 @@ func _draw_view_a(c: CanvasItem) -> void:
 	var tu := turned()
 	_full(c, plate_id())
 	if not sever:
+		# the seated stain every bell listens to; it darkens once they turn to the real seat
+		var st := _tex("stain_seated_turned" if tu else "stain_seated")
+		if st:
+			c.draw_texture_rect(st, Rect2(Vector2.ZERO, SIZE), false, Color(1, 1, 1, 1.0 if b >= 4 else STAIN_EARLY))
+		if b >= 3:
+			_full(c, "a_damp_b%d" % b)   # flat navy damp, a little lower every band
+	_draw_funnel5(c)
+	if not sever:
 		if b == 2 or b == 3:
-			_full(c, "a_condensation")
+			_full(c, "a_dew")
 		elif b >= 4:
-			_full(c, "a_condensation_turned")
+			_full(c, "a_dew_turned")
 		if b == 3 or b == 4:
 			_full(c, "a_seat_rings")   # on the folded-up seat; let down from band 5
 	if r.bulge_shown():
-		var bt := _tex("a_bulge")
+		var bt := _tex("a_eyes")
 		if bt:
 			var s := 1.0 + BULGE_AMP * (sin(TAU * time / BULGE_PERIOD) if motion else 0.0)
 			c.draw_set_transform(BULGE_CENTRE * (1.0 - s), 0.0, Vector2(s, s))
@@ -729,7 +786,7 @@ func _draw_view_a(c: CanvasItem) -> void:
 			c.draw_set_transform(PAPER_PIVOT, lift, Vector2.ONE)
 			c.draw_texture_rect(tt, Rect2(-PAPER_PIVOT, SIZE), false)
 			c.draw_set_transform_matrix(Transform2D.IDENTITY)
-	# funnel numbers on their enamel tabs
+	# funnel numbers on their enamel tabs (funnel 5's wire is drawn with its horn)
 	var tabs: Array = TABS_TURNED if tu else TABS
 	for i in 6:
 		var p: Vector2 = tabs[i]
@@ -752,6 +809,120 @@ func _draw_view_a(c: CanvasItem) -> void:
 	# the way through to the board
 	_plate(c, Rect2(1362, 650, 70, 26), "BOARD", 16)
 
+# --- funnel 5 -------------------------------------------------------------------------------
+## [angle, az] of funnel 5 now: the sim's pose, eased toward the viewer while the P19 turn plays.
+func f5_pose() -> Vector2:
+	var pose := r.funnel5_pose()
+	var ang := _f5_angle(pose)
+	if pose != "facing":
+		return Vector2(ang, F5_AZ[pose])
+	var before := "turned" if _band() >= 4 else ("half" if gsim() and gsim().flag("P04") else "rest")
+	var k := smoothstep(0.0, 1.0, f5_k)
+	return Vector2(_f5_angle(before), lerpf(F5_AZ[before], 1.0, k))
+
+func _f5_angle(pose: String) -> float:
+	var aim := F5_SEAT_AIM if pose == "turned" or (pose == "facing" and _band() >= 4) else F5_REST_AIM
+	return (aim - F5_N).angle()
+
+func _horn_r(s: float) -> float:
+	return HORN_R0 + (HORN_R - HORN_R0) * pow(s, 2.4)
+
+## The bell's rim: an ellipse round `m`, `k` deep along the axis `u`.
+func _mouth(m: Vector2, u: Vector2, k: float, scale: float, n: int = 40) -> PackedVector2Array:
+	var v := Vector2(-u.y, u.x)
+	var pts := PackedVector2Array()
+	for i in n:
+		var t := TAU * i / n
+		pts.append(m + v * (HORN_R * scale * cos(t)) + u * (HORN_R * scale * k * sin(t)))
+	return pts
+
+func _closed(pts: PackedVector2Array) -> PackedVector2Array:
+	var out := pts.duplicate()
+	out.append(pts[0])
+	return out
+
+## Funnel 5 in the plate's flat style (R04.py horn()), turned `az` out of the wall: the cone
+## shortens by sqrt(1 - az^2) and the rim opens to a circle as it comes round to face her.
+func _draw_funnel5(c: CanvasItem) -> void:
+	var pose := f5_pose()
+	var u := Vector2.from_angle(pose.x)
+	var v := Vector2(-u.y, u.x)
+	var az := clampf(pose.y, -1.0, 1.0)
+	var k := maxf(absf(az), 0.03)
+	var length := HORN_L * sqrt(maxf(0.0, 1.0 - az * az))
+	var m := F5_N + u * length
+	var lit := 1.0 if v.x * 0.8 - v.y * 0.6 > 0.0 else -1.0
+	var left := PackedVector2Array()
+	var right := PackedVector2Array()
+	for i in 31:
+		var s := i / 30.0
+		var cpt := F5_N + u * length * s
+		left.append(cpt + v * _horn_r(s))
+		right.append(cpt - v * _horn_r(s))
+	var body := left.duplicate()
+	for i in range(right.size() - 1, -1, -1):
+		body.append(right[i])
+	var has_body := length > 3.0
+	var rim := _mouth(m, u, k, 1.0)
+	# its flat shadow on the plaster
+	var sd := Vector2(-13, 11)
+	var shade := Color(SHADOW, 0.16)
+	if has_body:
+		var sb := PackedVector2Array()
+		for q in body:
+			sb.append(q + sd)
+		c.draw_colored_polygon(sb, shade)
+	var sr := PackedVector2Array()
+	for q in rim:
+		sr.append(q + sd)
+	c.draw_colored_polygon(sr, shade)
+	if az < 0.0:
+		# from behind: the flare's back past the cone, the mouth hidden in the wall
+		c.draw_colored_polygon(rim, BRASS_DK)
+		c.draw_polyline(_closed(rim), INK, 3.5, true)
+		c.draw_polyline(_closed(_mouth(m, u, k, 0.9)), BRASS_HI, 2.4, true)
+		if has_body:
+			c.draw_colored_polygon(body, BRASS)
+			c.draw_polyline(_closed(body), INK, 3.2, true)
+	elif has_body:
+		c.draw_colored_polygon(body, BRASS)
+		c.draw_polyline(_closed(body), INK, 3.2, true)
+	if has_body:
+		var hi := PackedVector2Array()
+		var lo := PackedVector2Array()
+		for i in range(4, 29):
+			var s := i / 30.0
+			var cpt := F5_N + u * length * s
+			hi.append(cpt + v * _horn_r(s) * 0.55 * lit)
+			lo.append(cpt - v * _horn_r(s) * 0.62 * lit)
+		c.draw_polyline(lo, BRASS_LO, 5.0, true)
+		c.draw_polyline(hi, BRASS_HI, 3.4, true)
+	if az >= 0.0:
+		# the open mouth: rim, then a throat that recedes toward the knuckle, black at the end
+		c.draw_colored_polygon(rim, BRASS_LO)
+		c.draw_polyline(_closed(rim), INK, 3.2, true)
+		var back := u * sqrt(maxf(0.0, 1.0 - az * az))
+		for i in 11:
+			var t := i / 10.0
+			var ring := _mouth(m - back * t * 14.0, u, k, lerpf(0.86, 0.2, t))
+			c.draw_colored_polygon(ring, BRASS_DK.lerp(THROAT_DEEP, pow(t, 0.55)))
+		c.draw_polyline(_closed(_mouth(m, u, k, 0.86)), INK.lerp(BRASS_LO, 0.3), 1.8, true)
+	if az < 0.9:
+		c.draw_circle(F5_N, 11, BRASS_LO)
+		c.draw_arc(F5_N, 11, 0, TAU, 28, INK, 2.6)
+		c.draw_circle(F5_N + Vector2(2.5, -2.5), 4, BRASS_HI)
+	# the wire to its number tab, and the tag eyelet while the bells hang at rest
+	var tab: Vector2 = (TABS_TURNED if turned() else TABS)[4]
+	var near := rim[0]
+	for q in rim:
+		if q.distance_to(tab) < near.distance_to(tab):
+			near = q
+	c.draw_line(near, tab + Vector2(0, 2), INK, 1.8, true)
+	c.draw_circle(tab + Vector2(0, 1), 3, BRASS_HI)
+	if not turned():
+		c.draw_circle(TAG5_EYELET, 4.5, BRASS_HI)
+		c.draw_arc(TAG5_EYELET, 4.5, 0, TAU, 16, INK, 2.0)
+
 func _arrow(c: CanvasItem, at: Vector2, w: float, col: Color) -> void:
 	c.draw_line(at, at + Vector2(w * 0.7, 0), col, 3.0)
 	c.draw_colored_polygon(PackedVector2Array([at + Vector2(w * 0.55, -w * 0.3), at + Vector2(w, 0),
@@ -766,6 +937,8 @@ func _notches(c: CanvasItem, x: float, top: float, n: int, w: float, h: float) -
 func _draw_view_b(c: CanvasItem) -> void:
 	var b := _band()
 	_full(c, plate_id())
+	if b >= 3 and r.ending() != "sever":
+		_full(c, "b_damp_b%d" % b)   # flat navy damp from the cornice, lower every band
 	if b >= 2 and r.ending() != "sever":
 		_full(c, "b_condensation")
 	if r.state.p19_complete:
@@ -872,7 +1045,7 @@ func _band_phase_out(b: String) -> int:
 	return (int(r.state.band_rot[b]) + int(R04Sim.SEAM[b]["in"]) + 1) % 3   # B: to its END notch
 
 func _draw_spindle(c: CanvasItem) -> void:
-	_full(c, "c_spindle")
+	_full(c, "c_spindle_four")
 	var st: Dictionary = r.state
 	var fixed: bool = st.p02_complete
 	# START arrow and word at the left end
@@ -881,11 +1054,12 @@ func _draw_spindle(c: CanvasItem) -> void:
 	# PLAY on the lever
 	_plate(c, Rect2(1270, 452, 74, 28), "PLAY", 17)
 	# bands in the tray
-	for b in ["C", "A", "B"]:
+	for b in R04Sim.BANDS:
 		if not b in st.spindle:
 			var tr: Rect2 = TRAY_RECTS[b]
-			var w := tr.size.y * BAND_SIZE.x / BAND_SIZE.y
-			_draw_band(c, Rect2(tr.position + Vector2((tr.size.x - w) / 2.0, 0), Vector2(w, tr.size.y)), b, true)
+			var w := TRAY_BAND_H * BAND_SIZE.x / BAND_SIZE.y
+			_draw_band(c, Rect2(tr.position + Vector2((tr.size.x - w) / 2.0, (tr.size.y - TRAY_BAND_H) / 2.0),
+				Vector2(w, TRAY_BAND_H)), b, true)
 	# bands on the spindle
 	for k in 3:
 		var b: String = st.spindle[k]
@@ -962,13 +1136,17 @@ func _draw_band(c: CanvasItem, rect: Rect2, b: String, in_tray: bool) -> void:
 	# the seam
 	var x0 := 0.0
 	var x1 := 320.0
-	if b == "C":
+	var starts: bool = R04Sim.SEAM[b].has("start")
+	if starts:
 		x0 = 20.0
 	if b == "B":
 		x1 = 290.0
 	c.draw_line(Vector2(x0, yin), Vector2(x1, yout), INK, 4.0, true)
-	# START notch: a V cut on C's left edge at its entry
-	if b == "C":
+	# the decoy's day, scratched into the rim
+	if b == "D":
+		_ctext(c, R04Sim.D_DAY, RIM_DATE.x, RIM_DATE.y + 2, 26, INK, narrow)
+	# START notch: a V cut on the left edge at its entry (C, and the decoy D)
+	if starts:
 		c.draw_colored_polygon(PackedVector2Array([Vector2(0, yin - 13), Vector2(22, yin), Vector2(0, yin + 13)]), THROAT)
 		_text(c, "START", Vector2(36, yin - 8), 13, INK, narrow)
 	# END notch: a square cut where B's seam stops
@@ -980,6 +1158,12 @@ func _draw_band(c: CanvasItem, rect: Rect2, b: String, in_tray: bool) -> void:
 	c.draw_set_transform_matrix(Transform2D.IDENTITY)
 
 func _draw_break(c: CanvasItem, kind: String) -> void:
+	if kind == "wrong_day":
+		# no break in the seam: ring the two days instead, the rim's and the card's
+		for ctr in [Vector2(SLOT_X0, SLOT_Y) + RIM_DATE + Vector2(0, -7), CARD_DATE + Vector2(36, -6)]:
+			_ring(c, ctr, 62, 24, Color(PAPER_HI, 0.9), 7.0)
+			_ring(c, ctr, 62, 24, BRUISE, 4.0)
+		return
 	var x: float = BREAK_X.get(kind, 260.0)
 	var y := 480.0
 	var sp: Array = r.state.spindle
@@ -1008,6 +1192,7 @@ func _draw_card(c: CanvasItem) -> void:
 	var t := _rec_t()
 	var playing := _recording() and r.seam_break == ""
 	_text(c, "TRANSCRIPT", Vector2(CARD_RECT.position.x + 48, 146), 15, Color(INK, 0.6), narrow)
+	_text(c, R04Sim.CARD_DAY, CARD_DATE, 18, INK, narrow)
 	var y := 172.0
 	for i in lines.size():
 		var s: String = lines[i]
@@ -1186,7 +1371,7 @@ func _draw_session_log(c: CanvasItem) -> void:
 
 # --- c_channels -----------------------------------------------------------------------------
 func _draw_channels(c: CanvasItem) -> void:
-	_full(c, "c_channels")
+	_full(c, "c_channels_log")
 	var st: Dictionary = r.state
 	var up := _tex("c_lever_up")
 	var down := _tex("c_lever_down")
@@ -1229,22 +1414,21 @@ func _draw_channels(c: CanvasItem) -> void:
 			Ink.serif(), 23, 860):
 		_text(c, line, Vector2(186, y), 23, INK)
 		y += 30.0
-	# the questions
+	# the session log: her questions in pencil once the line is open; an asked one is struck
+	# through, and a struck line is still clicked to hear its answer again
+	_text(c, "SESSION LOG  ·  WITNESS, CHANNEL C", Vector2(LOG_TEXT_X, LOG_HEAD_Y), 15, Color(INK, 0.7), narrow)
 	if not _questions_live():
 		return
-	for h in CHANNEL_CONTROLS:
+	var hf := Ink.hand()
+	for i in CHANNEL_CONTROLS.size():
+		var h: Array = CHANNEL_CONTROLS[i]
 		var id: String = h[0]
 		if not id.begins_with("q_"):
 			continue
 		var rr: Rect2 = h[1]
-		var card := Rect2(rr.position.x + 18, 836, rr.size.x - 36, 88)
-		c.draw_rect(card, PAPER_HI)
-		c.draw_rect(card, INK, false, 2.5)
-		_ctext(c, h[2], card.get_center().x, 874, 22, INK)
-		var asked: bool = id in st.asked
-		if st.p19_complete:
-			_ctext(c, "REPLAY", card.get_center().x, 910, 15, Color(INK, 0.75), narrow)
-		elif asked:
-			var tx := card.position.x + 16
-			c.draw_polyline(PackedVector2Array([Vector2(tx, 900), Vector2(tx + 7, 908), Vector2(tx + 20, 890)]), INK, 3.0)
-			_text(c, "ASKED", Vector2(tx + 28, 910), 15, INK, narrow)
+		var base := rr.position.y + 30.0
+		var q: String = h[2]
+		Ink.handwriting(c, q, q.length(), Vector2(LOG_TEXT_X, base), 26, 40 + i, false, PENCIL)
+		if id in st.asked:
+			var w := hf.get_string_size(q, HORIZONTAL_ALIGNMENT_LEFT, -1, 26).x
+			c.draw_line(Vector2(LOG_TEXT_X - 6, base - 9), Vector2(LOG_TEXT_X + w + 8, base - 7), PENCIL, 2.6, true)

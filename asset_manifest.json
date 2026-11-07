@@ -1681,6 +1681,123 @@
       "source_svg": null
     },
     {
+      "id": "R04/a_damp_b3",
+      "path": "assets/rooms/R04/a_damp_b3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "91e5aef545d25832482f0b73fda89d597a425a3ee0583ba8654cb2f3d7a128d1",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/a_damp_b4",
+      "path": "assets/rooms/R04/a_damp_b4.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "5e31dc92ebe61a45a040aeaa2811f7a1c2cd0d2c3c1c294642f4fd6b80da4ff5",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/a_damp_b5",
+      "path": "assets/rooms/R04/a_damp_b5.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "e4929987879ea8046dd74451e7075e17a60541bb9cb8aaac9779d91c17804d41",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/a_damp_b6",
+      "path": "assets/rooms/R04/a_damp_b6.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "6fe23f98077a721d5c930b070d19cf0d1502a1c1cee17441b9a0923060353e90",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/a_damp_b7",
+      "path": "assets/rooms/R04/a_damp_b7.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "6121c22a4b3c32977f2d34ec56caf05dc7c34a25c8acc62ff2c0cd1ef9ce420c",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/a_dew",
+      "path": "assets/rooms/R04/a_dew.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "d878fcd8c3f0c2c620b92ecff28a5a77bf77f1b44a7c856a641387ad01d97858",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/a_dew_turned",
+      "path": "assets/rooms/R04/a_dew_turned.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "a129d1e8d4a0dfb6fc80b28305ad0639dfd58d8dde0448ff325fb53e09699a47",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/a_eyes",
+      "path": "assets/rooms/R04/a_eyes.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "679cbf84508853c7efffc36bab58cdc6c0d34bce79eabcc3e3fbf7bc71279cda",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/a_glow_s1",
+      "path": "assets/rooms/R04/a_glow_s1.png",
+      "width": 362,
+      "height": 271,
+      "sha256": "8422bac7bea4e918e5ef53cd3f47eb704cf989bcfa587403e4e0a976eb5aac76",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/a_glow_s2",
+      "path": "assets/rooms/R04/a_glow_s2.png",
+      "width": 362,
+      "height": 271,
+      "sha256": "450ede582be29eaccf73f6e960d43305a16f96934eb31e7ccc5095f397d81807",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/a_glow_s3",
+      "path": "assets/rooms/R04/a_glow_s3.png",
+      "width": 362,
+      "height": 271,
+      "sha256": "9d5832e971141e992333130b9c4caeda14f2913a61197a7615cd1a6e9a3c4022",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/a_glow_s4",
+      "path": "assets/rooms/R04/a_glow_s4.png",
+      "width": 362,
+      "height": 271,
+      "sha256": "03100b14f24ca217584361d9f9f28e2661e0d5752dd20feb9d1493992bdef3fd",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/a_glow_sever",
+      "path": "assets/rooms/R04/a_glow_sever.png",
+      "width": 362,
+      "height": 271,
+      "sha256": "357248247c2a8874afb821e69c0a62ad6b27b6b1b532a587704dabfd68d545a5",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R04/a_mounted",
       "path": "assets/rooms/R04/a_mounted.png",
       "width": 1448,
@@ -1834,6 +1951,51 @@
       "source_svg": null
     },
     {
+      "id": "R04/b_damp_b3",
+      "path": "assets/rooms/R04/b_damp_b3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "291da156aec1a59ea8b2de04769043e1e934b674d60cce5e0c2f7895b9a038eb",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/b_damp_b4",
+      "path": "assets/rooms/R04/b_damp_b4.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "345920de902359bd831edde402d0881e3acb95e703aa01b72ec57e061ed15647",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/b_damp_b5",
+      "path": "assets/rooms/R04/b_damp_b5.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "24f048123898084439d4d14bb46e7869d0e57d2d50dab5aaa25be27cd08563d0",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/b_damp_b6",
+      "path": "assets/rooms/R04/b_damp_b6.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "7844d515b7a669d77c29d8491755fec3911f4f1ae139d0de16bcb8a3ba786649",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/b_damp_b7",
+      "path": "assets/rooms/R04/b_damp_b7.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "1e89c75ca575cd6bf4044bf3321acdad3d64f05039f54b900aa0aac000362337",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R04/b_key_closed",
       "path": "assets/rooms/R04/b_key_closed.png",
       "width": 110,
@@ -1969,6 +2131,15 @@
       "source_svg": null
     },
     {
+      "id": "R04/c_channels_log",
+      "path": "assets/rooms/R04/c_channels_log.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "a678b5a1a9097142ae4b2acfd9825b7218b779de0319b0536f6b41752a746ab1",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R04/c_lamp_lit",
       "path": "assets/rooms/R04/c_lamp_lit.png",
       "width": 96,
@@ -2023,11 +2194,128 @@
       "source_svg": null
     },
     {
+      "id": "R04/c_spindle_four",
+      "path": "assets/rooms/R04/c_spindle_four.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "c4f231ea7035482d0f78b1f5bc519a079fc52373ac27dee6b3cd591a846eee6a",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R04/c_witness_down",
       "path": "assets/rooms/R04/c_witness_down.png",
       "width": 220,
       "height": 260,
       "sha256": "0c468dc4a8677d1e8795f7681c9f51dea344768654ae31a85f74cfb9d05ae18e",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/room_a",
+      "path": "assets/rooms/R04/room_a.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "36217916ad80165118b9568a98c5fad26385122f314d7dbd67e824c435f0ac7f",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/room_a_s2",
+      "path": "assets/rooms/R04/room_a_s2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "28a9b04bc2f8d463554472c0fdf9245efdbfa8f9376624f7ad5d17864d58397b",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/room_a_s3",
+      "path": "assets/rooms/R04/room_a_s3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "4f6f57a4c0e7d2baa73b99433aeec095457d416259f5eb9f661f4a17db146212",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/room_a_s4",
+      "path": "assets/rooms/R04/room_a_s4.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "7c650df5d5b45c72d76aef944d93aedcfbf3b6e10e817facc8ebb0dfccfc33e9",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/room_a_sever",
+      "path": "assets/rooms/R04/room_a_sever.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "6f47a3bf37efd6496d8a32b079079cbd05d9a93b979ec9a05fe531b255f67309",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/room_a_turned",
+      "path": "assets/rooms/R04/room_a_turned.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "705c47b98b30c0aed2e3892ffcbf45b8a0e186417aadabc7342258f88b386e4e",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/room_b",
+      "path": "assets/rooms/R04/room_b.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "43d4b37103abc73d058391d5d918b2ee34e923075a801ef47473c730678a30f1",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/room_b_s2",
+      "path": "assets/rooms/R04/room_b_s2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "057a2703931c8df1af8b07e670b2d2e02c52e6b6249523d41452672fb8277651",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/room_b_s3",
+      "path": "assets/rooms/R04/room_b_s3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "9ef203d7d460ab7d1511a879706ee91b0703f61e3f524f873f750a4dc5cef6f8",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/room_b_s4",
+      "path": "assets/rooms/R04/room_b_s4.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "98d6c54ee18436a7ce3d4ebbe468cec4b04d2e1f4be5a236d885fa72517adf63",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/stain_seated",
+      "path": "assets/rooms/R04/stain_seated.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "fb17832d2c38c253141e6f40326b9d3e50593ee3b2011ea4a8e8dde48c18cfdc",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/stain_seated_turned",
+      "path": "assets/rooms/R04/stain_seated_turned.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "fb17832d2c38c253141e6f40326b9d3e50593ee3b2011ea4a8e8dde48c18cfdc",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
