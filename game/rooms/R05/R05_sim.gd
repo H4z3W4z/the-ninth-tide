@@ -13,7 +13,9 @@ const TITLE := "Kitchen and Mess"
 const REQUIRES := ["P06"]
 const LOCKED := "The service door is locked. A tag on it: KITCHEN · BUNKS. The key went out with the launch."
 const RESUME := "Back in the kitchen and mess."
-const ARRIVAL := "The mess. Eight places laid. Nine spoon marks pressed into the cloth."
+const ARRIVAL := "Eight places laid. Nine spoon marks pressed into the cloth, and one more place with none."
+## The objective line for the way in, while R05 is shut or unvisited (the core reads it).
+const WAY_IN_HINT := "The service door off the office is open. Through it: the kitchen."
 ## [to, label, extra flags]: the ways out. The target's REQUIRES also apply.
 const EXITS := [
 	["R02", "Office", []],
@@ -24,15 +26,15 @@ const EXITS := [
 
 ## View A (the mess) and view B (the kitchen) hotspots, in hit order.
 const HOTSPOTS := ["spoon", "unsigned_bowl", "tally", "towel", "window", "place_1", "place_2",
-	"place_3", "place_4", "place_5", "place_6", "place_7", "place_8", "place_9", "bowl_stack",
-	"to_kitchen"]
+	"place_3", "place_4", "place_5", "place_6", "place_7", "place_8", "place_9", "place_10",
+	"bowl_stack", "chair", "to_kitchen"]
 const KITCHEN_HOTSPOTS := ["work_card", "menu_note", "kettle", "ledger", "service_drawer",
 	"service_hatch", "shift_board", "range", "to_mess"]
 const CLOSEUPS := ["c_table", "c_ledger", "c_service_board"]
 
 ## Close-up controls (the view's rects carry the same ids).
 const TABLE_CONTROLS := ["place_1", "place_2", "place_3", "place_4", "place_5", "place_6",
-	"place_7", "place_8", "place_9", "slot_0", "slot_1", "slot_2", "slot_3", "slot_4", "slot_5",
+	"place_7", "place_8", "place_9", "place_10", "slot_0", "slot_1", "slot_2", "slot_3", "slot_4", "slot_5",
 	"slot_6", "slot_7", "slot_8", "tally_down", "tally_up", "compare", "look_register"]
 const LEDGER_CONTROLS := ["page_prev", "page_next", "left_page", "right_page"]
 const BOARD_CONTROLS := ["tile_0", "tile_1", "tile_2", "tile_3", "tile_4", "tile_5", "tile_6",
@@ -43,11 +45,22 @@ const BOARD_CONTROLS := ["tile_0", "tile_1", "tile_2", "tile_3", "tile_4", "tile
 const BOARD_CONTROLS_AFTER := ["look_duplicate"]
 
 # --- P07: the table for nine -------------------------------------------------------------------
-## The cloth's place marks, place_1 .. place_9 (place_9 is the end place, a square).
-const PLACE_MARKS := ["S.R.", "A.T.", "S.H.", "M.L.", "C.D.", "T.I.", "O.P.", "N.B.", "square"]
+## The cloth's place marks, place_1 .. place_10. Two places carry no initials: place_9, the end
+## place by the kitchen door (his, with the empty spoon dent), and place_10, at the rack end with
+## no dent at all. Which blank is his is a deduction: Nora's margin (the night watch sits by the
+## door) and R06's calendar (Venn had the 18th).
+const PLACE_MARKS := ["S.R.", "A.T.", "S.H.", "M.L.", "C.D.", "T.I.", "O.P.", "N.B.", "", ""]
+const PLACES := 10
+const DOOR_PLACE := 9
+const RACK_PLACE := 10
 const BOWLS := ["b_sr", "b_at", "b_sh", "b_ml", "b_cd", "b_ti", "b_op", "b_nb", "b_sq"]
-## place_k holds SOLUTION[k-1].
-const SOLUTION := BOWLS
+## place_k holds SOLUTION[k-1]; place_10 stays empty.
+const SOLUTION := ["b_sr", "b_at", "b_sh", "b_ml", "b_cd", "b_ti", "b_op", "b_nb", "b_sq", ""]
+const DOOR_NAME := "the blank place by the door"
+const RACK_NAME := "the place by the rack"
+const WRONG_BLANK := "Nora seated people by habit. Whose habit puts him here?"
+const HOME_LINE := "Eight of them know where they go."
+const HOME_STAGGER := 0.15
 const BOWL_INITIALS := {"b_sr": "S.R.", "b_at": "A.T.", "b_sh": "S.H.", "b_ml": "M.L.",
 	"b_cd": "C.D.", "b_ti": "T.I.", "b_op": "O.P.", "b_nb": "N.B.", "b_sq": ""}
 ## The rack's home slots, slot_0 .. slot_8 (deliberately not in place order).
@@ -59,11 +72,13 @@ const REGISTER := 8
 const SET_LINE := "It's set for nine. I'll leave it set."
 
 # --- c_ledger: Nora's provisioning book ---------------------------------------------------------
+const NIGHT_WATCH := "Whoever has the night watch sits by the door, so he can leave first."
 const LEDGER := [
 	{
 		"left": ["18 Oct 1927. Supper.", "Mutton and barley. Bread. Stewed pears.", "Signed chits: 8",
 			"Portions served: 9", "Left over: none."],
 		"margin": "Nine portions. Eight signatures. I feed the people who sit down.",
+		"note": NIGHT_WATCH,
 		"right": ["Mendings.", "Bowl, unsigned. Square patch, 9 Mar. He won't sign for a new one.",
 			"Cup, mine, mended 3 Feb."],
 	},
@@ -71,10 +86,11 @@ const LEDGER := [
 		"left": ["Week of 10 Oct 1927. Portions.", "Mon 9   Tue 9   Wed 9   Thu 9", "Fri 9   Sat 9   Sun 9",
 			"Ration correction (S.R.): issue for 8."],
 		"margin": "Rook has discovered a ninth appetite. It belongs to Rook.",
+		"note": "",
 		"right": ["Stores.", "Tea, 2 lb. Sugar: none for me.", "Barley, 1 sack. Salt beef, 1 cask.",
 			"Pears, 2 tins. Candles, 1 box."],
 	},
-	{"left": [], "margin": "", "right": []},
+	{"left": [], "margin": "", "note": "", "right": []},
 ]
 ## The 1931 page, written in as the bands climb (spread 2, left).
 const LEDGER_1931 := ["17 Oct 1931. Supper.", "Signed chits: 1 (A.M.)", "Portions served: 2", "Left over: none."]
@@ -93,11 +109,20 @@ const BOARD_NAMES := ["ROOK, S. — Director", "BELL, N. — Cook", "IVES, T. �
 const RULE_TEXT := "Amendments must preserve the original entry and name the missing person. Stamp with the amending officer's seal."
 const DUPLICATE_LINE := "Eight retained. One witnessing."
 const REJECT_TAPE := "REJECTED: UNVERIFIABLE CORRECTION. ORIGINAL ENTRY MUST STAND."
-const AMEND_INK := "+1  VENN  present  |||"
+## The stamped strip under TULL on the front board after P09 (red-brown stamp ink).
+const AMEND_INK := "+1  VENN  PRESENT  ///"
+const ORIGINAL_STANDS := "The original stands. There's an empty amendment row under it."
 const BOARD_COUNT := 8
 const SOLUTION_AMEND := {"count": "+1", "name": "VENN", "status": "present"}
 const SOLUTION_SEAL := 3
 const STAMPED := "Stamped. It's done."
+## Glance targets, in room-view coordinates: the door place (view A) and the hatch (view B).
+const P07_SPOON_RECT := Rect2(1174, 500, 104, 196)
+const P09_HATCH_RECT := Rect2(1316, 560, 120, 320)
+const P07_DRAWER_AT := 3.0
+const P07_SPOON_AT := 4.8
+const P09_HATCH_LINE := "Below, bolts drew back. The service hatch is open."
+const P07_SPOON_LINE := "The spoon at the door place lifted half an inch. It stayed up the length of a grace. Then it went down."
 const TOKENS := {"token_pantry_half": "pantry", "token_bunk_half": "bunk"}
 const HALF_ITEM := {"pantry": "token_pantry_half", "bunk": "token_bunk_half"}
 
@@ -110,10 +135,13 @@ const NOTICE_LINES := {
 	"soup": "The end bowl. There's soup in it. A fresh line round the inside.",
 	"chair": "His chair's pulled out. As if he's just got up. Or is about to sit down.",
 	"towel": "Her towel's damp. Folded the other way.",
-	"card_breath": "The work card's lifting on its nail. Two short. A pause. One long.",
+	"card_breath": "The work card's lifting on its nail. In her rhythm.",
 	"fog_wiped": "Someone's wiped a line through the fog. From the inside.",
-	"warm_range": "The range is lit. Nobody lit it.",
+	"warm_range": "The range is lit.",
 }
+## Silent notices: on arrival only the change and its sound; Ada says the line the first time
+## the player clicks the object afterwards (state.unsaid, saved).
+const NOTICE_SILENT := {"chair": "chair_scrape", "towel": "towel_drip"}
 const NOTICE_OBS := {
 	"inward": "condensation_inward", "soup": "soup_line", "chair": "chair_out", "towel": "towel_refolded",
 	"card_breath": "card_breath", "fog_wiped": "fog_wiped", "warm_range": "warm_range",
@@ -137,19 +165,19 @@ const CONTINUE_LINES := {
 }
 
 const OBSERVATIONS := {
-	"spoon_marks": "The mess table: eight places laid, nine spoon-shaped dents pressed into the cloth. The ninth dent, at the end place, has no spoon in it.",
-	"cloth_places": "Nine places stitched on the cloth. From the head: S.R., A.T., S.H., M.L., C.D., T.I., O.P., N.B., and at the end place a square instead of initials.",
+	"spoon_marks": "The mess table: eight places laid, nine spoon-shaped dents pressed into the cloth. The ninth dent, at the blank place by the door, has no spoon in it. One more place, by the rack, has no dent at all.",
+	"cloth_places": "Ten places on the cloth. Eight stitched with initials: S.R., A.T., S.H., M.L., C.D., T.I., O.P., N.B. Two with none: the blank place by the door, at the kitchen end, and the place by the rack.",
 	"bowl_stack": "Nine bowls in the rack at the end of the mess. Eight have initials under the rim: S.R., N.B., T.I., M.L., O.P., C.D., S.H., A.T. One has no name, only a square repair patch.",
 	"unsigned_bowl": "The unsigned bowl: a square patch riveted over a crack, a spoon lying in it. The only bowl with a mark instead of a name.",
 	"tally": "A brass serving tally on the end of the table, a wheel from 0 to 12. Beside it a COMPARE lever and a register plate stamped 8.",
 	"towel": "Nora's towel, folded in thirds, beside a dry ring where a cup stood. The cup isn't in the kitchen.",
-	"nora_ledger": "Nora Bell's provisioning book, 18 Oct 1927, supper: 'Signed chits: 8. Portions served: 9. Left over: none.' Margin: 'Nine portions. Eight signatures. I feed the people who sit down.' Facing page, her mendings, sketched: a bowl with a square patch, 'unsigned, 9 Mar. He won't sign for a new one'; and a cup with a brass staple through the handle, 'Cup, mine, mended 3 Feb.'",
+	"nora_ledger": "Nora Bell's provisioning book, 18 Oct 1927, supper: 'Signed chits: 8. Portions served: 9. Left over: none.' Margin: 'Nine portions. Eight signatures. I feed the people who sit down.' Under it: 'Whoever has the night watch sits by the door, so he can leave first.' Facing page, her mendings, sketched: a bowl with a square patch, 'unsigned, 9 Mar. He won't sign for a new one'; and a cup with a brass staple through the handle, 'Cup, mine, mended 3 Feb.'",
 	"rook_ration": "Nora's book, week of 10 Oct 1927: nine portions every day. Rook's correction, 'issue for 8', and under it in her hand: 'Rook has discovered a ninth appetite. It belongs to Rook.'",
 	"ledger_stores": "Nora's stores page: 'Tea, 2 lb. Sugar: none for me.'",
 	"headcount_nine": "Nine at supper on 18 Oct 1927. Eight signed. The ninth bowl had no name; Nora mended it with a square patch. Her note: the ninth was Venn. He is not on Rook's register.",
 	"drawer_rod": "The service drawer is latched from inside. A brass rod runs from its back through the wall toward the mess table.",
 	"drawer_note": "In the service drawer, with the pantry half of a brass token, a note in Nora's hand: 'E.V. ate. Rook says he did not. I count bowls, not opinions. — N.B.'",
-	"nora_work_card": "Nora Bell's kitchen work card, on a nail by the range, stamped CALIBRATION 18 OCT 1927. A breathing trace: two short rises, a pause, one long rise. Typed under it in the same words.",
+	"nora_work_card": "Nora Bell's kitchen work card, on a nail by the range, stamped CALIBRATION 18 OCT 1927. A trace of her breathing, drawn as one pressed line.",
 	"menu_objections": "Rook's typed menu, week 41: 'Nutritionally sufficient. Ration per head: 1 issue. — S.R.' Nora pencilled under it: 'Sufficient for what. Ives says the barley is like eating a map. Pryce has been at sea all day and you have given him a biscuit with an opinion. I will make soup. — N.B.'",
 	"kettle_tick": "A kettle on the shelf above the range, not on it, ticking like metal cooling. Cold to the touch.",
 	"shift_board": "The shift board: SHIFT REGISTER, 18 OCT 1927, S. ROOK, DIRECTOR. Eight names in his hand: Rook, Bell, Ives, Lusk, Pryce, Doane, Hart, Tull. PRESENT: 8.",
@@ -160,17 +188,17 @@ const OBSERVATIONS := {
 	"service_hatch": "A low service hatch by the dresser, bolted from both sides. Painted on it: LOWER PASSAGE · LABORATORY · MACHINE ROOM.",
 	"hatch_open": "When the board was stamped, the service hatch unbolted itself. A steady draught comes up from the lower passage.",
 	"condensation_inward": "The condensation on the bowls runs sideways, every bead toward the end place.",
-	"soup_line": "A fresh tide line of soup inside the unsigned bowl at the end place. Barley. Nobody has cooked.",
-	"chair_out": "The chair at the end place stands pulled out from the table. Nobody moved it.",
-	"spoon_waits": "When I come back from looking closely at something, the spoon at the end place lifts, waits, and lowers. Once each visit.",
-	"card_breath": "The work card lifts on its nail in her rhythm: two short, a pause, one long. The hatch draught is steady. The card isn't.",
+	"soup_line": "A fresh tide line of soup inside the unsigned bowl at the blank place by the door. Barley. Nobody has cooked.",
+	"chair_out": "The chair at the blank place by the door stands pulled out from the table. Nobody moved it.",
+	"spoon_waits": "When I come back from looking closely at something, the spoon at the door place lifts, waits, and lowers. Once each visit.",
+	"card_breath": "The work card lifts on its nail in the rhythm of its own trace. The hatch draught is steady. The card isn't.",
 	"towel_refolded": "Nora's towel is damp, refolded the other way, in halves.",
 	"kettle_again": "The kettle is ticking again, cooling from a heat it never had.",
 	"fog_wiped": "A line has been wiped through the fog on the second board, from inside. One word shows: witnessing.",
 	"ledger_1931": "A new entry in Nora's book, ink still glossy: '17 Oct 1931. Supper. Signed chits: 1 (A.M.). Portions served: 2. Left over: none.' I haven't eaten. I haven't signed anything.",
 	"ledger_1931_b6": "Under it: '18 Oct 1931. Breakfast. Signed chits: 1 (A.M.). Portions served: 10.' Eight, him, and me.",
-	"warm_range": "The range is lit. Nobody lit it. It is the only warm light in the station.",
-	"lens_patch": "Under the lens the square patch has four rivets, and N.B. scratched small in one corner.",
+	"warm_range": "The range is lit. It is the only warm light in the station.",
+	"lens_patch": "Under the lens the bowl's repair patch has four rivets, and N.B. scratched small in one corner.",
 	"spoon_settled": "The spoon lies flat in its dent. It's only a spoon now.",
 	"ring_warm": "The ring where her cup stood is warm. A thread of steam rises off nothing.",
 }
@@ -184,8 +212,8 @@ const OBJECTIVES := {
 const HINTS := {
 	"p07": [
 		"Nora counted meals, not employees.",
-		"Compare the portions she served with the bowls and places. One bowl has no name but has a mark.",
-		"Set the table for nine: each bowl on its initials, the unsigned repaired bowl on the square-marked place. Tally 9, then COMPARE.",
+		"Two places have no initials. Nora's book says who sits by the door; the bunk room's calendar says who had the watch.",
+		"The eight named bowls set themselves. Put the unsigned patched bowl at the blank place by the door: the night watch sat there, and Venn had the 18th. Tally 9, COMPARE.",
 	],
 	"p07_drawer": [
 		"Something let go in the kitchen when the table agreed.",
@@ -215,7 +243,7 @@ const ITEMS := {
 }
 
 const SAVED_BOOLS := ["p07_complete", "drawer_open", "socket_turned", "p09_complete", "tiles_seen",
-	"count_changed"]
+	"count_changed", "homed"]
 
 ## Transient, never saved: what the view shows in hand and highlights after the last action.
 var held := ""                                        # a BOWLS id lifted off the rack or a place
@@ -228,11 +256,11 @@ var _mercer_said := false
 
 func initial_state() -> Dictionary:
 	return {
-		"places": ["", "", "", "", "", "", "", "", ""], "tally": 0, "p07_complete": false,
+		"places": ["", "", "", "", "", "", "", "", "", ""], "tally": 0, "p07_complete": false, "homed": false,
 		"drawer_open": false, "fitted": {"pantry": false, "bunk": false}, "socket_turned": false,
 		"board_count": BOARD_COUNT, "amend": {"count": "", "name": "", "status": ""}, "seal": 1,
 		"p09_complete": false, "notices": [], "misses": 0, "stamp_misses": 0, "tiles_seen": false,
-		"count_changed": false,
+		"count_changed": false, "unsaid": [],
 	}
 
 func is_closeup(v := local_view) -> bool:
@@ -285,9 +313,9 @@ func rack_contents() -> Array:
 		out.append(b if _in_rack(b) else "")
 	return out
 
-## The bowl on place k (1..9), or "".
+## The bowl on place k (1..10), or "".
 func place_bowl(k: int) -> String:
-	if k < 1 or k > 9:
+	if k < 1 or k > PLACES:
 		return ""
 	return state.places[k - 1]
 
@@ -470,6 +498,9 @@ func use_item(item: String, target: String, ev: Array) -> bool:
 		return true
 	match item:
 		"inspection_lens":
+			if target == "place_10":
+				_say(ev, "Plain linen. No dent, no thread pulled. Nobody ever sat here.")
+				return true
 			if target in ["unsigned_bowl", "place_9"] or (local_view == "c_table" and target in TABLE_CONTROLS):
 				_say(ev, "Four rivets. And N.B. scratched small in one corner of the patch.")
 				_observe("lens_patch")
@@ -521,11 +552,12 @@ func _room(action: String, ev: Array) -> void:
 		_observe("cloth_places")
 		_observe("spoon_marks")
 		if first:
-			_say(ev, "Nine places stitched on the cloth. The end one has a square.")
+			_say(ev, "Eight places with initials. Two blank: one by the door, one by the rack.")
 		elif state.p07_complete:
-			_say(ev, "Set for nine. Someone has eaten at the end." if b >= 3 else "Set for nine.")
+			_say(ev, "Set for nine. Someone has eaten by the door." if b >= 3 else "Set for nine.")
 		else:
 			_say(ev, "The table.")
+		_home_bowls(ev)
 		return
 	match action:
 		"spoon":
@@ -540,11 +572,12 @@ func _room(action: String, ev: Array) -> void:
 			var first := not has_seen("unsigned_bowl")
 			_observe("unsigned_bowl")
 			if state.p07_complete:
-				_say(ev, "Its ring on the rack is clean. It's at the square place.")
+				_say(ev, "Its ring on the rack is clean. It's at the blank place by the door.")
 			elif first:
 				_say(ev, "No name on this one. A square patch, riveted. A spoon lying in it.")
 			else:
 				_say(ev, "The patched one.")
+			_home_bowls(ev)
 		"tally":
 			local_view = "c_table"
 			if not has_seen("tally"):
@@ -552,6 +585,7 @@ func _room(action: String, ev: Array) -> void:
 				_say(ev, "A serving tally, 0 to 12. A COMPARE lever. The register plate says 8.")
 			else:
 				_say(ev, "The tally.")
+			_home_bowls(ev)
 		"bowl_stack":
 			local_view = "c_table"
 			var first := not has_seen("bowl_stack")
@@ -562,9 +596,22 @@ func _room(action: String, ev: Array) -> void:
 				_say(ev, "Nine bowls. Eight with initials under the rim.")
 			else:
 				_say(ev, "The bowls.")
+			_home_bowls(ev)
+		"chair":
+			if _say_unsaid("chair", ev):
+				pass
+			elif chair_out():
+				_say(ev, "Pulled out from his place. Nobody moved it.")
+				_observe("chair_out")
+			elif b >= 2:
+				_say(ev, "His chair, tucked in at the door end. The seat's wet.")
+			else:
+				_say(ev, "The chair at the door end. Tucked in.")
 		"towel":
 			_observe("towel")
-			if b >= 6:
+			if _say_unsaid("towel", ev):
+				pass
+			elif b >= 6:
 				_say(ev, "Damp. Refolded the other way, in halves. Someone has dried their hands.")
 				_observe("towel_refolded")
 			else:
@@ -574,7 +621,7 @@ func _room(action: String, ev: Array) -> void:
 				_say(ev, line)
 		"window":
 			if b <= 1:
-				_say(ev, "A high window. Rain on it, and grey.")
+				_say(ev, "A high window. Rain on it. On the inside of the glass.")
 			elif b == 2:
 				_say(ev, "Heavier rain. The glass is running.")
 			elif b == 3:
@@ -607,7 +654,7 @@ func _kitchen(action: String, ev: Array) -> void:
 	match action:
 		"work_card":
 			_observe("nora_work_card")
-			_say(ev, "A work card, stamped CALIBRATION 18 OCT 1927. A trace of her breathing: two short rises, a pause, one long rise.")
+			_say(ev, "A work card, stamped CALIBRATION 18 OCT 1927. A trace of her breathing.")
 			if b >= 5 and e == "":
 				_say(ev, "It's lifting on its nail in that rhythm. The draught is steady. The card isn't.", 2.0)
 				_observe("card_breath")
@@ -634,7 +681,7 @@ func _kitchen(action: String, ev: Array) -> void:
 			elif b <= 6:
 				_say(ev, "Cold. The hatch draught stirs the ash in the firebox.")
 			else:
-				_say(ev, "Lit. I didn't light it. It's the only warm thing in the station.")
+				_say(ev, "Lit. I didn't light it. It's the only warm light in the station.")
 				_observe("warm_range")
 		"ledger":
 			_open_ledger(ev)
@@ -645,7 +692,7 @@ func _kitchen(action: String, ev: Array) -> void:
 				_observe("service_hatch")
 				_say(ev, "Bolted, both sides. LOWER PASSAGE. LABORATORY. MACHINE ROOM.")
 			elif b >= 5:
-				_say(ev, "The draught isn't steady any more. Two short. A pause. One long.")
+				_say(ev, "The draught isn't steady any more. It comes and goes like the card.")
 			else:
 				_say(ev, "Open. The draught comes up out of it, steady as breath.")
 		"shift_board":
@@ -680,6 +727,7 @@ func _open_board(ev: Array, override: String) -> void:
 		_say(ev, override)
 	elif state.p09_complete:
 		if band() >= 6:
+			_fx(ev, "board_open")
 			_say(ev, "A line wiped through the fog from inside. One word: witnessing.")
 			_observe("fog_wiped")
 		else:
@@ -715,12 +763,14 @@ func _table(action: String, ev: Array) -> void:
 	if action.begins_with("place_"):
 		var k := int(action.substr(6))
 		if state.p07_complete:
-			if k == 9:
+			if k == DOOR_PLACE:
 				if band() >= 3 and ending() != "sever":
 					_say(ev, "A fresh tide line of soup round the inside of his bowl. Barley. Nobody has cooked.")
 					_observe("soup_line")
 				else:
-					_say(ev, "The square place. His bowl.")
+					_say(ev, "The blank place by the door. His bowl.")
+			elif k == RACK_PLACE:
+				_say(ev, "The place by the rack. Nobody sat there.")
 			else:
 				_say(ev, "%s's place. %s's bowl." % [PLACE_MARKS[k - 1], PLACE_MARKS[k - 1]])
 			return
@@ -750,12 +800,19 @@ func _slot(k: int, ev: Array) -> void:
 	_sfx(ev, "bowl_lift")
 	if b == "b_sq" and not _sq_lift_said:
 		_sq_lift_said = true
-		_say(ev, "The patched one. No name, only the square.")
+		_say(ev, "The patched one. No name, only the patch.")
 
 func _place(k: int, ev: Array) -> void:
 	var i := k - 1
 	var there: String = state.places[i]
 	last_compare = {"places": "", "portions": ""}
+	# Once they have set themselves, the eight named bowls stay on their own initials.
+	if state.homed and there != "" and there == SOLUTION[i] and k <= 8:
+		if held != "":
+			_say(ev, "%s's bowl is on it. It knows where it goes." % PLACE_MARKS[i])
+		else:
+			_say(ev, "%s's place. %s's bowl." % [PLACE_MARKS[i], PLACE_MARKS[i]])
+		return
 	if held != "":
 		state.places[i] = held
 		held = there
@@ -768,17 +825,54 @@ func _place(k: int, ev: Array) -> void:
 		state.places[i] = ""
 		_sfx(ev, "bowl_lift")
 		return
-	if k == 9:
-		_say(ev, "The square place. Empty, apart from the dent.")
+	if k == DOOR_PLACE:
+		_say(ev, "The blank place by the door. Empty, apart from the dent.")
+	elif k == RACK_PLACE:
+		_say(ev, "The place by the rack. Empty. No dent.")
 	else:
 		_say(ev, "%s's place. Empty." % PLACE_MARKS[i])
 
 static func _mark_name(i: int) -> String:
-	return "The square place" if i == 8 else "%s's place" % PLACE_MARKS[i]
+	if i == DOOR_PLACE - 1:
+		return "The blank place by the door"
+	if i == RACK_PLACE - 1:
+		return "The place by the rack"
+	return "%s's place" % PLACE_MARKS[i]
+
+static func _blank_name(i: int) -> String:
+	return DOOR_NAME if i == DOOR_PLACE - 1 else RACK_NAME
+
+## First open of c_table: every initialled bowl not on its own place drops onto it by itself (one
+## state change). A patched bowl in the way goes back to the rack; place_9/place_10 keep theirs.
+func _home_bowls(ev: Array) -> void:
+	if state.homed or state.p07_complete or local_view != "c_table":
+		return
+	state.homed = true
+	var moved := []
+	for i in 8:
+		var want: String = SOLUTION[i]
+		if state.places[i] == want:
+			continue
+		var j: int = state.places.find(want)
+		if j >= 0:
+			state.places[j] = ""
+		state.places[i] = want
+		moved.append(want)
+	if held != "" and held in moved:
+		held = ""
+	if moved.is_empty():
+		return
+	for n in moved.size():
+		_sfx(ev, "bowl_set", 0.3 + HOME_STAGGER * n)
+	ev.append({"type": "fx", "id": "bowls_home", "bowls": moved.duplicate()})
+	_say(ev, HOME_LINE, 0.4 + HOME_STAGGER * moved.size(), true)
 
 ## The first disagreement between the table and Nora's supper, in Ada's words, or "".
 static func places_line(places: Array) -> String:
-	for i in 9:
+	# The deduction first: the patched bowl on the wrong blank.
+	if places[RACK_PLACE - 1] == "b_sq":
+		return WRONG_BLANK
+	for i in 8:
 		var b: String = places[i]
 		if b == SOLUTION[i]:
 			continue
@@ -786,17 +880,21 @@ static func places_line(places: Array) -> String:
 			return "%s is empty." % _mark_name(i)
 		if b == "b_sq":
 			return "The unsigned bowl is at %s's place." % PLACE_MARKS[i]
-		if i == 8:
-			return "%s's bowl is on the square-marked place." % BOWL_INITIALS[b]
-		# An initialled bowl on another initialled place: name the bowl that belongs here, and
-		# where it went, so a swapped pair reads the way round the card prints it.
+		# An initialled bowl on another place: name the bowl that belongs here, and where it went,
+		# so a swapped pair reads the way round the card prints it.
 		var want: String = SOLUTION[i]
 		var j := places.find(want)
-		if j == 8:
-			return "%s's bowl is on the square-marked place." % BOWL_INITIALS[want]
+		if j >= 8:
+			return "%s's bowl is on %s." % [BOWL_INITIALS[want], _blank_name(j)]
 		if j >= 0:
 			return "%s's bowl is at %s's place." % [BOWL_INITIALS[want], PLACE_MARKS[j]]
 		return "%s's bowl is at %s's place." % [BOWL_INITIALS[b], PLACE_MARKS[i]]
+	for i in [DOOR_PLACE - 1, RACK_PLACE - 1]:
+		var b: String = places[i]
+		if b != "" and b != "b_sq":
+			return "%s's bowl is on %s." % [BOWL_INITIALS[b], _blank_name(i)]
+	if places[DOOR_PLACE - 1] == "":
+		return "The unsigned bowl isn't at the table."
 	return ""
 
 func portions_line() -> String:
@@ -831,14 +929,17 @@ func _compare(ev: Array) -> void:
 			_say(ev, portions_line(), 0.4)
 		return
 	state.p07_complete = true
+	state.homed = true
 	game.solve("P07", ev)
 	_observe("headcount_nine")
 	_fx(ev, "p07_agree")
 	_say(ev, "Nine. The register says eight. Nora's book says nine.", 0.8, true)
-	_sfx(ev, "drawer_unlatch", 1.8)
-	_say(ev, "Something unlatched. In the kitchen.", 2.4, true)
-	_sfx(ev, "spoon_china", 6.1)
-	_say(ev, "The spoon at the square place lifted. Half an inch. It waited for someone. Then it put itself down.", 7.0, true)
+	_sfx(ev, "drawer_unlatch", 2.4)
+	_say(ev, "Something unlatched. In the kitchen.", P07_DRAWER_AT, true)
+	# The reward is seen: the view glances at the door place and lifts the spoon there when the
+	# last line shows (the silent cue rides with it when the chain is clicked on).
+	glance(ev, "p07_spoon", P07_SPOON_RECT, P07_SPOON_AT)
+	_say(ev, P07_SPOON_LINE, P07_SPOON_AT, true)
 
 # ---------------------------------------------------------------------------------------------
 # c_ledger
@@ -886,6 +987,8 @@ func _ledger(action: String, ev: Array) -> void:
 			_say(ev, " ".join(lines))
 			if action == "left_page" and p.margin != "":
 				_say(ev, "In the margin: '%s'" % p.margin, 2.0)
+			if action == "left_page" and str(p.get("note", "")) != "":
+				_say(ev, "Under it: '%s'" % p.note, 4.4)
 
 # ---------------------------------------------------------------------------------------------
 # P09: c_service_board
@@ -893,7 +996,8 @@ func _ledger(action: String, ev: Array) -> void:
 func _service_board(action: String, ev: Array) -> void:
 	if state.p09_complete:
 		if action == "look_duplicate":
-			_say(ev, "Fogged. I have the copy.")
+			_fx(ev, "board_toggle")
+			_say(ev, "Rook's board swings on its hinges. Behind it, the other one. I have the copy.")
 		else:
 			_say(ev, STAMPED)
 		return
@@ -1024,6 +1128,7 @@ func _stamp(ev: Array) -> void:
 		_sfx(ev, "count_reset", 1.0)
 		_fx(ev, "count_reset")
 		_say(ev, "The eight's put itself back.", 1.8)
+		_say(ev, ORIGINAL_STANDS, 3.6)
 		return
 	var refusal := amendment_refusal()
 	if refusal != "":
@@ -1037,14 +1142,15 @@ func _stamp(ev: Array) -> void:
 	_sfx(ev, "stamp_thud", 0.0)
 	_fx(ev, "p09_reveal")
 	_say(ev, "Stamped. Plus one. Venn. Present.", 0.6, true)
-	_sfx(ev, "board_hinge", 1.4)
-	_say(ev, "The board's on hinges. There's another one behind it. Same hand.", 2.4, true)
-	_sfx(ev, "pencil_copy", 4.2)
-	_say(ev, "'Eight retained. One witnessing.' I'm copying it down.", 4.4, true)
-	_sfx(ev, "fog_creep", 6.8)
-	_say(ev, "It's fogging. From inside the wall. Line by line.", 7.6, true)
-	_sfx(ev, "hatch_unlatch", 11.2)
-	_say(ev, "Below, bolts drew back. The service hatch is open.", 11.8, true)
+	_sfx(ev, "board_hinge", 2.6)
+	_say(ev, "The board's on hinges. There's another one behind it. Same hand.", 3.4, true)
+	_sfx(ev, "pencil_copy", 5.4)
+	_say(ev, "'Eight retained. One witnessing.' I'm copying it down.", 5.6, true)
+	_sfx(ev, "fog_creep", 8.0)
+	_say(ev, "It's fogging. From inside the wall. Line by line.", 8.8, true)
+	_sfx(ev, "hatch_unlatch", 12.4)
+	_say(ev, P09_HATCH_LINE, 13.0, true)
+	glance(ev, "p09_hatch", P09_HATCH_RECT, 13.0)
 	_observe("hatch_open")
 
 # ---------------------------------------------------------------------------------------------
@@ -1066,8 +1172,28 @@ func _try_notice(n: String, ev: Array) -> void:
 		return
 	_mark_notice(n)
 	_fx(ev, "notice_" + n)
+	if NOTICE_SILENT.has(n):
+		_sfx(ev, NOTICE_SILENT[n], 0.6)
+		if not n in state.unsaid:
+			state.unsaid.append(n)
+		return
 	_say(ev, NOTICE_LINES[n], 1.6)
 	_observe(NOTICE_OBS[n])
+
+## A silent notice's line, said on the first click on its object afterwards. True if said.
+func _say_unsaid(n: String, ev: Array) -> bool:
+	if not n in state.unsaid:
+		return false
+	state.unsaid.erase(n)
+	_say(ev, NOTICE_LINES[n])
+	_observe(NOTICE_OBS[n])
+	return true
+
+## A glance: the view looks at `rect` (room-view coordinates) for the reward `gid`. The fx
+## carries the rect; the silent cue `cue_<gid>` lands with the chain line it belongs to.
+func glance(ev: Array, gid: String, rect: Rect2, at := 0.0) -> void:
+	ev.append({"type": "fx", "id": "glance", "glance": gid, "rect": rect})
+	_sfx(ev, "cue_" + gid, at)
 
 # ---------------------------------------------------------------------------------------------
 # state
@@ -1081,6 +1207,7 @@ func _clear_transients() -> void:
 
 func _set_p07_done() -> void:
 	state.p07_complete = true
+	state.homed = true
 	state.places = SOLUTION.duplicate()
 	state.tally = SOLUTION_TALLY
 
@@ -1112,6 +1239,9 @@ func load_state(d: Variant) -> void:
 			state[key] = d[key]
 	var pl = d.get("places")
 	if pl is Array and pl.size() == 9:
+		pl = pl.duplicate()
+		pl.append("")   # saves from before place_10: the arrangement stays, the new blank is empty
+	if pl is Array and pl.size() == PLACES:
 		var ok := true
 		var used := []
 		for b in pl:
@@ -1143,6 +1273,10 @@ func load_state(d: Variant) -> void:
 		for h in ["pantry", "bunk"]:
 			if ft.get(h) is bool:
 				state.fitted[h] = ft[h]
+	if d.get("unsaid") is Array:
+		for n in d.unsaid:
+			if n is String and NOTICE_SILENT.has(n) and not n in state.unsaid:
+				state.unsaid.append(n)
 	if d.get("notices") is Array:
 		for n in d.notices:
 			if n is String and (n in NOTICES_A or n in NOTICES_B) and not n in state.notices:

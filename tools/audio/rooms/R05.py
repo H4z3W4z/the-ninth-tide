@@ -748,6 +748,28 @@ def steam_wisp() -> list[float]:
             for i, (h, t, w) in enumerate(zip(hiss, tone, walk))]
 
 
+def chair_scrape() -> list[float]:
+    """The silent chair notice: a short wooden drag over boards, low and dry, then a settle."""
+    rnd = seed(39)
+    xs = zeros(0.9)
+    drag = stick_slip(rnd, 0.5, lambda x: 30 + 22 * x, [(210, 5, 1.0), (640, 7, 0.35)],
+                      duty=0.3, shape=lambda x: hump(x, 0.4))
+    mix(xs, unit(lowpass(drag, 1400)), 0.0, 0.8)
+    mix(xs, unit(thock(rnd, 0.2, 140, 0.03, 500)), 0.52, 0.5)
+    return xs
+
+
+def towel_drip() -> list[float]:
+    """The silent towel notice: two drops off damp cloth onto the boards, small and close."""
+    rnd = seed(40)
+    xs = zeros(1.0)
+    for at, g in ((0.0, 1.0), (0.55, 0.7)):
+        drop = add(click(rnd, 0.08, [(1450, 1.0, 0.012), (2900, 0.3, 0.006)], noise=0.15),
+                   thock(rnd, 0.08, 260, 0.01, 900), 0.4)
+        mix(xs, unit(lowpass(drop, 3200)), at, g)
+    return xs
+
+
 # ---------------------------------------------------------------- build
 
 LOOPS = [("r05_room", r05_room), ("r05_rain", r05_rain), ("r05_rain_heavy", r05_rain_heavy),
@@ -764,7 +786,8 @@ SHOTS = [("bowl_lift", bowl_lift), ("bowl_set", bowl_set), ("bowl_rack", bowl_ra
          ("seal_click", seal_click), ("stamp_thud", stamp_thud), ("stamp_locked", stamp_locked),
          ("reject_tape", reject_tape), ("board_hinge", board_hinge), ("pencil_copy", pencil_copy),
          ("fog_creep", fog_creep), ("hatch_unlatch", hatch_unlatch), ("kettle_tick", kettle_tick),
-         ("card_flutter", card_flutter), ("steam_wisp", steam_wisp)]
+         ("card_flutter", card_flutter), ("steam_wisp", steam_wisp),
+         ("chair_scrape", chair_scrape), ("towel_drip", towel_drip)]
 
 # Suggested view levels (R05_view.gd SFX_DB) so the room keeps its intended order with every
 # file at the same -3 dBFS peak: spoon_china quietest, fog barely there, hatch_unlatch loudest.

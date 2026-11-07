@@ -12,8 +12,8 @@ const OPEN_TIDE := 3
 ## The card strings, written out here independently of the sim.
 const REF_HINTS := {
 	"p07": ["Nora counted meals, not employees.",
-		"Compare the portions she served with the bowls and places. One bowl has no name but has a mark.",
-		"Set the table for nine: each bowl on its initials, the unsigned repaired bowl on the square-marked place. Tally 9, then COMPARE."],
+		"Two places have no initials. Nora's book says who sits by the door; the bunk room's calendar says who had the watch.",
+		"The eight named bowls set themselves. Put the unsigned patched bowl at the blank place by the door: the night watch sat there, and Venn had the 18th. Tally 9, COMPARE."],
 	"p09": ["The kitchen's shift board wants both halves of the token and a correction.",
 		"The rule says keep the original and add the missing person. Nora's book and Venn's seal say who.",
 		"Fit both halves. Leave 8 alone. Add +1 / VENN / present. Seal selector to three cuts, then stamp."],
@@ -27,7 +27,13 @@ const REF_HINTS := {
 		"The service hatch is open to the lower passage.",
 		"Through the hatch: the laboratory and the machine room."],
 }
-const SOL := ["b_sr", "b_at", "b_sh", "b_ml", "b_cd", "b_ti", "b_op", "b_nb", "b_sq"]
+const SOL := ["b_sr", "b_at", "b_sh", "b_ml", "b_cd", "b_ti", "b_op", "b_nb", "b_sq", ""]
+const NAMED := ["b_sr", "b_at", "b_sh", "b_ml", "b_cd", "b_ti", "b_op", "b_nb"]
+const ARRIVAL := "Eight places laid. Nine spoon marks pressed into the cloth, and one more place with none."
+const WRONG_BLANK := "Nora seated people by habit. Whose habit puts him here?"
+const HOME_LINE := "Eight of them know where they go."
+const SPOON_LINE := "The spoon at the door place lifted half an inch. It stayed up the length of a grace. Then it went down."
+const ORIGINAL_STANDS := "The original stands. There's an empty amendment row under it."
 const HOME := ["b_ti", "b_sh", "b_sq", "b_sr", "b_cd", "b_at", "b_nb", "b_op", "b_ml"]
 const TILES := ["BELL", "DOANE", "HART", "IVES", "LUSK", "MERCER", "PRYCE", "ROOK", "TULL", "VENN"]
 const REJECT := "REJECTED: UNVERIFIABLE CORRECTION. ORIGINAL ENTRY MUST STAND."
@@ -44,6 +50,12 @@ func run_tests() -> void:
 	test_arrival()
 	test_p07_golden()
 	test_misplacements()
+	test_auto_home()
+	test_both_blanks()
+	test_places_line()
+	test_glances()
+	test_silent_notices()
+	test_new_lines()
 	test_tally()
 	test_independent_compare()
 	test_conservation()
@@ -85,6 +97,13 @@ func count_fx(ev: Array, id: String) -> int:
 			n += 1
 	return n
 
+func count_sfx(ev: Array, id: String) -> int:
+	var n := 0
+	for e in ev:
+		if e.type == "sfx" and e.id == id:
+			n += 1
+	return n
+
 func roundtrip(g: GameSim) -> GameSim:
 	var t := GameSim.new()
 	check(t.from_dict(JSON.parse_string(JSON.stringify(g.to_dict()))), "save loads")
@@ -102,14 +121,14 @@ func open_table(g: GameSim) -> void:
 	if r5(g).local_view != "c_table":
 		g.dispatch("bowl_stack")
 
-## Lays an arrangement from a full rack by real clicks: arr[k] goes on place k+1 ("" = leave).
-func lay(g: GameSim, arr: Array) -> void:
+## Opens the table (the eight named bowls set themselves) and puts the patched bowl on place
+## `k` by real clicks (0 = leave it in the rack).
+func lay(g: GameSim, k := 9) -> void:
 	open_table(g)
-	for k in 9:
-		var b: String = arr[k]
-		if b != "":
-			g.dispatch("slot_%d" % HOME.find(b))
-			g.dispatch("place_%d" % (k + 1))
+	if k > 0 and r5(g).place_bowl(k) != "b_sq":
+		if r5(g).held != "b_sq":
+			g.dispatch("slot_%d" % HOME.find("b_sq"))
+		g.dispatch("place_%d" % k)
 
 func set_tally(g: GameSim, n: int) -> void:
 	open_table(g)
@@ -120,7 +139,7 @@ func set_tally(g: GameSim, n: int) -> void:
 		guard += 1
 
 func solve_p07(g: GameSim) -> Array:
-	lay(g, SOL)
+	lay(g, 9)
 	set_tally(g, 9)
 	return g.dispatch("compare")
 
@@ -138,6 +157,7 @@ func conserved(r: R05Sim) -> bool:
 	if r.held != "": all.append(r.held)
 	all.sort()
 	var want := SOL.duplicate()
+	want.erase("")
 	want.sort()
 	return all == want
 
@@ -206,7 +226,7 @@ func test_arrival() -> void:
 	var g := with_flags(["P06"], "R06")
 	var ev := g.dispatch("go:R05")
 	check(g.state.room == ROOM, "walks into the kitchen from the bunks")
-	check(says(ev).begins_with(R05Sim.ARRIVAL) and R05Sim.ARRIVAL == "The mess. Eight places laid. Nine spoon marks pressed into the cloth.",
+	check(says(ev).begins_with(R05Sim.ARRIVAL) and R05Sim.ARRIVAL == ARRIVAL,
 		"arrival line (%s)" % says(ev))
 	check("Somewhere in the kitchen a kettle is ticking. Cooling." in says(ev), "arrival: the kettle line")
 	check(has_ev(ev, "sfx", "kettle_tick") and r5(g).has_seen("spoon_marks"), "arrival: kettle tick, spoon marks noted")
@@ -224,9 +244,12 @@ func test_p07_golden() -> void:
 	check(g.flag("P07") and r.state.p07_complete, "the table for nine solves P07")
 	check(r.has_seen("headcount_nine"), "headcount_nine noted")
 	check(count_fx(ev, "tide") == 0 and has_ev(ev, "fx", "p07_agree"), "P07 does not end a tide")
-	check(has_ev(ev, "sfx", "drawer_unlatch") and has_ev(ev, "sfx", "spoon_china"), "P07: the latch, the spoon")
-	check("The spoon at the square place lifted. Half an inch. It waited for someone. Then it put itself down." in says(ev),
-		"P07: the spoon line")
+	check(has_ev(ev, "sfx", "drawer_unlatch") and has_ev(ev, "sfx", "cue_p07_spoon"), "P07: the latch, the glance cue")
+	check(not has_ev(ev, "sfx", "spoon_china"), "P07: the spoon's china is the view's, timed by the glance")
+	var lines := ev.filter(func(e): return e.type == "say")
+	check(lines[-1].text == SPOON_LINE and lines[-1].story, "P07: the spoon line is the chain's last story line")
+	check("Something unlatched. In the kitchen." in says(ev), "P07: the drawer reward stays")
+	check(not "It waited for someone" in says(ev), "P07: the old spoon line is gone")
 	check(not g.has_item("token_pantry_half"), "P07: the token waits in the drawer")
 	var t3 := game_at(3, ROOM)
 	var ev3 := solve_p07(t3)
@@ -252,22 +275,14 @@ func test_p07_golden() -> void:
 # ---------------------------------------------------------------------------------------------
 func test_misplacements() -> void:
 	var cases := [
-		[["b_sr", "b_at", "b_sh", "", "b_cd", "b_ti", "b_op", "b_nb", "b_sq"], "M.L.'s place is empty."],
-		[["b_sr", "b_at", "b_sh", "b_ml", "b_cd", "b_ti", "b_op", "b_nb", ""], "The square place is empty."],
-		[["b_sr", "b_at", "b_ml", "b_sh", "b_cd", "b_ti", "b_op", "b_nb", "b_sq"], "S.H.'s bowl is at M.L.'s place."],
-		[["b_sr", "b_sq", "b_sh", "b_ml", "b_cd", "b_ti", "b_op", "b_nb", "b_at"], "The unsigned bowl is at A.T.'s place."],
-		[["b_sq", "b_at", "b_sh", "b_ml", "b_cd", "b_ti", "b_op", "b_nb", "b_sr"], "The unsigned bowl is at S.R.'s place."],
-		[["b_sr", "b_at", "b_cd", "b_ml", "", "b_ti", "b_op", "b_nb", "b_sh"], "S.H.'s bowl is on the square-marked place."],
-		[["b_sr", "b_at", "b_sh", "b_ml", "b_cd", "b_ti", "b_op", "b_sq", "b_nb"], "The unsigned bowl is at N.B.'s place."],
-		[["", "", "", "", "", "", "", "", ""], "S.R.'s place is empty."],
-		[["b_at", "", "", "", "", "", "", "", ""], "A.T.'s bowl is at S.R.'s place."],
+		[10, WRONG_BLANK],
+		[0, "The unsigned bowl isn't at the table."],
 	]
 	for c in cases:
 		var g := fresh()
 		var r := r5(g)
 		lay(g, c[0])
 		set_tally(g, 9)
-		check(r.state.places == c[0], "laid %s" % [c[0]])
 		var ev := g.dispatch("compare")
 		check(says(ev) == c[1], "misplacement: want '%s', got '%s'" % [c[1], says(ev)])
 		check(not g.flag("P07") and r.last_compare.places == "disagree" and r.last_compare.portions == "agree",
@@ -275,13 +290,225 @@ func test_misplacements() -> void:
 		check(has_ev(ev, "sfx", "compare_pull") and has_ev(ev, "sfx", "flag_flip") and has_ev(ev, "fx", "p07_compare"),
 			"the compare lever's events")
 		check(int(r.state.misses) == 1, "a miss is counted")
-	# A held bowl counts as unplaced.
+	# A held patched bowl counts as unplaced.
 	var h := fresh()
-	lay(h, SOL)
+	lay(h, 9)
 	set_tally(h, 9)
-	h.dispatch("place_4")
-	check(r5(h).held == "b_ml", "lifting a placed bowl holds it")
-	check(says(h.dispatch("compare")) == "M.L.'s place is empty." and not h.flag("P07"), "a held bowl is unplaced")
+	h.dispatch("place_9")
+	check(r5(h).held == "b_sq", "lifting the placed patched bowl holds it")
+	check(says(h.dispatch("compare")) == "The unsigned bowl isn't at the table." and not h.flag("P07"), "a held bowl is unplaced")
+	# The patched bowl can't go on a named place: the named bowls stay put.
+	var n := fresh()
+	lay(n, 0)
+	n.dispatch("slot_%d" % HOME.find("b_sq"))
+	var ev := n.dispatch("place_4")
+	check(says(ev) == "M.L.'s bowl is on it. It knows where it goes." and r5(n).held == "b_sq" and r5(n).place_bowl(4) == "b_ml",
+		"a named place refuses the patched bowl")
+
+# ---------------------------------------------------------------------------------------------
+# (3b) the eight set themselves, on the first open only
+# ---------------------------------------------------------------------------------------------
+func test_auto_home() -> void:
+	for opener in ["bowl_stack", "unsigned_bowl", "tally", "place_1", "place_9", "place_10"]:
+		var g := fresh()
+		var r := r5(g)
+		check(r.state.places == ["", "", "", "", "", "", "", "", "", ""] and not r.state.homed, "%s: the table starts bare" % opener)
+		var ev := g.dispatch(opener)
+		check(r.local_view == "c_table", "%s opens the table" % opener)
+		check(r.state.places == NAMED + ["", ""] and r.state.homed, "%s: the eight named bowls on their own places" % opener)
+		check(r.rack_contents() == ["", "", "b_sq", "", "", "", "", "", ""], "%s: only the patched bowl is left in the rack" % opener)
+		check(count_sfx(ev, "bowl_set") == 8, "%s: one bowl_set per bowl" % opener)
+		var delays := []
+		for e in ev:
+			if e.type == "sfx" and e.id == "bowl_set":
+				delays.append(e.delay)
+		var stagger_ok := true
+		for i in range(1, delays.size()):
+			stagger_ok = stagger_ok and is_equal_approx(delays[i] - delays[i - 1], 0.15)
+		check(stagger_ok, "%s: staggered 0.15 s (%s)" % [opener, delays])
+		check(has_ev(ev, "fx", "bowls_home") and HOME_LINE in says(ev), "%s: the homing fx and Ada's line" % opener)
+		var fx: Array = ev.filter(func(e): return e.type == "fx" and e.id == "bowls_home")
+		check(fx[0].bowls == NAMED, "%s: the fx lists the bowls in order" % opener)
+		check(conserved(r), "%s: every bowl once" % opener)
+		# Never again: not on a second open, not after a load.
+		g.dispatch("back")
+		var ev2 := g.dispatch("bowl_stack")
+		check(count_sfx(ev2, "bowl_set") == 0 and not HOME_LINE in says(ev2) and not has_ev(ev2, "fx", "bowls_home"),
+			"%s: the second open is quiet" % opener)
+		var l := roundtrip(g)
+		var ev3 := l.dispatch("tally")
+		check(r5(l).state.homed and count_sfx(ev3, "bowl_set") == 0 and not HOME_LINE in says(ev3), "%s: quiet after a load" % opener)
+	# Opening the kitchen side never homes; the rack stays full until the table is looked at.
+	var k := fresh()
+	k.dispatch("to_kitchen")
+	k.dispatch("ledger")
+	check(not r5(k).state.homed and r5(k).rack_contents().count("") == 0, "the kitchen leaves the rack alone")
+	# After P07 (set elsewhere) nothing homes or sounds.
+	var p := with_flags(["P06", "P07"], ROOM)
+	var pe := p.dispatch("bowl_stack")
+	check(count_sfx(pe, "bowl_set") == 0 and r5(p).state.places == SOL, "after P07: already set")
+
+# ---------------------------------------------------------------------------------------------
+# (3c) the two blanks: the door one is his
+# ---------------------------------------------------------------------------------------------
+func test_both_blanks() -> void:
+	check(R05Sim.PLACE_MARKS.size() == 10 and R05Sim.PLACE_MARKS[8] == "" and R05Sim.PLACE_MARKS[9] == "", "places 9 and 10 are blank")
+	check(not "square" in JSON.stringify(R05Sim.PLACE_MARKS), "no square mark")
+	check(R05Sim.SOLUTION[8] == "b_sq" and R05Sim.SOLUTION[9] == "", "the solution: his bowl by the door, the rack blank empty")
+	# Wrong blank: refused, explained, nothing granted.
+	var g := fresh()
+	lay(g, 10)
+	set_tally(g, 9)
+	var ev := g.dispatch("compare")
+	check(says(ev) == WRONG_BLANK and not g.flag("P07"), "the rack blank: the habit line")
+	check(r5(g).last_compare == {"places": "disagree", "portions": "agree"}, "the rack blank: places disagree")
+	# Then the right one.
+	g.dispatch("place_10")
+	g.dispatch("place_9")
+	ev = g.dispatch("compare")
+	check(g.flag("P07") and r5(g).state.places == SOL, "the door blank solves P07")
+	check(count_fx(ev, "glance") == 1, "the reward is glanced at")
+	# Both blanks can't hold the one patched bowl at once; the rack blank stays empty after.
+	check(r5(g).place_bowl(10) == "" and says(g.dispatch("place_10")) == "The place by the rack. Nobody sat there.", "the rack blank stays empty")
+	# P07 and P08 in either order give identical rooms.
+	var a := with_flags(["P06"], ROOM)
+	solve_p07(a)
+	a.set_flag("P08")
+	var b := with_flags(["P06", "P08"], ROOM)
+	solve_p07(b)
+	check(a.flag("P07") and b.flag("P07") and JSON.stringify(r5(a).state) == JSON.stringify(r5(b).state), "P07 before or after P08: same table")
+
+## places_line on arrangements play can no longer make (old saves, injected states).
+func test_places_line() -> void:
+	var cases := [
+		[SOL, ""],
+		[NAMED + ["", "b_sq"], WRONG_BLANK],
+		[NAMED + ["", ""], "The unsigned bowl isn't at the table."],
+		[["b_sr", "b_at", "b_sh", "", "b_cd", "b_ti", "b_op", "b_nb", "b_sq", ""], "M.L.'s place is empty."],
+		[["b_sr", "b_at", "b_ml", "b_sh", "b_cd", "b_ti", "b_op", "b_nb", "b_sq", ""], "S.H.'s bowl is at M.L.'s place."],
+		[["b_sr", "b_sq", "b_sh", "b_ml", "b_cd", "b_ti", "b_op", "b_nb", "b_at", ""], "The unsigned bowl is at A.T.'s place."],
+		[["b_sr", "b_at", "b_cd", "b_ml", "", "b_ti", "b_op", "b_nb", "b_sh", ""], "S.H.'s bowl is on the blank place by the door."],
+		[["b_sr", "b_at", "", "b_ml", "b_cd", "b_ti", "b_op", "b_nb", "b_sq", "b_sh"], "S.H.'s place is empty."],
+		[["b_sr", "b_at", "b_sh", "b_ml", "b_cd", "b_ti", "b_op", "b_nb", "b_sq", "b_sh"], "S.H.'s bowl is on the place by the rack."],
+	]
+	for c in cases:
+		var got := R05Sim.places_line(c[0])
+		check(got == c[1], "places_line %s: want '%s', got '%s'" % [c[0], c[1], got])
+		check(not "square" in got, "places_line never says square")
+
+# ---------------------------------------------------------------------------------------------
+# (3d) glances: P07's spoon, P09's hatch
+# ---------------------------------------------------------------------------------------------
+func _glance_ev(ev: Array, gid: String) -> Dictionary:
+	for e in ev:
+		if e.type == "fx" and e.id == "glance" and e.get("glance", "") == gid:
+			return e
+	return {}
+
+func _sfx_delay(ev: Array, id: String) -> float:
+	for e in ev:
+		if e.type == "sfx" and e.id == id:
+			return e.delay
+	return -1.0
+
+func _last_story_delay(ev: Array) -> float:
+	var d := -1.0
+	for e in ev:
+		if e.type == "say" and e.story:
+			d = maxf(d, e.delay)
+	return d
+
+func test_glances() -> void:
+	var m: Dictionary = load("res://game/rooms/R05/R05_view.gd").get_script_constant_map()
+	var room_rect := {}
+	for h in m.HOTSPOTS + m.KITCHEN_HOTSPOTS:
+		room_rect[h[0]] = h[1]
+	var g := fresh()
+	var ev := solve_p07(g)
+	var gl := _glance_ev(ev, "p07_spoon")
+	check(not gl.is_empty() and gl.rect == room_rect.place_9, "P07: glance p07_spoon at the door place's room rect")
+	check(is_equal_approx(_sfx_delay(ev, "cue_p07_spoon"), _last_story_delay(ev)), "P07: the cue lands with the last story line")
+	var p := ready_p09()
+	fit_both_turn(p)
+	compose(p, "+1", "VENN", "present", 3)
+	ev = p.dispatch("stamp")
+	gl = _glance_ev(ev, "p09_hatch")
+	check(not gl.is_empty() and gl.rect == room_rect.service_hatch, "P09: glance p09_hatch at the hatch's room rect")
+	var hatch_line := -1.0
+	for e in ev:
+		if e.type == "say" and e.text.begins_with("Below, bolts drew back"):
+			hatch_line = e.delay
+	check(hatch_line >= 0.0 and is_equal_approx(_sfx_delay(ev, "cue_p09_hatch"), hatch_line)
+		and is_equal_approx(hatch_line, _last_story_delay(ev)), "P09: the glance comes after the hatch line, at the end")
+	var swing := _sfx_delay(ev, "board_hinge")
+	var stamped := -1.0
+	for e in ev:
+		if e.type == "say" and e.text == "Stamped. Plus one. Venn. Present.":
+			stamped = e.delay
+	check(swing > stamped + 1.5, "P09: the stamped strip reads before the board swings")
+	# Repeats glance nothing.
+	check(count_fx(p.dispatch("stamp"), "glance") == 0 and count_fx(g.dispatch("compare"), "glance") == 0, "repeats: no glance")
+
+# ---------------------------------------------------------------------------------------------
+# (3e) silent notices: chair and towel
+# ---------------------------------------------------------------------------------------------
+func test_silent_notices() -> void:
+	check(R05Sim.NOTICE_SILENT.keys() == ["chair", "towel"], "chair and towel are silent")
+	var g := game_at(6, ROOM)
+	var r := r5(g)
+	g.dispatch("go:R06")
+	var ev := g.dispatch("go:R05")
+	check(has_ev(ev, "fx", "notice_chair") and has_ev(ev, "sfx", "chair_scrape") and not R05Sim.NOTICE_LINES.chair in says(ev),
+		"chair: change and sound, no line")
+	check(not r.has_seen("chair_out") and "chair" in r.state.unsaid, "chair: pending")
+	var l := roundtrip(g)
+	var rl := r5(l)
+	check("chair" in rl.state.unsaid, "the pending line is saved")
+	ev = l.dispatch("towel")
+	check(not R05Sim.NOTICE_LINES.chair in says(ev), "another object doesn't say it")
+	ev = l.dispatch("chair")
+	check(says(ev) == R05Sim.NOTICE_LINES.chair and rl.has_seen("chair_out") and not "chair" in rl.state.unsaid, "chair: said on the first click")
+	check(says(l.dispatch("chair")) == "Pulled out from his place. Nobody moved it.", "chair: then its own line")
+	var t := game_at(8, ROOM)
+	var rt := r5(t)
+	t.dispatch("go:R06")
+	ev = t.dispatch("go:R05")
+	check(has_ev(ev, "sfx", "towel_drip") and not R05Sim.NOTICE_LINES.towel in says(ev) and "towel" in rt.state.unsaid, "towel: silent")
+	ev = t.dispatch("towel")
+	check(says(ev) == R05Sim.NOTICE_LINES.towel and rt.has_seen("towel_refolded"), "towel: said on the first click")
+	check(says(t.dispatch("towel")) == "Damp. Refolded the other way, in halves. Someone has dried their hands.", "towel: then its own line")
+	check(says(r5(fresh()).game.dispatch("chair")) == "The chair at the door end. Tucked in.", "chair before band 2")
+
+# ---------------------------------------------------------------------------------------------
+# (3f) the reworded lines
+# ---------------------------------------------------------------------------------------------
+func test_new_lines() -> void:
+	check(R05Sim.NOTICE_LINES.warm_range == "The range is lit." and R05Sim.OBSERVATIONS.warm_range == "The range is lit. It is the only warm light in the station.",
+		"the warm range")
+	check(R05Sim.WAY_IN_HINT == "The service door off the office is open. Through it: the kitchen.", "the way-in hint")
+	for item in R05Sim.ITEMS:
+		check(str(R05Sim.ITEMS[item].get("short", R05Sim.ITEMS[item].name)).length() <= 14, "%s short name fits" % item)
+	check(R05Sim.ITEMS.token_pantry_half.short == "Pantry half", "token_pantry_half short")
+	var g := fresh()
+	check(says(g.dispatch("window")) == "A high window. Rain on it. On the inside of the glass.", "tide III window")
+	check(R05Sim.AMEND_INK == "+1  VENN  PRESENT  ///" and R05Sim.DUPLICATE_LINE == "Eight retained. One witnessing.", "the board's inks")
+	# No 'square' wording for places anywhere a player reads it.
+	var texts := []
+	texts.append_array(R05Sim.OBSERVATIONS.values())
+	for k in R05Sim.HINTS:
+		texts.append_array(R05Sim.HINTS[k])
+	texts.append_array(R05Sim.NOTICE_LINES.values())
+	for t in texts:
+		check(not "square place" in t and not "square-marked" in t and not "end place a square" in t, "no square place: %s" % t)
+	# The first look at the cloth.
+	var f := fresh()
+	check(says(f.dispatch("place_3")).begins_with("Eight places with initials. Two blank: one by the door, one by the rack."), "the cloth's first look")
+	# Back and exits (view): Back reads '◂ Mess' in the kitchen; the hatch exits go down.
+	var v = load("res://game/rooms/R05/R05_view.gd").new()
+	var m: Dictionary = v.get_script().get_script_constant_map()
+	check(m.EXIT_ARROWS == {"R07": "down", "R08": "down"}, "hatch exits carry a down arrow")
+	check(v.exit_arrow("R07") == "down" and v.exit_arrow("R02") == "", "exit_arrow()")
+	v.free()
 
 # ---------------------------------------------------------------------------------------------
 # (4) the tally
@@ -289,7 +516,7 @@ func test_misplacements() -> void:
 func test_tally() -> void:
 	for t in range(0, 13):
 		var g := fresh()
-		lay(g, SOL)
+		lay(g, 9)
 		set_tally(g, t)
 		var ev := g.dispatch("compare")
 		check(g.flag("P07") == (t == 9), "tally %d: P07 %s" % [t, t == 9])
@@ -301,7 +528,7 @@ func test_tally() -> void:
 	var g8 := fresh()
 	g8.dispatch("to_kitchen")
 	read_ledger(g8)
-	lay(g8, SOL)
+	lay(g8, 9)
 	set_tally(g8, 8)
 	check(says(g8.dispatch("compare")) == "That's the register's number. Nora's book says nine.", "tally 8, book read")
 	set_tally(g8, 3)
@@ -320,12 +547,11 @@ func test_tally() -> void:
 # (5) PLACES and PORTIONS independently
 # ---------------------------------------------------------------------------------------------
 func test_independent_compare() -> void:
-	var swapped := ["b_sr", "b_at", "b_ml", "b_sh", "b_cd", "b_ti", "b_op", "b_nb", "b_sq"]
 	for places_ok in [true, false]:
 		for portions_ok in [true, false]:
 			var g := fresh()
 			var r := r5(g)
-			lay(g, SOL if places_ok else swapped)
+			lay(g, 9 if places_ok else 10)
 			set_tally(g, 9 if portions_ok else 8)
 			var ev := g.dispatch("compare")
 			var want := {"places": "agree" if places_ok else "disagree", "portions": "agree" if portions_ok else "disagree"}
@@ -346,7 +572,7 @@ func test_conservation() -> void:
 	var g := fresh()
 	var r := r5(g)
 	open_table(g)
-	var controls := []
+	var controls := ["place_10"]
 	for k in 9:
 		controls.append("slot_%d" % k)
 		controls.append("place_%d" % (k + 1))
@@ -357,28 +583,23 @@ func test_conservation() -> void:
 		g.dispatch(controls[seed % controls.size()])
 		ok = ok and conserved(r)
 	check(ok, "every lift, set, swap and return keeps all nine bowls")
-	# A swap: the held bowl goes down, the old one comes up.
+	# The patched bowl between the two blanks: set, lift, move.
 	var s := fresh()
 	var rs := r5(s)
 	open_table(s)
-	s.dispatch("slot_0")
-	s.dispatch("place_3")
-	s.dispatch("slot_1")
-	var ev := s.dispatch("place_3")
-	check(rs.state.places[2] == "b_sh" and rs.held == "b_ti" and has_ev(ev, "sfx", "bowl_set") and has_ev(ev, "sfx", "bowl_lift"),
-		"a swap: S.H. down, T.I. in hand")
-	check(conserved(rs), "the swap conserves")
-	ev = s.dispatch("slot_5")
-	check(rs.held == "" and has_ev(ev, "sfx", "bowl_rack") and rs.rack_contents()[0] == "b_ti", "a held bowl goes home to its own slot")
 	check(says(s.dispatch("slot_1")) == "That one's at the table.", "a slot whose bowl is out")
-	check(says(s.dispatch("slot_2")) == "The patched one. No name, only the square." and rs.held == "b_sq", "the patched bowl, first lift")
+	check(says(s.dispatch("slot_2")) == "The patched one. No name, only the patch." and rs.held == "b_sq", "the patched bowl, first lift")
 	s.dispatch("slot_2")
 	check(says(s.dispatch("slot_2")) == "", "the patched-bowl line plays once")
-	check(says(s.dispatch("place_1")) == "", "a bowl set down")
-	check(says(s.dispatch("place_2")) == "A.T.'s place. Empty." and says(s.dispatch("place_9")) == "The square place. Empty, apart from the dent.",
-		"empty places say so")
-	s.dispatch("place_1")
-	check(rs.held == "b_sq", "an occupied place lifts its bowl")
+	var ev := s.dispatch("place_10")
+	check(says(ev) == "" and rs.place_bowl(10) == "b_sq" and has_ev(ev, "sfx", "bowl_set"), "a bowl set down on place 10")
+	check(says(s.dispatch("place_2")) == "A.T.'s place. A.T.'s bowl.", "a named place says whose")
+	check(says(s.dispatch("place_9")) == "The blank place by the door. Empty, apart from the dent.", "the door blank, empty")
+	s.dispatch("place_10")
+	check(rs.held == "b_sq" and rs.place_bowl(10) == "", "an occupied blank lifts its bowl")
+	check(says(s.dispatch("place_10")) == "" and rs.place_bowl(10) == "b_sq", "and sets it back")
+	s.dispatch("place_10")
+	check(rs.held == "b_sq", "lifted again")
 	s.dispatch("back")
 	check(rs.held == "" and rs.local_view == "room" and conserved(rs), "Back puts the held bowl in the rack")
 	open_table(s)
@@ -397,7 +618,8 @@ func test_locked_after_p07() -> void:
 	for a in ["slot_0", "slot_4", "tally_up", "tally_down"]:
 		check(says(g.dispatch(a)) == SET_LINE, "after P07 %s is set" % a)
 	check(says(g.dispatch("place_3")) == "S.H.'s place. S.H.'s bowl.", "after P07 a place says whose")
-	check(says(g.dispatch("place_9")) == "The square place. His bowl.", "after P07 the square place")
+	check(says(g.dispatch("place_9")) == "The blank place by the door. His bowl.", "after P07 the door place")
+	check(says(g.dispatch("place_10")) == "The place by the rack. Nobody sat there.", "after P07 the rack place")
 	check(snap(g) == before and r.held == "", "nothing moves after P07")
 	var ev := g.dispatch("compare")
 	check(says(ev) == "Nine. It still says nine." and has_ev(ev, "sfx", "compare_pull"), "a repeat COMPARE")
@@ -413,19 +635,43 @@ func test_locked_after_p07() -> void:
 # ---------------------------------------------------------------------------------------------
 func test_p07_save_load() -> void:
 	var g := fresh()
-	lay(g, ["b_sr", "", "b_ml", "", "", "", "", "", "b_nb"])
+	lay(g, 10)
 	set_tally(g, 5)
-	g.dispatch("slot_0")
-	check(r5(g).held == "b_ti", "a bowl in hand before saving")
+	g.dispatch("place_10")
+	check(r5(g).held == "b_sq", "a bowl in hand before saving")
 	var l := roundtrip(g)
 	var r := r5(l)
-	check(r.state.places == ["b_sr", "", "b_ml", "", "", "", "", "", "b_nb"] and int(r.state.tally) == 5, "places and tally survive")
+	check(r.state.places == NAMED + ["", ""] and int(r.state.tally) == 5 and r.state.homed, "places, tally and homing survive")
 	check(r.held == "" and r.local_view == "room" and conserved(r), "a load lands in the room, the held bowl racked")
+	var l2g := fresh()
+	lay(l2g, 10)
+	var l2 := roundtrip(l2g)
+	check(r5(l2).place_bowl(10) == "b_sq", "the patched bowl on the rack blank survives a load")
+	r5(l2).local_view = "room"
+	l2.dispatch("place_9")
+	l2.dispatch("place_10")
+	l2.dispatch("place_9")
+	set_tally(l2, 9)
+	l2.dispatch("compare")
+	check(l2.flag("P07"), "mid-puzzle load: moved to the door blank, it solves")
+	# Saves from before place_10 (nine places): the arrangement stays, nothing is homed yet.
+	var old: Dictionary = JSON.parse_string(JSON.stringify(fresh().to_dict()))
+	old.rooms.R05.places = ["b_sr", "", "b_sh", "b_at", "", "", "", "", "b_sq"]
+	old.rooms.R05.erase("homed")
+	var o := GameSim.new()
+	o.from_dict(old)
+	var ro := r5(o)
+	check(ro.state.places == ["b_sr", "", "b_sh", "b_at", "", "", "", "", "b_sq", ""] and not ro.state.homed,
+		"an old nine-place save migrates as it was (%s)" % [ro.state.places])
+	var oe := o.dispatch("tally")
+	check(ro.state.places == SOL and ro.state.homed and HOME_LINE in says(oe), "on the first open the named bowls set themselves; his stays")
+	check(count_sfx(oe, "bowl_set") == 6, "six bowls moved (A.T. off M.L.'s place, five from the rack), one sound each (%d)" % count_sfx(oe, "bowl_set"))
 	var base: Dictionary = JSON.parse_string(JSON.stringify(g.to_dict()))
+	var e10 := ["", "", "", "", "", "", "", "", "", ""]
 	var bad := [
-		["places", ["b_sr", "b_sr", "", "", "", "", "", "", ""], "places", ["", "", "", "", "", "", "", "", ""]],
-		["places", ["b_xx", "", "", "", "", "", "", "", ""], "places", ["", "", "", "", "", "", "", "", ""]],
-		["places", ["b_sr"], "places", ["", "", "", "", "", "", "", "", ""]],
+		["places", ["b_sr", "b_sr", "", "", "", "", "", "", "", ""], "places", e10],
+		["places", ["b_xx", "", "", "", "", "", "", "", "", ""], "places", e10],
+		["places", ["b_sr"], "places", e10],
 		["tally", 99, "tally", 12],
 		["tally", 3.5, "tally", 0],
 		["tally", "9", "tally", 0],
@@ -441,6 +687,11 @@ func test_p07_save_load() -> void:
 		check(JSON.stringify(got) == JSON.stringify(b[3]), "malformed %s=%s -> %s (got %s)" % [b[0], b[1], b[3], got])
 		if b[0] != "tally":
 			check(int(r5(t).state.tally) == 5, "malformed %s leaves the tally alone" % b[0])
+	var du: Dictionary = base.duplicate(true)
+	du.rooms.R05.unsaid = ["chair", "bogus", "chair", "towel", "soup"]
+	var tu := GameSim.new()
+	tu.from_dict(du)
+	check(r5(tu).state.unsaid == ["chair", "towel"], "unsaid notices: silent ids only, deduped")
 	var d2: Dictionary = base.duplicate(true)
 	d2.rooms.R05.amend = {"count": "+7", "name": "ADA", "status": "present"}
 	var t2 := GameSim.new()
@@ -492,6 +743,7 @@ func test_p09_refusals() -> void:
 		check(REJECT in says(ev) and r.tape == REJECT and int(r.state.board_count) == 8, "overwrite %d: rejected, 8 back" % (8 + d))
 		check(has_ev(ev, "sfx", "reject_tape") and has_ev(ev, "fx", "count_reset") and "The eight's put itself back." in says(ev),
 			"overwrite %d: tape and reset" % (8 + d))
+		check(says(ev).ends_with(ORIGINAL_STANDS), "overwrite %d: the empty amendment row is pointed out" % (8 + d))
 		check(tokens_recoverable(g), "overwrite: tokens kept")
 	var stamp_line := func() -> String: return says(g.dispatch("stamp"))
 	check(stamp_line.call() == "The amendment isn't finished. It wants a count, a name and a status.", "blank amendment")
@@ -578,7 +830,9 @@ func test_p09_success() -> void:
 	var nb: Array = g.state.notebook.duplicate()
 	ev = g.dispatch("stamp")
 	check(says(ev) == STAMPED and ev.size() == 1 and snap(g) == before and g.state.notebook == nb, "a repeat stamp changes nothing")
-	check(says(g.dispatch("look_duplicate")) == "Fogged. I have the copy.", "the duplicate, fogged")
+	ev = g.dispatch("look_duplicate")
+	check(says(ev) == "Rook's board swings on its hinges. Behind it, the other one. I have the copy." and has_ev(ev, "fx", "board_toggle"),
+		"the board swings")
 	check(r.fog_pose() == "full" and r.board_swung() and r.hatch_open(), "the board swung, fogged")
 	g.dispatch("back")
 	check(says(g.dispatch("shift_board")) == "Fogged from inside the wall. My copy's in the notebook.", "the board after P09")
@@ -674,8 +928,10 @@ func test_evidence_ids() -> void:
 	g.dispatch("back")
 	ev = g.dispatch("work_card")
 	check(g.has_seen(ROOM, "nora_work_card"), "nora_work_card on the first look")
-	check(says(ev) == "A work card, stamped CALIBRATION 18 OCT 1927. A trace of her breathing: two short rises, a pause, one long rise.",
-		"the work card line")
+	check(says(ev) == "A work card, stamped CALIBRATION 18 OCT 1927. A trace of her breathing.", "the work card line")
+	for id in ["nora_work_card", "card_breath"]:
+		var o: String = R05Sim.OBSERVATIONS[id].to_lower()
+		check(not "two short" in o and not "one long" in o and not "pause" in o, "%s: no transcript of the rhythm" % id)
 	var obj := r.objective()
 	var flags_before: Dictionary = g.state.flags.duplicate()
 	ev = g.dispatch("menu_note")
@@ -713,7 +969,13 @@ func test_escalation() -> void:
 		g.dispatch("go:R06")
 		var ev := g.dispatch("go:R05")
 		var a: String = NOTICE_A[t]
-		check(R05Sim.NOTICE_LINES[a] in says(ev) and has_ev(ev, "fx", "notice_" + a), "tide %d: %s plays on arrival" % [t, a])
+		if R05Sim.NOTICE_SILENT.has(a):
+			check(not R05Sim.NOTICE_LINES[a] in says(ev) and has_ev(ev, "fx", "notice_" + a)
+				and has_ev(ev, "sfx", R05Sim.NOTICE_SILENT[a]) and a in r.state.unsaid, "tide %d: %s plays silent on arrival" % [t, a])
+			ev = g.dispatch("chair" if a == "chair" else "towel")
+			check(says(ev) == R05Sim.NOTICE_LINES[a] and not a in r.state.unsaid, "tide %d: %s said on the first click" % [t, a])
+		else:
+			check(R05Sim.NOTICE_LINES[a] in says(ev) and has_ev(ev, "fx", "notice_" + a), "tide %d: %s plays on arrival" % [t, a])
 		check(r.has_seen(R05Sim.NOTICE_OBS[a]), "tide %d: %s noted" % [t, a])
 		for i in R05Sim.NOTICES_A.find(a):
 			check(R05Sim.NOTICES_A[i] in r.state.notices, "tide %d: older %s retired" % [t, R05Sim.NOTICES_A[i]])
@@ -736,7 +998,7 @@ func test_escalation() -> void:
 	check(r5(j).band() == 4, "band 4 by flags")
 	j.dispatch("go:R06")
 	var je := j.dispatch("go:R05")
-	check(R05Sim.NOTICE_LINES.chair in says(je) and "soup" in r5(j).state.notices, "chair plays; soup is retired unplayed")
+	check(has_ev(je, "fx", "notice_chair") and "soup" in r5(j).state.notices, "chair plays; soup is retired unplayed")
 	check(not r5(j).has_seen("soup_line"), "the retired notice wrote nothing")
 	# Band 5: the spoon lifts once per visit, leaving a close-up.
 	var s := game_at(7, ROOM)
@@ -935,7 +1197,8 @@ func test_use_item() -> void:
 	var g := fresh()
 	var lens := "Four rivets. And N.B. scratched small in one corner of the patch."
 	check(use(g, "inspection_lens", "unsigned_bowl") == lens and r5(g).has_seen("lens_patch"), "the lens on the patch")
-	check(use(g, "inspection_lens", "place_9") == lens, "the lens on the square place")
+	check(use(g, "inspection_lens", "place_9") == lens, "the lens on the door place")
+	check(use(g, "inspection_lens", "place_10") == "Plain linen. No dent, no thread pulled. Nobody ever sat here.", "the lens on the rack place")
 	check(use(g, "inspection_lens", "slot_3", "c_table") == lens, "the lens in c_table")
 	check(use(g, "inspection_lens", "work_card", "kitchen") == "It isn't ink. It's a pressure line, pressed into the card.", "lens on the card")
 	check(use(g, "inspection_lens", "ledger", "kitchen") == "Her hand. One soft pencil all through.", "lens on the book")
@@ -978,7 +1241,10 @@ func test_ledger() -> void:
 	check(says(g.dispatch("page_next")) == "Blank. Ruled for days nobody's written yet.", "blank again")
 	g.dispatch("page_prev")
 	g.dispatch("page_prev")
-	check("Portions served: 9" in says(g.dispatch("left_page")), "the left page reads aloud")
+	var lp := says(g.dispatch("left_page"))
+	check("Portions served: 9" in lp, "the left page reads aloud")
+	check("Whoever has the night watch sits by the door, so he can leave first." in lp, "the night-watch margin line")
+	check("Whoever has the night watch sits by the door, so he can leave first." in R05Sim.OBSERVATIONS.nora_ledger, "noted in nora_ledger")
 	check("Cup, mine, mended 3 Feb." in says(g.dispatch("right_page")), "the right page reads aloud")
 	check(r.ledger_page(2).left.is_empty(), "no 1931 page before band 3")
 	var b3 := game_at(5, ROOM)

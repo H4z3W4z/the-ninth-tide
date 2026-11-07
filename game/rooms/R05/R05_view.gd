@@ -39,8 +39,10 @@ const HOTSPOTS := [
 	["place_6", Rect2(838, 500, 104, 196), "Place 6"],
 	["place_7", Rect2(950, 500, 104, 196), "Place 7"],
 	["place_8", Rect2(1062, 500, 104, 196), "Place 8"],
-	["place_9", Rect2(1174, 500, 104, 196), "Place 9"],
+	["place_9", Rect2(1174, 500, 104, 196), "Place 9, by the door"],
+	["place_10", Rect2(164, 704, 108, 176), "Place 10, by the rack"],
 	["bowl_stack", Rect2(30, 474, 124, 190), "Bowl rack"],
+	["chair", Rect2(1176, 700, 156, 200), "His chair"],
 	["to_kitchen", Rect2(1352, 330, 80, 130), "Kitchen ▸"],
 ]
 ## View B, the kitchen.
@@ -55,6 +57,8 @@ const KITCHEN_HOTSPOTS := [
 	["range", Rect2(170, 440, 400, 420), "Range"],
 	["to_mess", Rect2(30, 720, 100, 140), "◂ Mess"],
 ]
+## The hatch exits lead down to the lower passage.
+const EXIT_ARROWS := {"R07": "down", "R08": "down"}
 const EXIT_RECTS := {
 	"R02": Rect2(20, 922, 250, 64),
 	"R07": Rect2(282, 922, 250, 64),
@@ -72,7 +76,8 @@ const TABLE_CONTROLS := [
 	["place_6", Rect2(810, 170, 124, 200), "Place 6"],
 	["place_7", Rect2(946, 170, 124, 200), "Place 7"],
 	["place_8", Rect2(1082, 170, 124, 200), "Place 8"],
-	["place_9", Rect2(1226, 200, 112, 280), "Place 9, the square"],
+	["place_9", Rect2(1226, 200, 112, 280), "Place 9, by the door"],
+	["place_10", Rect2(118, 384, 136, 182), "Place 10, by the rack"],
 	["slot_0", Rect2(110, 640, 104, 150), "Rack"],
 	["slot_1", Rect2(222, 640, 104, 150), "Rack"],
 	["slot_2", Rect2(334, 640, 104, 150), "Rack"],
@@ -107,9 +112,9 @@ const BOARD_CONTROLS := [
 	["count_down", Rect2(700, 616, 72, 68), "PRESENT ◂"],
 	["look_count", Rect2(788, 604, 100, 90), "PRESENT"],
 	["count_up", Rect2(904, 616, 72, 68), "PRESENT ▸"],
-	["f_count", Rect2(320, 730, 150, 96), "Count"],
-	["f_name", Rect2(490, 730, 330, 96), "Name"],
-	["f_status", Rect2(840, 730, 210, 96), "Status"],
+	["f_count", Rect2(320, 730, 150, 96), "Amend: count"],
+	["f_name", Rect2(490, 730, 330, 96), "Amend: name"],
+	["f_status", Rect2(840, 730, 210, 96), "Amend: status"],
 	["look_rule", Rect2(300, 850, 760, 110), "Placard"],
 	["socket_pantry", Rect2(1110, 140, 140, 190), "Socket, pantry half"],
 	["socket_bunk", Rect2(1260, 140, 140, 190), "Socket, bunk half"],
@@ -121,7 +126,7 @@ const BOARD_CONTROLS := [
 ]
 ## Only after P09: the second board behind the first.
 const BOARD_CONTROLS_AFTER := [
-	["look_duplicate", Rect2(340, 100, 720, 620), "The board behind"],
+	["look_duplicate", Rect2(340, 100, 720, 620), "Rook's board, on hinges"],
 ]
 
 ## Base levels for one-shots (dB), and the sudden ones "Soften sudden sounds" turns down.
@@ -132,7 +137,8 @@ const SFX_DB := {"bowl_lift": -14.0, "bowl_set": -12.0, "bowl_rack": -13.0, "tal
 	"token_seat": -10.0, "token_pull": -12.0, "socket_turn": -9.0, "socket_jam": -11.0,
 	"seal_click": -13.0, "stamp_thud": -6.0, "stamp_locked": -11.0, "reject_tape": -12.0,
 	"board_hinge": -9.0, "pencil_copy": -14.0, "fog_creep": -12.0, "hatch_unlatch": -7.0,
-	"kettle_tick": -16.0, "card_flutter": -18.0, "steam_wisp": -20.0}
+	"kettle_tick": -16.0, "card_flutter": -18.0, "steam_wisp": -20.0, "chair_scrape": -13.0,
+	"towel_drip": -15.0}
 const SFX_SOFT := ["compare_pull", "drawer_unlatch", "count_reset", "socket_jam", "stamp_thud",
 	"board_hinge", "hatch_unlatch"]
 
@@ -212,6 +218,29 @@ const FOG_ROWS := 6
 const FOG_ROW_H := 103.0
 const FOG_ROW_T := 0.8
 const SEAL_X := [1148.0, 1250.0, 1352.0]
+## The amendment row on the front board, under TULL, and the stamp ink it is struck in.
+const STRIP_RECT := Rect2(336, 570, 420, 36)
+const STAMP_INK := Color("8a3b2a")
+const ROOK_BROWN := Color("5b3a24")
+const SLANT := 0.22
+const WELL_IDS := ["f_count", "f_name", "f_status"]
+
+# P07's second blank and the door end (tools/art/rooms/R05.py PLACE10_A / PLACE10_C)
+const PLACE10_A := Vector2(218, 772)
+const PLACE10_C := Vector2(186, 470)
+
+# glances: a reward seen in the room view, from a close-up
+const GLANCE_RISE := 0.6
+const GLANCE_HOLD := 2.5
+const GLANCE_DROP := 0.25
+const GLANCE_SPOON_LIFT := 18.0
+const GLANCE_HATCH_LEN := 2.6
+## a_window_eye_b7v2's upper lid (tools/art/rooms/R05.py eye_lids()): its 1 px drift every 6 s.
+const LID_P0 := Vector2(456, 214)
+const LID_P1 := Vector2(730, 96)
+const LID_P2 := Vector2(1004, 214)
+const GLASS := Rect2(576, 126, 308, 166)
+const LID_PERIOD := 6.0
 
 # P07 / P09 beat timings (s after the click)
 const P07_FLAGS := 0.3
@@ -221,9 +250,9 @@ const P07_DOWN_END := 6.4
 const LIFT_RISE := 0.4
 const LIFT_DOWN := 2.2
 const LIFT_DOWN_END := 2.6
-const P09_SWING := 1.4
+const P09_SWING := 2.6         # board_hinge: the stamped strip reads first
 const P09_SWING_LEN := 0.8
-const P09_FOG := 6.8
+const P09_FOG := 8.0
 const P09_END := P09_FOG + FOG_ROWS * FOG_ROW_T
 
 var r: R05Sim:
@@ -261,6 +290,16 @@ var shown_spread := 0
 var turn_t := 0.0
 var turn_dir := 1
 var fog_duck := 1.0
+var dup_open := false                # the close-up's front board swung open (presentation)
+var swing_v := 0.0
+var home_t0 := -1.0                  # the eight bowls setting themselves
+var home_list: Array = []
+var glance_armed := {}               # glance id -> room-view rect, waiting for its cue
+var glance_id := ""
+var glance_rect := Rect2()
+var glance_t0 := -1.0
+var glance_dropped := false
+var glance_wait := {}                # glance id -> deadline: cued, waiting for its line to show
 
 func _ready() -> void:
 	mono = SystemFont.new()
@@ -325,6 +364,8 @@ func _band() -> int:
 
 ## "a" (the mess: room, c_table) or "b" (the kitchen: kitchen, c_ledger, c_service_board).
 func _side() -> String:
+	if glance_active():
+		return "a" if glance_id == "p07_spoon" else "b"
 	return "a" if _view() in ["room", "c_table"] else "b"
 
 func _closeup() -> bool:
@@ -402,16 +443,19 @@ func reveal_t() -> float:
 	var t := time - reveal_t0
 	return t if t < P09_END + FOG_RESTORE else -1.0
 
-## 0..1: the original board swung away on its hinge.
+## 0..1: the original board swung away on its hinge (eased in tick()).
 func swing_k() -> float:
+	return swing_v if r.board_swung() else 0.0
+
+## Where the front board wants to be: shut (its stamped strip showing) unless the reveal has
+## swung it or the player has opened it.
+func swing_target() -> float:
 	if not r.board_swung():
 		return 0.0
 	var t := reveal_t()
-	if t < 0.0:
-		return 1.0
-	if not motion:
+	if t >= 0.0:
 		return 1.0 if t >= P09_SWING else 0.0
-	return clampf((t - P09_SWING) / P09_SWING_LEN, 0.0, 1.0)
+	return 1.0 if dup_open else 0.0
 
 ## Rows of the fog revealed (0..FOG_ROWS, fractional with motion) while the reveal plays; -1 after.
 func fog_rows() -> float:
@@ -481,6 +525,9 @@ func tick(dt: float) -> void:
 			count_flip_at = -1.0
 	if compare_t0 < 0.0 or time - compare_t0 >= P07_FLAGS:
 		flags_shown = r.last_compare.duplicate()
+	var st := swing_target()
+	swing_v = move_toward(swing_v, st, dt / P09_SWING_LEN) if motion else st
+	_tick_glance()
 	shade.color = tint_color()
 	close.modulate = close_tint()
 	var dt_target := FOG_DUCK if fog_creeping() else 1.0
@@ -526,7 +573,7 @@ func _tick_audio(dt: float) -> void:
 # ---------------------------------------------------------------------------
 # hooks
 # ---------------------------------------------------------------------------
-func play_fx(id: String, _e: Dictionary) -> void:
+func play_fx(id: String, e: Dictionary) -> void:
 	if id.begins_with("notice_"):
 		_start_hold(id.substr(7))
 		return
@@ -535,8 +582,15 @@ func play_fx(id: String, _e: Dictionary) -> void:
 			compare_t0 = time
 		"p07_agree":
 			compare_t0 = time
-			spoon_t0 = time
-			spoon_beat = [P07_RISE, P07_DOWN, P07_DOWN_END]
+		"glance":
+			glance_armed[str(e.get("glance", ""))] = e.get("rect", Rect2())
+		"bowls_home":
+			home_t0 = time
+			home_list = e.get("bowls", []).duplicate()
+		"board_toggle":
+			dup_open = not dup_open
+		"board_open":
+			dup_open = true
 		"spoon_lift":
 			spoon_t0 = time
 			spoon_beat = [LIFT_RISE, LIFT_DOWN, LIFT_DOWN_END]
@@ -544,17 +598,119 @@ func play_fx(id: String, _e: Dictionary) -> void:
 			drawer_t = 0.0 if motion else 1.0
 		"p09_reveal":
 			reveal_t0 = time
+			dup_open = true
 		"reject":
 			tape_t0 = time + 0.3
 		"count_reset":
 			count_flip_at = time + 1.0
 
 func on_sfx(id: String) -> void:
+	if id.begins_with("cue_"):
+		_cue_glance(id.substr(4))
+		return
 	match id:
 		"compare_pull":
 			lever_t = 0.6
 		"stamp_thud":
 			stamp_t = 0.5
+
+# ---------------------------------------------------------------------------
+# glances: the room view, seen for a moment from a close-up
+# ---------------------------------------------------------------------------
+## Starts glance `id` (p07_spoon: the spoon at the door place lifts; p09_hatch: the kitchen's
+## hatch stands open). The room view shows over the close-up while it plays. Idempotent.
+func start_glance(id: String) -> void:
+	if glance_active() and glance_id == id:
+		return
+	glance_id = id
+	glance_rect = glance_armed.get(id, R05Sim.P07_SPOON_RECT if id == "p07_spoon" else R05Sim.P09_HATCH_RECT)
+	glance_t0 = time
+	glance_dropped = false
+	glance_armed.erase(id)
+	hold_t = 0.0
+	redraw()
+
+## The chain line each glance belongs to: the glance starts when that line is on screen.
+func _glance_line(id: String) -> String:
+	return R05Sim.P07_SPOON_LINE if id == "p07_spoon" else R05Sim.P09_HATCH_LINE
+
+## The silent cue arrived. If the line is up (or never comes within 4 s), the glance starts.
+func _cue_glance(id: String) -> void:
+	glance_wait[id] = time + 4.0
+	_poll_glance()
+
+func _poll_glance() -> void:
+	for id in glance_wait.keys():
+		var shown: bool = game != null and game.cur_text == _glance_line(id)
+		if shown or time >= float(glance_wait[id]):
+			glance_wait.erase(id)
+			start_glance(id)
+
+func glance_len() -> float:
+	if glance_id == "p07_spoon":
+		return GLANCE_RISE + GLANCE_HOLD + GLANCE_DROP + 0.5
+	return GLANCE_HATCH_LEN
+
+func glance_active() -> bool:
+	return glance_t0 >= 0.0 and time - glance_t0 < glance_len()
+
+## Seconds into the glance, or -1.
+func glance_t() -> float:
+	return time - glance_t0 if glance_active() else -1.0
+
+## The door-place spoon's lift (px) during the p07 glance. Motion off: up, still, then flat.
+func glance_spoon_lift() -> float:
+	var t := glance_t()
+	if t < 0.0 or glance_id != "p07_spoon":
+		return 0.0
+	if not motion:
+		return GLANCE_SPOON_LIFT if t < GLANCE_HOLD else 0.0
+	if t < GLANCE_RISE:
+		return GLANCE_SPOON_LIFT * smoothstep(0.0, 1.0, t / GLANCE_RISE)
+	if t < GLANCE_RISE + GLANCE_HOLD:
+		return GLANCE_SPOON_LIFT
+	return GLANCE_SPOON_LIFT * (1.0 - smoothstep(0.0, 1.0, (t - GLANCE_RISE - GLANCE_HOLD) / GLANCE_DROP))
+
+func _tick_glance() -> void:
+	if not glance_wait.is_empty():
+		_poll_glance()
+	var on := glance_active()
+	close.visible = not on
+	if not on:
+		if glance_t0 >= 0.0 and not glance_dropped and glance_id == "p07_spoon":
+			glance_dropped = true
+			_play_own("spoon_china")
+		if glance_t0 >= 0.0:
+			glance_t0 = -1.0
+			glance_id = ""
+		return
+	if glance_id == "p07_spoon" and not glance_dropped:
+		var drop_at := GLANCE_HOLD if not motion else GLANCE_RISE + GLANCE_HOLD + GLANCE_DROP * 0.8
+		if glance_t() >= drop_at:
+			glance_dropped = true
+			_play_own("spoon_china")
+
+## A one-shot the view times itself (the glance's spoon landing), at the room's level.
+func _play_own(id: String) -> void:
+	if game == null:
+		return
+	var stream := game.load_audio(id)
+	if stream == null:
+		return
+	var pl := AudioStreamPlayer.new()
+	pl.stream = stream
+	pl.volume_db = game.sfx_db(id)
+	add_child(pl)
+	pl.finished.connect(pl.queue_free)
+	pl.play()
+
+## The HUD's Back label: in the kitchen, Back goes to the mess.
+func back_label() -> String:
+	return "◂ Mess" if _view() == "kitchen" else "Back"
+
+## The arrow an exit tab carries: the hatch exits go down.
+func exit_arrow(to: String) -> String:
+	return str(EXIT_ARROWS.get(to, ""))
 
 func _start_hold(n: String) -> void:
 	var rect: Rect2 = NOTICE_FOCUS.get(n, Rect2())
@@ -584,6 +740,9 @@ func hold_active() -> bool:
 
 ## A hold belongs to the side it was raised on; leaving that side (or opening a close-up) ends it.
 func on_view_changed(_before: String) -> void:
+	if _view() == "c_service_board" and _before != "c_service_board" and reveal_t() < 0.0:
+		dup_open = false
+		swing_v = swing_target()
 	if hold_t > 0.0 and (_closeup() or _side() != hold_side):
 		hold_t = 0.0
 	if hold_t <= 0.0:
@@ -600,6 +759,7 @@ func apply_instantly() -> void:
 	flags_shown = r.last_compare.duplicate()
 	drawer_t = 1.0
 	fog_duck = 1.0
+	swing_v = swing_target()
 	room.scale = Vector2.ONE
 	room.position = Vector2.ZERO
 	zoom_k = 0.0
@@ -620,6 +780,17 @@ func reset_presentation() -> void:
 	count_flip_at = -1.0
 	turn_t = 0.0
 	fog_duck = 1.0
+	dup_open = false
+	swing_v = 0.0
+	home_t0 = -1.0
+	home_list = []
+	glance_armed = {}
+	glance_wait = {}
+	glance_t0 = -1.0
+	glance_id = ""
+	glance_dropped = false
+	if close:
+		close.visible = true
 
 func redraw() -> void:
 	room.queue_redraw()
@@ -656,6 +827,8 @@ func _controls() -> Array:
 	return []
 
 func action_at(p: Vector2) -> String:
+	if glance_active():
+		return ""   # a glance is short; it plays out
 	if hold_t > 0.0:
 		hold_t = 0.0   # a click skips the hold, and does nothing else
 		return ""
@@ -665,7 +838,7 @@ func action_at(p: Vector2) -> String:
 	return ""
 
 func hover_at(p: Vector2) -> String:
-	if hold_t > 0.0:
+	if hold_t > 0.0 or glance_active():
 		return ""
 	for h in _controls():
 		if h[1].has_point(p):
@@ -791,15 +964,46 @@ func _draw_glow() -> void:
 func _draw_top() -> void:
 	var c := top
 	if _side() == "a":
-		_chevron(c, HOTSPOTS[15][1].get_center(), true)
+		_chevron(c, _rect_of(HOTSPOTS, "to_kitchen").get_center(), true)
 	else:
 		if book_blank():
 			_tex_at(c, "b_book_blank", BOOK_BLANK_AT)
 		else:
 			_draw_lectern_pencil(c)
-		_chevron(c, KITCHEN_HOTSPOTS[8][1].get_center(), false)
+		_chevron(c, _rect_of(KITCHEN_HOTSPOTS, "to_mess").get_center(), false)
 	if hold_t > 0.0 and not motion and not _closeup():
 		_ring(c, hold_rect.grow(3), Color(PAPER_HI, 0.95), 2.0)
+	if glance_active():
+		# the glance's focus: everything else steps back a little
+		var g := glance_rect.grow(28)
+		var dim := Color(0.04, 0.06, 0.08, 0.32)
+		c.draw_rect(Rect2(0, 0, SIZE.x, g.position.y), dim)
+		c.draw_rect(Rect2(0, g.end.y, SIZE.x, SIZE.y - g.end.y), dim)
+		c.draw_rect(Rect2(0, g.position.y, g.position.x, g.size.y), dim)
+		c.draw_rect(Rect2(g.end.x, g.position.y, SIZE.x - g.end.x, g.size.y), dim)
+		if glance_id == "p07_spoon" and r.spoon_in_dent():
+			_draw_glance_spoon(c)
+
+## The door-place spoon at 2x its plate scale, lifted by the glance; its shadow stays on the cloth.
+func _draw_glance_spoon(c: CanvasItem) -> void:
+	var sid := "a_spoon_used" if r.soup_shown() else "a_spoon_dark"
+	var sp := _tex(sid)
+	if sp == null:
+		return
+	var sz := sp.get_size() * 2.0
+	var rest := SPOON_AT + sp.get_size() - Vector2(sp.get_size().x / 2.0, 0)   # bottom centre
+	var lift := glance_spoon_lift()
+	var at := Vector2(rest.x - sz.x / 2.0, rest.y - sz.y - lift)
+	var k := lift / GLANCE_SPOON_LIFT
+	if k > 0.0:
+		c.draw_texture_rect(sp, Rect2(at + Vector2(6, 8 + lift), sz), false, Color(SHADOW, 0.45 * k))
+	c.draw_texture_rect(sp, Rect2(at, sz), false)
+
+func _rect_of(table: Array, id: String) -> Rect2:
+	for h in table:
+		if h[0] == id:
+			return h[1]
+	return Rect2()
 
 # --- view A: the mess ---------------------------------------------------------------------------
 func _place_x(i: int) -> float:
@@ -808,6 +1012,8 @@ func _place_x(i: int) -> float:
 func _draw_view_a(c: CanvasItem) -> void:
 	var serif := Ink.serif()
 	_full(c, plate_a())
+	if r.plate_stage() == "b7":
+		_draw_eye(c)
 	# rain on the glass
 	var rid_ := rain_id()
 	if rid_ != "":
@@ -828,6 +1034,8 @@ func _draw_view_a(c: CanvasItem) -> void:
 	else:
 		_tex_at(c, "a_chair_tucked", CHAIR_TUCKED_AT)
 		_tex_at(c, "a_seat9_wet" if seat_wet() else "a_seat9", SEAT9_AT)
+	# place 10: the stool with its blank napkin at the rack end
+	_full(c, "a_place10")
 	# the rack: one rim per initialled bowl still in it, the patched bowl on top
 	var rack: Array = r.rack_contents()
 	var j := 0
@@ -837,11 +1045,12 @@ func _draw_view_a(c: CanvasItem) -> void:
 			j += 1
 	if "b_sq" in rack:
 		_tex_at(c, "a_bowl_sq", Vector2(44, 406))
-	# bowls at the places
-	for i in range(1, 10):
+	# bowls at the places (place 10's on its stool)
+	for i in range(1, R05Sim.PLACES + 1):
 		var b := r.place_bowl(i)
 		if b != "":
-			_tex_at(c, "a_bowl_sq" if b == "b_sq" else "a_bowl", Vector2(_place_x(i) - 48, BOWL_BASE_Y - 64))
+			var base := Vector2(_place_x(i), BOWL_BASE_Y) if i <= 9 else PLACE10_A
+			_tex_at(c, "a_bowl_sq" if b == "b_sq" else "a_bowl", base - Vector2(48, 64))
 	if r.soup_shown():
 		_tex_at(c, "a_soup_ring", SOUP_AT)
 	# the wet running along the cloth toward his place, the beads on the bowls (kept above the
@@ -853,14 +1062,12 @@ func _draw_view_a(c: CanvasItem) -> void:
 		var ini := _bowl_initials(r.place_bowl(i))
 		if ini != "":
 			_ctext(c, ini, _place_x(i), BOWL_BASE_Y - 14, 16, INK, serif)   # on the white body, under the navy band
-	# hem patches: the place marks, shape plus word for the square
+	# hem patches: the eight initialled place marks; place 9's patch is blank
 	for i in range(1, 9):
 		_ctext(c, R05Sim.PLACE_MARKS[i - 1], _place_x(i), PATCH_Y + 8, 22, INK, serif)
-	var x9 := _place_x(9)
-	c.draw_rect(Rect2(x9 - 13, PATCH_Y - 26, 26, 26), NAVY, false, 2.5)
-	_ctext(c, "square", x9, PATCH_Y + 22, 12, INK, serif)
-	# his spoon in its dent: big and dark, so a lift reads across the room
-	if r.spoon_in_dent():
+	# his spoon in its dent: big and dark, so a lift reads across the room (the glance draws it
+	# itself, larger, over everything)
+	if r.spoon_in_dent() and not (glance_active() and glance_id == "p07_spoon"):
 		var k := spoon_raise()
 		var sid := "a_spoon_used" if r.soup_shown() else "a_spoon_dark"
 		var sp := _tex(sid)
@@ -887,6 +1094,25 @@ func _draw_view_a(c: CanvasItem) -> void:
 	var n := str(int(r.state.tally))
 	_ctext(c, n, TALLY_WIN.get_center().x, TALLY_WIN.end.y - 9, _fit(n, serif, 28, TALLY_WIN.size.x - 4), INK, serif)
 
+## Band 7: the eye pressed to the window, stark (a_window_eye_b7v2). Motion on, the upper lid
+## drifts down 1 px for a moment every 6 s; motion off, it is still.
+func _draw_eye(c: CanvasItem) -> void:
+	_full(c, "a_window_eye_b7v2")
+	if not motion or fposmod(time, LID_PERIOD) >= 0.9:
+		return
+	var pts := PackedVector2Array()
+	for i in 41:
+		var t := i / 40.0
+		var q := LID_P0 * (1.0 - t) * (1.0 - t) + LID_P1 * 2.0 * t * (1.0 - t) + LID_P2 * t * t
+		q.y += 1.0
+		if GLASS.has_point(q):
+			pts.append(q)
+	if pts.size() >= 2:
+		c.draw_polyline(pts, Color("0e161c"), 7.0, true)
+	# the glazing bars stay in front
+	c.draw_rect(Rect2(725, GLASS.position.y, 10, GLASS.size.y), Ink.STORM)
+	c.draw_rect(Rect2(GLASS.position.x, 204, GLASS.size.x, 10), Ink.STORM)
+
 ## His seat under the table is wet from band 2 (before the chair is pulled out at band 4).
 func seat_wet() -> bool:
 	return _band() >= 2 and r.ending() != "sever"
@@ -895,7 +1121,7 @@ func seat_wet() -> bool:
 func wet_id() -> String:
 	if not r.condensation_shown():
 		return ""
-	return "a_wet_b%d" % clampi(_band(), 2, 7)
+	return "a_wet_b%dv2" % clampi(_band(), 2, 7)
 
 ## A soft pale ribbon of steam rising `height` px from `base`, swaying; still when Motion is off.
 func _draw_ribbon(c: CanvasItem, base: Vector2, height: float, period: float) -> void:
@@ -933,7 +1159,7 @@ func _draw_view_b(c: CanvasItem) -> void:
 		_tex_at(c, "b_board_swung", Vector2(950, 130))
 		var pose := r.fog_pose()
 		if pose in ["wiped", "dry"]:
-			_rect_text(c, R05Sim.DUPLICATE_LINE, Rect2(1004, 440, 290, 30), 15, INK, hand)
+			_rook_line(c, R05Sim.DUPLICATE_LINE, Rect2(1004, 440, 290, 30), 15, ROOK_BROWN)
 		_ctext(c, "SHIFT REGISTER", 1149, 168, 11, Color(INK, 0.8), narrow_plain)
 		if pose == "full":
 			_tex_at(c, "b_fog", Vector2(960, 140))
@@ -968,9 +1194,6 @@ func _draw_card_trace(c: CanvasItem, o: Vector2) -> void:
 	for p in pts:
 		abs_pts.append(o + p)
 	c.draw_polyline(abs_pts, INK, 2.0, true)
-	var lines := ["two short rises,", "a pause, one long rise"]
-	_ctext(c, lines[0], o.x + 55, o.y + 120, 8, INK, narrow_plain)
-	_ctext(c, lines[1], o.x + 55, o.y + 130, 8, INK, narrow_plain)
 
 ## Rook's register on the kitchen wall, small: header, the eight strips, PRESENT 8.
 func _draw_vb_board(c: CanvasItem) -> void:
@@ -1029,6 +1252,8 @@ func _mat_x(k: int) -> float:
 
 ## The plan centre of a bowl set at place k.
 func _place_centre(k: int) -> Vector2:
+	if k == 10:
+		return PLACE10_C
 	return PLAN_9 if k == 9 else Vector2(_mat_x(k) + 48.0, PLAN_Y)
 
 func _rack_centre(slot: int) -> Vector2:
@@ -1050,12 +1275,12 @@ func _draw_table(c: CanvasItem) -> void:
 	var serif := Ink.serif()
 	_full(c, "c_table")
 	_damp(c, "c_table_damp")
-	# place marks on the stitched patches
+	_full(c, "c_place10")
+	_full(c, "c_door_edge")
+	_ctext(c, "DOOR", 1409, 372, 18, PAPER_HI, narrow)
+	# place marks on the stitched patches; places 9 and 10 are blank
 	for k in range(1, 9):
 		_ctext(c, R05Sim.PLACE_MARKS[k - 1], _mat_x(k) + 62, 348, 24, INK, serif)
-	# place 9: shape plus word, side by side on its patch (the bowl sits just above it)
-	c.draw_rect(Rect2(1244, 409, 26, 26), NAVY, false, 3.0)
-	_text(c, "square", Vector2(1275, 428), 13, INK, serif)
 	# his spoon in the place-9 dent (after P07), lifting with the beat
 	if r.spoon_in_dent():
 		var k := spoon_raise()
@@ -1068,10 +1293,10 @@ func _draw_table(c: CanvasItem) -> void:
 			var s := 1.0 + 0.12 * k
 			var sz := DENT_9.size * s
 			c.draw_texture_rect(sp, Rect2(ctr - sz / 2.0, sz), false)
-	# bowls at the places
-	for k in range(1, 10):
+	# bowls at the places (the eight setting themselves are drawn in flight below)
+	for k in range(1, R05Sim.PLACES + 1):
 		var b := r.place_bowl(k)
-		if b != "":
+		if b != "" and not _homing(b):
 			_draw_plan_bowl(c, b, _place_centre(k))
 	if r.soup_shown():
 		_tex_centred(c, "c_soup", PLAN_9)
@@ -1085,10 +1310,11 @@ func _draw_table(c: CanvasItem) -> void:
 		var at := _rack_centre(maxi(home, 0))
 		_tex_centred(c, "c_shadow", at)
 		_draw_plan_bowl(c, r.held, at - Vector2(0, LIFT))
+	_draw_homing(c)
 	if r.condensation_shown():
 		_full(c, "c_condense_plan")
 		# the beads run over the bowls; the initials stay on top so they always read
-		for k in range(1, 10):
+		for k in range(1, R05Sim.PLACES + 1):
 			if r.place_bowl(k) != "":
 				_draw_plan_initials(c, r.place_bowl(k), _place_centre(k))
 		for slot in 9:
@@ -1109,6 +1335,33 @@ func _draw_table(c: CanvasItem) -> void:
 	_draw_flag(c, Vector2(1140, 870), "PORTIONS", str(flags.get("portions", "")))
 	_tex_at(c, "c_lever_down" if lever_t > 0.0 else "c_lever_up", Vector2(1310, 712))
 	_ctext(c, "COMPARE", 1370, 932, 15, PAPER_HI, narrow)
+
+## 0..1 of bowl `b`'s flight from its rack recess to its own place, or -1 when not homing.
+func _home_k(b: String) -> float:
+	if home_t0 < 0.0 or not motion:
+		return -1.0
+	var j := home_list.find(b)
+	if j < 0:
+		return -1.0
+	var t := time - home_t0 - R05Sim.HOME_STAGGER * j
+	var k := t / 0.3
+	return clampf(k, 0.0, 1.0) if k < 1.0 else -1.0
+
+func _homing(b: String) -> bool:
+	return _home_k(b) >= 0.0
+
+## The eight named bowls rising out of the rack and dropping onto their own initials, in turn.
+func _draw_homing(c: CanvasItem) -> void:
+	for b in home_list:
+		var k := _home_k(b)
+		if k < 0.0:
+			continue
+		var from := _rack_centre(R05Sim.RACK_HOME.find(b))
+		var to := _place_centre(R05Sim.SOLUTION.find(b) + 1)
+		var e := smoothstep(0.0, 1.0, k)
+		var at := from.lerp(to, e) - Vector2(0, 46.0 * sin(PI * k))
+		_tex_centred(c, "c_shadow", from.lerp(to, e))
+		_draw_plan_bowl(c, b, at)
 
 func _draw_flag(c: CanvasItem, at: Vector2, word: String, state: String) -> void:
 	if state == "":
@@ -1215,8 +1468,16 @@ func _draw_board(c: CanvasItem) -> void:
 		var nm: String = R05Sim.NAME_TILES[k]
 		_tex_at(c, "c_tile_new" if nm == "MERCER" else "c_tile", at)
 		_rect_text(c, nm, Rect2(at, Vector2(210, 66)), 22, INK, narrow)
-	# the amendment fields
+	# the amendment wells: recessed brass frames, stencilled while empty
 	var a: Dictionary = st.amend
+	for h in BOARD_CONTROLS:
+		if h[0] in WELL_IDS:
+			var wr: Rect2 = h[1]
+			c.draw_rect(wr, Ink.BRASS, false, 2.0)
+			c.draw_rect(wr.grow(-2), NAVY, false, 1.0)
+			var key: String = {"f_count": "count", "f_name": "name", "f_status": "status"}[h[0]]
+			if str(a[key]) == "" and not st.p09_complete:
+				_ctext(c, "click to set", wr.get_center().x, wr.get_center().y + 5, 14, Color(PAPER, 0.45), narrow_plain)
 	if str(a.count) != "":
 		_tex_at(c, "c_tile_small", Vector2(325, 735))
 		_rect_text(c, str(a.count).replace("-", "−"), Rect2(325, 735, 140, 86), 34, INK, serif)
@@ -1266,7 +1527,10 @@ func _draw_board_text(c: CanvasItem) -> void:
 		_text(c, R05Sim.BOARD_NAMES[k], Vector2(348, y + 31), 24, INK, hand)
 	_text(c, "PRESENT", Vector2(340, 634), 22, INK, Ink.serif())
 	if st.p09_complete:
-		_text(c, R05Sim.AMEND_INK, Vector2(340, 674), 24, WET_INK, hand)
+		# the amendment row under TULL, struck in stamp ink: Rook's eight stands above it
+		c.draw_rect(STRIP_RECT, Color(STAMP_INK, 0.08))
+		c.draw_rect(STRIP_RECT, Color(STAMP_INK, 0.9), false, 2.0)
+		_text(c, R05Sim.AMEND_INK, STRIP_RECT.position + Vector2(14, 27), 24, STAMP_INK, narrow)
 	# the count window, flipping back after an overwrite
 	var sy := 1.0
 	if count_flip_at >= 0.0 and time >= count_flip_at and time < count_flip_at + 0.3 and motion:
@@ -1275,15 +1539,18 @@ func _draw_board_text(c: CanvasItem) -> void:
 	_ctext(c, str(shown_count), 838, 666, 48, PAPER_HI, Ink.serif())
 	c.draw_set_transform_matrix(Transform2D.IDENTITY)
 
-## The board behind the board: the same header and eight names, and the line Rook never posted.
+## The board behind the board: one line, in Rook's brown ink and forward-leaning hand.
 func _draw_duplicate(c: CanvasItem, a: float) -> void:
+	_rook_line(c, R05Sim.DUPLICATE_LINE, Rect2(376, 584, 660, 44), 34, Color(ROOK_BROWN, a))
+
+## A line in Rook's hand: brown, slanted forward, centred in `rect`.
+func _rook_line(c: CanvasItem, s: String, rect: Rect2, size: int, col: Color) -> void:
 	var hand := Ink.hand()
-	var col := Color(INK, a)
-	_rect_text(c, R05Sim.BOARD_HEADER, Rect2(376, 118, 660, 46), 20, col, narrow)
-	for k in 8:
-		var y := 180.0 + 50.0 * k
-		_text(c, R05Sim.BOARD_NAMES[k], Vector2(398, y + 29), 24, col, hand)
-	_rect_text(c, R05Sim.DUPLICATE_LINE, Rect2(376, 584, 660, 44), 30, col, hand)
+	var sz := _fit(s, hand, size, rect.size.x - 16)
+	var base := rect.get_center().y + sz * 0.36
+	c.draw_set_transform_matrix(Transform2D(Vector2(1, 0), Vector2(-SLANT, 1), Vector2(SLANT * base, 0)))
+	_ctext(c, s, rect.get_center().x, base, sz, col, hand)
+	c.draw_set_transform_matrix(Transform2D.IDENTITY)
 
 ## The fog over the second board: creeping row by row during the reveal, then by fog_pose().
 func _draw_fog(c: CanvasItem) -> void:
