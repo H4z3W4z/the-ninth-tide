@@ -5744,7 +5744,7 @@
       "path": "assets/rooms/R10/c_blank_t1.png",
       "width": 40,
       "height": 60,
-      "sha256": "56f6d6bf3bde70f6874cc1a3376f3eba0b31180d03e243786afb9782da33f1bc",
+      "sha256": "b33f05ea8869cf3fec6571e4d8f8f5382b802702617ac36b9dedfaea3719fb3a",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -5753,7 +5753,7 @@
       "path": "assets/rooms/R10/c_blank_t2.png",
       "width": 40,
       "height": 60,
-      "sha256": "b534756399649e3988497f1ca6bf1f05859051b5912c77e985c8310348c0f0e2",
+      "sha256": "85e1e1ee97afa48c0835f97e3425f010b56d7df952e07b6ca75368b8010b48d6",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },

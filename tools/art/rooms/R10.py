@@ -1645,6 +1645,19 @@ def paint_c_panel(rng, lit, omit_last=False):
 def paint_c_blank(rng, pose):
     p = Pen(40, 60, rng)
     sitter_blank(p, 0, 0, 1.0, pose, soft=0.8)
+    # The close-up blank is the reveal, seen at its painted size: its turn has to read at a glance,
+    # so the retoucher's seams are drawn firmer here than on the wall photographs.
+    lay = p.layer()
+    if pose == "away":
+        lay.line([(11, 31), (26, 31)], SEPIA_DK, 1.8)            # the nape
+        lay.line([(19, 33), (19, 58)], SEPIA_DK, 1.6)            # the back seam
+        lay.arc(27.6, 17, 2.6, 3.8, 270, 450, SEPIA_DK, 1.4)     # the ear, from behind
+        lay.arc(18.5, 15.5, 9.0, 11.2, 200, 340, SEPIA, 1.4)     # the crown, seen from behind
+    elif pose == "three":
+        lay.line([(13, 31), (22, 31)], SEPIA, 1.4)
+        lay.arc(9.6, 17, 2.8, 3.4, 90, 270, SEPIA, 1.2)
+    if pose in ("away", "three"):
+        p.put(lay, 0.9)
     return p
 
 
