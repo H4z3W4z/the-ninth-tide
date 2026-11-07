@@ -53,12 +53,17 @@ const PLACARD_ADA := "It came when called.  A.M."
 const NOTE_TEXT := "If it brought you your own room, do not give it your address."
 const NOTE_SIGN := "E.V."
 const KEY_TAG := "SERVICE"
+## After Tide I (tide_done(1)) until band 3 sees it sawn down to a stump.
+const PILINGS_TEN := "Ten pilings now. I counted nine from the launch."
 
 const OBSERVATIONS := {
 	"bell": "The mooring bell's lip is under the water. The water round it doesn't move, and it makes no ripple.",
 	"bell_note": "The mooring bell rang once, low. It never moved.",
 	"line": "The mooring line runs straight down into the Sound. Something is tied to it, far below. The water shows no reflection of the line.",
 	"pilings": "Nine pilings under the jetty. From the launch I counted eight.",
+	"pilings_ten": "Ten pilings now: the tenth stands past the end of the jetty, holding nothing up. I counted nine from the launch.",
+	"tenth_piling": "The tenth piling is dry, pale oak: no weed line, no barnacles, no reflection. Nothing has ever stood on it.",
+	"sea_out": "After the boat went, the sea went out after it: mud flats to the horizon. The water round the bell stayed, standing level where the sea had been.",
 	"tenth_stump": "A tenth piling stump stands past the end of the jetty. Its reflection comes after the water moves, like all of them now.",
 	"lighthouse": "The lighthouse on the headland. Nobody is posted there. At dusk its lamp was dark.",
 	"launch_left": "The launch that brought me is just past the lighthouse. Every time I look, it is exactly there.",
@@ -260,7 +265,10 @@ func _room(action: String, ev: Array) -> void:
 		"launch": _launch(s, ev)
 		"gangway": _gangway(s, ev)
 		"pilings":
-			if n < 3:
+			if n < 3 and game.tide_done(1):
+				_observe("pilings_ten")
+				_say(ev, PILINGS_TEN)
+			elif n < 3:
 				_observe("pilings")
 				_say(ev, "Nine pilings. From the launch I counted eight.")
 			else:
@@ -268,6 +276,9 @@ func _room(action: String, ev: Array) -> void:
 		"stump":
 			if s == "A":
 				_say(ev, "A tenth stump. Still there.")
+			elif n < 3 and game.tide_done(1):
+				_observe("tenth_piling")
+				_say(ev, "The tenth piling. It holds nothing up. Every other one is weed and barnacles; this one's dry.")
 			elif n < 3:
 				_say(ev, "Nothing past the end of the jetty but water.")
 			elif n < 7:
@@ -291,7 +302,14 @@ func _room(action: String, ev: Array) -> void:
 
 func _bell(s: String, ev: Array) -> void:
 	match s:
-		"arrival", "boat", "s1", "s2":
+		"s1":
+			_observe("bell")
+			_observe("sea_out")
+			_say(ev, "The sea's gone out to the horizon. The water round the bell hasn't. It stands there, level, on its own.")
+		"s2":
+			_observe("bell")
+			_say(ev, "The sea's back, higher than it was. Round the bell it keeps to the lip, exactly.")
+		"arrival", "boat":
 			if has_seen("bell"):
 				_say(ev, "It doesn't swing. The water holds it.")
 			else:
@@ -342,6 +360,9 @@ func _launch(s: String, ev: Array) -> void:
 				_say(ev, "No reflection under it. The pilings have theirs.")
 			else:
 				_say(ev, "The cabin window's lit. Too far to make out without a lens.")
+		"s1":
+			_observe("sea_out")
+			_say(ev, "Mud where it sat. Not a keel mark in it. The sea went out after it.")
 		"s7":
 			_say(ev, "Where it sat, the water stops. Then the surface.")
 		"A":
@@ -401,7 +422,10 @@ func _lighthouse(s: String, ev: Array) -> void:
 		"boat":
 			_observe("lighthouse")
 			_say(ev, "The lighthouse. Dark. Nobody's posted there to light it.")
-		"s1", "s2", "s3":
+		"s1", "s2":
+			_observe("lighthouse")
+			_say(ev, "The lighthouse. Dark again. The storm's on it and nobody's posted there.")
+		"s3":
 			_observe("lighthouse")
 			_say(ev, "The lighthouse. Lit now. Nobody's posted there.")
 		"s4":
@@ -418,9 +442,12 @@ func _lighthouse(s: String, ev: Array) -> void:
 
 func _causeway(s: String, ev: Array) -> void:
 	match s:
-		"arrival", "boat", "s1":
+		"arrival", "boat":
 			_observe("causeway")
 			_say(ev, "The old service causeway, broken in three places. Nobody's walking out on that.")
+		"s1":
+			_observe("causeway")
+			_say(ev, "The causeway stands on bare mud now. A ladder goes down into the middle gap, into the mud.")
 		"s2", "s3":
 			_say(ev, "Rain over the causeway. The gaps look wider.")
 		"s4":
@@ -522,8 +549,12 @@ func _commit(ev: Array) -> void:
 # ---------------------------------------------------------------------------
 func _lens_launch(ev: Array) -> void:
 	if not boat_present():
-		_say(ev, "Through the lens, just water." if not state.p06_complete
-			else "The water where it sat is flat as a plate.")
+		if not state.p06_complete:
+			_say(ev, "Through the lens, just water.")
+		elif jetty_state() == "s1":
+			_say(ev, "Through the lens: mud where it sat, smooth as a plate.")
+		else:
+			_say(ev, "The water where it sat is flat as a plate.")
 		return
 	local_view = C_WINDOW
 	_sfx(ev, "lens_click")
@@ -598,11 +629,18 @@ func _use_lens(target: String, ev: Array) -> bool:
 		"pilings":
 			_say(ev, "Nine. I make it nine every time now.")
 		"stump":
-			_say(ev, "Sawn clean. Fresh wood. Nobody's sawn anything out here in years." if n >= 3 else "Water.")
+			if n >= 3:
+				_say(ev, "Sawn clean. Fresh wood. Nobody's sawn anything out here in years.")
+			elif game.tide_done(1):
+				_say(ev, "Through the lens: no saw marks, no rot, no tool marks at all. It was never put there.")
+			else:
+				_say(ev, "Water.")
 		"lighthouse":
 			if s == "A":
 				_say(ev, "Through the lens, the gallery's empty and the lamp is out.")
 			elif n == 0:
+				_say(ev, "Through the lens, the gallery's empty and the lamp is dark.")
+			elif n < 3:
 				_say(ev, "Through the lens, the gallery's empty and the lamp is dark.")
 			elif n < 5:
 				_say(ev, "Through the lens, the gallery's empty and the lamp is lit.")
@@ -617,7 +655,8 @@ func _use_lens(target: String, ev: Array) -> bool:
 			_say(ev, "Through the lens: they're writing. Left-handed." if s == "s7" else "The desk, the lamp. Nobody.")
 		"causeway":
 			_observe("causeway_ladder")
-			_say(ev, "Through the lens: a ladder goes down into the middle gap. It goes on below the water.")
+			_say(ev, "Through the lens: a ladder goes down into the middle gap. It goes on into the mud." if s == "s1"
+				else "Through the lens: a ladder goes down into the middle gap. It goes on below the water.")
 		"gangway":
 			_say(ev, "Dry oak. Everything else out here is wet.")
 		"panel":

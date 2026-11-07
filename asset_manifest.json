@@ -232,11 +232,38 @@
       "source_svg": null
     },
     {
+      "id": "R01/back_b1_mud",
+      "path": "assets/rooms/R01/back_b1_mud.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "10059aae3776574720de0cc55c426ef60a76b247a592fafa7d0e726d4229f9a0",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R01/back_b1_sea",
+      "path": "assets/rooms/R01/back_b1_sea.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "f20d7b0dfaee793164086d3961b1e81b4fbfbd62974aff921d8802e8e8e6e36d",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R01/back_b2",
       "path": "assets/rooms/R01/back_b2.png",
       "width": 1448,
       "height": 1086,
       "sha256": "799c80051a24ae935d05fbe9f99486e01f5b48fae17bd395209ea19f2b98c303",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R01/back_b2_high",
+      "path": "assets/rooms/R01/back_b2_high.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "7c962a6cc0b11c05ebe8284609c270e0d99372058c0abcbbf555cbc488d05afd",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -511,6 +538,15 @@
       "source_svg": null
     },
     {
+      "id": "R01/high_water",
+      "path": "assets/rooms/R01/high_water.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "f98c802166f7db13b2245a0258d5eaa5ba68c0f528909deaef4d2517010f6ac6",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R01/launch_departing",
       "path": "assets/rooms/R01/launch_departing.png",
       "width": 1448,
@@ -642,6 +678,15 @@
       "width": 1448,
       "height": 1086,
       "sha256": "09efe4fa9f009076488685eb12bce529c81dca64d0324c522673f6e662bb9004",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R01/tenth_piling",
+      "path": "assets/rooms/R01/tenth_piling.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "09c13778c968ac685f49b5e05cd004b82ece45af93da80a79d4ae099f8f0ccfa",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
