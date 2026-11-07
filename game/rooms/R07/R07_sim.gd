@@ -61,9 +61,9 @@ const JAR_LINES := {
 }
 const TIP_SFX := {"A": "slosh_a", "B": "glass_creak_b", "C": "slosh_c"}
 const TIP_LINES := {
-	"A": "It stayed level with the plumb bob. GRAVITY.",
-	"B": "It turned with the jar. JAR.",
-	"C": "It stayed square with the room, whatever the jar did. DATUM.",
+	"A": "It stayed level with the plumb bob.",
+	"B": "It turned with the jar.",
+	"C": "It stayed square with the room, whatever the jar did.",
 }
 const UNTESTED := " The socket's tag says UNTESTED. Tip it on the rack first."
 
@@ -160,9 +160,9 @@ const OBSERVATIONS := {
 	"drip_hangs": "The drop at the basin tap doesn't fall. It hangs at the spout.",
 	"reference_card": "Reference card above the socket: 'A valid sample keeps the station's own level: the brass, not the bob, not the glass.'",
 	"rack": "A tilt rack. Its cradle tips one jar through a fixed quarter-turn, and a test card draws the jar's surface against three printed lines: GRAVITY (solid), JAR (dashed), DATUM (dot-dash).",
-	"test_a": "Jar A, tipped a quarter-turn: its surface stayed on the GRAVITY line. A follows gravity.",
-	"test_b": "Jar B, tipped a quarter-turn: its surface turned with the jar, on the JAR line. B follows its jar.",
-	"test_c": "Jar C, tipped a quarter-turn: its surface stayed on the DATUM line, square with the room, whatever the jar did. C follows the datum.",
+	"test_a": "Jar A, tipped a quarter-turn: its surface stayed on the solid line.",
+	"test_b": "Jar B, tipped a quarter-turn: its surface turned with the jar, on the dashed line.",
+	"test_c": "Jar C, tipped a quarter-turn: its surface stayed on the dot-dash line, square with the room, whatever the jar did.",
 	"datum_target": "Jar C's water follows the station's datum, not gravity and not its jar. The reference socket gives a stair pressure target: 2.",
 	"lean": "When I stepped back from the socket, the water in jar C leaned toward me, held there longer than water should, and settled level with the datum again. The reading was already on the tag.",
 	"vault_door": "A steel door marked RECORDS. Latched from the far side.",
@@ -768,11 +768,12 @@ func _balance(action: String, ev: Array) -> void:
 			if state.holder == "":
 				_say(ev, "The holder's empty. Names are in the register along the bottom.")
 			else:
+				var out_name: String = state.holder
 				state.holder = ""
 				state.step = 0
 				balance_note = ""
 				_sfx(ev, "card_flick")
-				_say(ev, "Back in the register.")
+				_say(ev, holder_out_line(out_name))
 		"key_address":
 			_address(ev)
 		"key_release":
@@ -798,6 +799,10 @@ func _balance(action: String, ev: Array) -> void:
 			if not printed.is_empty():
 				line += " " + ", ".join(printed)
 			_say(ev, line)
+
+## The line when she takes a card back out of the holder: it names whose card it was.
+static func holder_out_line(n: String) -> String:
+	return "I take %s's card back out." % n.capitalize()
 
 func _place_sample(s: String, ev: Array) -> void:
 	if state.pan == s:

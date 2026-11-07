@@ -1041,6 +1041,8 @@ func _draw_view_a(c: CanvasItem) -> void:
 	var p10: bool = r.state.p10_complete
 	_full(c, plate_id())
 	_draw_sea(c, "a")
+	for id in deep_layers():
+		_full(c, id)
 	# the tank: water, the lagging reflection, then the glass and frame over both
 	var tpoly := interior(TANK_C, TANK_IN.size / 2.0, 0.0)
 	var tr := 0.0 if r.tank_mode() == "pane" else _ripple()
@@ -1115,6 +1117,20 @@ func _draw_sea(c: CanvasItem, side: String) -> void:
 	for k in [2, 3, 4, 6, 7]:
 		if t >= k:
 			_full(c, "%s_sea_b%d" % [side, k])
+
+## The room beneath the water (tools/art/rooms/R07.py), over the sea tiers in view A: the room's
+## own waterline, flat and square to the DATUM while the plumb's GRAVITY tag hangs eight degrees
+## off it (4), tide rings on the ceiling (6), the wet hand brought forward (7). Sever drains it.
+func deep_layers() -> Array:
+	var t := sea_tier()
+	var out := []
+	if t >= 4:
+		out.append("waterline")
+	if t >= 6:
+		out.append("ceiling_rings")
+	if t >= 7:
+		out.append("wall_hand")
+	return out
 
 ## The rack as the tank glass remembers it: faint, and from band 3 its ripples run the wrong way.
 func _draw_reflection(c: CanvasItem, b: int) -> void:

@@ -9,6 +9,7 @@ Writes, and only writes, assets/rooms/R07/*.png:
                       the bench stage plates (same staging)
   a_tank_glass, a_reflect_three, a_reflect_two, a_vault_ajar, a_return_unbolted,
   a_socket_tag, a_rack_salt, a_rack_salt_v2       view A overlays (RGBA, registered)
+  waterline, ceiling_rings, wall_hand   view A, "the room beneath the water" (bands 4, 6, 7)
   a_sea_b2/b3/b4/b6/b7, a_sea_b6_slot, a_lamp, a_lamp_low, a_lamp_patch_s6/s7,
   b_sea_b2/b3/b4/b6/b7, b_lamp_low, b_lamp_patch_s6/s7
                       the lab taking on water by band (see "the sea comes in")
@@ -2431,6 +2432,166 @@ def hand_shape(p, cx, cy, s, col):
     p.ell(cx - 46 * s, cy - 18 * s, 6 * s, 6 * s, col, None)
 
 
+# ----------------------------------------------------------------------------- the room beneath the water
+#
+# w3 overlays for view A, laid over the sea tiers (the view draws them after _draw_sea):
+#
+#   waterline        band >= 4: the room's own water, flat and square to the DATUM at 60% of the
+#                    tiled wall's height (measured down from the frieze to the skirting). Below it
+#                    the tiles stand in storm navy and their grout breaks into refracted, offset
+#                    segments; a few drips run from the porthole down the STAIR door. Masked to the
+#                    tiles, so the tank, socket, rack, basin and doors keep their own paint, and
+#                    the view draws the jars, the plumb and every label over it. The datum rail,
+#                    its ticks and the plumb's bob all sit above the line.
+#   ceiling_rings    band >= 6: tide rings spreading across the ceiling and the limewash frieze
+#   wall_hand        band 7: the wet handprint by the basin (a_sea_b7's, same place and 1.5x),
+#                    brought forward as a stark storm-navy silhouette with a navy contour
+
+WATER_Y = int(round(WALL_TOP + 0.6 * (SKIRT["a"] - WALL_TOP)))   # 545
+WATER_LINE_H = 8
+SUBMERGED = mix(mix(WALL[5], SEAGLASS_HI, 0.25), STORM, 0.4)     # the tiles under the water
+REFRACT_ROW = 22                          # one refraction strip: the grout shifts strip by strip
+REFRACT_AMP = 12.0
+STAIR_TAG_BOX = (54, 356, 150, 394)       # the view's STAIR plate: drips keep off it
+# Drips from the porthole: (x, run end y). They come off the sill and run down the STAIR leaf.
+PORT_DRIPS = ((40, 478), (162, 532), (70, 330), (128, 318))
+
+
+def _refract_dx(rng, k):
+    return REFRACT_AMP * math.sin(k * 2.3 + 0.6) + rng.uniform(-3.0, 3.0)
+
+
+def paint_waterline():
+    rng = rng_for(870)
+    top = WATER_Y + WATER_LINE_H
+    below = tile_mask("a", top)
+    im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    # the submerged field: an over of storm-navy tile at 88% (the plate's straight grout drowns
+    # under it), then each tile again in its own tone, shifted strip by strip
+    field = Pen(W, H, rng)
+    field.rect(-4, top, W + 4, SKIRT["a"] + 2, SUBMERGED, None)
+    f = field.done()
+    f.putalpha(f.getchannel("A").point(lambda v: v * 88 // 100))
+    im.alpha_composite(_apply_mask(f, below))
+    tones = {}
+    grid = Pen(W, H, rng)
+    rows = []
+    y, k = top, 0
+    while y < SKIRT["a"]:
+        rows.append((y, min(SKIRT["a"], y + REFRACT_ROW), _refract_dx(rng, k)))
+        y += REFRACT_ROW
+        k += 1
+    dk, hi = mix(SUBMERGED, STORM, 0.35), mix(SUBMERGED, SEAGLASS_HI, 0.35)
+    for y0, y1, dx in rows:
+        for i in range(-1, W // G + 2):
+            ty = (y0 - DADO_Y) // G
+            if (i, ty) not in tones:
+                t = rng.uniform(-1, 1)
+                tones[(i, ty)] = mix(SUBMERGED, dk, t * 0.45) if t > 0 else mix(SUBMERGED, hi, -t * 0.4)
+            grid.rect(i * G + dx, y0, (i + 1) * G + dx, y1, tones[(i, ty)], None)
+        # the dado rail, refracted with its strip
+        if y0 < DADO_Y + 8 and y1 > DADO_Y - 8:
+            grid.rect(-4 + dx, max(y0, DADO_Y - 8), W + 4 + dx, min(y1, DADO_Y + 8), mix(SEAGLASS, STORM, 0.4), None)
+            for ry in (DADO_Y - 8, DADO_Y + 8):
+                if y0 <= ry <= y1:
+                    grid.line([(-4 + dx, ry), (W + 4 + dx, ry)], INK, 2.2)
+        # vertical grout: the same joints, shifted with the strip
+        for i in range(-1, W // G + 2):
+            x = i * G + dx
+            grid.line([(x, y0), (x, y1)], INK, 3.0)
+        # horizontal grout falling in this strip: broken per tile, each piece a little off
+        for gy in range(DADO_Y + G, SKIRT["a"], G):
+            if y0 <= gy < y1:
+                for i in range(-1, W // G + 2):
+                    dy = rng.choice((-3, -2, 0, 2, 3))
+                    grid.line([(i * G + dx + 5, gy + dy), ((i + 1) * G + dx - 5, gy + dy)], INK, 3.0)
+    g = grid.done()
+    g.putalpha(g.getchannel("A").point(lambda v: v * 9 // 10))
+    im.alpha_composite(_apply_mask(g, below))
+    # the line: flat, sea-glass, its sheen above and a navy contour under
+    p = Pen(W, H, rng_for(871))
+    p.rect(-4, WATER_Y, W + 4, WATER_Y + WATER_LINE_H, SEA_LINE, None)
+    p.line([(-4, WATER_Y + 1.2), (W + 4, WATER_Y + 1.2)], PAPER_HI, 2.4)
+    p.line([(-4, WATER_Y + WATER_LINE_H + 0.5), (W + 4, WATER_Y + WATER_LINE_H + 0.5)], INK, 2.4)
+    im.alpha_composite(_apply_mask(p.done(), tile_mask("a", WATER_Y - 1, WATER_Y + WATER_LINE_H + 2)))
+    # the porthole drips: runs down the STAIR leaf from the sill, a drop at each end
+    cx, cy, r = PORTHOLE
+    sill = cy + r + 14
+    d = Pen(W, H, rng_for(872))
+    run = mix(SEAGLASS, STORM, 0.3)
+    for x, y1 in PORT_DRIPS:
+        wd = 5.5 if y1 > 400 else 4.2
+        d.rect(x - wd / 2, sill - 2, x + wd / 2, y1, run, None, r=wd / 2)
+        d.line([(x + wd / 2, sill + 2), (x + wd / 2, y1 - 3)], INK, 1.2)
+        d.line([(x - wd / 2 + 1.0, sill + 2), (x - wd / 2 + 1.0, y1 - 4)], PAPER_HI, 1.2)
+        d.ell(x, y1 + 2, wd * 1.15, wd * 1.4, SEAGLASS_HI, INK, 1.3)
+    for x in (88, 108):                       # beads hanging on the sill's lip
+        d.ell(x, sill + 3, 2.6, 3.2, SEAGLASS_HI, INK, 1.2)
+    dr = d.done()
+    keep = Image.new("L", (W, H), 255)
+    ImageDraw.Draw(keep).rectangle(STAIR_TAG_BOX, fill=0)
+    im.alpha_composite(_apply_mask(dr, keep))
+    return im
+
+
+# (cx, cy, rx, ry): tide rings centred on the ceiling, spreading over the frieze
+CEIL_RINGS = ((236, 52, 150, 52), (690, 44, 190, 58), (1060, 56, 130, 46), (1410, 48, 110, 50))
+
+
+def paint_ceiling_rings():
+    rng = rng_for(875)
+    light = Pen(W, H, rng)                    # on the storm-navy ceiling: pale rims
+    dark = Pen(W, H, rng)                     # on the limewash frieze: navy rims
+    for cx, cy, rx, ry in CEIL_RINGS:
+        for k, scale in enumerate((1.0, 0.74, 0.5, 0.28)):
+            pts = []
+            for i in range(40):
+                a = 2 * math.pi * i / 40
+                rr = scale * (1.0 + 0.05 * math.sin(a * 3 + cx) + rng.uniform(-0.02, 0.02))
+                pts.append((cx + math.cos(a) * rx * rr, cy + math.sin(a) * ry * rr))
+            wd = 3.2 - k * 0.5
+            light.poly(pts, None, SEAGLASS_HI, wd)
+            dark.poly(pts, None, STORM, wd)
+    im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ceil = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(ceil).rectangle((0, 0, W, 45), fill=255)
+    frieze = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(frieze).rectangle((0, 59, W, 97), fill=255)
+    lt = light.done()
+    lt.putalpha(lt.getchannel("A").point(lambda v: v * 7 // 10))
+    dk = dark.done()
+    dk.putalpha(dk.getchannel("A").point(lambda v: v * 85 // 100))
+    im.alpha_composite(_apply_mask(lt, ceil))
+    im.alpha_composite(_apply_mask(dk, frieze))
+    return im
+
+
+def paint_wall_hand():
+    p = Pen(W, H, rng_for(878))
+    hand_shape(p, A_HAND[0], A_HAND[1], 1.5, STORM)
+    h = p.done()
+    h.putalpha(h.getchannel("A").point(lambda v: v * 82 // 100))
+    rim = Pen(W, H, rng_for(879))
+    hand_shape(rim, A_HAND[0], A_HAND[1], 1.5, INK)
+    ra = rim.done().getchannel("A")
+    edge = ImageChops.subtract(ra.filter(ImageFilter.MaxFilter(5)), ra)
+    ink = Image.new("RGBA", (W, H), INK + (0,))
+    ink.putalpha(edge.point(lambda v: v * 8 // 10))
+    im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    im.alpha_composite(h)
+    im.alpha_composite(ink)
+    # the wet sheen down two fingers and the palm's heel
+    s = Pen(W, H, rng_for(880))
+    cx, cy = A_HAND
+    for dx, top in ((-7, -54), (8, -52)):
+        s.line([(cx + (dx - 2) * 1.5, cy + top * 1.5 + 8), (cx + (dx - 2) * 1.5, cy - 8)], SEAGLASS_HI, 1.6)
+    s.arc(cx, cy + 21, 30, 36, 200, 250, SEAGLASS_HI, 1.8)
+    sh = s.done()
+    sh.putalpha(sh.getchannel("A").point(lambda v: v * 7 // 10))
+    im.alpha_composite(sh)
+    return _apply_mask(im, tile_mask("a"))
+
+
 def wall_lamp_low(p, cx, cy, drop):
     """wall_lamp() on the same wall mount, its arm let out so the shade hangs `drop` px lower."""
     p.rect(cx - 9, cy - 88, cx + 9, cy - 62, BRASS_LO, INK, 2.2, r=3)
@@ -2556,6 +2717,9 @@ ASSETS = [  # name, seed index, painter, opaque, grain
     ("a_sea_b6", 83, lambda r: paint_sea_b6("a"), False, False),
     ("a_sea_b6_slot", 84, lambda r: paint_sea_b6_slot(), False, False),
     ("a_sea_b7", 85, lambda r: paint_sea_b7("a"), False, False),
+    ("waterline", 100, lambda r: paint_waterline(), False, False),
+    ("ceiling_rings", 101, lambda r: paint_ceiling_rings(), False, False),
+    ("wall_hand", 102, lambda r: paint_wall_hand(), False, False),
     ("a_lamp", 86, lambda r: paint_lamp(False), False, False),
     ("a_lamp_low", 87, lambda r: paint_lamp(True), False, False),
     ("a_lamp_patch_s6", 88, lambda r: paint_lamp_patch("a", 6), False, False),
