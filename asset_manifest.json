@@ -5065,6 +5065,15 @@
       "source_svg": null
     },
     {
+      "id": "R07/ceiling_rings",
+      "path": "assets/rooms/R07/ceiling_rings.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "6049f394c4835a6f1172ae2d5d8c5349587e668829c36108fc06a000edf89ded",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R07/jar_back",
       "path": "assets/rooms/R07/jar_back.png",
       "width": 88,
@@ -5214,6 +5223,24 @@
       "width": 1448,
       "height": 1086,
       "sha256": "54347fec1891e3ae00caa70d0bb3ed6df25838a51db65e20e998b4c117c05ec6",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R07/wall_hand",
+      "path": "assets/rooms/R07/wall_hand.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "6ad47094b0b2fec402c4405190d76691a190cde0cfc0c4bef91bdd2578ae93c8",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R07/waterline",
+      "path": "assets/rooms/R07/waterline.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "528494a391690a5458f4707048e7e73f1c6b1880d834551f4b30a106cafa1e34",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },

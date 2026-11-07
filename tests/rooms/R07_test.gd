@@ -14,9 +14,9 @@ const VIEW_PATH := "res://game/rooms/R07/R07_view.gd"
 ## Reference tables written from the cards, independent of R07Sim's constants.
 const REF_RULE := {"A": "gravity", "B": "jar", "C": "datum"}
 const REF_TIP := {
-	"A": "It stayed level with the plumb bob. GRAVITY.",
-	"B": "It turned with the jar. JAR.",
-	"C": "It stayed square with the room, whatever the jar did. DATUM.",
+	"A": "It stayed level with the plumb bob.",
+	"B": "It turned with the jar.",
+	"C": "It stayed square with the room, whatever the jar did.",
 }
 ## A jar tipped to 90 degrees: where its surface lies against the room.
 const REF_DEG := {"A": -8.0, "B": 90.0, "C": 0.0}
@@ -79,10 +79,13 @@ func run_tests() -> void:
 	test_w2_lines()
 	test_w2_glances()
 	test_w2_no_printed_answers()
+	test_w3_visual_results()
+	test_w3_holder_names()
 	if _view_ready():
 		await view_checks(ROOM)
 		await test_view_scene()
 		await test_w2_view()
+		await test_w3_view()
 	else:
 		print("SKIP: R07 view_checks and scene test: the R07 view does not yet declare rects for every sim hotspot (view team)")
 
@@ -381,13 +384,13 @@ func test_p13_resets() -> void:
 	check(int(r.state.step) == 0 and r.state.holder == "HART", "swapping the holder resets the step")
 	play(g, ["key_address"])
 	var ev := g.dispatch("holder")
-	check(int(r.state.step) == 0 and r.state.holder == "" and says(ev) == "Back in the register.", "removing the card resets")
+	check(int(r.state.step) == 0 and r.state.holder == "" and says(ev) == "I take Hart's card back out.", "removing the card resets, and names it")
 	g.dispatch("reg_bell")
 	play(g, ["key_address"])
 	g.dispatch("pan")
 	check(int(r.state.step) == 0 and r.state.pan == "", "removing the sample resets")
 	check(says(g.dispatch("pan")) == "The pan's empty.", "the pan's empty")
-	check(says(g.dispatch("holder")) == "Back in the register." and says(g.dispatch("holder")) == "The holder's empty. Names are in the register along the bottom.",
+	check(says(g.dispatch("holder")) == "I take Bell's card back out." and says(g.dispatch("holder")) == "The holder's empty. Names are in the register along the bottom.",
 		"the holder's empty")
 	check(not g.has_item("nora_register_card"), "selecting never gives the card")
 
@@ -1173,4 +1176,61 @@ func test_w2_view() -> void:
 	lt = v.loop_targets()
 	check(linear_to_db(lt["r07_tank_hum"]) <= -13.99, "the close-up duck is kept (-4 dB)")
 	r.local_view = "room"
+	await free_scene(scene)
+
+# ---------------------------------------------------------------------------------------------
+# w3: the tip result is seen, not named; taking a card out is never silent
+# ---------------------------------------------------------------------------------------------
+func test_w3_visual_results() -> void:
+	for j in R07Sim.JARS:
+		var line: String = R07Sim.TIP_LINES[j]
+		for w in ["GRAVITY", "JAR.", "DATUM", "follows"]:
+			check(not line.contains(w), "tip line %s names no answer: %s" % [j, w])
+	var obs: Dictionary = R07Sim.OBSERVATIONS
+	check(obs.test_a.ends_with("its surface stayed on the solid line."), "test_a ends on the solid line")
+	check(obs.test_c.ends_with("square with the room, whatever the jar did."), "test_c ends square with the room")
+	for k in ["test_a", "test_b", "test_c"]:
+		for w in ["A follows gravity.", "C follows the datum.", "follows its jar."]:
+			check(not obs[k].contains(w), "%s names no rule: %s" % [k, w])
+	check(R07Sim.OBSERVATIONS.rack.contains("GRAVITY (solid), JAR (dashed), DATUM (dot-dash)"),
+		"the test card keeps its three printed lines")
+
+func test_w3_holder_names() -> void:
+	for n in REF_NAMES:
+		var g := balance_game()
+		var r := r07(g)
+		play(g, ["smp_n", "reg_" + n.to_lower(), "key_address"])
+		var ev := g.dispatch("holder")
+		var want: String = "I take %s's card back out." % (n.substr(0, 1) + n.substr(1).to_lower())
+		check(says(ev) == want, "removing %s names it (got %s)" % [n, says(ev)])
+		check(has_ev(ev, "sfx", "card_flick"), "removing %s is heard" % n)
+		check(r.state.holder == "" and int(r.state.step) == 0, "removing %s empties the holder" % n)
+		check(not g.has_item("nora_register_card"), "removing %s gives nothing" % n)
+
+func test_w3_view() -> void:
+	var scene = new_scene("user://room_test_R07_w3.json")
+	await process_frame
+	scene.room_jump(ROOM, 2)
+	await process_frame
+	var v: RoomView = scene.room_view
+	# tide t opens band t-2; R07 is reachable from tide 4 (band 2)
+	var want := {4: [], 5: [], 6: ["waterline"], 7: ["waterline"], 8: ["waterline", "ceiling_rings"],
+		9: ["waterline", "ceiling_rings", "wall_hand"]}
+	for t in range(4, 10):
+		scene.sim.debug_tide(t, ROOM)
+		await process_frame
+		var r := scene.room_sim() as R07Sim
+		var got: Array = v.deep_layers()
+		check(JSON.stringify(got) == JSON.stringify(want[t]), "tide %d (band %d): deep layers %s (got %s)" % [t, r.band(), want[t], got])
+		for id in got:
+			check(v._tex(id) != null, "%s loads" % id)
+		if r.band() >= 4:
+			check(v.plumb_deg() == R07Sim.GRAVITY_DEG and R07Sim.GRAVITY_DEG == -8.0,
+				"band %d: the GRAVITY tag hangs eight degrees off the square waterline" % r.band())
+	# every hotspot rect is unchanged by the water
+	for id in R07Sim.HOTSPOTS:
+		check(v.hotspot_rect(id).size.x > 0.0, "hotspot %s keeps its rect under the water" % id)
+	scene.sim.finish("sever")
+	await process_frame
+	check(v.deep_layers().is_empty(), "sever drains the room")
 	await free_scene(scene)
