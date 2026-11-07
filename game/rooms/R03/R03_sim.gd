@@ -337,9 +337,13 @@ func load_state(d: Variant) -> void:
 				state.plan_misplaced.append(t)
 	var notes = d.get("notices")
 	if notes is Array:
+		# Saved order is kept: it records which change she met first.
+		var known := []
 		for n in NOTICES:
-			if n[0] in notes:
-				state.notices.append(n[0])
+			known.append(n[0])
+		for n in notes:
+			if n is String and n in known and not n in state.notices:
+				state.notices.append(n)
 	_derive()
 
 ## Make the local arrangement agree with the completion flags.

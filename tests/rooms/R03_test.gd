@@ -27,6 +27,7 @@ func run_tests() -> void:
 	test_p21_actions()
 	test_p21_gates_and_outputs()
 	test_save_load()
+	test_notice_order_survives()
 	test_reconcile_keeps_flags()
 	test_notices()
 	test_sea_low_and_knot()
@@ -778,6 +779,36 @@ func test_save_load() -> void:
 	check(b.flag("P03") and b.flag("P04") and b.flag("P05") and b.flag("P21"), "and set their flags")
 	check(b.value("p05_trace").size() <= 3, "a trace is frozen for a loaded P05")
 
+## The notices keep the order she met them in, through a save, not NOTICES' order.
+func test_notice_order_survives() -> void:
+	var g := stage(6)
+	check(g.flag("P19"), "stage 6 is after P19")
+	var r := r3(g)
+	g.dispatch("plan_wall")
+	r.state.plan_tiles = R03Sim.PLAN_ANSWER.duplicate()
+	g.dispatch("plan_fix")
+	g.dispatch("back")
+	check(g.flag("P21") and "n_b6" in r.state.notices, "P21 solved, n_b6 met")
+	var b := roundtrip(g)
+	# stage() sets other rooms' flags without deriving their state, so R03's dict is compared here
+	# and the whole save from the first load on.
+	check(JSON.stringify(b.to_dict().rooms.R03) == JSON.stringify(g.to_dict().rooms.R03),
+		"a save after P19/P21 loads to the identical R03 dict")
+	check(JSON.stringify(roundtrip(b).to_dict()) == JSON.stringify(b.to_dict()), "and the whole save is a fixed point")
+	check(r3(b).state.notices == r.state.notices, "notice order kept (%s)" % [r3(b).state.notices])
+	# An order unlike NOTICES' own survives, with junk, doubles and non-strings dropped in place.
+	var d := g.to_dict()
+	var met: Array = r.state.notices.duplicate()
+	met.reverse()
+	var dirty: Array = met.duplicate()
+	dirty.insert(1, "zzz")
+	dirty.insert(2, 7)
+	dirty.append(met[0])
+	d.rooms.R03.notices = dirty
+	b = GameSim.new()
+	check(b.from_dict(JSON.parse_string(JSON.stringify(d))), "the reordered save loads")
+	check(r3(b).state.notices == met, "reversed order kept, junk dropped (%s vs %s)" % [r3(b).state.notices, met])
+
 func test_reconcile_keeps_flags() -> void:
 	var g := with_flags(["P01", "P03", "P04", "P05", "P21"], ROOM)
 	var r := r3(g)
@@ -1091,13 +1122,33 @@ func test_view() -> void:
 	check(v.label_for("turn_left") == "◂ Chart wall" and v.label_for("turn_right") == "Hatch wall ▸",
 		"wall B turns to the chart wall (left) and the hatch wall (right)")
 	check(v.exits_active() and v.esc_action() == "menu" and not v.back_visible(), "walls: exits on, Esc is the menu")
+	# The turn plaques and their hover labels fit the 1448 px plate on every wall. The plaque names
+	# run up inside the plaque (as draw_hud draws them); the hover label, clamped to the right
+	# edge by the core, still fits whole beside the right plaque's edge margin.
+	var f := Ink.serif()
+	for t in v.TURN_RECTS:
+		var tr: Rect2 = v.TURN_RECTS[t]
+		check(tr.position.x >= 16 and tr.end.x <= 1448 - 16, "%s sits inside the plate" % t)
+		for w in ["A", "B", "C"]:
+			r.wall = w
+			var dest: String = R03Sim.TURNS[w][t]
+			var nw := f.get_string_size(v.WALL_NAMES[dest], HORIZONTAL_ALIGNMENT_LEFT, -1, 19).x
+			check(nw <= tr.size.y - 52 - 8, "wall %s %s: '%s' (%d px) fits up its plaque" % [w, t, v.WALL_NAMES[dest], nw])
+			var lw := f.get_string_size(v.label_for(t), HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x + 20
+			check(lw <= tr.position.x - 16 or t == "turn_left", "wall %s %s: hover '%s' (%d px) fits left of the plaque when clamped" % [w, t, v.label_for(t), lw])
+			check(lw <= 1448 - 32, "wall %s %s: hover label fits the plate" % [w, t])
+	r.wall = "B"
 	# The notice hold: input ignored except a click, which skips it.
 	r.wall = "C"
 	v.play_fx("notice", {"notice": "n_p04"})
 	check(v.holding(), "a notice starts a hold")
 	check(v.hover_at(Vector2(700, 600)) == "" and not v.exits_active() and v.esc_action() == "",
 		"during the hold, hover, exits and Esc are ignored")
-	check(v.action_at(Vector2(700, 600)) == "" and not v.holding(), "a click skips the hold and does nothing else")
+	check(v.action_at(Vector2(700, 600)) == "" and v.action_at(v.TURN_RECTS.turn_left.get_center()) == ""
+		and v.holding(), "during the hold, action_at answers nothing and is pure")
+	check(v.consume_click(Vector2(700, 600)) and not v.holding(), "a click skips the hold and does nothing else")
+	check(not v.consume_click(Vector2(700, 600)), "with no hold, a click is not consumed")
+	check(v.action_at(v.TURN_RECTS.turn_left.get_center()) == "turn_left", "after the skip, clicks act again")
 	v.play_fx("notice", {"notice": "n_b7"})
 	for i in 120:
 		v.tick(1.0 / 60.0)

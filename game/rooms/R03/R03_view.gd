@@ -603,11 +603,18 @@ func on_sfx(id: String) -> void:
 func _wall_list() -> Array:
 	return WALL_HOTSPOTS.get(r3.wall, HOTSPOTS)
 
+## Core hook, asked before any hit test: a click during a notice hold skips the hold and does
+## nothing else.
+func consume_click(_p: Vector2) -> bool:
+	if not holding():
+		return false
+	hold_id = ""
+	hold_t = -1.0
+	return true
+
+## Pure: answers nothing while a notice holds; the click itself is consume_click's.
 func action_at(p: Vector2) -> String:
-	if holding():
-		# A click skips the hold and does nothing else.
-		hold_id = ""
-		hold_t = -1.0
+	if holding() or r3 == null:
 		return ""
 	match r3.local_view:
 		"room":
