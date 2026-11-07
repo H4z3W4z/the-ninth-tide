@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
-"""Synthesize the Intake Office soundscape into assets/audio/*.wav.
+"""Synthesize the Intake Office soundscape into assets/audio/*.wav, then every room's.
 
 Standard library only, fixed seeds: the same script always produces the same
 bytes, so the WAVs are reproducible build outputs rather than opaque assets.
 Loops are made seamless by crossfading their tail into their head.
 
-    python3 tools/build_audio.py
+    python3 tools/build_audio.py           # the office set, then every room
+    python3 tools/build_audio.py R05       # one room's sounds only
+
+Room sounds: each tools/audio/rooms/<rid>.py writes assets/audio/<rid>/*.wav, using the
+shared helpers in tools/audio/common.py. Discovered by file name: adding a room's script
+never edits this file. The office set below is unchanged from the slice (byte-identical).
 """
 from __future__ import annotations
 
@@ -811,5 +816,19 @@ def main() -> None:
         write(name, fn(), peak)
 
 
+def rooms(only: list[str]) -> None:
+    import subprocess
+    import sys
+    here = Path(__file__).resolve().parent
+    for script in sorted((here / "audio" / "rooms").glob("R[0-9][0-9].py")):
+        if only and script.stem not in only:
+            continue
+        print(f"== {script.relative_to(here.parent)}", flush=True)
+        subprocess.run([sys.executable, str(script)], cwd=here.parent, check=True)
+
+
 if __name__ == "__main__":
-    main()
+    import sys
+    if len(sys.argv) == 1:
+        main()
+    rooms(sys.argv[1:])

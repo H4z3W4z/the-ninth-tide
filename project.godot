@@ -1,9 +1,9 @@
-; Intake Office asset review and P01 assembly sample.
+; The Ninth Tide: the full game (game/core/game.tscn hosts every room).
 config_version=5
 
 [application]
 config/name="The Ninth Tide"
-run/main_scene="res://game/intake_office.tscn"
+run/main_scene="res://game/core/game.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 
 [display]

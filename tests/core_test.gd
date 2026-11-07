@@ -1,0 +1,504 @@
+extends SceneTree
+## Core tests: room discovery, tides and weather, travel and the GDD traversal gates,
+## inventory, notebook, hints, saves (schema, tamper, slice migration, settings apart),
+## debug jumps, endings, and the game scene hosting rooms. Run after an import:
+##   godot --headless --path . --script tests/core_test.gd
+
+const FIXTURES := "res://tests/fixtures/rooms"
+const ALL := ["R01", "R02", "R03", "R04", "R05", "R06", "R07", "R08", "R09", "R10", "R11", "R12"]
+
+## GDD section 5 traversal topology, as undirected pairs.
+const TOPOLOGY := [["R01", "R02"], ["R02", "R03"], ["R02", "R04"], ["R02", "R05"], ["R02", "R06"],
+	["R03", "R11"], ["R05", "R07"], ["R05", "R08"], ["R07", "R10"], ["R07", "R11"], ["R09", "R11"],
+	["R11", "R12"]]
+
+## Rooms reachable from the office at the start of each tide (by real gates).
+const REACH := {
+	1: ["R01", "R02"],
+	2: ["R01", "R02", "R03", "R04"],
+	3: ["R01", "R02", "R03", "R04", "R05", "R06", "R11"],
+	4: ["R01", "R02", "R03", "R04", "R05", "R06", "R07", "R08", "R11"],
+	5: ["R01", "R02", "R03", "R04", "R05", "R06", "R07", "R08", "R09", "R11"],
+	6: ["R01", "R02", "R03", "R04", "R05", "R06", "R07", "R08", "R09", "R10", "R11"],
+	7: ["R01", "R02", "R03", "R04", "R05", "R06", "R07", "R08", "R09", "R10", "R11"],
+	8: ["R01", "R02", "R03", "R04", "R05", "R06", "R07", "R08", "R09", "R10", "R11"],
+	9: ALL,
+}
+
+var failures: Array = []
+
+func check(cond: bool, msg: String) -> void:
+	if not cond:
+		failures.append(msg)
+		push_error(msg)
+
+func says(ev: Array) -> String:
+	var out := []
+	for e in ev:
+		if e.type == "say": out.append(e.text)
+	return " | ".join(out)
+
+func has_ev(ev: Array, type: String, id: String) -> bool:
+	for e in ev:
+		if e.type == type and e.get("id", "") == id: return true
+	return false
+
+func count_ev(ev: Array, type: String, id: String) -> int:
+	var n := 0
+	for e in ev:
+		if e.type == type and e.get("id", "") == id: n += 1
+	return n
+
+func sorted(a: Array) -> Array:
+	var b := a.duplicate()
+	b.sort()
+	return b
+
+func _initialize() -> void:
+	call_deferred("run")
+
+func run() -> void:
+	test_discovery()
+	test_topology()
+	test_reach_per_tide()
+	test_tides_and_weather()
+	test_travel()
+	test_latched_office()
+	test_inventory_and_use()
+	test_notebook_and_hints()
+	test_saves()
+	test_slice_migration()
+	test_debug_tide()
+	test_plan_travel()
+	test_endings()
+	test_events_shape()
+	await test_scene_rooms()
+	await test_scene_saves()
+	if failures.is_empty():
+		print("PASS: core — discovery, topology, gates per tide, tides and weather, travel, latched office, inventory, notebook, hints, saves, slice migration, debug jumps, plan travel, endings, events, scene rooms, scene saves")
+	else:
+		print("FAIL (%d): %s" % [failures.size(), "; ".join(failures)])
+	for i in 10:
+		await process_frame
+	quit(0 if failures.is_empty() else 1)
+
+func test_discovery() -> void:
+	check(GameSim.discover() == ALL, "discovers R01-R12 from game/rooms (got %s)" % [GameSim.discover()])
+	var g := GameSim.new()
+	for rid in ALL:
+		check(g.room(rid) != null and g.room(rid).id() == rid, "%s's ID matches its directory" % rid)
+		check(g.state.rooms.has(rid), "%s has a local state slot" % rid)
+	var f := GameSim.new(FIXTURES)
+	check(f.order == ["Z01", "Z02"], "a room is discovered from its directory alone (%s)" % [f.order])
+	check(f.start_room == "Z01", "without R02 the first room starts")
+	check(not g.rooms.has("Z01"), "fixture rooms stay out of the game")
+
+func test_topology() -> void:
+	var g := GameSim.new()
+	var pairs := []
+	for rid in g.order:
+		for e in g.exits(rid):
+			var p := [rid, e[0]]
+			p.sort()
+			if not p in pairs:
+				pairs.append(p)
+			var back := false
+			for b in g.exits(e[0]):
+				back = back or b[0] == rid
+			check(back, "%s -> %s has a way back" % [rid, e[0]])
+	pairs.sort()
+	var want := TOPOLOGY.duplicate()
+	want.sort()
+	check(pairs == want, "exits match the GDD topology (%s)" % [pairs])
+
+func test_reach_per_tide() -> void:
+	for t in REACH:
+		var g := GameSim.new()
+		g.debug_tide(t)
+		check(sorted(g.reachable("R02")) == REACH[t], "tide %d reaches %s (got %s)" % [t, REACH[t], sorted(g.reachable("R02"))])
+		check(g.tide() == t, "debug_tide(%d) lands in tide %d (got %d)" % [t, t, g.tide()])
+	# Each gate, flag by flag.
+	var g := GameSim.new()
+	g.debug_enter("R02")
+	check(not g.exit_open("R02", "R03"), "chart room shut at the start")
+	g.set_flag("P01")
+	check(not g.exit_open("R02", "R03"), "the lamp alone doesn't open the corridor")
+	g.set_flag("R02.threshold")
+	check(g.exit_open("R02", "R03") and g.exit_open("R02", "R04"), "lamp + threshold open the instrument rooms")
+	check(not g.exit_open("R02", "R05") and not g.exit_open("R02", "R06"), "service door shut before P06")
+	g.set_flag("P06")
+	check(g.exit_open("R02", "R05") and g.exit_open("R02", "R06"), "P06 opens kitchen and bunks")
+	check(not g.exit_open("R03", "R11"), "hatch shut before P04")
+	g.set_flag("P04")
+	check(g.exit_open("R03", "R11"), "P04 opens the hatch onto the stair threshold")
+	check(not g.exit_open("R11", "R07") and not g.exit_open("R11", "R09"), "descent shut before P12")
+	check(not g.exit_open("R05", "R07"), "kitchen service access shut before P09")
+	g.set_flag("P09")
+	check(g.exit_open("R05", "R07") and g.exit_open("R05", "R08"), "P09 opens lab and machine room")
+	check(not g.exit_open("R07", "R11"), "the lab's stair door stays shut until P12")
+	g.set_flag("P12")
+	check(g.exit_open("R11", "R07") and g.exit_open("R07", "R11") and g.exit_open("R11", "R09"), "P12 opens the stair both ways and the gallery")
+	check(not g.exit_open("R07", "R10"), "vault shut before P15")
+	g.set_flag("P15")
+	check(g.exit_open("R07", "R10"), "P15 opens the vault")
+	check(not g.exit_open("R11", "R12"), "chamber shut before P24")
+	g.set_flag("P24")
+	check(g.exit_open("R11", "R12"), "P24 opens the chamber")
+
+func test_tides_and_weather() -> void:
+	var g := GameSim.new()
+	check(g.tide() == 1 and g.weather() == 0, "tide I, weather 0 at the start")
+	var ev: Array = []
+	g.solve("P01", ev); g.solve("P02", ev)
+	check(ev.is_empty() and g.tide() == 1, "no tide change mid-tide")
+	g.solve("P03", ev)
+	check(g.tide() == 2 and count_ev(ev, "fx", "tide") == 1 and ev[0].tide == 2, "tide I completes on P01-P03")
+	ev.clear()
+	g.solve("P03", ev)
+	check(ev.is_empty() and g.tide() == 2, "a repeated solve neither re-rewards nor re-advances")
+	check(g.weather() == 0, "Tide I complete: still the arrival weather")
+	for p in ["P04", "P05", "P06"]:
+		g.solve(p, ev)
+	check(g.tide() == 3 and g.weather() == 1, "Tide II complete: weather 1")
+	g.solve("P08", ev)
+	check(g.tide() == 3, "a later puzzle out of order doesn't skip a tide")
+	var all := GameSim.new()
+	for n in range(1, 10):
+		for p in GameSim.tide_puzzles(n):
+			all.set_flag(p)
+	check(all.tide() == 9 and all.tides_completed() == 9 and all.weather() == 7, "after IX: tide 9, weather holds at 7")
+	check(GameSim.tide_puzzles(9) == ["P25", "P26", "P27"], "tide IX is P25-P27")
+	check(g.tide_title(2) == "Tide II  ·  The Boat at the Window", "tide titles")
+
+func test_travel() -> void:
+	var g := GameSim.new()
+	g.dispatch("begin")
+	check(g.state.room == "R02" and g.state.visited == ["R02"], "begin in the office")
+	var ev := g.dispatch("go:R03")
+	check(g.state.room == "R02" and says(ev) == g.room("R03").locked_line(), "locked chart room says why")
+	check(says(ev).begins_with("The chart room door is latched"), "before the lamp: latched")
+	ev = g.dispatch("go:R01")
+	check(g.state.room == "R01" and has_ev(ev, "fx", "travel"), "the jetty is open from the start")
+	check(says(ev) == g.room("R01").c("ARRIVAL"), "arrival line on the first visit")
+	ev = g.dispatch("go:R02")
+	check(g.state.room == "R02" and says(ev) == "", "the office says nothing on a return")
+	ev = g.dispatch("go:R01")
+	check(says(ev) == "", "no arrival line the second time")
+	check(g.state.visited == ["R02", "R01"], "visited in order")
+	g.dispatch("go:R09")
+	check(g.state.room == "R01", "no travel to a room that isn't connected")
+	g.dispatch("go:R02")
+	g.dispatch("lamp")
+	check(g.room().local_view == "repair", "a close-up")
+	g.dispatch("go:R01")
+	check(g.state.room == "R02", "no travel from a close-up")
+	g.dispatch("back")
+	var s := g.room("R02") as R02Sim
+	s.state.p01_complete = true
+	s.reconcile()
+	ev = g.dispatch("go:R03")
+	check(g.state.room == "R02" and says(ev).begins_with("Two latches let go"), "after the lamp, the office keeps her")
+
+func test_latched_office() -> void:
+	var g := GameSim.new()
+	var s := g.room("R02") as R02Sim
+	s.debug_jump(3)
+	var ev := g.dispatch("go:R01")
+	check(g.state.room == "R02" and says(ev) == R02Sim.LATCHED_LINE, "seat wet: every exit is latched")
+	s.debug_jump(5)
+	check(g.flag("P01") and g.flag("R02.threshold"), "debug 5: lamp and threshold flags")
+	ev = g.dispatch("go:R04")
+	check(g.state.room == "R04" and says(ev) == g.room("R04").c("ARRIVAL"), "through the corridor to the listening room")
+
+func test_inventory_and_use() -> void:
+	var g := GameSim.new(FIXTURES)
+	g.dispatch("begin")
+	check(g.state.room == "Z01", "fixture start")
+	var ev := g.dispatch("item:key")
+	check(g.selected_item == "", "can't select an item she doesn't have")
+	ev = g.dispatch("shelf")
+	check(g.has_item("key") and has_ev(ev, "fx", "item_added"), "the shelf gives the key")
+	g.dispatch("shelf")
+	check(g.state.inventory == ["key"], "an item is held once")
+	g.dispatch("item:key")
+	check(g.selected_item == "key", "select the key")
+	g.dispatch("item:key")
+	check(g.selected_item == "", "select again: put it away")
+	g.dispatch("item:key")
+	ev = g.dispatch("lever")
+	check(says(ev) == GameSim.GENERIC_WRONG_USE and g.has_item("key") and g.selected_item == "",
+		"the wrong target refuses, keeps the item and lets go")
+	check(int(g.room().state.pulls) == 0, "a refused use is not also a click")
+	g.dispatch("item:key")
+	ev = g.dispatch("box")
+	check(g.room().state.box_open and not g.has_item("key"), "the key opens the box and is used up")
+	check(count_ev(ev, "fx", "tide") == 1 and g.tide() == 2, "the fixture's solves complete tide I")
+	check(g.has_seen("Z01", "box") and g.room().seen() == ["shelf", "box"], "observations in order")
+	ev = g.dispatch("go:Z02")
+	check(g.state.room == "Z02", "a REQUIRES flag opens the next room")
+	check(g.item_defs()["key"]["name"] == "Brass key" and g.item_defs()["key"]["room"] == "Z01", "item registry")
+
+func test_notebook_and_hints() -> void:
+	var g := GameSim.new(FIXTURES)
+	g.dispatch("begin")
+	var ev := g.dispatch("hint")
+	check(says(ev) == "a" and g.state.hint.level == 1, "hint ladder level 1")
+	g.dispatch("hint"); g.dispatch("hint")
+	ev = g.dispatch("hint")
+	check(says(ev) == "c", "the ladder stops at the solution")
+	g.dispatch("shelf")
+	ev = g.dispatch("hint")
+	check(says(ev) == "d", "a new objective restarts the ladder")
+	g.dispatch("notebook")
+	check(g.view == "notebook" and g.return_view == "room", "notebook")
+	ev = g.dispatch("hint")
+	check(says(ev) == "e", "hint from the notebook")
+	g.dispatch("tab:Z01")
+	check(g.nb_tab == "Z01", "notebook tabs")
+	g.dispatch("back")
+	check(g.view == "room" and g.nb_tab == "Z01", "back from the notebook")
+	g.observe("Z01", "box")
+	g.observe("Z01", "box")
+	check(g.state.notebook.count("Z01.box") == 1, "an observation is noted once")
+
+func roundtrip(g: GameSim) -> GameSim:
+	var t := GameSim.new()
+	check(t.from_dict(JSON.parse_string(JSON.stringify(g.to_dict()))), "save loads")
+	return t
+
+func test_saves() -> void:
+	var g := GameSim.new()
+	g.debug_tide(4, "R05")
+	g.dispatch("go:R07")
+	g.record("Aligned chart.")
+	var t := roundtrip(g)
+	check(JSON.stringify(t.to_dict()) == JSON.stringify(g.to_dict()), "a save round-trips exactly")
+	check(t.state.room == "R07" and t.view == "room" and t.tide() == 4, "room, view and tide survive")
+	check(t.state.trace == ["Aligned chart."], "the movement trace survives")
+	check(t.to_dict().schema == GameSim.SCHEMA and GameSim.SCHEMA == 6, "schema 6")
+	var bad := GameSim.new()
+	check(not bad.from_dict({"schema": 1}), "a flat dict with no rooms is rejected")
+	check(not bad.from_dict({"schema": 7, "rooms": {}}), "a future schema is rejected")
+	check(not bad.from_dict("junk") and not bad.from_dict([1, 2]), "junk rejected")
+	var d: Dictionary = JSON.parse_string(JSON.stringify(g.to_dict()))
+	d.flags["P99"] = true
+	d.flags["X01.y"] = true
+	d.flags["P05"] = "yes"
+	d.inventory = ["nothing", 3]
+	d.notebook = ["R02.coat", "R02.nope", "Q.x", 4]
+	d.room = "R77"
+	d.visited = ["R01", "R77", 5]
+	bad.from_dict(d)
+	check(not bad.flag("P99") and not bad.flag("X01.y") and bad.flag("P04"), "unknown flags are dropped, real ones kept")
+	check(not bad.flag("P05"), "a non-bool flag is dropped")
+	check(bad.state.inventory.is_empty(), "unknown items are dropped")
+	check(bad.state.notebook == ["R02.coat"], "unknown observations are dropped (%s)" % [bad.state.notebook])
+	check(bad.state.room == "R02", "an unknown room falls back to the office")
+	check(not "R77" in bad.state.visited, "unknown visited rooms are dropped")
+	# Settings are saved apart from the story and survive a restart.
+	var s := GameSim.new()
+	s.dispatch("menu"); s.dispatch("toggle_motion"); s.dispatch("toggle_soft")
+	check(not s.to_dict().has("settings") and s.settings_dict() == {"motion": false, "soft_audio": true}, "settings apart")
+	s.dispatch("resume"); s.dispatch("begin"); s.dispatch("restart")
+	check(s.view == "title" and not s.settings.motion, "a restart keeps the settings")
+	var u := GameSim.new()
+	u.load_settings({"motion": "no", "soft_audio": true})
+	check(u.settings.motion and u.settings.soft_audio, "malformed settings are ignored")
+	# Derived flags follow the rooms that own them.
+	var e: Dictionary = JSON.parse_string(JSON.stringify(GameSim.new().to_dict()))
+	e.started = true
+	e.flags = {"P01": true}
+	var v := GameSim.new()
+	v.from_dict(e)
+	check(not v.flag("P01"), "P01 without the office's lamp is not restored")
+
+func test_slice_migration() -> void:
+	var slice := {"schema": 5, "started": true, "supply_on": true, "bridge_installed": true,
+		"p01_complete": true, "log_read": true, "seen": ["lamp", "handwriting", "nope"],
+		"motion": false, "soft_audio": true, "drawer_dial": [1, 8, 0, 0], "hint_level": 2}
+	var g := GameSim.new()
+	check(g.from_dict(slice), "a slice save (schema 5) loads")
+	var s := g.room("R02") as R02Sim
+	check(g.state.started and g.state.room == "R02" and g.view == "room", "migrated into the office")
+	check(s.state.p01_complete and s.state.log_read and g.flag("P01"), "slice progress and P01 carried over")
+	check(s.state.drawer_dial == [1, 8, 0, 0], "local state carried over")
+	check(s.seen() == ["lamp", "handwriting"], "observations carried, unknown dropped")
+	check(not g.settings.motion and g.settings.soft_audio, "slice settings carried over")
+	check(g.state.visited == ["R02"], "the office counts as visited")
+	var m := GameSim.migrate_slice({"schema": 5, "started": false})
+	check(m.progress.schema == GameSim.SCHEMA and m.progress.visited.is_empty(), "migrate_slice output shape")
+	check(not GameSim.new().from_dict({"schema": 4, "started": true}), "pre-slice saves are still rejected")
+
+func test_debug_tide() -> void:
+	for t in range(1, 10):
+		var g := GameSim.new()
+		g.debug_tide(t)
+		check(g.tide() == t and g.state.started and g.view == "room" and g.state.room == "R02", "debug_tide %d" % t)
+		var s := g.room("R02") as R02Sim
+		check(s.state.finished == (t >= 2), "tide %d: the office chain is behind her iff t >= 2" % t)
+		var r := roundtrip(g)
+		check(r.tide() == t and r.state.visited == g.state.visited, "debug_tide %d survives a save" % t)
+	var g := GameSim.new()
+	g.debug_tide(5, "R09")
+	check(g.state.room == "R09" and "R09" in g.state.visited, "debug_tide lands in the named room")
+	g.debug_enter("R12")
+	check(g.state.room == "R12" and g.flag("P12") and not g.flag("P24"), "debug_enter ignores gates, keeps flags")
+
+func test_plan_travel() -> void:
+	var g := GameSim.new()
+	g.debug_tide(5)
+	g.state.visited = ["R02", "R03", "R07"]
+	g.dispatch("notebook")
+	check(g.flag("P05"), "P05 is set by tide V")
+	g.dispatch("plan:R07")
+	check(g.state.room == "R07" and g.view == "room", "plan travel to a visited, reachable room")
+	g.dispatch("notebook")
+	g.dispatch("plan:R09")
+	check(g.state.room == "R07" and g.view == "notebook", "no plan travel to an unvisited room")
+	var h := GameSim.new()
+	h.debug_tide(2)
+	h.state.visited = ["R02", "R01"]
+	h.dispatch("notebook")
+	h.dispatch("plan:R01")
+	check(h.state.room == "R02", "no plan before P05")
+
+func test_endings() -> void:
+	var g := GameSim.new()
+	g.debug_tide(9, "R12")
+	g.save_checkpoint()
+	g.finish("sever")
+	check(g.view == "end" and g.state.ending == "sever" and g.state.endings_seen == ["sever"], "the severance ending")
+	var t := roundtrip(g)
+	check(t.view == "end" and t.state.ending == "sever", "an ending save reopens its card")
+	var ev := g.dispatch("return_decision")
+	check(g.view == "room" and g.state.room == "R12" and g.state.ending == "" and g.state.endings_seen == ["sever"],
+		"return to the final decision keeps the endings seen")
+	g.finish("witness")
+	check(sorted(g.state.endings_seen) == ["sever", "witness"], "both endings seen")
+	g.dispatch("new_game")
+	check(g.view == "title" and not g.state.started, "new game from the end card")
+	var bad: Dictionary = JSON.parse_string(JSON.stringify(GameSim.new().to_dict()))
+	bad.started = true
+	bad.ending = "sever"
+	var b := GameSim.new()
+	b.from_dict(bad)
+	check(b.view == "room" and b.state.ending == "", "an ending without tide VIII complete is not restored")
+
+func test_events_shape() -> void:
+	var g := GameSim.new()
+	var all: Array = []
+	all.append_array(g.dispatch("begin"))
+	for a in ["lamp", "toggle_supply", "select_b", "fit", "toggle_supply", "logbook", "back", "go:R01", "bell", "go:R02", "hint", "notebook", "back"]:
+		all.append_array(g.dispatch(a))
+	var ok := true
+	for e in all:
+		match e.type:
+			"say":
+				ok = ok and e.text is String and e.text != "" and (e.delay is float or e.delay is int) and e.story is bool
+			"sfx":
+				ok = ok and e.id is String and (e.delay is float or e.delay is int)
+			"fx":
+				ok = ok and e.id is String
+			_:
+				ok = false
+	check(ok and all.size() > 10, "every event is say/sfx/fx with its fields")
+
+# ---------------------------------------------------------------------------
+# the game scene
+# ---------------------------------------------------------------------------
+func new_scene(path: String) -> Node:
+	var scene = load("res://game/core/game.tscn").instantiate()
+	scene.save_path = path
+	scene.migrate_slice_save = false
+	GameView.remove_saves(path)
+	root.add_child(scene)
+	return scene
+
+func test_scene_rooms() -> void:
+	var scene = new_scene("user://core_scene_test.json")
+	await process_frame
+	check(scene.room_view != null and scene.room_view.rid == "R02", "the office is mounted at the title")
+	check(scene.action_at(Vector2(700, 500)) == "begin", "title click begins")
+	scene.dispatch("begin")
+	check(scene.action_at(Vector2(120, 950)) == "go:R01", "the jetty tab")
+	check(scene.action_at(Vector2(330, 560)) == "lamp", "office hotspots still answer")
+	scene.click(Vector2(120, 950))
+	await process_frame
+	check(scene.sim.state.room == "R01" and scene.room_view.rid == "R01", "travel swaps the room view")
+	check(scene.room_view.get_script().resource_path.ends_with("R01_view.gd"), "the room's own view")
+	var queued := [scene.cur_text]
+	for l in scene.lines:
+		queued.append(l.text)
+	check(scene.sim.room("R01").c("ARRIVAL") in queued, "the arrival line is on screen or next")
+	var bell: Rect2 = scene.room_view.hotspot_rect("bell")
+	check(scene.action_at(bell.get_center()) == "bell", "skeleton hotspot")
+	scene.tide_jump(9, "R12")
+	await process_frame
+	check(scene.room_view.rid == "R12" and scene.sim.tide() == 9, "tide jump mounts the chamber")
+	scene.dispatch("go:R11")
+	check(scene.room_view.rid == "R11", "R12 -> R11")
+	for rid in ["R09", "R11", "R07", "R10", "R07", "R05", "R08", "R05", "R02", "R06", "R02", "R03", "R02", "R04"]:
+		scene.dispatch("go:" + rid)
+	check(scene.room_view.rid == "R04" and scene.sim.state.room == "R04", "walked every room at tide IX")
+	scene.dispatch("hint")
+	check(scene.cur_text != "", "hint in a skeleton room")
+	scene.dispatch("notebook")
+	check(scene.action_at(scene.BACK_RECT.get_center()) == "back", "notebook Back")
+	var tabs: Array = scene._notebook_tabs()
+	check(tabs.size() >= 12 and tabs.back()[0] == "plan", "a tab per visited room, then the plan (%d)" % tabs.size())
+	scene.dispatch("tab:plan")
+	var row: Array = []
+	for r in scene._plan_rows():
+		if r[0] == "R02":
+			row = r
+	check(not row.is_empty() and scene.action_at(row[1].get_center()) == "plan:R02", "plan rows travel")
+	scene.dispatch("plan:R02")
+	await process_frame
+	check(scene.sim.state.room == "R02" and scene.room_view.rid == "R02" and scene.sim.view == "room", "plan travel mounts the office")
+	# The tide card on a tide change.
+	scene.tide_jump(1)
+	var s: R02Sim = scene.room_sim()
+	s.debug_jump(5)
+	scene.sim.set_flag("P02")
+	var ev: Array = []
+	scene.sim.solve("P03", ev)
+	scene.play_events(ev)
+	check(scene.tide_card_n == 2 and scene.tide_card_t < scene.TIDE_CARD_TIME, "the tide card shows tide II")
+	# Inventory slots (no room hands out items yet: the HUD is ready for them).
+	check(scene._inv_rect(0) == Rect2(20, 22, 140, 50) and not scene._inv_rect(5).intersects(scene.BACK_RECT), "inventory slots clear of Back")
+	GameView.remove_saves(scene.save_path)
+	scene.queue_free()
+	await process_frame
+
+func test_scene_saves() -> void:
+	var path := "user://core_save_test.json"
+	var scene = new_scene(path)
+	await process_frame
+	scene.tide_jump(4, "R07")
+	scene.dispatch("menu")
+	scene.dispatch("toggle_motion")
+	scene.dispatch("resume")
+	check(FileAccess.file_exists(path) and FileAccess.file_exists(path.get_basename() + GameView.SETTINGS_SUFFIX), "progress and settings files")
+	var again = load("res://game/core/game.tscn").instantiate()
+	again.save_path = path
+	again.migrate_slice_save = false
+	root.add_child(again)
+	await process_frame
+	check(again.sim.state.room == "R07" and again.room_view.rid == "R07" and again.sim.tide() == 4, "reload lands in the lab at tide IV")
+	check(not again.sim.settings.motion, "settings reload")
+	check(again.lines.size() + (1 if again.cur_text != "" else 0) >= 1, "a resume line is queued")
+	# A corrupt save falls back to the previous valid one.
+	scene.dispatch("go:R05")
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string("{not json")
+	f = null
+	var third = load("res://game/core/game.tscn").instantiate()
+	third.save_path = path
+	third.migrate_slice_save = false
+	root.add_child(third)
+	await process_frame
+	check(third.sim.state.started and third.sim.tide() == 4, "a corrupt save falls back to the previous one")
+	GameView.remove_saves(path)
+	for n in [scene, again, third]:
+		n.queue_free()
+	await process_frame

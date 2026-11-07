@@ -2,9 +2,13 @@ from pathlib import Path
 import json,struct,hashlib
 root=Path(__file__).resolve().parents[1]
 assets=[]
+def asset_id(p):
+ # Room assets are namespaced by room: assets/rooms/R05/plate.png -> "R05/plate".
+ rel=p.relative_to(root/'assets').parts
+ return rel[1]+'/'+p.stem if len(rel)>=3 and rel[0]=='rooms' else p.stem
 for p in sorted((root/'assets').rglob('*.png')):
  data=p.read_bytes();w,h=struct.unpack('>II',data[16:24])
- assets.append({'id':p.stem,'path':str(p.relative_to(root)),'width':w,'height':h,'sha256':hashlib.sha256(data).hexdigest(),'kind':'background' if p.parent.name=='backgrounds' else 'overlay_or_sprite','source_svg':str(p.with_suffix('.svg').relative_to(root)) if p.with_suffix('.svg').exists() else None})
+ assets.append({'id':asset_id(p),'path':str(p.relative_to(root)),'width':w,'height':h,'sha256':hashlib.sha256(data).hexdigest(),'kind':'background' if p.parent.name=='backgrounds' else 'overlay_or_sprite','source_svg':str(p.with_suffix('.svg').relative_to(root)) if p.with_suffix('.svg').exists() else None})
 m={'schema':1,'room':'R02','puzzle':'P01','canvas':[1448,1086], 'origin':'top-left','coordinates':'logical pixels','assets':assets,
  'layers':[{'id':'background','rect':[0,0,1448,1086]},{'id':'lamp_off','rect':[242,469,192,288]},{'id':'lamp_light','rect':[242,469,192,288],'visible_when':'bridge_installed AND supply_on'},{'id':'spares_tray','rect':[341,666,128,64]},{'id':'rain_0..2','rect':[0,0,1448,1086],'visible_when':'weather > 0 AND motion_enabled'}],
  'weather_states':[{'id':0,'asset':'office_arrival','story_trigger':'arrival'}, {'id':1,'asset':'office_rain','story_trigger':'P09_complete'}, {'id':2,'asset':'office_ominous','story_trigger':'P17_complete AND P18_complete'}],
