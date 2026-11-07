@@ -64,6 +64,13 @@ func with_flags(flags: Array, rid := "R02") -> GameSim:
 	g.debug_enter(rid)
 	for f in flags:
 		g.set_flag(f)
+	# The gate flags a room owns are reconciled from its own state on load: grant the state
+	# too, so a save of this fixture loads where it stands (GameSim.from_dict sends a save
+	# behind an unopened gate back to the office).
+	if g.flag("P01"):
+		g.room("R02").state.p01_complete = true
+	if g.flag("P06"):
+		g.room("R01").state.p06_complete = true
 	return g
 
 func new_scene(path: String) -> Node:

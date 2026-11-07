@@ -76,10 +76,20 @@ func run() -> void:
 	test_plan_travel()
 	test_endings()
 	test_events_shape()
+	test_objective_elsewhere()
+	test_objective_every_tide()
+	test_plan_from_closeup()
+	test_load_behind_gate()
 	await test_scene_rooms()
 	await test_scene_saves()
+	await test_inventory_paging()
+	await test_notebook_pages()
+	await test_hover_and_back()
+	await test_travel_fade()
+	await test_card_and_slab()
+	await test_placeholder()
 	if failures.is_empty():
-		print("PASS: core — discovery, topology, gates per tide, tides and weather, travel, latched office, inventory, notebook, hints, saves, slice migration, debug jumps, plan travel, endings, events, scene rooms, scene saves")
+		print("PASS: core — discovery, topology, gates per tide, tides and weather, travel, latched office, inventory, notebook, hints, saves, slice migration, debug jumps, plan travel, endings, events, objective elsewhere, objective every tide, plan from a close-up, load behind a gate, scene rooms, scene saves, inventory paging, notebook pages, hover and back, travel fade, card and slab, placeholder")
 	else:
 		print("FAIL (%d): %s" % [failures.size(), "; ".join(failures)])
 	for i in 10:
@@ -642,4 +652,305 @@ func test_scene_saves() -> void:
 	GameView.remove_saves(path)
 	for n in [scene, again, third]:
 		n.queue_free()
+	await process_frame
+
+# ---------------------------------------------------------------------------
+# w1 core fixes
+# ---------------------------------------------------------------------------
+## P02 and P03 done, standing in the listening room (nothing left there), the log not
+## re-read: "Now:" and the Hint point at the office.
+func test_objective_elsewhere() -> void:
+	var g := GameSim.new()
+	g.dispatch("begin")
+	(g.room("R02") as R02Sim).debug_jump(2)
+	g.room("R04").state.p02_complete = true
+	g.room("R03").state.p03_complete = true
+	for rid in g.order:
+		g.rooms[rid].reconcile()
+	g.dispatch("go:R04")
+	check(g.state.room == "R04" and g.tide_done(1) and not g.room("R02").state.log_rewritten, "fixture: Tide I's instruments done, in R04")
+	check(g.room().objective() == "", "the listening room has nothing to do")
+	var now := g.objective_text()
+	check(now != "" and now.begins_with("Intake Office: "), "Now: names the Intake Office (%s)" % now)
+	check(now == "Intake Office: " + g.room("R02").objective_text(), "Now: carries the office's own objective")
+	var ev := g.dispatch("hint")
+	check(says(ev) == "Something in the intake office has changed.", "hint 1: where (%s)" % says(ev))
+	check(g.state.hint["for"] == "R04:->R02", "the hint key names the room it points at")
+	ev = g.dispatch("hint")
+	check(says(ev) == g.room("R02").hint_line(0), "hint 2: the office's own first rung")
+	g.dispatch("hint")
+	ev = g.dispatch("hint")
+	check(says(ev) == g.room("R02").hint_line(2), "hint 4: the office's solution")
+	g.dispatch("go:R02")
+	ev = g.dispatch("hint")
+	check(says(ev) == g.room("R02").hint_line(0), "in the office the ladder starts over, on its own objective")
+	var z := GameSim.new(FIXTURES)
+	z.dispatch("begin")
+	check(z.objective_text() != "", "a room with its own objective keeps it")
+
+## At the start of every tide, wherever she stands, "Now:" and the Hint say something useful.
+func test_objective_every_tide() -> void:
+	for t in range(1, 10):
+		var g := GameSim.new()
+		g.debug_tide(t)
+		for rid in g.reachable(g.start_room):
+			g.debug_enter(rid)
+			var open_p := false
+			for p in GameSim.tide_puzzles(t):
+				open_p = open_p or not g.flag(p)
+			if not open_p:
+				continue
+			var now := g.objective_text()
+			check(now != "" and now != GameSim.NOTHING_HERE, "tide %d in %s: Now: is not empty (%s)" % [t, rid, now])
+			var ev := g.dispatch("hint")
+			check(says(ev) != "" and says(ev) != GameSim.NOTHING_HERE, "tide %d in %s: the Hint says something" % [t, rid])
+
+## The plan travels from a close-up: the close-up is put down first.
+func test_plan_from_closeup() -> void:
+	var g := GameSim.new()
+	g.debug_tide(5)
+	g.dispatch("lamp")
+	check(g.room().local_view != "room", "fixture: the lamp close-up is open")
+	g.dispatch("notebook")
+	var ev := g.dispatch("plan:R04")
+	check(g.state.room == "R04" and g.view == "room" and g.room().local_view == "room",
+		"plan:R04 from the lamp close-up lands in R04's room view")
+	check(g.room("R02").local_view == "room", "the office close-up was put down")
+	check(has_ev(ev, "fx", "travel"), "a travel fx")
+
+## A save standing behind a gate she hasn't opened loads in the office.
+func test_load_behind_gate() -> void:
+	var g := GameSim.new()
+	g.dispatch("begin")
+	var d: Dictionary = JSON.parse_string(JSON.stringify(g.to_dict()))
+	d.room = "R12"
+	d.visited = ["R02", "R12"]
+	var t := GameSim.new()
+	check(t.from_dict(d), "the save loads")
+	check(t.state.room == "R02", "R12 without P24 loads into the office (got %s)" % t.state.room)
+	var h := GameSim.new()
+	h.debug_tide(9, "R12")
+	check(roundtrip(h).state.room == "R12", "R12 with P24 stays in R12")
+
+## Every item in the game fits the bar: five to a page and a pager once there are more than six.
+func test_inventory_paging() -> void:
+	var scene = new_scene("user://core_inv_test.json")
+	await process_frame
+	scene.tide_jump(2)
+	await process_frame
+	var hud_rects := [scene.BACK_RECT]
+	for b in scene.HUD_BUTTONS:
+		hud_rects.append(b[1])
+	# Six items: exactly as before, no pager.
+	var defs: Dictionary = scene.sim.item_defs()
+	var ids: Array = defs.keys()
+	check(ids.size() > 6, "the game declares more than six items (%d)" % ids.size())
+	scene.sim.state.inventory.clear()
+	for i in 6:
+		scene.sim.give(ids[i])
+	var lay: Array = scene._inv_layout()
+	check(lay.size() == 6, "six items: six slots")
+	for i in 6:
+		check(lay[i][0] == GameView._slot_rect(i) and lay[i][1] == "item:" + ids[i], "six items: slot %d unchanged" % i)
+		check(scene.action_at(GameView._slot_rect(i).get_center()) == "item:" + ids[i], "six items: slot %d clicks its item" % i)
+	# All of them.
+	for id in ids:
+		scene.sim.give(id)
+	var pages: int = scene._inv_pages()
+	check(pages == ceili(float(ids.size()) / 5.0), "pages of five (%d)" % pages)
+	lay = scene._inv_layout()
+	check(lay.size() == 6 and lay[5][1] == "inv_page" and lay[5][0] == GameView._slot_rect(5), "the pager is the sixth slot")
+	var all_rects := []
+	for slot in lay:
+		check(not slot[0] in all_rects, "slot rects are unique")
+		all_rects.append(slot[0])
+		for r in hud_rects:
+			check(not slot[0].intersects(r), "slot %s clear of Back and the HUD buttons" % slot[0])
+	for id in ids:
+		var found := false
+		for k in pages + 1:
+			for slot in scene._inv_layout():
+				if slot[1] == "item:" + id and scene.action_at(slot[0].get_center()) == "item:" + id:
+					found = true
+			if found:
+				break
+			scene.click(GameView._slot_rect(5).get_center())
+		check(found, "%s is reachable by paging" % id)
+	check(scene.action_at(GameView._slot_rect(5).get_center()) == "inv_page", "the pager answers inv_page")
+	check(scene._hover_label("item:" + ids[0]) == defs[ids[0]].name, "the tooltip has the full name")
+	# Selecting keeps its page; using items up clamps the page.
+	scene.inv_page = 0
+	var last: String = ids[-1]
+	scene.dispatch("item:" + last)
+	check(scene._inv_page_shown() == pages - 1, "the selected item's page is shown")
+	scene.dispatch("item:" + last)
+	scene.inv_page = pages - 1
+	for i in range(ids.size() - 1, 5, -1):
+		scene.sim.take(ids[i])
+	await process_frame
+	check(scene._inv_page_shown() == 0 and scene.inv_page == 0 and scene._inv_layout().size() == 6, "used up: back to one page")
+	check(not scene.sim.to_dict().has("inv_page"), "the inventory page is never saved")
+	await free_scene(scene)
+
+## Every note of the office and the chart room is drawn on some page, at 17 px or more, and
+## no two overlap.
+func test_notebook_pages() -> void:
+	var scene = new_scene("user://core_nb_test.json")
+	await process_frame
+	scene.tide_jump(2)
+	var g: GameSim = scene.sim
+	for rid in ["R02", "R03"]:
+		if not rid in g.state.visited:
+			g.state.visited.append(rid)
+		for id in g.room(rid).c("OBSERVATIONS", {}):
+			g.observe(rid, id)
+	scene.dispatch("notebook")
+	var multi := false
+	for rid in ["R02", "R03"]:
+		scene.dispatch("tab:" + rid)
+		var info: Dictionary = scene._nb_pagination(rid)
+		var obs: Dictionary = g.room(rid).c("OBSERVATIONS", {})
+		var drawn := []
+		check(info.layout[0] >= 17, "%s: entries at 17 px or more (%d)" % [rid, info.layout[0]])
+		for i in info.pages.size():
+			var last: bool = i == info.pages.size() - 1
+			var flow: Dictionary = scene._notebook_flow(scene.over, obs, info.pages[i], info.layout, info.top,
+				info.bottom - (info.room_for if last else 0.0), GameView.NOTEBOOK_PAGE.position.x, false)
+			check(flow.fits, "%s page %d fits" % [rid, i + 1])
+			var rects: Array = flow.rects
+			for a in rects.size():
+				drawn.append(rects[a][0])
+				check(GameView.NOTEBOOK_PAGE.encloses(rects[a][1]), "%s %s is on the page" % [rid, rects[a][0]])
+				for b in range(a + 1, rects.size()):
+					check(not rects[a][1].intersects(rects[b][1]), "%s: %s and %s don't overlap" % [rid, rects[a][0], rects[b][0]])
+		check(sorted(drawn) == sorted(obs.keys()), "%s: every entry is on some page (%d of %d)" % [rid, drawn.size(), obs.size()])
+		if info.pages.size() > 1:
+			multi = true
+			var newest: String = g.room(rid).seen()[-1]
+			check(newest in info.pages[info.shown], "%s opens on the page with the newest entry" % rid)
+			var btns: Array = scene._nb_page_buttons()
+			check(btns.size() == 2, "%s: page buttons" % rid)
+			scene.nb_page = 0
+			check(scene.action_at(btns[1][0].get_center()) == "nbpage:next", "the next-page button")
+			scene.click(btns[1][0].get_center())
+			check(scene._nb_pagination(rid).shown == 1, "next page")
+			scene.click(btns[0][0].get_center())
+			check(scene._nb_pagination(rid).shown == 0, "previous page")
+			for b in btns:
+				check(not b[0].intersects(scene.BACK_RECT), "page buttons clear of Back")
+		scene.over.queue_redraw()
+		await process_frame
+	check(multi, "at least one of the rooms needs more than one page")
+	await free_scene(scene)
+
+## A close-up re-reads the hover; Back in a close-up is one click even while a line types.
+func test_hover_and_back() -> void:
+	var scene = new_scene("user://core_hover_test.json")
+	await process_frame
+	scene.dispatch("begin")
+	scene.hover_id = "lamp"
+	scene.dispatch("lamp")
+	check(scene.room_sim().local_view == "repair", "the lamp close-up")
+	var p: Vector2 = scene.get_global_mouse_position()
+	check(scene.hover_id == "" or scene.hover_id == scene.room_view.action_at(p),
+		"no stale room label over the close-up (%s)" % scene.hover_id)
+	scene._show_line("A long story line that is still typing itself out on the screen.", true)
+	scene._queue_line("And another after it.", 0.5, true)
+	check(scene.chain_active(), "a story line is playing")
+	scene.click(scene.BACK_RECT.get_center())
+	check(scene.room_sim().local_view == "room", "one click on Back leaves the close-up")
+	var queued := false
+	for l in scene.lines:
+		queued = queued or l.text == "And another after it."
+	check(queued or scene.cur_text == "And another after it.", "the story still queued keeps playing")
+	await free_scene(scene)
+
+## Between rooms: the old loops fade out under the game, the new ones start from silence.
+func test_travel_fade() -> void:
+	var scene = new_scene("user://core_fade_test.json")
+	await process_frame
+	scene.dispatch("begin")
+	for i in 3:
+		await process_frame
+	var old: Array = GameView._mixers_in(scene.room_view)
+	check(not old.is_empty(), "the office has loops")
+	scene.cur_text = "A feedback line."
+	scene.cur_story = false
+	scene.dispatch("go:R01")
+	check(scene.room_view.rid == "R01", "travel to the jetty")
+	for m in old:
+		check(is_instance_valid(m) and m.get_parent() == scene and not scene.world.is_ancestor_of(m),
+			"the office's mixer is handed to the game, not left under the world")
+	var fresh: Array = GameView._mixers_in(scene.room_view)
+	check(not fresh.is_empty(), "the jetty has loops")
+	for m in fresh:
+		for id in m.mix:
+			check(m.mix[id] == 0.0, "the jetty's %s starts from silence" % id)
+	check(scene.travel_dip_t == 0.0, "the storm-navy dip starts")
+	check(scene.cur_text != "A feedback line.", "the office's feedback line stays behind")
+	check(scene.came_from == "R02", "she came from the office")
+	scene._tick_fading_mixers(0.5)
+	check(scene.fading_mixers.is_empty(), "the old loops are gone after the fade")
+	scene.sim.settings.motion = false
+	scene.travel_dip_t = 5.0
+	scene.dispatch("go:R02")
+	check(scene.travel_dip_t == 5.0, "Motion off: no dip")
+	scene.sim.settings.motion = true
+	await free_scene(scene)
+
+## The tide card sits high and is brief; the subtitle slab is only up when a line is.
+func test_card_and_slab() -> void:
+	var scene = new_scene("user://core_card_test.json")
+	await process_frame
+	scene.dispatch("begin")
+	check(GameView.TIDE_CARD_RECT == Rect2(324, 120, 800, 110) and GameView.TIDE_CARD_TIME == 3.0, "card rect and time")
+	scene.tide_card_n = 2
+	for pair in [[0.0, 0.0], [0.25, 0.5], [1.5, 1.0], [2.75, 0.5], [3.0, 0.0]]:
+		scene.tide_card_t = pair[0]
+		check(absf(scene.tide_card_alpha() - pair[1]) < 0.01, "card alpha at %.2f s" % pair[0])
+	scene.sim.settings.motion = false
+	for pair in [[0.0, 1.0], [2.4, 1.0], [2.6, 0.0]]:
+		scene.tide_card_t = pair[0]
+		check(scene.tide_card_alpha() == pair[1], "Motion off: card alpha at %.1f s" % pair[0])
+	scene.sim.settings.motion = true
+	scene._reset_presentation()
+	scene.slab_a = 1.0
+	scene._queue_line("Later.", 3.0)
+	for i in 10:
+		scene.time += 0.1
+		scene._tick_lines(0.1)
+	check(scene.slab_a == 0.0 and scene.cur_text == "", "no slab while the next line is seconds away")
+	for i in 20:
+		scene.time += 0.1
+		scene._tick_lines(0.1)
+	check(scene.cur_text == "Later." and scene.slab_a > 0.0, "the slab comes up with the line")
+	await free_scene(scene)
+
+## An unbuilt room shows its card with one way back; its hotspots stay live.
+func test_placeholder() -> void:
+	var scene = new_scene("user://core_ph_test.json")
+	await process_frame
+	scene.tide_jump(3)
+	scene.dispatch("go:R05")
+	check(scene.room_view.rid == "R05" and scene.room_view.is_skeleton(), "the kitchen is a skeleton")
+	var live: Dictionary = scene.room_view.live_exit_rects()
+	check(live.keys() == ["R02"], "one exit, back to the office (%s)" % [live.keys()])
+	check(scene.action_at(live["R02"].get_center()) == "go:R02", "the way back answers")
+	var other: Rect2 = scene.room_view.exit_rects()["R06"]
+	check(scene.action_at(other.get_center()) == "", "the other exits are shut on the card")
+	var hs: Array = scene.room_view.c("HOTSPOTS")
+	check(scene.action_at(hs[0][1].get_center()) == hs[0][0], "the hotspots stay live")
+	scene.dispatch("go:R06")
+	check(scene.sim.state.room == "R06", "the sim still walks on (chain_test)")
+	check(scene.room_view.live_exit_rects().keys() == ["R05"], "the bunk room offers the way back to the kitchen")
+	var built: RoomView = load("res://game/rooms/R02/R02_view.tscn").instantiate()
+	check(not built.is_skeleton(), "a built room is not a skeleton")
+	built.free()
+	scene.over.queue_redraw()
+	await process_frame
+	await free_scene(scene)
+
+func free_scene(scene: Node) -> void:
+	GameView.remove_saves(scene.save_path)
+	scene.queue_free()
 	await process_frame

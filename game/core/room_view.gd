@@ -14,11 +14,19 @@ extends Node2D
 ##   SFX_SOFT_CUT {sfx id: dB} cut under "Soften sudden sounds" (default 12)
 ##   PALETTE     {wall, trim, floor} placeholder colours (skeleton rooms only)
 ##
-## Without overrides, this base draws the skeleton placeholder: a flat front elevation in
-## the approved palette with every hotspot as a labelled card. Exit tabs are drawn by the
-## core on the HUD layer, so they stay legible however dark the room gets.
+## A room not built yet (no <rid>_view.tscn, or a skeleton view that declares no functions
+## of its own) shows the placeholder card instead: storm navy, the room's name, "The pressure
+## gate holds. Not yet." and one exit tab, back the way she came. Its hotspots stay live and
+## legible, as stencilled plates on the field.
+## Exit tabs are drawn by the core on the HUD layer, so they stay legible however dark the
+## room gets.
 
 const SIZE := Vector2(1448, 1086)
+const PLACEHOLDER_FIELD := Color("1b2a36")
+const PLACEHOLDER_LINE := "The pressure gate holds. Not yet."
+const PLACEHOLDER_EXIT := Rect2(20, 922, 250, 64)
+
+static var _skeleton_scripts := {}   # script path -> bool
 
 var game: GameView
 var sim: RoomSim
@@ -103,6 +111,39 @@ func exits_active() -> bool:
 func exit_rects() -> Dictionary:
 	return c("EXIT_RECTS", {})
 
+## The exits the core draws and answers: all of exit_rects(), except in an unbuilt room,
+## which offers only the way back (placeholder_exit()).
+func live_exit_rects() -> Dictionary:
+	if not is_skeleton():
+		return exit_rects()
+	var to := placeholder_exit()
+	return {} if to == "" else {to: exit_rects().get(to, PLACEHOLDER_EXIT)}
+
+## True for a room that isn't built yet: the bare RoomView (no view scene), or a skeleton
+## view script that adds no functions to this one. A room team's first override ends it.
+func is_skeleton() -> bool:
+	var s: Script = get_script()
+	if s == null:
+		return true
+	var path := s.resource_path
+	if not _skeleton_scripts.has(path):
+		var base: Script = load("res://game/core/room_view.gd")
+		_skeleton_scripts[path] = s == base or \
+			s.get_script_method_list().size() <= base.get_script_method_list().size()
+	return _skeleton_scripts[path]
+
+## The placeholder's one way out: back where she came from, else the first open exit.
+func placeholder_exit() -> String:
+	var exits: Array = sim.c("EXITS", [])
+	var from: String = game.came_from if game else ""
+	for e in exits:
+		if e[0] == from:
+			return from
+	for e in exits:
+		if gsim() and gsim().exit_open(rid, e[0]):
+			return e[0]
+	return exits[0][0] if not exits.is_empty() else ""
+
 ## The room action under `p` for the room's current local view. "" = nothing.
 func action_at(p: Vector2) -> String:
 	if sim.local_view == "room":
@@ -145,7 +186,43 @@ func draw_hud(_c: Node2D) -> void:
 # the skeleton placeholder
 # ---------------------------------------------------------------------------
 func _draw() -> void:
-	draw_placeholder(self)
+	if is_skeleton():
+		draw_unbuilt(self)
+	else:
+		draw_placeholder(self)
+
+## The card an unbuilt room shows: an in-world notice, not a grey diagram. A storm-navy
+## bulkhead, the room's name and Ada's line in her hand at the head, each hotspot as a
+## brass-ruled stencilled plate (still live), and the exit tab (drawn by the core) back the
+## way she came.
+func draw_unbuilt(cv: CanvasItem) -> void:
+	cv.draw_rect(Rect2(Vector2.ZERO, SIZE), PLACEHOLDER_FIELD)
+	# Faint plate seams and rivets, so the field reads as a bulkhead rather than a blank.
+	var seam := Color(Ink.SEA_GLASS, 0.07)
+	for x in [362, 724, 1086]:
+		cv.draw_line(Vector2(x, 0), Vector2(x, SIZE.y), seam, 2.0)
+		for y in range(40, int(SIZE.y), 120):
+			cv.draw_circle(Vector2(x - 12, y), 3.0, seam)
+			cv.draw_circle(Vector2(x + 12, y), 3.0, seam)
+	cv.draw_line(Vector2(0, 228), Vector2(SIZE.x, 228), seam, 2.0)
+	cv.draw_line(Vector2(0, 880), Vector2(SIZE.x, 880), seam, 2.0)
+	var title: String = sim.c("TITLE", rid)
+	Ink.text(cv, title, Vector2(0, 120), 40, Ink.PAPER, Ink.serif(), SIZE.x)
+	cv.draw_line(Vector2(SIZE.x / 2 - 140, 146), Vector2(SIZE.x / 2 + 140, 146), Color(Ink.BRASS, 0.7), 1.5)
+	Ink.text(cv, PLACEHOLDER_LINE, Vector2(0, 192), 28, Ink.NIGHT_INK, Ink.hand(), SIZE.x)
+	var serif := Ink.serif()
+	for h in c("HOTSPOTS", []):
+		var r: Rect2 = h[1]
+		cv.draw_rect(r, Color(Ink.STORM, 0.95))
+		cv.draw_rect(r, Color(Ink.BRASS, 0.8), false, 2.0)
+		cv.draw_rect(r.grow(-8), Color(Ink.BRASS, 0.3), false, 1.0)
+		for k in [r.position + Vector2(16, 16), Vector2(r.end.x - 16, r.position.y + 16),
+				Vector2(r.position.x + 16, r.end.y - 16), r.end - Vector2(16, 16)]:
+			cv.draw_circle(k, 4.0, Color(Ink.BRASS, 0.6))
+		var size := 24 if r.size.x >= 180 else 18
+		var lines := Ink.wrapped(cv, h[2], Vector2.ZERO, size, Ink.PAPER, r.size.x - 48, false, serif)
+		Ink.wrapped(cv, h[2], Vector2(r.position.x + 24, r.get_center().y - lines / 2.0 + size), size,
+			Ink.PAPER, r.size.x - 48, true, serif)
 
 ## A flat front elevation: wall, dado rail, floor, the room's name, and each hotspot as a
 ## labelled card with an ink contour. Darkens a step per weather milestone, never so far

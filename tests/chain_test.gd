@@ -106,6 +106,12 @@ func run_tests() -> void:
 		check(g.tide() == tide, "after %s: tide %d (got %d)" % [pid, tide, g.tide()])
 		check(g.weather_band() == band, "after %s: weather band %d (got %d)" % [pid, band, g.weather_band()])
 		check(g.plan_unlocked() == g.flag("P05"), "after %s: the plan follows P05" % pid)
+		var open_p := false
+		for p in GameSim.tide_puzzles(g.tide()):
+			open_p = open_p or not g.flag(p)
+		if open_p:
+			var now := g.objective_text()
+			check(now != "" and now != GameSim.NOTHING_HERE, "after %s: Now: is never empty (%s)" % [pid, now])
 		_check_reach(pid)
 		_check_save(pid)
 	_endings()
