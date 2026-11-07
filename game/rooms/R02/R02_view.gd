@@ -103,9 +103,12 @@ const SEAT_HUSH_IN := 0.4
 const SEAT_HUSH_OUT := 3.0
 const SEAT_HUSH_LINE_AT := 6.6
 const SEAT_HUSH_LINE := "Low down. Below the sill. Where the wall goes straight down into the water."
-## Exit tabs at rest: legible, a step down from hovered, raised clear of the subtitle bar.
-## A closed exit rests at 0.6 of this.
+## The turn tab at the threshold at rest: legible, a step down from hovered.
 const TAB_REST_ALPHA := 0.8
+## The exit bar (exit tabs and the turn tab) at rest, while the cursor is elsewhere: faint,
+## so the floor, the drawers and the prints read through it. A closed exit rests at 0.6 of
+## this. The tabs still answer clicks at rest; only the drawing waits for the cursor.
+const BAR_REST_ALPHA := 0.45
 const SHADOW_COL := Color(0.02, 0.04, 0.07, 0.42)
 const PRINT_COL := Color(0.06, 0.09, 0.12)
 const PILING_COL := Color(0.07, 0.08, 0.11, 0.92)
@@ -367,6 +370,8 @@ var exhales := 0               # exhales begun since the door opened
 var fig_scale := 1.0           # the figure's scale about VP
 var go_on_said := false
 var seat_hush_t := -1.0        # seconds since the wet seat; < 0 when none
+var hud_pass_open := false     # between tick and draw_hud: the core is about to draw the exits
+var pointer_at: Variant = null # tests: a Vector2 stands in for a hovering pointer there
 
 func _ready() -> void:
 	rng.seed = 9
@@ -536,6 +541,7 @@ func _load_audio(id: String) -> AudioStream:
 # ---------------------------------------------------------------------------
 
 func tick(dt: float) -> void:
+	_open_hud_pass()
 	if office.facing != last_facing:
 		# Turning round is a cut, not a fade: the light is already where it belongs.
 		last_facing = office.facing
@@ -1047,16 +1053,35 @@ func esc_action() -> String:
 		return "menu"
 	return super.esc_action()
 
+## The exits always answer in the room: hit-testing never waits on the cursor, so a tap,
+## a driver's click or a click that lands before the pointer moves all go through. Only the
+## core's full-strength drawing of the bar waits for it: during the HUD pass (opened by tick,
+## closed by draw_hud) a bar at rest is left to draw_hud, which draws it faint.
 func exits_active() -> bool:
-	return office.local_view == "room" and _exit_bar_live()
+	if office.local_view != "room":
+		return false
+	return not hud_pass_open or _exit_bar_live()
 
-## The exit bar shows only while the cursor is on a tab (or at the bottom edge of the
-## screen): it would otherwise cover the floor, the drawers and the prints. A tap on a tab
-## still lands, because the cursor is there when it is tapped.
+## The exit bar shows at full strength only while the cursor is on a tab (or at the bottom
+## edge of the screen); the rest of the time it is faint, so it does not cover the floor,
+## the drawers and the prints.
 func _exit_bar_live() -> bool:
-	if game == null or not _has_pointer():
+	if game == null:
+		return true
+	if pointer_at is Vector2:
+		return exit_bar_live_at(pointer_at)
+	if not _has_pointer():
 		return true
 	return exit_bar_live_at(get_global_mouse_position())
+
+## The core draws the HUD after every room tick (input comes before both), and calls
+## draw_hud right after drawing the exits: the pass is open only while the core draws, and
+## only when draw_hud will close it.
+func _open_hud_pass() -> void:
+	hud_pass_open = game != null and game.sim.view == "room" and office.view == "room" and not hud_hidden()
+
+func _close_hud_pass() -> void:
+	hud_pass_open = false
 
 ## Without a hovering pointer (headless, touch screens) the bar is simply always there:
 ## there is no cursor to call it up with.
@@ -3177,6 +3202,7 @@ func _draw_report_time(c: Node2D, filed: bool) -> void:
 ## bar; full when the cursor is on one or at the bottom edge (then the core draws the exits).
 ## At the threshold only the turn tab remains, so she can always turn round.
 func draw_hud(c: Node2D) -> void:
+	_close_hud_pass()
 	if office.view == "room" and game and game.sim.view == "room":
 		if _exit_bar_live():
 			_draw_turn_tab(c, 1.0)
@@ -3195,8 +3221,8 @@ func _draw_rest_tabs(c: Node2D) -> void:
 		var r: Rect2 = exit_rects()[e[0]]
 		var open: bool = game.sim.exit_open(game.sim.state.room, e[0])
 		var label: String = ("◂ " + e[1]) if r.get_center().x < SIZE.x / 2.0 else (e[1] + " ▸")
-		_plaque(c, r, label, TAB_REST_ALPHA * (1.0 if open else 0.6), false)
-	_draw_turn_tab(c, TAB_REST_ALPHA)
+		_plaque(c, r, label, BAR_REST_ALPHA * (1.0 if open else 0.6), false)
+	_draw_turn_tab(c, BAR_REST_ALPHA)
 
 ## Ink.button with an opacity: the same plaque, faded as a whole.
 func _plaque(c: CanvasItem, rect: Rect2, label: String, a: float, active: bool, size := 19) -> void:
