@@ -62,6 +62,17 @@ const FLOAT_WELL := Rect2(996, 538, 46, 316)
 const VENN_INK := Color("1b2650")      # Venn's blue-black
 const PALE := Color(0.93, 0.95, 0.97)   # the notice frame's pale ink
 const COPPER_FILL := Color8(97, 125, 116)
+## Wall B: the pen's nib at rest on the writing platen, where the ink knot gathers.
+const PEN_NIB := Vector2(730, 404)
+const KNOT_SEED := 1931_10_17
+const KNOT_POINTS_BASE := 16
+const KNOT_POINTS_STEP := 12
+const KNOT_POINTS_MAX := 340
+## The lighthouse lantern in the window (band 0 plate), and his tide scale on the right pane.
+const LIGHTHOUSE_LAMP := Vector2(300, 312.5)
+const TIDE_SCALE := Rect2(346, 380, 36, 180)
+const MUD_Y := 500.0
+const TIDE_MARKS := [["HW", 404.0], ["LW", 458.0], ["MUD", MUD_Y]]
 
 # --- wall A: the pinned sheet, sheet-local x0.8 -----------------------------------
 const SHEET_RECT := Rect2(560, 266, 480, 448)
@@ -86,9 +97,9 @@ const UNSNAPPED := Vector2(38, 26)
 # --- c_registration ------------------------------------------------------------------
 const REG_SHEET := Rect2(424, 170, 600, 560)
 const REG_CONTROLS := [
-	["reg_base_14", Rect2(84, 170, 240, 90), "14 OCT"],
-	["reg_base_17", Rect2(84, 280, 240, 90), "17 OCT"],
-	["reg_lay", Rect2(84, 430, 240, 90), "Lay Venn's sheet"],
+	["reg_base_14", Rect2(84, 170, 240, 90), "SPARE: 14 OCT"],
+	["reg_base_17", Rect2(84, 280, 240, 90), "TABLE: 17 OCT"],
+	["reg_lay", Rect2(84, 430, 240, 90), "His sheet"],
 	["reg_example", Rect2(84, 600, 240, 260), "Example"],
 	["reg_rot_ccw", Rect2(1124, 300, 130, 90), "Turn left"],
 	["reg_rot_cw", Rect2(1274, 300, 130, 90), "Turn right"],
@@ -98,6 +109,8 @@ const REG_CONTROLS := [
 	["reg_clip", Rect2(1124, 740, 280, 100), "CLIP"],
 ]
 const REG_TABLE := Rect2(374, 130, 700, 650)
+## Where the active base sheet's date is printed, whichever sheet it is.
+const REG_DATE_TAG := Rect2(574, 94, 300, 34)
 const REG_PANEL := Rect2(1112, 282, 306, 576)
 
 # --- c_recorder ----------------------------------------------------------------------
@@ -223,7 +236,7 @@ func _load_textures() -> void:
 	for n in ["A_base", "A_composite", "A_compass_bent", "A_standing", "A_plan_body",
 			"B_base", "B_p05", "B_pen", "B_rain_a", "B_rain_b", "B_rain_c", "B_seal_broken", "B_seal_intact",
 			"B_strip", "B_window_0", "B_window_1", "B_window_2", "B_window_3", "B_window_4", "B_window_5",
-			"B_window_6", "B_window_7", "C_base", "C_hatch_open", "C_line", "C_window_7",
+			"B_window_6", "B_window_7", "B_window_t2", "C_base", "C_hatch_open", "C_line", "C_window_7",
 			"cu_plan", "cu_plan_body", "cu_plan_lid", "cu_recorder", "cu_recorder_shutter", "cu_registration",
 			"cu_seal", "cu_seal_broken", "plate_blank", "sheet_paper", "sheet_tracing", "tile_blank",
 			"A_buckle", "A_fog", "B_float", "C_rope_0", "C_rope_1", "C_rope_2", "C_beads",
@@ -844,7 +857,12 @@ func _draw_wall_b() -> void:
 	var p05 := _flag("P05")
 	if not _plate("B_base"):
 		_placeholder(WALL_HOTSPOTS_B)
-	_plate("B_window_%d" % band)
+	var low := r3.sea_low()
+	if not (low and _plate("B_window_t2")):
+		_plate("B_window_%d" % band)
+	if band == 0 and not t1x:
+		_draw_lighthouse_lit()
+	_draw_tide_scale()
 	if band >= 1 and band <= 5:
 		var frame := 0
 		if motion:
@@ -856,6 +874,7 @@ func _draw_wall_b() -> void:
 	_plate("B_seal_broken" if t1x else "B_seal_intact")
 	_draw_drum_face(self, Rect2(540, 250, 380, 120), 0, p04, band)
 	_draw_pen_text(self, Rect2(540, 250, 380, 120), 24)
+	_draw_ink_knot(self, PEN_NIB, r3.ink_knot_radius(), r3.solved_count())
 	_draw_pen(p04, band)
 	if p05:
 		_plate("B_p05")
@@ -887,6 +906,63 @@ func _draw_pen(p04: bool, band: int) -> void:
 	else:
 		draw_line(Vector2.ZERO, Vector2(0, 170), Ink.INK, 4.0)
 	draw_set_transform_matrix(Transform2D.IDENTITY)
+
+## Before the threshold, the lighthouse in the window is lit: an amber lantern and a flat halo.
+func _draw_lighthouse_lit() -> void:
+	var amber := Color8(195, 153, 89)
+	for k in 3:
+		draw_circle(LIGHTHOUSE_LAMP, 10.0 + k * 7.0, Color(amber, 0.16))
+	draw_rect(Rect2(LIGHTHOUSE_LAMP - Vector2(5, 4.5), Vector2(10, 9)), amber)
+	draw_rect(Rect2(LIGHTHOUSE_LAMP - Vector2(5, 4.5), Vector2(10, 9)), Ink.INK, false, 1.2)
+
+## His tide scale, a paper strip taped to the right pane: HW, LW and the MUD mark, with the
+## MUD mark ruled across the pane in grease pencil. At Tide II the sea lies below it.
+func _draw_tide_scale() -> void:
+	var nf := narrow()
+	var r := TIDE_SCALE
+	draw_rect(Rect2(r.position + Vector2(2, 3), r.size), Color(0, 0, 0, 0.25))
+	draw_rect(r, Color(Ink.PAPER, 0.96))
+	draw_rect(r, Ink.INK, false, 1.5)
+	var y := r.position.y + 8.0
+	while y < r.end.y - 4.0:
+		draw_line(Vector2(r.position.x, y), Vector2(r.position.x + 7, y), Ink.INK, 1.2)
+		y += 10.0
+	for m in TIDE_MARKS:
+		var my: float = m[1]
+		draw_line(Vector2(r.position.x, my), Vector2(r.end.x, my), Ink.INK, 2.0)
+		Ink.text(self, m[0], Vector2(r.position.x + 8, my - 4), 14, Ink.INK, nf, r.size.x - 8,
+			HORIZONTAL_ALIGNMENT_LEFT)
+	var x := 268.0
+	while x < r.position.x - 2:
+		var x1 := minf(x + 10, r.position.x - 2)
+		draw_line(Vector2(x, MUD_Y + 1.5), Vector2(x1, MUD_Y + 1.5), Color(Ink.PAPER, 0.8), 1.5)
+		draw_line(Vector2(x, MUD_Y), Vector2(x1, MUD_Y), Ink.INK, 2.4)
+		x += 16.0
+
+## The knot of ink at the pen's nib: one seeded scribble, its first points always the same, so
+## it only ever grows. Radius and density from the solved puzzles; flat navy ink.
+func _draw_ink_knot(cv: CanvasItem, at: Vector2, radius: float, solved: int) -> void:
+	var pts := knot_points(radius, solved)
+	var shifted := PackedVector2Array()
+	for p in pts:
+		shifted.append(at + p)
+	cv.draw_polyline(shifted, Ink.INK, 1.8, true)
+	if solved >= 3:
+		cv.draw_circle(at, radius * 0.22, Ink.INK)
+
+## The knot's polyline about (0, 0): 16 + 12 points a solved puzzle (at most 340), all within
+## `radius`. Deterministic: a fixed seed, never a clock.
+static func knot_points(radius: float, solved: int) -> PackedVector2Array:
+	var n := mini(KNOT_POINTS_BASE + KNOT_POINTS_STEP * maxi(solved, 0), KNOT_POINTS_MAX)
+	var g := RandomNumberGenerator.new()
+	g.seed = KNOT_SEED
+	var out := PackedVector2Array()
+	var a := 0.0
+	for i in n:
+		a += g.randf_range(0.7, 2.4)
+		var rr := radius * (0.2 + 0.8 * sqrt(g.randf()))
+		out.append(Vector2(cos(a), sin(a)) * rr)
+	return out
 
 ## The drum: before P04 one scribble at the same spot (and, after the threshold, her report
 ## figures); after it, rulings scrolling left with a tide line, until the drum stops at band 5.
@@ -1279,6 +1355,12 @@ func _draw_registration(cv: CanvasItem, origin: Vector2) -> void:
 			cv.draw_arc(at, 20.0, 0, TAU, 28, Color("d9b876"), 2.6)
 	if st.p03_complete:
 		_composite_curve(cv, Callable(self, "_reg_map"), VENN_INK, 5.0, comp_k)
+		# His band numbers, read through the tracing: the line runs through one of them.
+		for i in 5:
+			var at := _reg_map(Vector2(572, (BANDS_Y[i] + BANDS_Y[i + 1]) / 2.0))
+			cv.draw_circle(at, 17.0, Color(Ink.PAPER, 0.92))
+			cv.draw_arc(at, 17.0, 0, TAU, 24, Ink.INK, 1.5)
+			Ink.text(cv, str(i + 1), at + Vector2(-14, 9), 24, Ink.INK, nf, 28)
 		for p in [Vector2(424, 170), Vector2(1024, 170), Vector2(424, 730), Vector2(1024, 730)]:
 			var q: Vector2 = p + origin
 			cv.draw_circle(q + Vector2(3, 4), 10.0, Color(0, 0, 0, 0.3))
@@ -1307,11 +1389,21 @@ func _draw_reg_controls(cv: CanvasItem) -> void:
 	var nf := narrow()
 	var engraved := Color(Ink.INK, 0.9)
 	# The base-sheet rack: a sheet stands in each slot unless it is the one on the table.
-	Ink.text(cv, "BASE SHEET", Vector2(60, 162), 20, Ink.PAPER, nf, 288)
+	Ink.text(cv, "BASE SHEET", Vector2(60, 152), 20, Ink.PAPER, nf, 288)
 	for i in 2:
 		var day: String = ["14", "17"][i]
 		var r: Rect2 = REG_CONTROLS[i][1]
-		if st.reg_base != day:
+		var active: bool = st.reg_base == day
+		# The slot's engraved label, by the sheet's real id; the active slot is framed in brass.
+		if active:
+			cv.draw_rect(r.grow(4), Color("d9b876"), false, 4.0)
+			cv.draw_rect(r.grow(7), Ink.INK, false, 1.5)
+		# An engraved brass label under the slot's ledge.
+		var lab := Rect2(r.position.x + 30, r.end.y - 1, r.size.x - 60, 20)
+		cv.draw_rect(lab, Color("ecd29a") if active else Color("c49a52"))
+		cv.draw_rect(lab, Ink.INK, false, 1.5)
+		Ink.text(cv, R03Sim.REG_SLOT_LABELS[day], Vector2(lab.position.x, lab.end.y - 4), 15, Ink.INK, nf, lab.size.x)
+		if not active:
 			var sh := Rect2(r.position + Vector2(18, -6), Vector2(r.size.x - 36, r.size.y - 10))
 			cv.draw_rect(Rect2(sh.position + Vector2(4, 5), sh.size), Color(0, 0, 0, 0.35))
 			cv.draw_rect(sh, Color("d8ceb5"))
@@ -1321,17 +1413,20 @@ func _draw_reg_controls(cv: CanvasItem) -> void:
 					Color(Ink.INK, 0.25), 1.0)
 			pen_ink(cv, "%s OCT" % day, sh.position + Vector2(sh.size.x / 2.0, 30), 24, Ink.INK, 50 + i)
 		else:
-			Ink.text(cv, "on the table", r.position + Vector2(0, 52), 18, Color(Ink.PAPER, 0.75), Ink.hand(), r.size.x)
-	# His sheet: folded in the tray, or the tray empty once it is laid.
+			Ink.text(cv, "on the table", r.position + Vector2(0, 46), 18, Color(Ink.PAPER, 0.8), Ink.hand(), r.size.x)
+	# The active sheet's date, always in the same place: a brass tag on the table's top edge.
+	var tag := REG_DATE_TAG
+	cv.draw_rect(Rect2(tag.position + Vector2(3, 4), tag.size), Color(0, 0, 0, 0.35))
+	cv.draw_rect(tag, Color("c49a52"))
+	cv.draw_rect(tag, Ink.INK, false, 2.0)
+	Ink.text(cv, "ON THE TABLE: %s OCT" % st.reg_base, Vector2(tag.position.x, tag.position.y + 25), 19, Ink.INK, nf,
+		tag.size.x)
+	# His sheet's place: an empty outline until his sheet (from the inventory) is laid.
 	var tr: Rect2 = REG_CONTROLS[2][1]
 	if not st.reg_laid:
 		var f := Rect2(tr.position + Vector2(22, 12), Vector2(196, 64))
-		cv.draw_rect(Rect2(f.position + Vector2(3, 4), f.size), Color(0, 0, 0, 0.3))
-		cv.draw_rect(f, Color(0.93, 0.94, 0.90, 0.92))
-		cv.draw_rect(f, Color(VENN_INK, 0.7), false, 1.5)
-		cv.draw_line(f.position + Vector2(f.size.x / 2.0, 0), f.position + Vector2(f.size.x / 2.0, f.size.y),
-			Color(Ink.INK, 0.25), 1.5)
-		Ink.handwriting(cv, "E.V. 17 Oct", 11, f.position + Vector2(18, 40), 22, 9, false, VENN_INK)
+		_dashed_rect(cv, f, Color(Ink.PAPER, 0.7), 2.0, 9.0)
+		Ink.text(cv, "SHEET 2 OF 2", f.position + Vector2(0, 40), 18, Color(Ink.PAPER, 0.8), nf, f.size.x)
 		Ink.text(cv, "HIS SHEET", tr.position + Vector2(0, tr.size.y + 26), 18, Ink.PAPER, nf, tr.size.x)
 	else:
 		Ink.text(cv, "lift his sheet", tr.position + Vector2(0, 54), 20, Color(Ink.PAPER, 0.8), Ink.hand(), tr.size.x)
@@ -1380,10 +1475,15 @@ func _draw_reg_controls(cv: CanvasItem) -> void:
 		_cross(cv, Vector2(r.position.x + 92, r.get_center().y), 9.0, Color(VENN_INK, a), 2.2)
 		Ink.text(cv, "HIS " + String(CROSS_LABELS[k]), Vector2(r.position.x + 110, r.get_center().y + 8), 21,
 			Color(Ink.INK, a), nf, r.size.x - 116, HORIZONTAL_ALIGNMENT_LEFT)
-	# The clip: resting in its cradle until it snaps down on the table.
+	_draw_example(cv, REG_CONTROLS[3][1])
+	# The clip rail: empty until the clips go on, then "clipped".
 	var cr: Rect2 = REG_CONTROLS[9][1]
 	if not st.p03_complete:
-		_bulldog(cv, cr.get_center() + Vector2(-40, 0), 1.0, false)
+		# The clip rail, empty: the clips come from the tin.
+		var rail := Rect2(cr.position.x + 8, cr.get_center().y - 6, 130, 12)
+		cv.draw_rect(rail, Color("b08a4a"))
+		cv.draw_rect(rail, Ink.INK, false, 2.0)
+		_dashed_rect(cv, Rect2(rail.position.x + 30, rail.position.y - 34, 70, 44), Color(Ink.PAPER, 0.6), 2.0, 8.0)
 		Ink.text(cv, "CLIP", Vector2(cr.get_center().x + 10, cr.get_center().y + 10), 26, Ink.PAPER, Ink.serif(), 110,
 			HORIZONTAL_ALIGNMENT_LEFT)
 	else:
@@ -1540,8 +1640,8 @@ func _gauge(cv: CanvasItem, r: Rect2, v: String, i: int) -> void:
 func _draw_record_panel(cv: Node2D) -> void:
 	var st: Dictionary = r3.state
 	var nf := narrow()
-	Ink.wrapped(cv, "Departure observation, example: BOUNDARY → RELATION → OBSERVER, then RECORD.",
-		REC_MINIATURE.position + Vector2(18, 34), 22, Ink.INK, REC_MINIATURE.size.x - 36, true, nf)
+	Ink.wrapped(cv, R03Sim.MINIATURE_CARD, REC_MINIATURE.position + Vector2(16, 28), 16, Ink.INK,
+		REC_MINIATURE.size.x - 32, true, nf)
 	var pt := _tex("plate_blank")
 	for i in 3:
 		var sr: Rect2 = REC_SLOTS[i]

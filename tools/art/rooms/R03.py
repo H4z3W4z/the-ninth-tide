@@ -5,7 +5,7 @@ Writes, and only writes, assets/rooms/R03/*.png:
 
   plates      A_base, B_base, C_base                  (1448x1086 RGB, three walls)
   overlays    A_composite, A_compass_bent, A_standing, A_plan_body, A_buckle, A_fog,
-              B_window_0..7, B_rain_a/b/c, B_seal_intact, B_seal_broken, B_p05, B_strip,
+              B_window_0..7, B_window_t2, B_rain_a/b/c, B_seal_intact, B_seal_broken, B_p05, B_strip,
               C_hatch_open, C_window_7, C_rope_0/1/2, C_beads (1448x1086 RGBA, registered to a base)
               {A,B,C}_damp_2..7                       (1448x308 RGBA, drawn at y 596: the rising tide-mark)
   close-ups   cu_registration, cu_recorder, cu_plan   (1448x1086 RGB)
@@ -1246,6 +1246,77 @@ def window_scene(band):
     return clip_to(img, *GLASS)
 
 
+## Tide II on arrival (threshold crossed, band 0): the sea has gone out past the MUD mark on his
+## tide scale (the view draws the scale) and lies flat and glassy at the foot of the glass; the
+## mud plain runs out to the horizon; the lighthouse stands on its exposed rock, lamp dark.
+SEA_LOW_Y = 522
+
+
+def window_low():
+    rng = rng_for("B_window_t2")
+    cv = Cv(W, H)
+    gx0, gy0, gx1, gy1 = GLASS
+    gw = gx1 - gx0
+    hz = 360
+    sky_top, sky_bot = (100, 112, 116), (136, 146, 144)
+    cv.paste1x(vgrad(gw, hz - gy0, sky_top, sky_bot), gx0, gy0)
+    overcast(cv, rng, gy0, hz - 30, sky_top, sky_bot, 4)
+    # the mud plain, out to the horizon: restrained brown, darker and wetter toward the glass
+    cv.paste1x(vgrad(gw, SEA_LOW_Y - hz, (128, 116, 98), (86, 72, 58), 0.8), gx0, hz)
+    lay = cv.layer()
+    land = (118, 136, 138)
+    pts = smooth_open([(gx0, 344), (160, 338), (196, 342), (226, 351), (246, 360)], 6)
+    lay.poly(pts + [(246, 361), (gx0, 361)], fill=rgba(land, 255), ol=rgba(INK, 140), w=1.2)
+    # the island is a stack of rock standing on the mud, a weed line round its waist
+    rock = smooth_open([(262, 470), (268, 420), (276, 376), (284, 352), (296, 346), (314, 348), (326, 356),
+                        (334, 380), (340, 430), (348, 472)], 6)
+    lay.poly(rock + [(262, 472)], fill=rgba((70, 80, 82), 255), ol=rgba(INK, 230), w=1.6)
+    lay.line(smooth_open([(270, 410), (290, 414), (312, 411), (338, 416)], 6), rgba((60, 78, 62), 255), 5,
+             caps=False)
+    cv.comp(lay)
+    lighthouse(cv, 300, 350, 30, alpha=1.0)
+    dark = cv.layer()   # the lantern dead: glass blacked, no glow
+    dark.poly([(295, 317), (305, 317), (305, 308), (295, 308)], fill=rgba((26, 34, 40), 255),
+              ol=rgba(INK, 255), w=1.2)
+    cv.comp(dark)
+    cv.line([(gx0, hz), (gx1, hz)], rgba(INK, 150), 1.3, caps=False)
+    # dead-flat ripple marks in the mud: short ink dashes, wider apart toward the glass
+    rip = cv.layer()
+    y = hz + 8
+    while y < SEA_LOW_Y - 4:
+        t = (y - hz) / float(SEA_LOW_Y - hz)
+        x = gx0 + rng.uniform(-20, 10)
+        while x < gx1:
+            L = rng.uniform(14, 40) * (0.6 + t)
+            if rng.random() < 0.7 and not (262 < x + L / 2 < 348 and y < 474):
+                n = 8
+                pts = [(x + L * i / n, y + (0.6 + 1.6 * t) * math.sin(math.pi * i / n * 2)) for i in range(n + 1)]
+                rip.line(pts, rgba(INK, int(255 * (0.3 + 0.4 * t))), 0.8 + 1.0 * t, caps=False)
+            x += L + rng.uniform(8, 26)
+        y += 6 + 16 * t
+    cv.comp(rip)
+    # a buoy stranded on its side on the mud
+    cv.ell(190, 470, 14, 9, fill=(122, 52, 40), ol=INK, w=1.6)
+    cv.rect(198, 466, 212, 474, fill=(40, 50, 60), ol=INK, w=1.2)
+    cv.line([(176, 478), (206, 479)], rgba(INK, 120), 1.2, caps=False)
+    # the sea, far down: flat, still, glassy. No waves; two ruled reflections.
+    cv.paste1x(vgrad(gw, gy1 - SEA_LOW_Y, (92, 112, 114), (70, 92, 98), 1.0), gx0, SEA_LOW_Y)
+    cv.line([(gx0, SEA_LOW_Y), (gx1, SEA_LOW_Y)], INK, 2.0, caps=False)
+    gl = cv.layer()
+    gl.line([(gx0, SEA_LOW_Y + 12), (gx1, SEA_LOW_Y + 12)], rgba(SHEEN, 255), 1.6, caps=False)
+    gl.line([(gx0 + 30, SEA_LOW_Y + 28), (gx1 - 50, SEA_LOW_Y + 28)], rgba(SHEEN, 255), 1.2, caps=False)
+    gl.poly([(276, SEA_LOW_Y + 2), (346, SEA_LOW_Y + 2), (340, SEA_LOW_Y + 40), (282, SEA_LOW_Y + 40)],
+            fill=rgba((58, 70, 74), 255), ol=None)   # the rock's still reflection
+    cv.comp(gl, 0.55)
+    sh = cv.layer()
+    sh.poly([(150, gy0), (196, gy0), (gx0, 300), (gx0, 240)], fill=rgba(SHEEN, 255), ol=None)
+    sh.poly([(300, 377), (330, 377), (270, gy1), (240, gy1)], fill=rgba(SHEEN, 255), ol=None)
+    cv.comp(sh, 0.06)
+    sash(cv)
+    img = grain(cv.down(), rng_for("B_window_t2:grain"), 5)
+    return clip_to(img, *GLASS)
+
+
 def rain_frame(tag):
     """Rain on the pane: straight 1 px slant streaks, a few beaded drops (no heads, no tails)."""
     rng = rng_for("B_rain_" + tag)
@@ -2430,6 +2501,7 @@ JOBS = {
     "A_standing": paint_A_standing, "A_plan_body": paint_A_plan_body, "A_buckle": paint_A_buckle,
     "A_fog": paint_A_fog,
     "B_base": lambda: paint_B_base(window_scene(0)), "B_float": paint_B_float, "B_window": paint_windows, "B_rain": paint_rain,
+    "B_window_t2": lambda: save(window_low(), "B_window_t2", "RGBA"),
     "seals": paint_seals, "B_pen": paint_B_pen, "B_p05": paint_B_p05, "B_strip": paint_B_strip,
     "C_base": paint_C_base, "C_hatch_open": paint_C_hatch_open, "C_window_7": paint_C_window_7,
     "C_line": paint_C_line, "C_rope": paint_C_rope, "C_beads": paint_C_beads, "damp": paint_damp,
