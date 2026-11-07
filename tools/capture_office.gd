@@ -4,8 +4,12 @@ extends SceneTree
 ##   godot --path . --script tools/capture_office.gd -- <out_dir> [shots.json]
 ## Each shot: [file, setup actions, mouse position, seconds to settle].
 ## Actions are sim actions ("begin", "lamp", "fit"...) or "@N" = dev jump to stage N.
+## Actions go straight to scene.dispatch, so time-gated clicks ("continue") work at once.
 ## shots.json (optional) replaces the default list:
 ##   [{"name": "x", "actions": ["begin","coat"], "mouse": [700,500], "settle": 1.0}]
+
+const DIAL_1852 := ["dial_0", "dial_1", "dial_1", "dial_1", "dial_1", "dial_1", "dial_1", "dial_1",
+	"dial_1", "dial_2", "dial_2", "dial_2", "dial_2", "dial_2", "dial_3", "dial_3"]
 
 var shots := [
 	["01_title", [], Vector2(700, 500), 0.3],
@@ -22,6 +26,13 @@ var shots := [
 	["12_notebook", ["@3", "notebook"], Vector2(700, 500), 0.4],
 	["13_end", ["@3", "door"], Vector2(700, 500), 0.6],
 	["14_menu", ["begin", "menu"], Vector2(700, 500), 0.3],
+	["15_drawer_locked", ["@2", "puddle", "drawer"], Vector2(700, 900), 0.6],
+	["16_drawer_open", ["@2", "puddle", "drawer"] + DIAL_1852 + ["try_drawer"], Vector2(700, 900), 1.5],
+	["17_log_rewritten", ["@2", "puddle", "drawer"] + DIAL_1852 + ["try_drawer", "back", "logbook"],
+		Vector2(700, 1040), 3.0],
+	["18_stage3_room", ["@3"], Vector2(640, 650), 7.0],
+	["19_threshold", ["@3", "door"], Vector2(700, 500), 6.0],
+	["20_end", ["@3", "door", "continue"], Vector2(700, 500), 1.0],
 ]
 
 func _initialize() -> void:
@@ -38,18 +49,17 @@ func run() -> void:
 				var m: Array = d.get("mouse", [700, 500])
 				shots.append([str(d.name), d.get("actions", []), Vector2(m[0], m[1]), float(d.get("settle", 1.0))])
 	DirAccess.make_dir_recursive_absolute(out)
+	# Per-output save file, so parallel capture runs never share progress.
+	var save_path := "user://capture_%d.json" % absi(out.hash())
 	for shot in shots:
+		_remove(save_path)
 		var scene = load("res://game/intake_office.tscn").instantiate()
-		scene.save_path = "user://capture_tmp.json"
-		if FileAccess.file_exists(scene.save_path):
-			DirAccess.remove_absolute(scene.save_path)
+		scene.save_path = save_path
 		root.add_child(scene)
 		await process_frame
 		for a in shot[1]:
 			if a.begins_with("@"):
-				scene.sim.debug_jump(int(a.substr(1)))
-				scene._apply_stage_instantly()
-				scene._redraw()
+				scene.debug_jump(int(a.substr(1)))
 			else:
 				scene.dispatch(a)
 		if shot[0] == "03_hover_coat":
@@ -65,5 +75,9 @@ func run() -> void:
 		print("captured ", shot[0])
 		scene.queue_free()
 		await process_frame
-	DirAccess.remove_absolute("user://capture_tmp.json")
+		_remove(save_path)
 	quit(0)
+
+func _remove(path: String) -> void:
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))

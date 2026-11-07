@@ -2,7 +2,7 @@
 
 An illustrated point-and-click cosmic horror game set in a coastal survey station whose instruments are learning to locate their observer.
 
-**Current milestone:** Intake Office asset scaffold and a functional P01 assembly preview. This is the first room's production starting point, not the full game.
+**Current milestone:** a playable one-room vertical slice of Tide I, the Intake Office (`game/intake_office.tscn`), with lighting, synthesized sound, subtitles, hints, a notebook, saves and an escalating beat chain. This is the first room's production slice, not the full game.
 
 ## Included
 
@@ -16,21 +16,24 @@ An illustrated point-and-click cosmic horror game set in a coastal survey statio
 - Asset manifest containing dimensions, hashes, placement rectangles, hotspots, and state triggers.
 - Full game design v1.1, original research brief, approved concept references, and production notes.
 
-## Open the preview
+## Play the slice
 
-Validated with **Godot 4.5.1**, using the Compatibility renderer and GDScript. Import `project.godot` in Godot and press F6 on `intake_preview.tscn`, or F5 to run the project.
+Validated with **Godot 4.6.2**, using the Compatibility renderer and GDScript. Import `project.godot` and run the project (F5), or open `game/intake_office.tscn` and press F6.
 
-Select the lamp or nearby tray. Set supply OFF, select bridge B, tap the socket, then switch ON. Try C or attempt fitting with the supply on to review failure feedback. Return to the room to see the lamp lit and open Notebook for the preserved note.
+The beat chain: repair the desk lamp (supply OFF, straight bridge B, supply ON; curved C is rejected without consuming anything), read Venn's tide log, find what changed in the room, follow the footprints, read the log again, look at the chair, then leave by the door. The room, the window and the sound change at each step.
 
-The top weather buttons are **asset-review controls**. Arrival / Tide III / Tide VI change artwork without advancing story flags. In the full game, P09 triggers the intermediate plate and completion of both P17 and P18 triggers the ominous plate. P01 alone must not summon Tide VI.
+The locked desk drawer is the slice's second puzzle. Its four dials take an hour that the tide log already records.
 
-Mouse and touch share the same tap targets. Escape returns to the room. This assembly sample does not yet provide full keyboard focus navigation, audio, or an iPad-tested browser build.
+Click hotspots in the room; Notebook keeps every observation, Hint escalates in three steps, and Esc opens options (motion and flicker, softened sudden sounds, restart), including from the title. Headphones recommended. In debug builds F1 shows hotspots and 1-4 jump to story stages.
+
+The original P01 assembly preview (`intake_preview.tscn`) remains for asset review. Its weather buttons are **asset-review controls**: they change artwork without advancing story flags, and P01 alone must not summon Tide VI.
 
 ## Project structure
 
 | Path | Purpose |
 | --- | --- |
-| `project.godot`, `intake_preview.*` | Runnable first-room assembly sample |
+| `project.godot`, `game/` | Intake Office slice: `office_sim.gd` (deterministic state), `intake_office.gd` (rendering, light, sound) |
+| `intake_preview.*` | Original P01 assembly preview |
 | `assets/backgrounds/` | Generated full-room state plates |
 | `assets/props/` | Lamp, light overlay, parts tray, rain frames |
 | `assets/puzzle/` | Precise P01 assets and readable documents |
@@ -40,7 +43,7 @@ Mouse and touch share the same tap targets. Escape returns to the room. This ass
 | `docs/design/` | Full game design and research |
 | `docs/` | Art direction, production limits, validation and GitHub setup |
 | `tools/` | Rebuild, manifest and asset-check scripts |
-| `tests/` | Godot P01 progression smoke test |
+| `tests/` | Slice logic and wiring tests, and the P01 smoke test |
 | `.github/workflows/` | Asset integrity check for pushes and pull requests |
 
 ## Rebuild and validate
@@ -52,8 +55,11 @@ python3 tools/build_vectors.py
 python3 tools/build_manifest.py
 python3 tools/validate_assets.py
 godot --headless --path . --editor --import
+godot --headless --path . --script tests/office_sim_test.gd
 godot --headless --path . --script tests/p01_smoke.gd
 ```
+
+Sound is synthesized from seeded, standard-library Python. Rebuild `assets/audio/*.wav` with `python3 tools/build_audio.py`, then re-import. To render review screenshots (needs a display), run `godot --path . --script tools/capture_office.gd -- <out_dir>`.
 
 The scene uses raster exports for identical lettering across platforms. SVGs remain editable source material. Generated background source prompts are recorded in `docs/generation-prompts.json`; no image-generation API credentials are required to run the project.
 
@@ -65,7 +71,7 @@ The repository is structured around one Godot project. The next gate is a single
 
 The room plates are generated full images. Tiny texture/edge differences remain, so swap them on re-entry rather than slowly crossfading every pixel. Furniture, coat, and the late shadow are baked into each plate. The lamp, lighting state, rain effects, and puzzle pieces are separate. A later asset pass can extract more props when animation or new interactions require it.
 
-Only P01 is playable. Other room exits are descriptive; the service door remains locked until P06 in the design. Later Office puzzle P20 is documented but has no implementation here. There is no audio yet. Desktop headless import/runtime and puzzle state checks have passed; actual iPad, mobile export, and rendered Godot UI testing remain pending.
+Only the Intake Office is playable: P01 and the drawer puzzle. Other room exits are descriptive, and the slice ends at the corridor door. Later Office puzzle P20 is documented but has no implementation here. Desktop headless import, logic tests and desktop rendering have been checked; iPad, mobile export and browser builds have not been tested.
 
 The project is not assigned an open-source license. This scaffold does not grant third-party reuse of the game or art.
 
