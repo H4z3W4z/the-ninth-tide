@@ -40,12 +40,24 @@ const EXIT_RECTS := {
 	"R11": Rect2(1178, 922, 250, 64),
 }
 
-## Ambient light per weather band. Never below 0.74: the dread is in what is seen.
-const MODULATE := [Color(0.97, 0.98, 1.00), Color(0.92, 0.93, 0.97), Color(0.88, 0.90, 0.95),
-	Color(0.85, 0.87, 0.93), Color(0.82, 0.84, 0.92), Color(0.79, 0.81, 0.90),
-	Color(0.77, 0.79, 0.90), Color(0.74, 0.77, 0.90)]
+## Ambient light per weather band: dusk-dim plaster, the shapes kept by three light sources
+## (the chart lamp on A, the sea window on B, the open hatch on C). Never so dark that a clue
+## stops reading: the dread is in what is seen.
+const MODULATE := [Color(0.84, 0.84, 0.86), Color(0.82, 0.82, 0.85), Color(0.80, 0.80, 0.84),
+	Color(0.78, 0.79, 0.84), Color(0.76, 0.77, 0.83), Color(0.74, 0.76, 0.83),
+	Color(0.72, 0.74, 0.82), Color(0.70, 0.73, 0.82)]
 const WINDOW_GLASS := Rect2(134, 174, 252, 392)
 const WINDOW_LIGHT := Color(0.72, 0.84, 0.96)
+## The chart lamp: a warm pool centred on the sheet, 0.6 at band 0 easing to 0.35 by band 7.
+const LAMP_AT := Vector2(800, 470)
+const LAMP_LIGHT := Color(1.0, 0.86, 0.62)
+const LAMP_ENERGY := [0.6, 0.57, 0.53, 0.5, 0.46, 0.42, 0.38, 0.35]
+## The open hatch breathes a cold, pale grey-green light onto the floor and its own jamb.
+const HATCH_LIGHT := Color(0.70, 0.86, 0.80)
+## Wall A's painted corridor door is the way back to the office.
+const DOOR_A := Rect2(1136, 404, 218, 496)
+## The stilling well's glass on wall B, where the float rides the tide.
+const FLOAT_WELL := Rect2(996, 538, 46, 316)
 
 const VENN_INK := Color("1b2650")      # Venn's blue-black
 const PALE := Color(0.93, 0.95, 0.97)   # the notice frame's pale ink
@@ -146,7 +158,7 @@ const NAME_CPS := 6.0
 const NOTICE_RECTS := {
 	"n_arrival": Rect2(540, 250, 380, 120), "n_b3": Rect2(540, 250, 380, 120), "n_b5": Rect2(540, 250, 380, 120),
 	"n_threshold": Rect2(560, 560, 340, 120), "n_p04": Rect2(570, 360, 730, 520),
-	"n_b4": Rect2(560, 266, 480, 448), "n_b5_prints": Rect2(690, 890, 220, 110),
+	"n_b4": Rect2(560, 266, 480, 448), "n_b5_prints": Rect2(700, 800, 200, 146),
 	"n_b6": Rect2(110, 150, 340, 420), "n_b7": Rect2(1000, 380, 300, 300),
 }
 const HOLD_TIME := 1.5
@@ -174,6 +186,8 @@ static var _narrow: SystemFont
 # nodes
 var shade: CanvasModulate
 var window_light: PointLight2D
+var lamp_light: PointLight2D
+var hatch_light: PointLight2D
 var close: Node2D
 var reg_sheets: Control
 var close_top: Node2D
@@ -211,12 +225,21 @@ func _load_textures() -> void:
 			"B_strip", "B_window_0", "B_window_1", "B_window_2", "B_window_3", "B_window_4", "B_window_5",
 			"B_window_6", "B_window_7", "C_base", "C_hatch_open", "C_line", "C_window_7",
 			"cu_plan", "cu_plan_body", "cu_plan_lid", "cu_recorder", "cu_recorder_shutter", "cu_registration",
-			"cu_seal", "cu_seal_broken", "plate_blank", "sheet_paper", "sheet_tracing", "tile_blank"]:
+			"cu_seal", "cu_seal_broken", "plate_blank", "sheet_paper", "sheet_tracing", "tile_blank",
+			"A_buckle", "A_fog", "B_float", "C_rope_0", "C_rope_1", "C_rope_2", "C_beads",
+			"cu_rec_fog", "cu_rec_brown"] + _damp_names():
 		var path := "res://assets/rooms/R03/%s.png" % n
 		if ResourceLoader.exists(path):
 			var t := load(path) as Texture2D
 			if t:
 				textures[n] = t
+
+static func _damp_names() -> Array:
+	var out := []
+	for w in ["A", "B", "C"]:
+		for b in range(2, 8):
+			out.append("%s_damp_%d" % [w, b])
+	return out
 
 func _tex(id: String) -> Texture2D:
 	return textures.get(id)
@@ -225,25 +248,31 @@ func _build_nodes() -> void:
 	shade = CanvasModulate.new()
 	shade.color = MODULATE[0]
 	add_child(shade)
-	# Wall B's sea window makes its own cool light, shaped to the glass.
+	# Wall B's sea window throws a cool slanting rhombus of light down across the recorder's
+	# left face and the floor.
 	window_light = PointLight2D.new()
-	var g := Gradient.new()
-	g.set_color(0, Color(1, 1, 1, 1))
-	g.set_color(1, Color(1, 1, 1, 0))
-	g.add_point(0.45, Color(1, 1, 1, 0.6))
-	var gt := GradientTexture2D.new()
-	gt.gradient = g
-	gt.width = 256
-	gt.height = 256
-	gt.fill = GradientTexture2D.FILL_RADIAL
-	gt.fill_from = Vector2(0.5, 0.5)
-	gt.fill_to = Vector2(1.0, 0.5)
-	window_light.texture = gt
-	window_light.texture_scale = 2.6
-	window_light.position = WINDOW_GLASS.get_center() + Vector2(40, 40)
+	window_light.texture = _rhombus_texture()
+	window_light.texture_scale = 1.0
+	window_light.position = Vector2(470, 650)
 	window_light.color = WINDOW_LIGHT
 	window_light.energy = 0.0
 	add_child(window_light)
+	# Wall A: the hanging chart lamp's warm pool on the sheet.
+	lamp_light = PointLight2D.new()
+	lamp_light.texture = _pool_texture()
+	lamp_light.texture_scale = 3.4
+	lamp_light.position = LAMP_AT
+	lamp_light.color = LAMP_LIGHT
+	lamp_light.energy = 0.0
+	add_child(lamp_light)
+	# Wall C: cold under-light breathing out of the open hatch.
+	hatch_light = PointLight2D.new()
+	hatch_light.texture = _pool_texture()
+	hatch_light.texture_scale = 2.8
+	hatch_light.position = Vector2(700, 860)
+	hatch_light.color = HATCH_LIGHT
+	hatch_light.energy = 0.0
+	add_child(hatch_light)
 	var close_layer := CanvasLayer.new()
 	close_layer.layer = 5
 	add_child(close_layer)
@@ -261,6 +290,38 @@ func _build_nodes() -> void:
 	close_top = Node2D.new()
 	close.add_child(close_top)
 	close_top.draw.connect(_draw_close_top)
+
+## A soft radial pool, a little brighter at its heart.
+static func _pool_texture() -> Texture2D:
+	var g := Gradient.new()
+	g.set_color(0, Color(1, 1, 1, 1))
+	g.set_color(1, Color(1, 1, 1, 0))
+	g.add_point(0.5, Color(1, 1, 1, 0.45))
+	var gt := GradientTexture2D.new()
+	gt.gradient = g
+	gt.width = 256
+	gt.height = 256
+	gt.fill = GradientTexture2D.FILL_RADIAL
+	gt.fill_from = Vector2(0.5, 0.5)
+	gt.fill_to = Vector2(1.0, 0.5)
+	return gt
+
+## The sea window's light: a parallelogram slanting down to the right, soft at its edges,
+## fading toward its foot. Built once from fixed numbers (no randomness).
+static func _rhombus_texture() -> Texture2D:
+	var w := 360
+	var h := 720
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	for y in h:
+		var v := float(y) / h
+		var shift := v * 0.42
+		var fade := clampf(1.0 - v * 0.75, 0.0, 1.0) * clampf(v * 6.0, 0.0, 1.0)
+		for x in w:
+			var u := float(x) / w - shift
+			var e := minf(u - 0.04, 0.52 - u)
+			var a := clampf(e / 0.08, 0.0, 1.0) * fade
+			img.set_pixel(x, y, Color(1, 1, 1, a))
+	return ImageTexture.create_from_image(img)
 
 static func narrow() -> Font:
 	if _narrow == null:
@@ -283,7 +344,7 @@ func tick(dt: float) -> void:
 		return
 	var band := _band()
 	shade.color = MODULATE[band]
-	window_light.energy = _window_energy(band) if r3.local_view == "room" and r3.wall == "B" else 0.0
+	_set_lights(band)
 	_tick_hold(dt)
 	if r3.drum_turning() and motion:
 		drum_t += dt
@@ -302,7 +363,23 @@ func _redraw_close() -> void:
 	close_top.queue_redraw()
 
 func _window_energy(band: int) -> float:
-	return [0.16, 0.14, 0.14, 0.16, 0.18, 0.2, 0.24, 0.28][band]
+	return [0.55, 0.5, 0.46, 0.42, 0.4, 0.42, 0.34, 0.3][band]
+
+## Light energies for the wall in view (state only: band, wall, P04).
+func light_energies(band: int) -> Dictionary:
+	var room := r3 != null and r3.local_view == "room"
+	var w := r3.wall if r3 else ""
+	return {
+		"lamp": LAMP_ENERGY[band] if room and w == "A" else 0.0,
+		"window": _window_energy(band) if room and w == "B" else 0.0,
+		"hatch": (0.75 if band < 7 else 0.85) if room and w == "C" and _flag("P04") else 0.0,
+	}
+
+func _set_lights(band: int) -> void:
+	var e := light_energies(band)
+	lamp_light.energy = e.lamp
+	window_light.energy = e.window
+	hatch_light.energy = e.hatch
 
 func _tick_hold(dt: float) -> void:
 	if hold_id == "":
@@ -447,7 +524,7 @@ func apply_instantly() -> void:
 	name_chars = 99.0
 	var band := _band()
 	shade.color = MODULATE[band]
-	window_light.energy = _window_energy(band) if r3.local_view == "room" and r3.wall == "B" else 0.0
+	_set_lights(band)
 	mixer.snap(audio_targets())
 	queue_redraw()
 	_redraw_close()
@@ -524,6 +601,8 @@ func action_at(p: Vector2) -> String:
 			for t in TURN_RECTS:
 				if TURN_RECTS[t].has_point(p):
 					return t
+			if r3.wall == "A" and DOOR_A.has_point(p):
+				return "go:R02"
 			for h in _wall_list():
 				if h[1].has_point(p):
 					return h[0]
@@ -542,6 +621,8 @@ func hover_at(p: Vector2) -> String:
 		for t in TURN_RECTS:
 			if TURN_RECTS[t].has_point(p):
 				return t
+		if r3.wall == "A" and DOOR_A.has_point(p):
+			return "go:R02"
 		for h in _wall_list():
 			if h[1].has_point(p):
 				return h[0]
@@ -576,6 +657,8 @@ func dev_rects() -> Array:
 		"room":
 			for h in _wall_list():
 				out.append(h[1])
+			if r3.wall == "A":
+				out.append(DOOR_A)
 			for t in TURN_RECTS:
 				out.append(TURN_RECTS[t])
 		"c_registration":
@@ -705,15 +788,38 @@ func _draw_wall_a() -> void:
 	var band := _band()
 	if not _plate("A_base"):
 		_placeholder(HOTSPOTS)
+	_draw_damp("A", band)
+	if band >= 3:
+		_plate("A_buckle")
 	if _flag("P03"):
 		_plate("A_composite")
 	_draw_board_sheet()
+	if band >= 6 and _flag("P03"):
+		_draw_curve_escape()
 	if band >= 4:
 		_plate("A_compass_bent")
 	if band >= 5:
 		_plate("A_standing")
+		_plate("A_fog")
 	if _flag("P21"):
 		_plate("A_plan_body")
+
+## Bands 2-7: the damp tide-mark on this wall's wainscot, a few centimetres higher each band.
+func _draw_damp(w: String, band: int) -> void:
+	if band < 2:
+		return
+	var t := _tex("%s_damp_%d" % [w, band])
+	if t:
+		draw_texture(t, Vector2(0, 596))
+
+## Band 6+: the composite curve does not stop at the sheet's margin. It runs on, in the same
+## ink, across the bone mount and onto the brass frame.
+func _draw_curve_escape() -> void:
+	var p0 := _sl(VENN_EXIT[2])
+	var pts := PackedVector2Array([p0, p0 + Vector2(14, 1), p0 + Vector2(30, 4), p0 + Vector2(44, 9),
+		p0 + Vector2(54, 15), p0 + Vector2(60, 22)])
+	draw_polyline(pts, VENN_INK, 3.5, true)
+	draw_circle(pts[pts.size() - 1], 2.6, VENN_INK)
 
 ## The 17 Oct sheet pinned on the board: crosses, north, date, bands, its half of the curve;
 ## after P03 the whole composite in Venn's ink.
@@ -745,13 +851,16 @@ func _draw_wall_b() -> void:
 			var period := 0.22 if band <= 2 else 0.6
 			frame = int(time / period) % 3
 		_plate(["B_rain_a", "B_rain_b", "B_rain_c"][frame])
+	_draw_damp("B", band)
+	_draw_float(band)
 	_plate("B_seal_broken" if t1x else "B_seal_intact")
 	_draw_drum_face(self, Rect2(540, 250, 380, 120), 0, p04, band)
-	_draw_pen(p04, band)
 	_draw_pen_text(self, Rect2(540, 250, 380, 120), 24)
+	_draw_pen(p04, band)
 	if p05:
 		_plate("B_p05")
 		_plate("B_strip")
+		_draw_strip_marks()
 		var slots := [Rect2(609, 714, 70, 56), Rect2(695, 714, 70, 56), Rect2(781, 714, 70, 56)]
 		for i in 3:
 			var pid: String = r3.state.slots[i]
@@ -818,48 +927,124 @@ func _draw_drum_face(cv: CanvasItem, r: Rect2, _size: int, p04: bool, band: int)
 			xx += 4.0
 		cv.draw_polyline(pts, ink, 4.0 if flat else 2.5, true)
 
-## What the pen writes, on a slip of the drum's paper so it reads over the pen arm.
+## What the pen writes: ink straight on the drum paper, letter by letter, a little uneven,
+## the pen arm swinging over it.
 func _draw_pen_text(cv: CanvasItem, r: Rect2, size: int) -> void:
-	var nf := narrow()
 	var txt := r3.pen_text()
 	if txt == "":
 		return
-	var w := nf.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
-	var bx := Rect2(r.get_center().x - w / 2.0 - 10, r.position.y + 6, w + 20, size + 12)
-	cv.draw_rect(bx, Color(Ink.PAPER, 0.9))
-	Ink.text(cv, txt, Vector2(r.position.x, r.position.y + size + 8), size, Ink.INK, nf, r.size.x)
+	pen_ink(cv, txt, Vector2(r.get_center().x, r.position.y + size + 10), size, VENN_INK, 7)
+
+## Ink lettering centred on `at`: each glyph nudged and tilted by a fixed seed, so the same
+## words always fall the same way (never a clock, never a box behind them).
+func pen_ink(cv: CanvasItem, s: String, at: Vector2, size: int, col: Color, seed_: int) -> void:
+	var nf := narrow()
+	var w := nf.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	var x := at.x - w / 2.0
+	var g := RandomNumberGenerator.new()
+	for i in s.length():
+		g.seed = seed_ * 131 + i
+		var dy := g.randf_range(-1.6, 1.6)
+		var rot := g.randf_range(-0.05, 0.05)
+		var a := g.randf_range(0.82, 1.0)
+		cv.draw_set_transform(Vector2(x, at.y + dy), rot, Vector2.ONE)
+		cv.draw_char(nf, Vector2.ZERO, s[i], size, Color(col, a))
+		x += nf.get_char_size(s.unicode_at(i), size).x
+	cv.draw_set_transform_matrix(Transform2D.IDENTITY)
+
+## The float in the stilling well rides higher every band; it bobs while the sea still moves.
+func float_y(band: int) -> float:
+	return 770.0 - band * 30.0
+
+func _draw_float(band: int) -> void:
+	var t := _tex("B_float")
+	if t == null:
+		return
+	var y := float_y(band)
+	if motion and band < 5:
+		y += 2.0 * sin(time * 1.3)
+	draw_texture(t, Vector2(FLOAT_WELL.position.x + 3, y))
+
+## The printed strip at room scale: one ink line per printed line, the last (the extra) heavier.
+func _draw_strip_marks() -> void:
+	var lines := strip_visible()
+	for i in lines.size():
+		var n := String(lines[i]).length()
+		var y := 394.0 + i * 34.0
+		var L := clampf(n * 2.0, 18.0, 64.0)
+		var pts := PackedVector2Array()
+		var k := 0
+		while k * 3.0 <= L:
+			pts.append(Vector2(872 + k * 3.0, y + (1.2 if k % 2 == 0 else -1.2)))
+			k += 1
+		var last := i == lines.size() - 1 and lines.size() >= 6
+		draw_polyline(pts, Ink.INK, 3.4 if last else 1.8, true)
 
 func _draw_wall_c() -> void:
 	var band := _band()
 	if not _plate("C_base"):
 		_placeholder(WALL_HOTSPOTS_C)
+	_draw_damp("C", band)
+	_draw_rope(band)
 	_draw_scratches()
 	if _flag("P04"):
 		_plate("C_hatch_open")
+		if band >= 7:
+			_plate("C_beads")
 	if band >= 7:
 		_plate("C_window_7")
-		var lx := 1150.0
+		# The pale line travels slowly up and down the standing surface.
+		var ly := 530.0
 		if motion:
 			var ph := fmod(time / 14.0, 2.0)
-			lx = 1030.0 + 240.0 * (ph if ph < 1.0 else 2.0 - ph)
+			ly = 410.0 + 240.0 * (ph if ph < 1.0 else 2.0 - ph)
 		var lt := _tex("C_line")
 		if lt:
-			draw_texture(lt, Vector2(lx - 4, 400))
+			draw_set_transform(Vector2(1150, ly), -PI / 2.0, Vector2(1.0, 0.5))
+			draw_texture(lt, Vector2(-4, 0))
+			draw_set_transform_matrix(Transform2D.IDENTITY)
 		else:
-			draw_line(Vector2(lx, 400), Vector2(lx, 660), Color(PALE, 0.8), 3.0)
+			draw_line(Vector2(1150, ly), Vector2(1280, ly), Color(PALE, 0.8), 3.0)
 
-## The three marks cut down the jamb: a dark groove with a pale lower lip.
+## The rope on its peg: dry, then soaked and dripping (3-5), then hanging straight down as if
+## something heavy were on the end (6+).
+func _draw_rope(band: int) -> void:
+	var stage := 0 if band <= 2 else (1 if band <= 5 else 2)
+	_plate("C_rope_%d" % stage)
+	if stage == 1 and motion:
+		var ph := fmod(time / 1.7, 1.0)
+		var y := 626.0 + ph * ph * 270.0
+		draw_circle(Vector2(302, y), 3.0, Color(0.70, 0.82, 0.80, 0.85 * (1.0 - ph * 0.6)))
+
+## Two false starts beside the marks: whoever cut them began and stopped.
+const FALSE_STARTS := [
+	[Vector2(532, 404), Vector2(538, 420)],
+	[Vector2(486, 620), Vector2(496, 630), Vector2(499, 627)],
+]
+
+## The three marks gouged into the iron jamb: raw bright metal in the cut, a navy shadow lip
+## along its upper edge, a dark burr below; the depth wanders along each stroke.
 func _draw_scratches() -> void:
-	var strokes := scratch_strokes()
-	var lip := Color(0.86, 0.80, 0.68, 0.9)
-	var groove := Color(0.10, 0.08, 0.07)
-	for s in strokes:
-		var shifted := PackedVector2Array()
-		for p in s:
-			shifted.append(p + Vector2(0, 3))
-		draw_polyline(shifted, lip, 2.0, true)
-	for s in strokes:
-		draw_polyline(s, groove, 5.0, true)
+	var strokes: Array = scratch_strokes() + FALSE_STARTS
+	var lip := Color(0.08, 0.12, 0.18, 0.95)
+	var metal := Color(0.80, 0.82, 0.78)
+	var burr := Color(0.16, 0.20, 0.24, 0.8)
+	for si in strokes.size():
+		var s: PackedVector2Array = PackedVector2Array(strokes[si])
+		var light := si >= 3
+		for i in s.size() - 1:
+			var a: Vector2 = s[i]
+			var b: Vector2 = s[i + 1]
+			var n := int(maxf(1.0, a.distance_to(b) / 4.0))
+			for k in n:
+				var p0 := a.lerp(b, float(k) / n)
+				var p1 := a.lerp(b, float(k + 1) / n)
+				var depth := 0.75 + 0.25 * sin(float(i * 7 + k) * 1.3 + si)
+				if light:
+					depth *= 0.55
+				draw_line(p0 + Vector2(-1.4, -1.6), p1 + Vector2(-1.4, -1.6), lip, 6.5 * depth)
+				draw_line(p0 + Vector2(1.2, 1.6), p1 + Vector2(1.2, 1.6), burr, 2.0 * depth)
+				draw_line(p0, p1, metal, 3.6 * depth)
 
 ## The scratch glyphs as polylines (also used by tests to check they sit on the jamb).
 static func scratch_strokes() -> Array:
@@ -1085,12 +1270,22 @@ func _draw_registration(cv: CanvasItem, origin: Vector2) -> void:
 		_sheet_marks(cv, VENN_INK)
 		_venn_half(cv, VENN_INK, 3.0)
 		cv.draw_set_transform_matrix(Transform2D.IDENTITY)
+	if st.reg_laid and not st.p03_complete:
+		# A brass collar round each of his crosses: press one to pin his sheet by it.
+		var xf := _venn_screen_xform(origin)
+		for k in CROSSES:
+			var at: Vector2 = xf * CROSSES[k]
+			cv.draw_arc(at, 20.0, 0, TAU, 28, Color(Ink.INK, 0.8), 5.0)
+			cv.draw_arc(at, 20.0, 0, TAU, 28, Color("d9b876"), 2.6)
 	if st.p03_complete:
 		_composite_curve(cv, Callable(self, "_reg_map"), VENN_INK, 5.0, comp_k)
 		for p in [Vector2(424, 170), Vector2(1024, 170), Vector2(424, 730), Vector2(1024, 730)]:
 			var q: Vector2 = p + origin
-			cv.draw_rect(Rect2(q - Vector2(18, 10), Vector2(36, 20)), Color(Ink.BRASS, 1.0))
-			cv.draw_rect(Rect2(q - Vector2(18, 10), Vector2(36, 20)), Ink.INK, false, 2.0)
+			cv.draw_circle(q + Vector2(3, 4), 10.0, Color(0, 0, 0, 0.3))
+			cv.draw_circle(q, 10.0, Color("b08a4a"))
+			cv.draw_arc(q, 10.0, 0, TAU, 20, Ink.INK, 2.0)
+			cv.draw_circle(q + Vector2(-3, -3), 3.0, Color("ecd29a"))
+		_bulldog(cv, Vector2(724, 186) + origin, 1.3, true)
 
 func _reg_map(p: Vector2) -> Vector2:
 	return REG_SHEET.position + reg_origin + p
@@ -1103,34 +1298,111 @@ func _sheet_marks(cv: CanvasItem, col: Color) -> void:
 		Ink.text(cv, CROSS_LABELS[k], at + Vector2(-90, 34), 16, col, nf, 180)
 	_north(cv, NORTH_AT, 70.0, col, 20)
 
+## The registration contraption's moving parts, over the painted rack, tray and brass panel:
+## sheets standing in their slots, his folded sheet in the tray, two knurled knobs, three
+## register pins (raised or pressed home) and the brass clip in its cradle. Every word is
+## engraved ink on brass or written on paper, never a button.
 func _draw_reg_controls(cv: CanvasItem) -> void:
 	var st: Dictionary = r3.state
 	var nf := narrow()
-	# The right panel, cleared for the pin and turn controls.
-	cv.draw_rect(REG_PANEL, Color8(150, 118, 64))
-	cv.draw_rect(REG_PANEL, Ink.INK, false, 3.0)
-	cv.draw_rect(REG_PANEL.grow(-10), Color(Ink.INK, 0.4), false, 1.0)
-	for c0 in REG_CONTROLS:
-		var id: String = c0[0]
-		var r: Rect2 = c0[1]
-		match id:
-			"reg_example":
-				_draw_example(cv, r)
-			"reg_lay":
-				Ink.button(cv, r, "Lift Venn's sheet" if st.reg_laid else "Lay Venn's sheet", false, 22)
-			"reg_base_14":
-				Ink.button(cv, r, "14 OCT", st.reg_base == "14", 26)
-			"reg_base_17":
-				Ink.button(cv, r, "17 OCT", st.reg_base == "17", 26)
-			"reg_clip":
-				Ink.button(cv, r, "CLIP", st.p03_complete, 30)
-			_:
-				var active: bool = id.begins_with("reg_snap_") and st.reg_snap == id.substr(9)
-				Ink.button(cv, r, c0[2], active, 22, not st.reg_laid)
-	Ink.text(cv, "Pin to the table's lighthouse cross:", Vector2(1124, 428), 18, Ink.INK, nf, 280,
+	var engraved := Color(Ink.INK, 0.9)
+	# The base-sheet rack: a sheet stands in each slot unless it is the one on the table.
+	Ink.text(cv, "BASE SHEET", Vector2(60, 162), 20, Ink.PAPER, nf, 288)
+	for i in 2:
+		var day: String = ["14", "17"][i]
+		var r: Rect2 = REG_CONTROLS[i][1]
+		if st.reg_base != day:
+			var sh := Rect2(r.position + Vector2(18, -6), Vector2(r.size.x - 36, r.size.y - 10))
+			cv.draw_rect(Rect2(sh.position + Vector2(4, 5), sh.size), Color(0, 0, 0, 0.35))
+			cv.draw_rect(sh, Color("d8ceb5"))
+			cv.draw_rect(sh, Ink.INK, false, 1.5)
+			for k in 3:
+				cv.draw_line(sh.position + Vector2(10, 40 + k * 12), sh.position + Vector2(sh.size.x - 10, 40 + k * 12),
+					Color(Ink.INK, 0.25), 1.0)
+			pen_ink(cv, "%s OCT" % day, sh.position + Vector2(sh.size.x / 2.0, 30), 24, Ink.INK, 50 + i)
+		else:
+			Ink.text(cv, "on the table", r.position + Vector2(0, 52), 18, Color(Ink.PAPER, 0.75), Ink.hand(), r.size.x)
+	# His sheet: folded in the tray, or the tray empty once it is laid.
+	var tr: Rect2 = REG_CONTROLS[2][1]
+	if not st.reg_laid:
+		var f := Rect2(tr.position + Vector2(22, 12), Vector2(196, 64))
+		cv.draw_rect(Rect2(f.position + Vector2(3, 4), f.size), Color(0, 0, 0, 0.3))
+		cv.draw_rect(f, Color(0.93, 0.94, 0.90, 0.92))
+		cv.draw_rect(f, Color(VENN_INK, 0.7), false, 1.5)
+		cv.draw_line(f.position + Vector2(f.size.x / 2.0, 0), f.position + Vector2(f.size.x / 2.0, f.size.y),
+			Color(Ink.INK, 0.25), 1.5)
+		Ink.handwriting(cv, "E.V. 17 Oct", 11, f.position + Vector2(18, 40), 22, 9, false, VENN_INK)
+		Ink.text(cv, "HIS SHEET", tr.position + Vector2(0, tr.size.y + 26), 18, Ink.PAPER, nf, tr.size.x)
+	else:
+		Ink.text(cv, "lift his sheet", tr.position + Vector2(0, 54), 20, Color(Ink.PAPER, 0.8), Ink.hand(), tr.size.x)
+	# Two knurled knobs: each turns his sheet a quarter, the pointer shows how far it is turned.
+	var dim: bool = not st.reg_laid
+	Ink.text(cv, "TURN HIS SHEET", Vector2(1124, 284), 20, engraved, nf, 280)
+	for i in 2:
+		var c0: Vector2 = REG_CONTROLS[4 + i][1].get_center()
+		var ang := float(int(st.reg_rot)) * PI / 2.0 - PI / 2.0
+		cv.draw_line(c0, c0 + Vector2(cos(ang), sin(ang)) * 24.0, Color(Ink.INK, 0.5 if dim else 1.0), 5.0)
+		cv.draw_circle(c0, 6.0, Ink.INK)
+		var cw := i == 1
+		var a0 := PI * 0.75
+		var a1 := PI * 0.25
+		var arc := PackedVector2Array()
+		for k in 13:
+			var t := lerpf(a0, a1, float(k) / 12.0)
+			arc.append(c0 + Vector2(cos(t), -sin(t)) * 44.0)
+		if not cw:
+			arc.reverse()
+		var col := Color(Ink.INK, 0.45 if dim else 0.95)
+		cv.draw_polyline(arc, col, 3.0, true)
+		var tip: Vector2 = arc[arc.size() - 1]
+		var dirv: Vector2 = (tip - arc[arc.size() - 2]).normalized()
+		var nrm := Vector2(-dirv.y, dirv.x)
+		cv.draw_colored_polygon(PackedVector2Array([tip + dirv * 10.0, tip + nrm * 7.0, tip - nrm * 7.0]), col)
+		Ink.text(cv, "LEFT" if not cw else "RIGHT", c0 + Vector2(-60, 68), 16, col, nf, 120)
+	# Three register pins: raised until one is pressed home.
+	Ink.text(cv, "Pin his cross to the table's lighthouse:", Vector2(1124, 432), 19, engraved, nf, 280,
 		HORIZONTAL_ALIGNMENT_LEFT)
-	Ink.text(cv, "TURN HIS SHEET", Vector2(1124, 272), 18, Ink.PAPER, nf, 280)
-	Ink.text(cv, "BASE SHEET", Vector2(84, 160), 18, Ink.PAPER, nf, 240)
+	for i in 3:
+		var r: Rect2 = REG_CONTROLS[6 + i][1]
+		var k: String = ["lighthouse", "buoy", "datum"][i]
+		var pin := Vector2(r.position.x + 40, r.get_center().y)
+		var pressed: bool = st.reg_snap == k
+		var a := 0.5 if dim else 1.0
+		if pressed:
+			cv.draw_circle(pin, 13.0, Color(Ink.BRASS.darkened(0.25), a))
+			cv.draw_arc(pin, 13.0, 0, TAU, 24, Ink.INK, 2.0)
+			cv.draw_circle(pin, 4.0, Ink.INK)
+		else:
+			cv.draw_circle(pin + Vector2(4, 6), 17.0, Color(0, 0, 0, 0.35 * a))
+			cv.draw_circle(pin, 17.0, Color(Color("d9b876"), a))
+			cv.draw_arc(pin, 17.0, 0, TAU, 28, Color(Ink.INK, a), 2.2)
+			cv.draw_circle(pin + Vector2(-5, -6), 5.0, Color(1, 0.96, 0.84, 0.8 * a))
+		_cross(cv, Vector2(r.position.x + 92, r.get_center().y), 9.0, Color(VENN_INK, a), 2.2)
+		Ink.text(cv, "HIS " + String(CROSS_LABELS[k]), Vector2(r.position.x + 110, r.get_center().y + 8), 21,
+			Color(Ink.INK, a), nf, r.size.x - 116, HORIZONTAL_ALIGNMENT_LEFT)
+	# The clip: resting in its cradle until it snaps down on the table.
+	var cr: Rect2 = REG_CONTROLS[9][1]
+	if not st.p03_complete:
+		_bulldog(cv, cr.get_center() + Vector2(-40, 0), 1.0, false)
+		Ink.text(cv, "CLIP", Vector2(cr.get_center().x + 10, cr.get_center().y + 10), 26, Ink.PAPER, Ink.serif(), 110,
+			HORIZONTAL_ALIGNMENT_LEFT)
+	else:
+		Ink.text(cv, "clipped", cr.position + Vector2(0, 60), 20, Color(Ink.PAPER, 0.75), Ink.hand(), cr.size.x)
+
+## A brass bulldog clip, jaws down at `at`; `shut` draws it biting paper.
+func _bulldog(cv: CanvasItem, at: Vector2, s: float, shut: bool) -> void:
+	var body := PackedVector2Array([at + Vector2(-34, -30) * s, at + Vector2(34, -30) * s, at + Vector2(28, 14) * s,
+		at + Vector2(-28, 14) * s])
+	cv.draw_colored_polygon(PackedVector2Array([body[0] + Vector2(5, 7), body[1] + Vector2(5, 7), body[2] + Vector2(5, 7),
+		body[3] + Vector2(5, 7)]), Color(0, 0, 0, 0.35))
+	cv.draw_colored_polygon(body, Color("c49a52"))
+	cv.draw_line(at + Vector2(-30, -22) * s, at + Vector2(30, -22) * s, Color("ecd29a"), 3.0 * s)
+	cv.draw_line(at + Vector2(-28, 4) * s, at + Vector2(28, 4) * s, Color("8a6634"), 4.0 * s)
+	cv.draw_polyline(body + PackedVector2Array([body[0]]), Ink.INK, 2.4 * s, true)
+	cv.draw_arc(at + Vector2(0, -38) * s, 15.0 * s, PI, TAU, 16, Ink.INK, 4.0 * s)
+	cv.draw_arc(at + Vector2(0, -38) * s, 15.0 * s, PI, TAU, 16, Color("ecd29a"), 1.6 * s)
+	if shut:
+		cv.draw_line(at + Vector2(-28, 16) * s, at + Vector2(28, 16) * s, Ink.INK, 3.0 * s)
 
 func _draw_example(cv: CanvasItem, _r: Rect2) -> void:
 	var nf := narrow()
@@ -1151,10 +1423,10 @@ func _draw_example(cv: CanvasItem, _r: Rect2) -> void:
 	var y1 := a.position.y + 18
 	cv.draw_polyline(PackedVector2Array([Vector2(a.position.x + 16, y1 + 4), Vector2(a.position.x + 70, y1 - 2),
 		Vector2(b.end.x - 10, y1 + 3)]), VENN_INK, 2.5, true)
-	var cap := Rect2(glass.position.x + 4, glass.end.y - 82, glass.size.x - 8, 78)
+	var cap := Rect2(glass.position.x + 4, glass.end.y - 86, glass.size.x - 8, 82)
 	cv.draw_rect(cap, Color(Ink.PAPER, 0.95))
 	Ink.wrapped(cv, "Example: register at the cross. The line runs through band 1.",
-		cap.position + Vector2(6, 20), 16, Ink.INK, cap.size.x - 12, true, nf)
+		cap.position + Vector2(6, 22), 18, Ink.INK, cap.size.x - 12, true, nf)
 
 # --- c_recorder --------------------------------------------------------------------
 func _draw_recorder(cv: Node2D) -> void:
@@ -1162,9 +1434,10 @@ func _draw_recorder(cv: Node2D) -> void:
 	var nf := narrow()
 	var t1x := _flag("t1x_threshold_crossed")
 	var p04: bool = st.p04_complete
+	var band := _band()
 	_bg(cv, "cu_recorder", Color("4d6a63"))
-	# The drum: a trace under the text.
-	_draw_drum_face(cv, Rect2(226, 112, 996, 226), 0, p04, _band())
+	if band >= 6:
+		_over(cv, "cu_rec_brown")
 	var lines := []
 	if st.p05_complete:
 		lines = strip_visible()
@@ -1174,12 +1447,14 @@ func _draw_recorder(cv: Node2D) -> void:
 			lines = [rf]
 		elif r3.pen_text() != "":
 			lines = [r3.pen_text()]
+	# Printed lines sit in ink on the paper; the trace runs in the clear band beneath them.
+	var n_rows := lines.size()
+	if st.p05_complete:
+		n_rows = r3.strip_lines().size()
+	var trace_top := 112.0 if n_rows == 0 else 132.0 + 30.0 * n_rows
+	_draw_drum_face(cv, Rect2(226, trace_top, 996, 338.0 - trace_top), 0, p04, band)
 	for i in lines.size():
-		var y := 150.0 + 36.0 * i
-		var s: String = lines[i]
-		var w := nf.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 26).x
-		cv.draw_rect(Rect2(DRUM_TEXT.get_center().x - w / 2.0 - 8, y - 24, w + 16, 32), Color(Ink.PAPER, 0.88))
-		Ink.text(cv, s, Vector2(DRUM_TEXT.position.x, y), 26, Ink.INK, nf, DRUM_TEXT.size.x)
+		pen_ink(cv, String(lines[i]), Vector2(DRUM_TEXT.get_center().x, 146.0 + 30.0 * i), 25, Ink.INK, 30 + i)
 	# The seal over the wheels. Broken, its torn halves curl back round the housings: the
 	# plate, wheels and gauges stand proud of the paper (patched from the plate itself).
 	var bg := _tex("cu_recorder")
@@ -1191,7 +1466,7 @@ func _draw_recorder(cv: Node2D) -> void:
 				cv.draw_texture_rect_region(bg, pr, pr)
 	# Calibration plate.
 	Ink.wrapped(cv, "ZERO AND INTERVAL ARE INDEPENDENT CONTROLS · EXAMPLE: ZERO 7 · INTERVAL 2 → CALIBRATE",
-		CAL_PLATE.position + Vector2(18, 30), 19, Ink.INK, CAL_PLATE.size.x - 36, true, nf)
+		CAL_PLATE.position + Vector2(16, 30), 22, Ink.INK, CAL_PLATE.size.x - 32, true, nf)
 	# Wheels.
 	var vals := [int(st.zero), int(st.interval)]
 	var names := ["ZERO", "INTERVAL"]
@@ -1208,6 +1483,8 @@ func _draw_recorder(cv: Node2D) -> void:
 	# Gauges: needle position plus a word, never colour alone.
 	for i in 2:
 		_gauge(cv, GAUGES[i], String(st.gauges[i]), i)
+	if band >= 4:
+		_over(cv, "cu_rec_fog")
 	# The lever: handle down after P04.
 	if p04:
 		cv.draw_rect(Rect2(712, 482, 134, 52), COPPER_FILL)
@@ -1264,7 +1541,7 @@ func _draw_record_panel(cv: Node2D) -> void:
 	var st: Dictionary = r3.state
 	var nf := narrow()
 	Ink.wrapped(cv, "Departure observation, example: BOUNDARY → RELATION → OBSERVER, then RECORD.",
-		REC_MINIATURE.position + Vector2(22, 36), 19, Ink.INK, REC_MINIATURE.size.x - 44, true, nf)
+		REC_MINIATURE.position + Vector2(18, 34), 22, Ink.INK, REC_MINIATURE.size.x - 36, true, nf)
 	var pt := _tex("plate_blank")
 	for i in 3:
 		var sr: Rect2 = REC_SLOTS[i]
@@ -1303,11 +1580,18 @@ func _draw_plan(cv: Node2D) -> void:
 	var t := _tex("cu_plan")
 	if t == null:
 		cv.draw_rect(PLAN_PAPER, Ink.PAPER)
+	# The body lies under the drafting once the plan resolves: the rooms are drawn over it.
+	if ps.complete:
+		var body := _tex("cu_plan_body")
+		if body:
+			cv.draw_texture(body, Vector2.ZERO, Color(1, 1, 1, plan_k))
 	Ink.text(cv, "GREYWAKE SURVEY STATION · GENERAL PLAN · 1889 · REVISED E.V. 1927", Vector2(220, 134), 20, ink,
 		Ink.serif(), 1000)
 	for rm in PLAN_ROOMS:
 		var r: Rect2 = rm[1]
 		cv.draw_rect(r, ink, false, 2.5)
+		if ps.complete:
+			_knockout(cv, rm[0], r.position + Vector2(8, 22), 16, r.size.x - 12, nf)
 		Ink.wrapped(cv, rm[0], r.position + Vector2(8, 22), 16, ink, r.size.x - 12, true, nf)
 	# The observation chamber: outline only, printed WITNESS.
 	_dashed_rect(cv, PLAN_CHAMBER, ink, 2.5, 10.0)
@@ -1331,11 +1615,7 @@ func _draw_plan(cv: Node2D) -> void:
 	Ink.text(cv, "[ 1", Vector2(736, 336), 18, ink, nf, 60, HORIZONTAL_ALIGNMENT_LEFT)
 	Ink.text(cv, "] 1", Vector2(736, 554), 18, ink, nf, 60, HORIZONTAL_ALIGNMENT_LEFT)
 	Ink.text(cv, "[ 2", Vector2(736, 696), 18, ink, nf, 60, HORIZONTAL_ALIGNMENT_LEFT)
-	# The body beneath the rooms.
 	if ps.complete:
-		var body := _tex("cu_plan_body")
-		if body:
-			cv.draw_texture(body, Vector2.ZERO, Color(1, 1, 1, plan_k))
 		Ink.wrapped(cv, PLAN_MARGIN_TEXT, Vector2(262, 620), 18, Ink.BLUE_INK, 190, true, Ink.hand())
 	# Placed tiles, centred in their zones.
 	var tt := _tex("tile_blank")
@@ -1363,8 +1643,10 @@ func _draw_plan(cv: Node2D) -> void:
 		var zr: Rect2 = tile_rect("centre")
 		var fw := nf.get_string_size(full, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
 		if n > 0:
-			cv.draw_string(nf, Vector2(zr.get_center().x - fw / 2.0, zr.end.y - 10), full.substr(0, n),
-				HORIZONTAL_ALIGNMENT_LEFT, -1, 22, ink)
+			# Below the tile, on a paper knockout: the name never overprints WITNESS.
+			var at := Vector2(zr.get_center().x - fw / 2.0, zr.end.y + 40)
+			cv.draw_rect(Rect2(at + Vector2(-8, -22), Vector2(fw + 16, 30)), Color("ded4ba"))
+			cv.draw_string(nf, at, full.substr(0, n), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, ink)
 	Ink.text(cv, "FIX", Vector2(PLAN_FIX.position.x, PLAN_FIX.position.y + 100), 20, ink, nf, PLAN_FIX.size.x)
 	if r3.held_tile != "":
 		var m := cv.get_global_mouse_position() + Vector2(18, 18)
@@ -1378,10 +1660,26 @@ func _tile(cv: CanvasItem, tt: Texture2D, r: Rect2, tile: String) -> void:
 		cv.draw_rect(r, Ink.INK, false, 2.0)
 	var size := 24 if r.size.x >= 160 else 22
 	var y := r.get_center().y + size * 0.36
-	if tile == "witness" and r.size.x < 160 and r3.state.p21_complete:
-		y = r.position.y + 30   # room under the word for the name
-		size = 20
 	Ink.text(cv, tile.to_upper(), Vector2(r.position.x, y), size, Ink.INK, Ink.serif(), r.size.x)
+
+## A paper knockout behind a label's words, so a stroke under it stops at the letters.
+func _knockout(cv: CanvasItem, s: String, pos: Vector2, size: int, width: float, font: Font) -> void:
+	var y := pos.y
+	var line := ""
+	var rows := []
+	for word in s.split(" "):
+		var trial := word if line == "" else line + " " + word
+		if font.get_string_size(trial, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > width and line != "":
+			rows.append(line)
+			line = word
+		else:
+			line = trial
+	if line != "":
+		rows.append(line)
+	for r in rows:
+		var w := font.get_string_size(r, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		cv.draw_rect(Rect2(pos.x - 3, y - size + 1, w + 6, size + 5), Color("ded4ba"))
+		y += size * 1.45
 
 func _ref_card(cv: CanvasItem, at: Vector2, s: String) -> void:
 	var nf := narrow()

@@ -1007,6 +1007,29 @@ func test_view() -> void:
 	for stroke in v.scratch_strokes():
 		for p in stroke:
 			check(frame.grow(2).has_point(p), "scratch point %s is on the jamb" % [p])
+	# Repaint: the painted door on wall A is the office exit; lights follow wall and state only.
+	r.wall = "A"
+	check(v.action_at(Vector2(1240, 650)) == "go:R02" and v.hover_at(Vector2(1240, 650)) == "go:R02",
+		"wall A's painted door is the way back to the office")
+	r.wall = "B"
+	check(v.action_at(Vector2(1240, 650)) != "go:R02", "the door is only on wall A")
+	r.wall = "A"
+	var le: Dictionary = v.light_energies(0)
+	check(is_equal_approx(le.lamp, 0.6) and le.window == 0.0 and le.hatch == 0.0, "wall A: the chart lamp alone, 0.6")
+	check(is_equal_approx(v.light_energies(7).lamp, 0.35), "the lamp falls to 0.35 by band 7, never off")
+	r.wall = "B"
+	check(v.light_energies(0).window > 0.25 and v.light_energies(0).lamp == 0.0, "wall B: the sea window lights it")
+	r.wall = "C"
+	check(v.light_energies(3).hatch > 0.0, "wall C after P04: cold light from the open hatch")
+	for b in 7:
+		check(v.float_y(b + 1) < v.float_y(b), "the float rides higher at band %d" % (b + 1))
+	check(v.FLOAT_WELL.has_point(Vector2(1016, v.float_y(7) + 48)) and v.FLOAT_WELL.has_point(Vector2(1016, v.float_y(0) + 48)),
+		"the float stays inside the well's glass, above the subtitle bar")
+	for w in ["A", "B", "C"]:
+		for b in range(2, 8):
+			check(v._tex("%s_damp_%d" % [w, b]) != null, "damp tide-mark %s band %d is painted" % [w, b])
+	for id in ["A_buckle", "A_fog", "B_float", "C_rope_0", "C_rope_1", "C_rope_2", "C_beads", "cu_rec_fog", "cu_rec_brown"]:
+		check(v._tex(id) != null, "%s is painted" % id)
 	# Loop targets follow state and wall, never a clock.
 	r.wall = "B"
 	var t: Dictionary = v.audio_targets()

@@ -4,16 +4,20 @@
 Writes, and only writes, assets/rooms/R03/*.png:
 
   plates      A_base, B_base, C_base                  (1448x1086 RGB, three walls)
-  overlays    A_composite, A_compass_bent, A_standing, A_plan_body,
+  overlays    A_composite, A_compass_bent, A_standing, A_plan_body, A_buckle, A_fog,
               B_window_0..7, B_rain_a/b/c, B_seal_intact, B_seal_broken, B_p05, B_strip,
-              C_hatch_open, C_window_7                (1448x1086 RGBA, registered to a base)
+              C_hatch_open, C_window_7, C_rope_0/1/2, C_beads (1448x1086 RGBA, registered to a base)
+              {A,B,C}_damp_2..7                       (1448x308 RGBA, drawn at y 596: the rising tide-mark)
   close-ups   cu_registration, cu_recorder, cu_plan   (1448x1086 RGB)
-              cu_recorder_shutter, cu_seal, cu_seal_broken, cu_plan_lid, cu_plan_body (RGBA)
-  sprites     B_pen 160x200, C_line 8x260, sheet_paper 600x560, sheet_tracing 600x560,
+              cu_recorder_shutter, cu_seal, cu_seal_broken, cu_plan_lid, cu_plan_body,
+              cu_rec_fog, cu_rec_brown                (RGBA)
+  sprites     B_pen 160x200, B_float 40x70, C_line 8x260, sheet_paper 600x560, sheet_tracing 600x560,
               plate_blank 130x130, tile_blank 170x84
 
-Flat front elevation, approved palette, navy ink contours over matte colour, seeded paper
-grain. No text anywhere: the view draws every label, digit, symbol, curve and diagram.
+Flat front elevation, approved palette, navy ink contours (tapered: heavy on the shadow side)
+over matte two-tone colour, brass with a highlight stripe and a tarnish band, the office's
+fine paper fibre, and light baked toward each wall's source (lamp, sea window, hatch).
+No text anywhere: the view draws every label, digit, symbol, curve and diagram.
 
 Python 3 + PIL only. Deterministic: one random.Random per asset, seeded from SEED and the
 asset name; no wall clock. Ink is drawn at SS x scale and reduced. Reruns are byte-identical.
@@ -26,7 +30,7 @@ import os
 import random
 import sys
 
-from PIL import Image, ImageChops, ImageDraw, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 OUT = os.path.join(ROOT, "assets", "rooms", "R03")
@@ -107,10 +111,10 @@ def fibres(rng, w, h):
     sp = noise(rng, w, h, 1.3)
     hf = Image.frombytes("L", (max(2, w // 16), h), rng.randbytes(max(2, w // 16) * h)).resize((w, h), Image.BICUBIC)
     vf = Image.frombytes("L", (w, max(2, h // 16)), rng.randbytes(w * max(2, h // 16))).resize((w, h), Image.BICUBIC)
-    mo = noise(rng, w, h, 60)
+    mo = noise(rng, w, h, 28)
     n = Image.blend(sp, hf, 0.45)
     n = Image.blend(n, vf, 0.3)
-    return Image.blend(n, mo, 0.35)
+    return Image.blend(n, mo, 0.18)
 
 
 def grain(img, rng, amt=9.0):
@@ -186,8 +190,33 @@ def rot(pts, cx, cy, deg):
     return [(cx + (x - cx) * ca - (y - cy) * sa, cy + (x - cx) * sa + (y - cy) * ca) for x, y in pts]
 
 
+LIGHT_DIR = (0.6, 0.8)          # shadow side: light falls from the upper left
+BRASSES = {BRASS, BRASS_L, BRASS_D, BRASS_POL}
+
+
+def _signed_area(pts):
+    return sum(pts[i][0] * pts[(i + 1) % len(pts)][1] - pts[(i + 1) % len(pts)][0] * pts[i][1]
+               for i in range(len(pts))) / 2.0
+
+
+def rrect_pts(x0, y0, x1, y1, r, n=6):
+    r = max(0.0, min(r, (x1 - x0) / 2.0, (y1 - y0) / 2.0))
+    if r < 0.5:
+        return [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+    out = []
+    for (cx, cy, a0) in ((x1 - r, y0 + r, -math.pi / 2), (x1 - r, y1 - r, 0.0), (x0 + r, y1 - r, math.pi / 2),
+                         (x0 + r, y0 + r, math.pi)):
+        for k in range(n + 1):
+            a = a0 + (math.pi / 2) * k / n
+            out.append((cx + r * math.cos(a), cy + r * math.sin(a)))
+    return out
+
+
 class Cv:
-    """An RGBA drawing surface at SS x scale, addressed in 1x plate coordinates."""
+    """An RGBA drawing surface at SS x scale, addressed in 1x plate coordinates.
+
+    Closed outlines are inked at variable width: thin on the lit (top/left) side, heavy on the
+    shadow (bottom/right) side, the way the office plates taper their navy contours."""
 
     def __init__(self, w, h, bg=(0, 0, 0, 0)):
         self.w, self.h = w, h
@@ -198,26 +227,121 @@ class Cv:
     def P(pts):
         return [(x * SS, y * SS) for x, y in pts]
 
-    def rect(self, x0, y0, x1, y1, fill=None, ol=INK, w=3):
+    def vloop(self, pts, col=INK, w=3, taper=0.5):
+        """A closed outline whose width follows the light: w*(1-taper) lit .. w*(1+taper) shadow."""
+        pts = [tuple(p) for p in pts]
+        if len(pts) > 2 and pts[0] == pts[-1]:
+            pts = pts[:-1]
+        if len(pts) < 2:
+            return
+        sgn = 1.0 if _signed_area(pts) >= 0 else -1.0
+        n = len(pts)
+        widths = []
+        for i in range(n):
+            (ax, ay), (bx, by) = pts[i], pts[(i + 1) % n]
+            L = math.hypot(bx - ax, by - ay) or 1.0
+            nx, ny = sgn * (by - ay) / L, sgn * -(bx - ax) / L
+            k = nx * LIGHT_DIR[0] + ny * LIGHT_DIR[1]
+            widths.append(max(0.6, w * (1.0 + taper * k)))
+        for i in range(n):
+            a, b = pts[i], pts[(i + 1) % n]
+            ww = max(1, int(round(widths[i] * SS)))
+            self.d.line([(a[0] * SS, a[1] * SS), (b[0] * SS, b[1] * SS)], fill=col, width=ww)
+            r = max(widths[i], widths[i - 1]) * SS / 2.0
+            self.d.ellipse([a[0] * SS - r, a[1] * SS - r, a[0] * SS + r, a[1] * SS + r], fill=col)
+
+    def _local(self, x0, y0, x1, y1):
+        """A small SS layer over a 1x box: (layer, draw, P mapping 1x points into it, origin)."""
+        ox, oy = int(math.floor(x0 * SS)) - 2, int(math.floor(y0 * SS)) - 2
+        lw, lh = int(math.ceil(x1 * SS)) - ox + 4, int(math.ceil(y1 * SS)) - oy + 4
+        lay = Image.new("RGBA", (max(1, lw), max(1, lh)), (0, 0, 0, 0))
+        P = lambda pts: [(x * SS - ox, y * SS - oy) for x, y in pts]
+        return lay, ImageDraw.Draw(lay), P, (ox, oy)
+
+    def _put(self, lay, mask, origin):
+        lay.putalpha(ImageChops.multiply(lay.getchannel("A"), mask))
+        ox, oy = origin
+        if ox < 0 or oy < 0:
+            lay = lay.crop((max(0, -ox), max(0, -oy), lay.width, lay.height))
+            ox, oy = max(0, ox), max(0, oy)
+        self.im.alpha_composite(lay, (ox, oy))
+
+    def _finish(self, pts, fill, x0, y0, x1, y1, shade):
+        """Matte two-tone shade on the shadow side and a brass stripe/tarnish band, inside pts."""
+        if fill is None or len(fill) == 4 and fill[3] < 255:
+            return
+        bw, bh = x1 - x0, y1 - y0
+        is_brass = tuple(fill[:3]) in BRASSES
+        if is_brass and min(bw, bh) > 90:
+            is_brass = False        # big brass fields keep a plain matte; stripes are for parts
+        if not (shade or is_brass) or bw < 10 or bh < 10:
+            return
+        lay, d, P, org = self._local(x0, y0, x1, y1)
+        base = tuple(fill[:3])
+        if shade:
+            t = max(4.0, min(26.0, 0.11 * min(bw, bh) + 3))
+            d.polygon(P([(x1 - t, y0 + t * 0.6), (x1, y0), (x1, y1), (x1 - t, y1 - t)]), fill=rgba(mix(base, NAVY, 0.22), 255))
+            d.polygon(P([(x0 + t * 0.6, y1 - t), (x1 - t, y1 - t), (x1, y1), (x0, y1)]), fill=rgba(mix(base, NAVY, 0.30), 255))
+            d.polygon(P([(x0, y0), (x1, y0), (x1 - t, y0 + t * 0.45), (x0 + t * 0.45, y0 + t * 0.45)]),
+                      fill=rgba(mix(base, (236, 232, 214), 0.10), 255))
+        if is_brass:
+            hi, lo = rgba(mix(base, (250, 232, 180), 0.55), 255), rgba(mix(base, (92, 84, 52), 0.38), 255)
+            if bw >= bh * 1.6 or bh < 26:      # horizontal piece: stripes run along it
+                d.polygon(P([(x0, y0 + bh * 0.20), (x1, y0 + bh * 0.20), (x1, y0 + bh * 0.20 + max(1.5, bh * 0.10)),
+                             (x0, y0 + bh * 0.20 + max(1.5, bh * 0.10))]), fill=hi)
+                d.polygon(P([(x0, y0 + bh * 0.66), (x1, y0 + bh * 0.66), (x1, y0 + bh * 0.84), (x0, y0 + bh * 0.84)]), fill=lo)
+            else:                              # upright piece: stripes run down it
+                d.polygon(P([(x0 + bw * 0.18, y0), (x0 + bw * 0.18 + max(1.5, bw * 0.10), y0),
+                             (x0 + bw * 0.18 + max(1.5, bw * 0.10), y1), (x0 + bw * 0.18, y1)]), fill=hi)
+                d.polygon(P([(x0 + bw * 0.64, y0), (x0 + bw * 0.84, y0), (x0 + bw * 0.84, y1), (x0 + bw * 0.64, y1)]), fill=lo)
+        m = Image.new("L", lay.size, 0)
+        ImageDraw.Draw(m).polygon(P(pts), fill=255)
+        self._put(lay, m, org)
+
+    def rect(self, x0, y0, x1, y1, fill=None, ol=INK, w=3, shade=False):
+        if x1 - x0 < 0.5 or y1 - y0 < 0.5:
+            return
+        pts = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
         if fill is not None:
             self.d.rectangle([x0 * SS, y0 * SS, x1 * SS - 1, y1 * SS - 1], fill=fill)
+            self._finish(pts, fill, x0, y0, x1, y1, shade)
         if ol is not None and w:
-            self.d.rectangle([x0 * SS, y0 * SS, x1 * SS - 1, y1 * SS - 1], outline=ol, width=int(round(w * SS)))
+            self.vloop(pts, ol, w)
 
-    def rrect(self, x0, y0, x1, y1, r, fill=None, ol=INK, w=3):
-        self.d.rounded_rectangle([x0 * SS, y0 * SS, x1 * SS - 1, y1 * SS - 1], radius=r * SS, fill=fill,
-                                 outline=ol if (ol is not None and w) else None, width=int(round(w * SS)) if w else 0)
+    def rrect(self, x0, y0, x1, y1, r, fill=None, ol=INK, w=3, shade=False):
+        pts = rrect_pts(x0, y0, x1, y1, r)
+        if fill is not None:
+            self.d.polygon(self.P(pts), fill=fill)
+            self._finish(pts, fill, x0, y0, x1, y1, shade)
+        if ol is not None and w:
+            self.vloop(pts, ol, w)
 
     def ell(self, cx, cy, rx, ry, fill=None, ol=INK, w=3):
         box = [(cx - rx) * SS, (cy - ry) * SS, (cx + rx) * SS, (cy + ry) * SS]
-        self.d.ellipse(box, fill=fill, outline=ol if (ol is not None and w) else None,
-                       width=int(round(w * SS)) if w else 0)
+        if fill is not None:
+            self.d.ellipse(box, fill=fill)
+            if tuple(fill[:3]) in BRASSES and len(fill) == 3 and min(rx, ry) >= 5:
+                # a tarnish crescent lower-right, a highlight fleck upper-left
+                lay, d, P, org = self._local(cx - rx, cy - ry, cx + rx, cy + ry)
+                def eb(x0, y0, x1, y1):
+                    (a, b), (c, e) = P([(x0, y0), (x1, y1)])
+                    return [a, b, c, e]
+                d.ellipse(eb(cx - rx, cy - ry, cx + rx, cy + ry), fill=rgba(mix(fill, (92, 84, 52), 0.35), 255))
+                d.ellipse(eb(cx - rx * 1.22, cy - ry * 1.22, cx + rx * 0.78, cy + ry * 0.78), fill=rgba(fill, 255))
+                d.ellipse(eb(cx - rx * 0.62, cy - ry * 0.70, cx - rx * 0.10, cy - ry * 0.38),
+                          fill=rgba(mix(fill, (250, 232, 180), 0.55), 255))
+                m = Image.new("L", lay.size, 0)
+                ImageDraw.Draw(m).ellipse(eb(cx - rx, cy - ry, cx + rx, cy + ry), fill=255)
+                self._put(lay, m, org)
+        if ol is not None and w:
+            n = max(16, min(96, int((rx + ry) * 0.9)))
+            self.vloop(ellipse_pts(cx, cy, rx, ry, n)[:-1], ol, w)
 
     def poly(self, pts, fill=None, ol=INK, w=3):
         if fill is not None:
             self.d.polygon(self.P(pts), fill=fill)
         if ol is not None and w:
-            self.line(list(pts) + [pts[0]], ol, w)
+            self.vloop(list(pts), ol, w)
 
     def line(self, pts, col=INK, w=3, caps=True):
         sp = self.P(pts)
@@ -266,7 +390,7 @@ def save(img, name, mode):
     print("  wrote", name, img.size, mode)
 
 
-def finish_rgb(cv, name, amt=9.0):
+def finish_rgb(cv, name, amt=6.0):
     return grain(cv.down().convert("RGB"), rng_for(name + ":grain"), amt)
 
 
@@ -306,50 +430,110 @@ def brass_plate(cv, x0, y0, x1, y1, col=BRASS, screws=True, w=2.5, r=3):
             screw(cv, sx, sy, 3.2)
 
 
+WALL_LIT = (185, 196, 166)     # #B9C4A6 the office's sage-cream, lit
+WALL_SH = (159, 176, 163)      # #9FB0A3 in shadow
+PIC_RAIL = 134                 # picture rail
+BEAM_Y = 30                    # ceiling beam / cornice depth
+
+
+def paper_fibre(img, rng, strength=0.05):
+    """The office's matte paper: fine fibre plus a soft small mottle and sparse speckle (no clouds)."""
+    w, h = img.size
+    sw, sh = w, h
+    fib = Image.frombytes("L", (sw, sh), rng.randbytes(sw * sh)).filter(ImageFilter.GaussianBlur(0.7))
+    fib = ImageOps.autocontrast(fib, cutoff=1)
+    mw, mh = max(2, w // 28), max(2, h // 28)
+    mot = ImageOps.autocontrast(Image.frombytes("L", (mw, mh), rng.randbytes(mw * mh)).resize((w, h), Image.BICUBIC), cutoff=1)
+    tex = Image.blend(fib, mot, 0.45)
+    pos = tex.point([int(max(0, v - 128) * strength) for v in range(256)])
+    neg = tex.point([int(max(0, 128 - v) * strength) for v in range(256)])
+    bands = img.convert("RGB").split()
+    out = Image.merge("RGB", [ImageChops.subtract(ImageChops.add(c, pos), neg) for c in bands])
+    sp = Image.frombytes("L", (w, h), rng.randbytes(w * h))
+    out = Image.composite(Image.new("RGB", (w, h), (236, 236, 226)), out, sp.point([8 if v > 251 else 0 for v in range(256)]))
+    out = Image.composite(Image.new("RGB", (w, h), INK), out, sp.point([10 if v < 4 else 0 for v in range(256)]))
+    return out
+
+
+def wall_light(w, h, pool):
+    """Plaster colour: shadow toward the corners and the dado, lit inside `pool` (cx, cy, rx, ry, warmth)."""
+    cx, cy, rx, ry, warm = pool
+    g = Image.new("L", (w // 8, h // 8), 0)
+    px = g.load()
+    for y in range(h // 8):
+        for x in range(w // 8):
+            X, Y = x * 8, y * 8
+            d = ((X - cx) / rx) ** 2 + ((Y - cy) / ry) ** 2
+            v = math.exp(-d * 1.1) * 0.85 + 0.15 * (1 - Y / h)
+            px[x, y] = int(255 * clamp(v))
+    g = g.resize((w, h), Image.BICUBIC).filter(ImageFilter.GaussianBlur(10))
+    lit = mix(WALL_LIT, (206, 196, 156), warm)
+    return Image.composite(Image.new("RGB", (w, h), lit), Image.new("RGB", (w, h), WALL_SH), g)
+
+
+POOLS = {"A": (800, 330, 620, 420, 0.35), "B": (300, 330, 520, 440, 0.0), "C": (740, 470, 560, 420, 0.0)}
+
+
 def room_shell(name):
-    """Shared geometry for all three walls (flat front elevation)."""
+    """Shared geometry for all three walls (flat front elevation), lit per wall."""
+    wall = name[0]
     rng = rng_for(name + ":shell")
     cv = Cv(W, H, rgba(WALL, 255))
-    # wall mottle at 1x: faint damp clouds, darker toward the dado
-    mott = noise(rng, W, 586, 140)
-    damp = Image.composite(Image.new("RGB", (W, 586), WALL_D), Image.new("RGB", (W, 586), WALL),
-                           ImageChops.multiply(mott, Image.linear_gradient("L").resize((W, 586))).point(
-                               [int(min(255, v * 0.9)) for v in range(256)]))
-    cv.paste1x(damp, 0, 0)
-    # cornice (calm, under the HUD)
-    cv.rect(0, 0, W, 16, fill=TEAL, ol=None)
-    cv.line([(0, 16), (W, 16)], INK, 2.5, caps=False)
-    cv.line([(0, 19), (W, 19)], mix(WALL, INK, 0.25), 1.2, caps=False)
+    plaster = paper_fibre(wall_light(W, 586, POOLS[wall]), rng_for(name + ":fibre"), 0.05)
+    cv.paste1x(plaster, 0, 0)
+    # ceiling beam / cornice: a heavy moulding the HUD sits on
+    cv.rect(0, 0, W, BEAM_Y, fill=TEAL_D, ol=None)
+    cv.rect(0, BEAM_Y - 9, W, BEAM_Y, fill=TEAL, ol=None)
+    cv.line([(0, BEAM_Y - 9), (W, BEAM_Y - 9)], TEAL_L, 1.4, caps=False)
+    cv.line([(0, BEAM_Y), (W, BEAM_Y)], INK, 3, caps=False)
+    sh = Image.new("L", (W, 30), 0)
+    ImageDraw.Draw(sh).rectangle([0, 0, W, 6], fill=120)
+    cv.paste1x(Image.new("RGB", (W, 30), NAVY), 0, BEAM_Y, sh.filter(ImageFilter.GaussianBlur(5)))
+    # picture rail
+    cv.shadow(lambda d, o: d.rectangle([0, PIC_RAIL + o[1], W, PIC_RAIL + 10 + o[1]], fill=255), (0, 6), 4, 70)
+    cv.rect(0, PIC_RAIL, W, PIC_RAIL + 10, fill=TEAL, ol=None)
+    cv.line([(0, PIC_RAIL), (W, PIC_RAIL)], INK, 1.6, caps=False)
+    cv.line([(0, PIC_RAIL + 2.5), (W, PIC_RAIL + 2.5)], TEAL_L, 1.2, caps=False)
+    cv.line([(0, PIC_RAIL + 10), (W, PIC_RAIL + 10)], INK, 2.6, caps=False)
     # wainscot
     cv.rect(0, 600, W, 900, fill=TEAL, ol=None)
     for x in range(24, W, 48):
         cv.line([(x, 602), (x, 872)], TEAL_D, 2.6, caps=False)
         cv.line([(x + 2.5, 602), (x + 2.5, 872)], TEAL_L, 1.0, caps=False)
-    # board grain at 1x
     gr = noise(rng, W, 300, 3).resize((W // 6, 300)).resize((W, 300), Image.BICUBIC)
     grain_l = gr.point([int(clamp((v - 128) / 128.0, 0, 1) * 28) for v in range(256)])
     cv.paste1x(Image.new("RGB", (W, 300), TEAL_D), 0, 600, grain_l)
     # dado rail
     cv.rect(0, 584, W, 602, fill=TEAL_D, ol=None)
-    cv.line([(0, 584), (W, 584)], INK, 2.5, caps=False)
+    cv.line([(0, 584), (W, 584)], INK, 2.0, caps=False)
     cv.line([(0, 588), (W, 588)], TEAL_L, 1.6, caps=False)
-    cv.line([(0, 601), (W, 601)], INK, 2.5, caps=False)
+    cv.line([(0, 601), (W, 601)], INK, 3.2, caps=False)
     # skirting
     cv.rect(0, 872, W, 900, fill=TEAL_D, ol=None)
-    cv.line([(0, 872), (W, 872)], INK, 2.2, caps=False)
+    cv.line([(0, 872), (W, 872)], INK, 2.0, caps=False)
     cv.line([(0, 875), (W, 875)], TEAL_L, 1.2, caps=False)
     # floor
     cv.rect(0, 900, W, H, fill=FLOOR, ol=None)
     fg = noise(rng, W // 10, 186, 2).resize((W, 186), Image.BICUBIC)
     cv.paste1x(Image.new("RGB", (W, 186), TIMBER), 0, 900,
                fg.point([int(clamp((v - 120) / 135.0, 0, 1) * 70) for v in range(256)]))
-    cv.line([(0, 900), (W, 900)], INK, 3, caps=False)
+    cv.line([(0, 900), (W, 900)], INK, 3.4, caps=False)
     for y, off in ((942, 0), (996, 130), (1050, 60)):
         cv.line([(0, y), (W, y)], mix(FLOOR, INK, 0.38), 1.6, caps=False)
         for x in range(off + 90, W, 330):
             yb = y - (42 if y == 942 else 54)
             cv.line([(x, yb + 2), (x, y - 1)], mix(FLOOR, INK, 0.3), 1.3, caps=False)
+    # the floor darkens away from the light
+    fm = Image.linear_gradient("L").resize((W, 186)).point([int(v * 0.35) for v in range(256)])
+    cv.paste1x(Image.new("RGB", (W, 186), NAVY), 0, 900, fm)
     return cv
+
+
+def picture_wire(cv, x0, x1, y_hook):
+    """Two hanging wires from the picture rail to a frame top."""
+    for x in (x0, x1):
+        cv.line([(x, PIC_RAIL + 10), (x + (12 if x == x0 else -12), y_hook)], INK, 1.3, caps=False)
+        cv.rrect(x - 4, PIC_RAIL + 4, x + 4, PIC_RAIL + 16, 2, fill=BRASS_D, ol=INK, w=1.2)
 
 
 def frame_shadow(cv, box, off=(6, 8), blur=7, alpha=80):
@@ -389,7 +573,9 @@ def body_parts():
 
 
 def paint_body(cv, T, scale_w, wash_alpha, clip_box, ink_w):
-    """Paint the seated outline into cv through transform T (close-up -> target coords)."""
+    """The seated outline drawn out of the plan's own drafting: yellowed plan paper inside, a
+    navy contour that thickens on its shadow side, rooms and corridors bent into skull, ribs,
+    spine and hips."""
     union, front, inner = body_parts()
     tw, th = cv.w * SS, cv.h * SS
     def mask_of(polys):
@@ -402,30 +588,49 @@ def paint_body(cv, T, scale_w, wash_alpha, clip_box, ink_w):
     ImageDraw.Draw(clip).rectangle([clip_box[0] * SS, clip_box[1] * SS, clip_box[2] * SS - 1, clip_box[3] * SS - 1],
                                    fill=255)
     um = ImageChops.multiply(mask_of(union), clip)
-    # wash
-    wash = Image.new("RGBA", (tw, th), rgba(BRUISE, 255))
+    # fill: the plan paper itself, yellowed where the body lies
+    wash = Image.new("RGBA", (tw, th), rgba(mix(PAPER2, (206, 178, 120), 0.42), 255))
     wash.putalpha(um.point([int(v * wash_alpha) for v in range(256)]))
     cv.im.alpha_composite(wash)
-    # exterior contour: dilate - erode via blur thresholds
-    r = ink_w * SS / 2.0
-    b = um.filter(ImageFilter.GaussianBlur(r * 0.75))
-    outer = b.point([255 if v > 18 else int(v * 255 / 18) for v in range(256)])
-    inner_m = b.point([255 if v > 236 else 0 for v in range(256)])
-    edge = ImageChops.subtract(outer, inner_m)
-    # front arms: their own contour over the lap
-    fm = ImageChops.multiply(mask_of(front), clip)
-    fb = fm.filter(ImageFilter.GaussianBlur(r * 0.75))
-    fedge = ImageChops.subtract(fb.point([255 if v > 18 else int(v * 255 / 18) for v in range(256)]),
-                                fb.point([255 if v > 236 else 0 for v in range(256)]))
-    edge = ImageChops.lighter(edge, fedge)
+    # drafting inside the body: corridor spine, rib walls with door gaps, skull and hip rooms
     lines = Image.new("L", (tw, th), 0)
     d = ImageDraw.Draw(lines)
+    lw = max(1, int(round(ink_w * SS * 0.42)))
+    def L(pts):
+        d.line([(x * SS, y * SS) for x, y in (T(q) for q in pts)], fill=255, width=lw, joint="curve")
+    L([(708, 352), (706, 520), (710, 712)])
+    L([(732, 352), (734, 520), (730, 712)])
+    for k, y in enumerate((410, 462, 514, 566)):
+        sag = 10 + k * 4
+        L([(560 + k * 6, y + sag), (620, y + 4), (690, y)])
+        L([(750, y), (820, y + 4), (880 - k * 6, y + sag)])
+    L(smooth_open([(668, 180), (720, 160), (772, 180), (784, 236), (760, 286), (680, 286), (656, 236), (668, 180)], 6))
+    L([(700, 286), (700, 300)]); L([(740, 286), (740, 300)])
+    L(smooth_open([(560, 652), (720, 640), (880, 652), (900, 700)], 6))
+    L(smooth_open([(540, 652), (528, 700)], 4))
+    L(smooth_open([(560, 380), (520, 396), (504, 440)], 6))
+    L(smooth_open([(880, 380), (920, 396), (936, 440)], 6))
+    lines = ImageChops.multiply(ImageChops.multiply(lines, um), clip)
+    ink = Image.new("RGBA", (tw, th), rgba(NAVY, 255))
+    ink.putalpha(lines.point([int(v * 0.8) for v in range(256)]))
+    cv.im.alpha_composite(ink)
+    # contour: thin on the lit side, heavy on the shadow side
+    def edge(mask, wpx):
+        r = wpx * SS / 2.0
+        b = mask.filter(ImageFilter.GaussianBlur(r * 0.75))
+        return ImageChops.subtract(b.point([255 if v > 18 else int(v * 255 / 18) for v in range(256)]),
+                                   b.point([255 if v > 236 else 0 for v in range(256)]))
+    fm = ImageChops.multiply(mask_of(front), clip)
+    thin = ImageChops.lighter(edge(um, ink_w * 0.6), edge(fm, ink_w * 0.5))
+    thick = ImageChops.lighter(edge(um, ink_w * 1.5), edge(fm, ink_w * 1.1))
+    g = Image.linear_gradient("L").rotate(-35, expand=False).resize((tw, th))
+    e = Image.composite(thick, thin, g)
     for ln in inner:
-        d.line([(x * SS, y * SS) for x, y in (T(q) for q in ln)], fill=255, width=int(round(ink_w * SS * 0.7)),
-               joint="curve")
-    edge = ImageChops.multiply(ImageChops.lighter(edge, lines), clip)
+        ImageDraw.Draw(e).line([(x * SS, y * SS) for x, y in (T(q) for q in ln)], fill=255,
+                               width=int(round(ink_w * SS * 0.6)), joint="curve")
+    e = ImageChops.multiply(e, clip)
     ink = Image.new("RGBA", (tw, th), rgba(INK, 255))
-    ink.putalpha(edge)
+    ink.putalpha(e)
     cv.im.alpha_composite(ink)
 
 
@@ -438,26 +643,29 @@ def T_room(p):
 def plan_blocks(cv):
     """Faint unlabelled room blocks on the station plan (they are the plan zones, unexplained)."""
     lay = cv.layer()
-    col = rgba(INK, 255)
+    col = rgba(NAVY, 255)
     zones = [(620, 140, 820, 320), (500, 340, 940, 550), (640, 560, 800, 690), (460, 710, 980, 840)]
     for (a, b, c, d) in zones:
         x0, y0 = T_room((a, b))
         x1, y1 = T_room((c, d))
-        lay.rect(x0, y0, x1, y1, fill=None, ol=col, w=1.6)
+        lay.rect(x0, y0, x1, y1, fill=None, ol=col, w=2.4)
     for box in [(150, 330, 200, 396), (360, 330, 410, 396), (150, 410, 196, 452), (364, 410, 410, 452),
                 (176, 196, 236, 226), (324, 196, 384, 226)]:
-        lay.rect(*box, fill=None, ol=col, w=1.3)
-    lay.line([(280, 525), (280, 548)], col, 1.3)
-    lay.line([(200, 470), (150, 470), (150, 400)], col, 1.2)
-    lay.line([(358, 470), (410, 470), (410, 400)], col, 1.2)
+        lay.rect(*box, fill=None, ol=col, w=2.0)
+    lay.line([(280, 525), (280, 548)], col, 2.0)
+    lay.line([(200, 470), (150, 470), (150, 400)], col, 1.8)
+    lay.line([(358, 470), (410, 470), (410, 400)], col, 1.8)
+    for (x, y) in ((280, 300), (280, 360)):
+        lay.line([(x, y), (x, y + 40)], col, 1.6)
     for yy in range(182, 548, 12):
-        lay.line([(136, yy), (424, yy)], rgba(TEAL, 255), 0.6, caps=False)
-    cv.comp(lay, 0.30)
+        lay.line([(136, yy), (424, yy)], rgba(TEAL, 140), 0.6, caps=False)
+    cv.comp(lay, 0.60)
 
 
 def station_plan(cv):
+    picture_wire(cv, 170, 390, 150)
     frame_shadow(cv, (110, 150, 450, 570))
-    cv.rect(110, 150, 450, 570, fill=TIMBER_D, ol=INK, w=3)
+    cv.rect(110, 150, 450, 570, fill=TIMBER_D, ol=INK, w=3.4, shade=True)
     cv.rect(118, 158, 442, 562, fill=None, ol=TIMBER_L, w=1.5)
     cv.rect(130, 170, 430, 550, fill=PAPER2, ol=INK, w=2)
     plan_blocks(cv)
@@ -466,8 +674,9 @@ def station_plan(cv):
 def compass_dial(cv, cx, cy, r):
     def fn(d, o):
         d.ellipse([cx - r + o[0], cy - r + o[1], cx + r + o[0], cy + r + o[1]], fill=255)
-    cv.shadow(fn, (5, 7), 6, 80)
-    cv.ell(cx, cy, r, r, fill=BRASS, ol=INK, w=3)
+    picture_wire(cv, cx - 40, cx + 40, cy - r + 6)
+    cv.shadow(fn, (7, 9), 7, 95)
+    cv.ell(cx, cy, r, r, fill=BRASS, ol=INK, w=3.4)
     cv.ell(cx, cy, r - 6, r - 6, fill=None, ol=BRASS_L, w=2)
     cv.ell(cx, cy, r - 14, r - 14, fill=BONE, ol=INK, w=2.5)
     for k in range(64):
@@ -492,11 +701,12 @@ def compass_dial(cv, cx, cy, r):
 
 
 def corridor_door(cv):
-    cv.rect(1136, 404, 1354, 900, fill=TEAL_D, ol=INK, w=3)
+    frame_shadow(cv, (1136, 404, 1354, 900), (8, 6), 8, 90)
+    cv.rect(1136, 404, 1354, 900, fill=TEAL_D, ol=INK, w=3.4, shade=True)
     cv.line([(1142, 410), (1348, 410)], TEAL_L, 1.4, caps=False)
     # the crack: the leaf stands a finger's width off the latch side
     cv.rect(1150, 420, 1340, 900, fill=NAVY, ol=None)
-    cv.rect(1150, 420, 1334, 900, fill=TEAL, ol=INK, w=3)
+    cv.rect(1150, 420, 1334, 900, fill=TEAL, ol=INK, w=3, shade=True)
     cv.rect(1334, 420, 1341, 900, fill=(9, 13, 19), ol=None)
     cv.line([(1333, 422), (1333, 898)], TEAL_L, 1.2, caps=False)
     for (y0, y1) in ((446, 640), (680, 872)):
@@ -527,7 +737,7 @@ def spring_clip(cv, cx, top, jaw_y, holding=False, scale=1.0):
 
 def registration_board(cv):
     frame_shadow(cv, (520, 240, 1080, 744), (7, 9), 8, 90)
-    cv.rect(520, 240, 1080, 744, fill=BRASS, ol=INK, w=3)
+    cv.rect(520, 240, 1080, 744, fill=BRASS, ol=INK, w=3.6)
     cv.line([(526, 246), (1074, 246)], BRASS_L, 2, caps=False)
     cv.line([(526, 246), (526, 738)], BRASS_L, 2, caps=False)
     cv.line([(526, 738), (1074, 738)], BRASS_D, 2.5, caps=False)
@@ -579,25 +789,61 @@ def blank_tag(cv, x0, y0, ang=-6):
 
 
 def clip_tin(cv, open_lid=True):
-    def fn(d, o):
-        d.rectangle([566 + o[0], 792 + o[1], 704 + o[0], 856 + o[1]], fill=255)
-    cv.shadow(fn, (5, 4), 5, 80)
-    cv.rect(566, 790, 704, 856, fill=BRASS, ol=INK, w=2.5)
-    for y in (800, 846):
-        cv.line([(568, y), (702, y)], BRASS_D, 2.5, caps=False)
-    cv.rect(566, 790, 590, 856, fill=BRASS_L, ol=None)
-    cv.line([(566, 790), (566, 856)], INK, 2.5, caps=False)
-    cv.rect(670, 790, 704, 856, fill=BRASS_D, ol=None)
-    cv.rect(566, 790, 704, 856, fill=None, ol=INK, w=2.5)
-    cv.ell(640, 822, 22, 12, fill=None, ol=BRASS_D, w=1.5)
-    # the gap under the lid, a few clip silhouettes inside
-    cv.rect(570, 780, 700, 792, fill=(12, 17, 24), ol=None)
-    for (x, a) in ((606, -14), (634, 8), (662, -4)):
-        pts = rot([(x - 7, 772), (x + 7, 772), (x + 6, 790), (x - 6, 790)], x, 790, a)
-        cv.poly(pts, fill=BRASS_L, ol=INK, w=1.4)
-    lid = rot([(560, 768), (712, 768), (712, 784), (560, 784)], 562, 784, -7)
-    cv.poly(lid, fill=BRASS, ol=INK, w=2.5)
-    cv.line(rot([(564, 772), (708, 772)], 562, 784, -7), BRASS_L, 1.8, caps=False)
+    """Sits under the table: a stencilled brass tin, lid hinged back, a fan of clips standing up."""
+    x0, y0, x1, y1 = 566, 792, 704, 858
+    cv.shadow(lambda d, o: d.rectangle([x0 + o[0], y0 + o[1], x1 + o[0], y1 + o[1]], fill=255), (7, 5), 6, 95)
+    # the lid, hinged at the back edge and leaning against the wainscot
+    lid = [(x0 - 2, y0 - 4), (x1 + 2, y0 - 4), (x1 - 6, y0 - 46), (x0 + 6, y0 - 46)]
+    cv.poly(lid, fill=BRASS_D, ol=INK, w=2.4)
+    cv.line([(x0 + 10, y0 - 40), (x1 - 10, y0 - 40)], BRASS_L, 1.6, caps=False)
+    cv.line([(x0 + 4, y0 - 12), (x1 - 4, y0 - 12)], mix(BRASS_D, NAVY, 0.35), 2.2, caps=False)
+    # inside dark
+    cv.rect(x0 + 3, y0 - 6, x1 - 3, y0 + 4, fill=(16, 20, 26), ol=None)
+    # a fan of bulldog clips standing in the tin
+    for k, ang in enumerate((-30, -15, 0, 14, 28)):
+        cx = 600 + k * 17
+        body = rot([(cx - 9, y0 - 30), (cx + 9, y0 - 30), (cx + 8, y0 + 2), (cx - 8, y0 + 2)], cx, y0 + 2, ang)
+        cv.poly(body, fill=BRASS_L if k % 2 == 0 else BRASS, ol=INK, w=1.6)
+        jaw = rot([(cx - 9, y0 - 30), (cx + 9, y0 - 30), (cx + 9, y0 - 25), (cx - 9, y0 - 25)], cx, y0 + 2, ang)
+        cv.poly(jaw, fill=BRASS_D, ol=INK, w=1.2)
+        lx, ly = rot([(cx, y0 - 36)], cx, y0 + 2, ang)[0]
+        cv.ell(lx, ly, 6, 5, fill=None, ol=INK, w=2.2)
+        cv.ell(lx, ly, 6, 5, fill=None, ol=BRASS_L, w=0.9)
+    # the box
+    cv.rect(x0, y0, x1, y1, fill=BRASS, ol=INK, w=2.8, shade=True)
+    cv.line([(x0 + 2, y0 + 6), (x1 - 2, y0 + 6)], BRASS_D, 2.2, caps=False)
+    # stencil: a broad arrow and three bars, sprayed through a card
+    st = cv.layer()
+    st.poly([(616, 816), (626, 838), (606, 838)], fill=rgba(NAVY, 255), ol=None)
+    st.rect(613, 836, 619, 850, fill=rgba(NAVY, 255), ol=None)
+    for k in range(3):
+        st.rect(636 + k * 14, 818, 645 + k * 14, 850, fill=rgba(NAVY, 255), ol=None)
+    st.rect(600, 812, 684, 854, fill=None, ol=rgba(NAVY, 255), w=1.4)
+    cv.comp(st, 0.62)
+
+
+def chart_lamp(cv):
+    """A brass chart lamp hung from the beam on a rod, shade over the board."""
+    cx = 760
+    cv.rect(cx - 16, BEAM_Y, cx + 16, BEAM_Y + 10, fill=BRASS_D, ol=INK, w=1.8)
+    cv.rect(cx - 3, BEAM_Y + 10, cx + 3, 104, fill=BRASS_D, ol=INK, w=1.4)
+    cv.rrect(cx - 12, 98, cx + 12, 116, 4, fill=BRASS, ol=INK, w=2)
+    cv.shadow(lambda d, o: d.polygon([(cx - 26 + o[0], 112 + o[1]), (cx + 26 + o[0], 112 + o[1]),
+                                      (cx + 92 + o[0], 166 + o[1]), (cx - 92 + o[0], 166 + o[1])], fill=255), (6, 8), 6, 80)
+    # the bulb glowing under the rim
+    glow = cv.layer()
+    glow.ell(cx, 168, 80, 13, fill=rgba((252, 228, 168), 255), ol=None, w=0)
+    cv.comp(glow, 0.95)
+    shade = [(cx - 26, 112), (cx + 26, 112), (cx + 94, 166), (cx - 94, 166)]
+    cv.poly(shade, fill=BRASS, ol=None)
+    lay = cv.layer()
+    lay.poly([(cx + 4, 112), (cx + 26, 112), (cx + 94, 166), (cx + 40, 166)], fill=rgba(BRASS_D, 255), ol=None)
+    lay.poly([(cx - 20, 113), (cx - 8, 113), (cx - 46, 165), (cx - 66, 165)], fill=rgba(BRASS_POL, 255), ol=None)
+    lay.poly([(cx + 26, 112), (cx + 30, 112), (cx + 94, 162), (cx + 94, 166)], fill=rgba(mix(BRASS_D, NAVY, 0.4), 255), ol=None)
+    cv.comp(lay)
+    cv.poly(shade, fill=None, ol=INK, w=2.8)
+    cv.rrect(cx - 96, 162, cx + 96, 172, 4, fill=BRASS_D, ol=INK, w=2.2)
+    cv.ell(cx, 174, 16, 7, fill=(254, 240, 200), ol=INK, w=1.2)
 
 
 def paint_A_base():
@@ -608,9 +854,10 @@ def paint_A_base():
     corridor_door(cv)
     # legs and stretcher behind the ledge
     for x0 in (536, 1040):
-        cv.rect(x0, 756, x0 + 24, 908, fill=TIMBER, ol=INK, w=2.5)
-        cv.line([(x0 + 6, 760), (x0 + 6, 904)], TIMBER_L, 1.4, caps=False)
-    cv.rect(560, 856, 1040, 868, fill=TIMBER_D, ol=INK, w=2)
+        cv.shadow(lambda d, o, x0=x0: d.rectangle([x0 + o[0], 756 + o[1], x0 + 24 + o[0], 908 + o[1]], fill=255), (8, 3), 5, 90)
+        cv.rect(x0, 756, x0 + 24, 908, fill=TIMBER, ol=INK, w=2.8, shade=True)
+        cv.line([(x0 + 5, 760), (x0 + 5, 904)], TIMBER_L, 1.4, caps=False)
+    cv.rect(560, 856, 1040, 868, fill=TIMBER_D, ol=INK, w=2.2, shade=True)
     registration_board(cv)
     top_rail(cv)
     spring_clip(cv, 935, 186, 246)
@@ -619,9 +866,11 @@ def paint_A_base():
     blank_tag(cv, 966, 210, -10)
     # ledge
     cv.shadow(lambda d, o: d.rectangle([498 + o[0], 744 + o[1], 1102 + o[0], 760 + o[1]], fill=255), (0, 6), 5, 80)
-    cv.rect(498, 744, 1102, 760, fill=TIMBER, ol=INK, w=2.5)
+    cv.rect(498, 744, 1102, 760, fill=TIMBER, ol=INK, w=2.8)
+    cv.line([(500, 757), (1100, 757)], TIMBER_D, 2.0, caps=False)
     cv.line([(500, 747), (1100, 747)], TIMBER_L, 1.6, caps=False)
     clip_tin(cv)
+    chart_lamp(cv)
     save(finish_rgb(cv, name), name, "RGB")
 
 
@@ -660,84 +909,152 @@ def paint_A_composite():
     save(finish_rgba(cv, name, 4), name, "RGBA")
 
 
+BEND_BOWS = (-300, -170, -62, 34, 150, 320)
+LH_CROSS = (680, 386)          # the lighthouse cross on the board sheet (view: SHEET_RECT + 0.8 * (150,150))
+STAND_AT = (800, 712)          # the sheet's bottom edge, over the standing spot
+SHEET_BOX = (560, 266, 1040, 714)
+
+
+def drip(cv, pts, w0, w1, col=INK, beads=()):
+    """An ink run: a polyline that swells from w0 to w1, with beads at given fractions."""
+    n = len(pts) - 1
+    for i in range(n):
+        t = i / max(1, n - 1)
+        cv.line([pts[i], pts[i + 1]], col, w0 + (w1 - w0) * t, caps=True)
+    for f in beads:
+        x, y = pts[int(f * n)]
+        cv.ell(x, y, w1 * 0.9, w1 * 1.2, fill=col, ol=None, w=0)
+
+
 def paint_A_compass_bent():
+    """Band 4+: six heavy rhumb lines bow out of the lighthouse cross and meet at the sheet's
+    bottom edge over the place she stands; one bleeds off the paper and runs to the floor."""
     name = "A_compass_bent"
     cv = Cv(W, H)
-    cx, cy, r = 640, 330, 22
-    target = (800, 960)
-    cv.ell(cx, cy, r, r, fill=None, ol=INK, w=2)
-    cv.ell(cx, cy, r - 6, r - 6, fill=None, ol=INK, w=1)
-    ax = math.atan2(target[1] - cy, target[0] - cx)
-    dist = math.hypot(target[0] - cx, target[1] - cy)
-    nx, ny = -math.sin(ax), math.cos(ax)
-    mx, my = (cx + target[0]) / 2, (cy + target[1]) / 2
-    for k in range(16):
-        a = -math.pi / 2 + 2 * math.pi * k / 16
-        dx, dy = math.cos(a), math.sin(a)
-        th = (a - ax + math.pi) % (2 * math.pi) - math.pi      # bearing relative to the pull
-        if abs(abs(th) - math.pi) < 1e-6:
-            th = math.pi * 0.999
-        thp = th * 0.33                                         # the pull bends every line toward her
-        off = (dist / 2) * math.tan(thp)
-        # every rhumb line is a smooth arc from the rose to the standing point
-        ctrl = (mx - nx * off, my - ny * off)
-        p0 = (cx + dx * r, cy + dy * r)
-        pts = [((1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * ctrl[0] + t * t * target[0],
-                (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * ctrl[1] + t * t * target[1]) for t in [i / 120 for i in range(121)]]
-        cv.line(pts, INK, 2.2 if k % 4 == 0 else 1.5, caps=False)
-        wdt = 5 if k % 4 == 0 else 3
-        cv.poly([(cx, cy), (cx + dx * r + dy * wdt, cy + dy * r - dx * wdt),
-                 (cx + dx * r - dy * wdt, cy + dy * r + dx * wdt)], fill=INK if k % 2 == 0 else None, ol=INK, w=1)
-    cv.ell(cx, cy, 3, 3, fill=INK, ol=None, w=0)
-    cv.ell(target[0], target[1], 4, 4, fill=INK, ol=None, w=0)
+    cx, cy = LH_CROSS
+    tx, ty = STAND_AT
+    x0, y0, x1, y1 = SHEET_BOX
+    chord = (tx - cx, ty - cy)
+    cl = math.hypot(*chord)
+    nx, ny = -chord[1] / cl, chord[0] / cl
+    mx, my = (cx + tx) / 2, (cy + ty) / 2
+    for k, bow in enumerate(BEND_BOWS):
+        c = (mx + nx * bow, my + ny * bow)
+        c = (min(max(c[0], x0 + 16), x1 - 16), min(max(c[1], y0 + 16), y1 - 16))   # the bend stays ON THE SHEET
+        pts = [((1 - t) ** 2 * cx + 2 * (1 - t) * t * c[0] + t * t * tx,
+                (1 - t) ** 2 * cy + 2 * (1 - t) * t * c[1] + t * t * ty) for t in [i / 100 for i in range(101)]]
+        pts = pts[6:]
+        cv.line(pts, INK, 5.6 - 0.25 * k, caps=True)
+        # a rhumb-line arrowhead part-way down: every line points at the one place
+        i = int(len(pts) * 0.72)
+        (ax, ay), (bx, by) = pts[i - 3], pts[i]
+        L = math.hypot(bx - ax, by - ay) or 1.0
+        ux, uy = (bx - ax) / L, (by - ay) / L
+        cv.poly([(bx + ux * 13, by + uy * 13), (bx - uy * 7, by + ux * 7), (bx + uy * 7, by - ux * 7)], fill=INK, ol=None)
+    # the rose they leave from
+    cv.ell(cx, cy, 20, 20, fill=None, ol=INK, w=3)
+    cv.ell(cx, cy, 4, 4, fill=INK, ol=None, w=0)
+    # where they meet, the ink pools and leaves the paper
+    cv.ell(tx, ty - 2, 9, 6, fill=INK, ol=None, w=0)
+    run = [(tx + 0.6 * math.sin(y * 0.09) + (y - ty) * 0.01, y) for y in range(int(ty), 884, 3)]
+    drip(cv, run, 3.4, 5.6, INK, beads=(0.42, 0.7))
+    cv.ell(run[-1][0], 886, 12, 4, fill=INK, ol=None, w=0)
     save(finish_rgba(cv, name, 3), name, "RGBA")
 
 
-def footprint(cv, cx, cy, mirror):
-    """A narrow bare footprint, toes up (toward the table), 44x96."""
-    s = -1 if mirror else 1
-    sole = smooth_closed([(cx + s * 2, cy - 30), (cx + s * 14, cy - 22), (cx + s * 16, cy - 2),
-                          (cx + s * 10, cy + 18), (cx + s * 12, cy + 34), (cx + s * 2, cy + 46),
-                          (cx - s * 10, cy + 40), (cx - s * 12, cy + 22), (cx - s * 8, cy + 2),
-                          (cx - s * 14, cy - 18), (cx - s * 10, cy - 30)], 8)
-    toes = [(cx - s * 11, cy - 40, 6.5, 7.5), (cx - s * 1, cy - 44, 5, 6), (cx + s * 8, cy - 42, 4.5, 5),
-            (cx + s * 14, cy - 37, 3.8, 4.2), (cx + s * 19, cy - 31, 3.2, 3.6)]
-    halo = cv.layer()
-    halo.poly([(cx + (x - cx) * 1.25, cy + (y - cy) * 1.12) for x, y in sole], fill=rgba(WETDARK, 255), ol=None)
-    for (x, y, rx, ry) in toes:
-        halo.ell(x, y, rx + 5, ry + 5, fill=rgba(WETDARK, 255), ol=None, w=0)
-    hm = halo.im.getchannel("A").filter(ImageFilter.GaussianBlur(5 * SS))
-    halo.im.putalpha(hm)
-    cv.comp(halo, 0.28)
-    sheen = cv.layer()
-    sheen.poly(sole, fill=rgba(SHEEN, 255), ol=None)
-    for (x, y, rx, ry) in toes:
-        sheen.ell(x, y, rx + 1.8, ry + 1.8, fill=rgba(SHEEN, 255), ol=None, w=0)
-    cv.comp(sheen, 0.55)
-    dark = cv.layer()
-    inner = [(cx + (x - cx) * 0.86, cy + (y - cy) * 0.9 + 1) for x, y in sole]
-    dark.poly(inner, fill=rgba(WETDARK, 255), ol=None)
-    for (x, y, rx, ry) in toes:
-        dark.ell(x, y, rx, ry, fill=rgba(WETDARK, 255), ol=None, w=0)
-    cv.comp(dark, 0.86)
-    hl = cv.layer()
-    hl.line(smooth_open([(cx - s * 7, cy - 20), (cx - s * 4, cy - 2), (cx - s * 6, cy + 20)], 6),
-            rgba(SHEEN, 255), 1.6)
-    cv.comp(hl, 0.6)
-
-
 def paint_A_standing():
+    """Band 5+: a dark wet place on the floor where someone stood at the table, edged by a
+    tide-line stain climbing the skirting. Kept clear of the exit tabs and the subtitle bar."""
     name = "A_standing"
+    rng = rng_for(name)
     cv = Cv(W, H)
-    footprint(cv, 742, 948, mirror=True)
-    footprint(cv, 858, 948, mirror=False)
+    x0, x1 = 726, 876
+    # the stain on the wainscot: wet darkening rising in an arch, a dull salt line on its crown
+    crown = [(x, 812 - 26 * math.sin(math.pi * (x - x0 + 40) / (x1 - x0 + 80)) + 2.5 * math.sin(x * 0.11))
+             for x in range(x0 - 40, x1 + 41, 4)]
+    wet = cv.layer()
+    wet.poly(crown + [(x1 + 40, 904), (x0 - 40, 904)], fill=rgba(WETDARK, 255), ol=None)
+    wm = wet.im.getchannel("A").filter(ImageFilter.GaussianBlur(4 * SS))
+    wet.im.putalpha(wm)
+    cv.comp(wet, 0.5)
+    salt = cv.layer()
+    salt.line(crown, rgba((190, 192, 176), 255), 3.0, caps=True)
+    cv.comp(salt, 0.55)
+    # the place itself: two flat, toeless wet soles side by side on the boards, a thin
+    # sea-glass rim of water round each, a damp halo joining them
+    halo = cv.layer()
+    halo.ell(800, 922, 92, 22, fill=rgba(WETDARK, 255), ol=None, w=0)
+    hm = halo.im.getchannel("A").filter(ImageFilter.GaussianBlur(6 * SS))
+    halo.im.putalpha(hm)
+    cv.comp(halo, 0.45)
+    for cx, lean in ((768, -1), (834, 1)):
+        sole = smooth_closed([(cx - 20, 922), (cx - 16, 907), (cx + 2 * lean, 902), (cx + 18, 906), (cx + 22, 920),
+                              (cx + 14, 936), (cx, 940), (cx - 14, 936)], 8)
+        cv.poly(sole, fill=rgba(NAVY, 180), ol=None)
+        cv.vloop(sole, rgba((150, 196, 182), 220), 1.8, taper=0.3)
+        sheen = cv.layer()
+        sheen.line([(cx - 10, 910), (cx + 6, 908)], rgba(SHEEN, 255), 1.8)
+        cv.comp(sheen, 0.45)
+    save(cv.down(), name, "RGBA")
+
+
+def paint_A_buckle():
+    """Band 3+: the pinned sheet's bottom edge buckles with damp and lifts off the board."""
+    name = "A_buckle"
+    rng = rng_for(name)
+    cv = Cv(W, H)
+    x0, y0, x1, y1 = SHEET_BOX
+    ph = rng.uniform(0, 6.28)
+    def h(x):
+        return 7.0 * abs(math.sin((x - x0) * 0.021 + ph)) + 2.0 * math.sin(x * 0.07)
+    # cockle shading: soft light and dark vertical bands rising from the edge
+    lay = cv.layer()
+    for x in range(int(x0) + 2, int(x1) - 2, 2):
+        v = math.cos((x - x0) * 0.042 + 2 * ph)
+        col = (250, 244, 226) if v > 0 else (120, 110, 90)
+        top = y1 - 70 - 30 * abs(v)
+        lay.line([(x, y1 - 2), (x, top)], rgba(col, int(150 * abs(v))), 2.2, caps=False)
+    m = lay.im.getchannel("A")
+    fade = Image.linear_gradient("L").resize((W * SS, H * SS))
+    lay.im.putalpha(ImageChops.multiply(m, fade).filter(ImageFilter.GaussianBlur(5 * SS)))
+    cv.comp(lay, 0.55)
+    # the lifted lip: paper standing off the mount, with its shadow below
+    lip = [(x, y1 + h(x)) for x in range(int(x0), int(x1) + 1, 4)]
+    cv.shadow(lambda d, o: d.polygon([(x + o[0], y + o[1]) for x, y in lip] + [(x1, y1), (x0, y1)], fill=255), (2, 5), 3, 110)
+    cv.poly(lip + [(x1, y1 - 4), (x0, y1 - 4)], fill=rgba(mix(PAPER, (196, 176, 130), 0.3), 255), ol=None)
+    cv.line(lip, INK, 2.0, caps=False)
+    save(finish_rgba(cv, name, 3), name, "RGBA")
+
+
+def paint_A_fog():
+    """Band 5+: the compass glass fogged from the inside, beaded at the rim."""
+    name = "A_fog"
+    rng = rng_for(name)
+    cv = Cv(W, H)
+    cx, cy, r = 1240, 250, 81
+    fog = Image.new("L", (2 * r, 2 * r), 0)
+    n = noise(rng, 2 * r, 2 * r, 18)
+    ImageDraw.Draw(fog).ellipse([0, 0, 2 * r - 1, 2 * r - 1], fill=255)
+    fog = ImageChops.multiply(fog, n.point([int(150 + v * 0.35) for v in range(256)])).filter(ImageFilter.GaussianBlur(2))
+    cv.paste1x(Image.new("RGB", (2 * r, 2 * r), (226, 232, 226)), cx - r, cy - r, fog.point([int(v * 0.86) for v in range(256)]))
+    for k in range(46):
+        a = rng.uniform(0, 2 * math.pi)
+        rr = r * (0.70 + 0.27 * rng.random())
+        x, y = cx + rr * math.cos(a), cy + rr * math.sin(a)
+        d = rng.uniform(1.6, 3.6)
+        cv.ell(x, y, d, d * 1.15, fill=rgba((150, 166, 160), 200), ol=None, w=0)
+        cv.ell(x - d * 0.3, y - d * 0.35, d * 0.4, d * 0.4, fill=rgba((250, 252, 248), 230), ol=None, w=0)
+    for k in range(3):   # runs from the top inside the glass
+        x = cx + rng.uniform(-50, 50)
+        ys = cy - math.sqrt(max(0, r * r - (x - cx) ** 2)) + 4
+        cv.line([(x, ys), (x + rng.uniform(-2, 2), ys + rng.uniform(30, 70))], rgba((140, 156, 150), 180), 2.2)
     save(cv.down(), name, "RGBA")
 
 
 def paint_A_plan_body():
     name = "A_plan_body"
     cv = Cv(W, H)
-    paint_body(cv, T_room, 0.3, 0.24, PLAN_INSET, 3.6)
+    paint_body(cv, T_room, 0.3, 0.80, PLAN_INSET, 3.6)
     save(cv.down(), name, "RGBA")
 
 
@@ -753,6 +1070,24 @@ def sash(cv, band7_reflection=False):
     cv.line([(257, y0 + 2), (257, y1 - 2)], TEAL_L, 1.2, caps=False)
     cv.ell(260, 362, 9, 5, fill=BRASS, ol=INK, w=1.5)  # sash lock
     cv.rect(x0, y0, x1, y1, fill=None, ol=INK, w=2.5)
+
+
+def overcast(cv, rng, top, bottom, c_top, c_bot, n=5):
+    """Low flat cloud decks: long soft bands a step lighter or darker than the sky, no outline."""
+    lay = cv.layer()
+    for k in range(n):
+        y = top + 10 + k * (bottom - top - 10) / max(1, n - 1) + rng.uniform(-5, 5)
+        x = rng.uniform(100, 220)
+        w = rng.uniform(160, 300)
+        h = rng.uniform(5, 10)
+        col = mix(c_top, c_bot, 0.3 + 0.6 * k / max(1, n - 1))
+        col = mix(col, (172, 180, 176) if k % 2 == 0 else (70, 82, 88), 0.35)
+        pts = smooth_closed([(x - w / 2, y + h * 0.5), (x - w * 0.2, y - h * 0.6), (x + w * 0.25, y - h * 0.4),
+                             (x + w / 2, y + h * 0.5), (x, y + h * 0.9)], 6)
+        lay.poly(pts, fill=rgba(col, 255), ol=None)
+    m = lay.im.getchannel("A").filter(ImageFilter.GaussianBlur(2 * SS))
+    lay.im.putalpha(m)
+    cv.comp(lay, 0.9)
 
 
 def sky_clouds(cv, rng, top, bottom, c_sky, c_cloud, n=5, ink_a=0.35):
@@ -818,15 +1153,14 @@ def window_scene(band):
     gw, gh = gx1 - gx0, gy1 - gy0
     hz = 360
     if band in (0, 1, 2, 3):
-        sky_top = [(150, 166, 162), (128, 142, 140), (112, 124, 124), (150, 158, 156)][band]
-        sky_bot = [(186, 197, 190), (160, 170, 166), (138, 148, 146), (168, 174, 170)][band]
+        sky_top = [(104, 118, 120), (96, 108, 112), (88, 100, 104), (150, 158, 156)][band]
+        sky_bot = [(140, 152, 148), (128, 138, 136), (116, 126, 126), (168, 174, 170)][band]
         sea_top = [(98, 120, 122), (84, 104, 108), (62, 82, 90), (150, 158, 156)][band]
         sea_bot = [(66, 90, 98), (54, 76, 86), (36, 54, 66), (62, 84, 94)][band]
         cv.paste1x(vgrad(gw, hz - gy0, sky_top, sky_bot), gx0, gy0)
         cv.paste1x(vgrad(gw, gy1 - hz, sea_top, sea_bot, 0.8 if band != 3 else 0.55), gx0, hz)
         if band < 3:
-            cloud = [(200, 208, 202), (170, 178, 174), (146, 154, 152)][band]
-            sky_clouds(cv, rng, gy0, hz - 50, sky_top, cloud, 4 + band, 0.35 - 0.08 * band)
+            overcast(cv, rng, gy0, hz - 30, sky_top, sky_bot, 5 + band)
             land = [(118, 136, 138), (122, 136, 138), (122, 134, 136)][band]
             lay = cv.layer()
             pts = smooth_open([(gx0, 344), (160, 338), (196, 342), (226, 351), (246, 360)], 6)
@@ -881,20 +1215,25 @@ def window_scene(band):
             lay.line([(px, py - 3) for px, py in pts], rgba(INK, 255), 1.6, caps=False)
         cv.comp(lay, 0.8)
         lighthouse(cv, 196, 250, 46, col=(232, 232, 222), ang=30, light=True)
-    elif band == 7:  # the surface pressed to the glass
-        cv.rect(gx0, gy0, gx1, gy1, fill=rgba((22, 32, 46), 255), ol=None)
-        lay = cv.layer()
-        swell = smooth_open([(gx0 - 10, 470), (180, 400), (250, 330), (320, 300), (gx1 + 10, 296)], 10)
-        lay.poly(swell + [(gx1 + 10, gy1), (gx0 - 10, gy1)], fill=rgba((34, 50, 62), 255), ol=None)
-        lay.line(swell, rgba((70, 92, 100), 255), 3.0)
-        lay.line([(x, y + 6) for x, y in swell], rgba((48, 66, 78), 255), 2.0)
-        cv.comp(lay)
-        # the reflection of a sash that is not this sash: three bars, set wrong
-        ref = cv.layer()
-        for x in (200, 226, 330):
-            ref.rect(x, gy0, x + 7, gy1, fill=rgba((176, 196, 194), 255), ol=None)
-        ref.rect(gx0, 300, gx1, 307, fill=rgba((176, 196, 194), 255), ol=None)
-        cv.comp(ref, 0.22)
+    elif band == 7:  # something enormous, close to the glass: one slow pale curve across two panes
+        cv.rect(gx0, gy0, gx1, gy1, fill=rgba((12, 18, 26), 255), ol=None)
+        deep = cv.layer()
+        deep.ell(300, 470, 170, 140, fill=rgba((24, 36, 46), 255), ol=None, w=0)
+        dm = deep.im.getchannel("A").filter(ImageFilter.GaussianBlur(40 * SS))
+        deep.im.putalpha(dm)
+        cv.comp(deep, 0.9)
+        curve = smooth_open([(gx0 - 20, 520), (170, 430), (230, 330), (300, 262), (gx1 + 20, 236)], 12)
+        glow = cv.layer()
+        glow.line(curve, rgba((169, 200, 184), 255), 22)
+        gm = glow.im.getchannel("A").filter(ImageFilter.GaussianBlur(9 * SS))
+        glow.im.putalpha(gm)
+        cv.comp(glow, 0.22)
+        arc = cv.layer()
+        arc.line(curve, rgba((169, 200, 184), 255), 10)
+        cv.comp(arc, 0.42)
+        fine = cv.layer()
+        fine.line([(x + 3, y + 9) for x, y in curve], rgba((169, 200, 184), 255), 2)
+        cv.comp(fine, 0.18)
     # glass sheen + sash
     sh = cv.layer()
     sh.poly([(150, gy0), (196, gy0), (gx0, 300), (gx0, 240)], fill=rgba(SHEEN, 255), ol=None)
@@ -908,20 +1247,21 @@ def window_scene(band):
 
 
 def rain_frame(tag):
+    """Rain on the pane: straight 1 px slant streaks, a few beaded drops (no heads, no tails)."""
     rng = rng_for("B_rain_" + tag)
     cv = Cv(W, H)
     gx0, gy0, gx1, gy1 = GLASS
-    for k in range(70):
-        x = rng.uniform(gx0, gx1)
-        y = rng.uniform(gy0, gy1)
-        if rng.random() < 0.55:
-            L = rng.uniform(10, 24)
-            cv.line([(x, y), (x - L * 0.12, y + L)], rgba((226, 234, 230), 190), 1.4, caps=True)
-            cv.ell(x - L * 0.12, y + L, 1.8, 2.2, fill=rgba((236, 240, 236), 220), ol=None, w=0)
-        else:
-            r = rng.uniform(1.6, 3.4)
-            cv.ell(x, y, r, r * 1.1, fill=rgba((40, 56, 64), 140), ol=None, w=0)
-            cv.ell(x - r * 0.3, y - r * 0.35, r * 0.45, r * 0.45, fill=rgba((240, 244, 240), 230), ol=None, w=0)
+    for k in range(64):
+        x = rng.uniform(gx0, gx1 + 30)
+        y = rng.uniform(gy0 - 20, gy1)
+        L = rng.uniform(16, 38)
+        cv.line([(x, y), (x - L * 0.32, y + L)], rgba((196, 210, 206), 150), 1.4, caps=False)
+    for k in range(18):
+        x, y = rng.uniform(gx0 + 4, gx1 - 4), rng.uniform(gy0 + 4, gy1 - 4)
+        r = rng.uniform(1.6, 3.0)
+        cv.ell(x, y + 0.6, r, r * 1.15, fill=rgba((30, 42, 50), 120), ol=None, w=0)
+        cv.ell(x, y, r * 0.8, r * 0.9, fill=rgba((150, 170, 168), 170), ol=None, w=0)
+        cv.ell(x - r * 0.25, y - r * 0.3, r * 0.3, r * 0.3, fill=rgba((236, 242, 238), 230), ol=None, w=0)
     return clip_to(cv.down(), *GLASS)
 
 
@@ -965,13 +1305,20 @@ SLOTS = [(606, 708, 682, 772), (692, 708, 768, 772), (778, 708, 854, 772)]
 
 def plate_rack(cv, empty=False):
     frame_shadow(cv, (1060, 420, 1280, 700), (6, 8), 6, 80)
-    cv.rect(1060, 420, 1280, 700, fill=TIMBER, ol=INK, w=3)
+    cv.rect(1060, 420, 1280, 700, fill=TIMBER, ol=INK, w=3.2, shade=True)
     cv.rect(1072, 432, 1268, 688, fill=TIMBER_D, ol=INK, w=1.5)
     for k in range(9):
         cv.line([(1076, 446 + k * 28), (1264, 446 + k * 28 + 3)], mix(TIMBER_D, TIMBER, 0.5), 1, caps=False)
     for (x0, y0, x1, y1) in RACK_PLATES:
-        if empty:  # clean ghosts where the plates stood
-            cv.rect(x0 + 2, y0 + 2, x1 - 2, y1 - 2, fill=mix(TIMBER_D, TIMBER_L, 0.45), ol=None)
+        if empty:  # pale dust silhouettes where the plates hung so long
+            ghost = cv.layer()
+            ghost.rrect(x0 - 4, y0 - 4, x1 + 4, y1 + 4, 6, fill=rgba((196, 188, 166), 255), ol=None)
+            ghost.rrect((x0 + x1) / 2 - 16, y0 - 16, (x0 + x1) / 2 + 16, y0, 4, fill=rgba((196, 188, 166), 255), ol=None)
+            gm = ghost.im.getchannel("A").filter(ImageFilter.GaussianBlur(3 * SS))
+            ghost.im.putalpha(gm)
+            cv.comp(ghost, 0.55)
+            cv.rrect(x0 + 2, y0 + 2, x1 - 2, y1 - 2, 3, fill=mix(TIMBER_D, TIMBER, 0.6), ol=None)
+            cv.ell((x0 + x1) / 2, y0 - 8, 3, 3, fill=IRON, ol=None, w=0)
         else:
             record_plate(cv, x0, y0, x1, y1)
         cv.rect(x0 - 12, y1, x1 + 12, y1 + 8, fill=BRASS, ol=INK, w=1.8)
@@ -980,12 +1327,12 @@ def plate_rack(cv, empty=False):
 
 
 def tide_recorder(cv):
-    frame_shadow(cv, (470, 200, 990, 880), (8, 6), 9, 95)
+    frame_shadow(cv, (470, 200, 1044, 880), (10, 6), 10, 105)
     # body
-    cv.rect(480, 222, 980, 870, fill=COPPER_D, ol=INK, w=3)
+    cv.rect(480, 222, 980, 870, fill=COPPER_D, ol=INK, w=3.4, shade=True)
     cv.rect(480, 222, 500, 870, fill=COPPER, ol=None)
     cv.rect(960, 222, 980, 870, fill=COPPER_DD, ol=None)
-    cv.rect(480, 222, 980, 870, fill=None, ol=INK, w=3)
+    cv.rect(480, 222, 980, 870, fill=None, ol=INK, w=3.4)
     cv.rrect(466, 200, 994, 226, 4, fill=COPPER, ol=INK, w=3)
     cv.line([(470, 205), (990, 205)], COPPER_L, 1.8, caps=False)
     cv.rect(470, 856, 990, 880, fill=COPPER, ol=INK, w=3)
@@ -1047,22 +1394,67 @@ def tide_recorder(cv):
     cv.rrect(926, 444, 1018, 466, 10, fill=BRASS_POL, ol=INK, w=2.5)
     cv.line([(934, 450), (1008, 450)], (248, 232, 190), 2.2, caps=False)
     cv.line([(990, 460), (1012, 460)], BRASS, 2, caps=False)
-    # float on a chain into the floor well
-    cv.ell(760, 880, 10, 6, fill=BRASS, ol=INK, w=1.6)
-    for y in range(884, 1000, 7):
-        cv.ell(760, y + 3, 2.4, 3.6, fill=None, ol=INK, w=1.2)
-    cv.rect(712, 966, 808, 1002, fill=(10, 14, 20), ol=INK, w=2)
-    cv.rect(706, 962, 814, 970, fill=BRASS_D, ol=INK, w=1.8)
-    for y in range(970, 1000, 7):
-        cv.ell(760, y + 3, 2.4, 3.6, fill=None, ol=(40, 52, 62), w=1.2)
-    cv.ell(760, 928, 22, 22, fill=COPPER_WARM, ol=INK, w=2.5)
-    cv.ell(760, 928, 22, 6, fill=None, ol=mix(COPPER_WARM, INK, 0.45), w=1.4)
-    cv.ell(752, 919, 7, 5, fill=COPPER_WARM_L, ol=None, w=0)
+    stilling_well(cv)
+
+
+FLOAT_WELL = (996, 520, 1042, 868)     # the stilling well's glass (view draws the float in it)
+
+
+def stilling_well(cv):
+    """A copper stilling well bolted to the cabinet's right side: a glass slot shows the float."""
+    x0, y0, x1, y1 = FLOAT_WELL
+    cv.rect(980, 540, x0, 560, fill=COPPER_D, ol=INK, w=1.8)
+    cv.rect(980, 820, x0, 840, fill=COPPER_D, ol=INK, w=1.8)
+    cv.rect(x0 - 6, y0 - 14, x1 + 6, y1 + 12, fill=COPPER, ol=INK, w=2.8, shade=True)
+    cv.rect(x0 + 6, y0 + 18, x1 - 6, y1 - 14, fill=(20, 30, 38), ol=INK, w=2)
+    lay = cv.layer()   # the water column inside, darker toward the foot
+    lay.paste1x(vgrad(int(x1 - x0 - 12), int(y1 - y0 - 32), (58, 86, 92), (18, 28, 36)), x0 + 6, y0 + 18)
+    cv.comp(lay, 0.8)
+    cv.line([(x0 + 10, y0 + 24), (x0 + 10, y1 - 20)], rgba(SHEEN, 120), 1.6, caps=False)
+    for y in range(y0 + 2, y1, 64):
+        cv.rect(x0 - 8, y, x1 + 8, y + 9, fill=BRASS_D, ol=INK, w=1.4)
+    for y in (y0 - 6, y1 + 4):
+        rivet(cv, x0 + 2, y, 3, COPPER_L)
+        rivet(cv, x1 - 2, y, 3, COPPER_L)
+
+
+def paint_B_float():
+    """The copper float on its rod, drawn by the view at the well's tide level."""
+    name = "B_float"
+    cv = Cv(40, 70)
+    cv.rect(18, 0, 22, 34, fill=BRASS, ol=INK, w=1.2)
+    cv.ell(20, 48, 15, 15, fill=COPPER_WARM, ol=INK, w=2.2)
+    cv.ell(20, 48, 15, 4.5, fill=None, ol=mix(COPPER_WARM, INK, 0.45), w=1.2)
+    cv.ell(14, 41, 5, 3.5, fill=COPPER_WARM_L, ol=None, w=0)
+    save(cv.down(), name, "RGBA")
+
+
+def ceiling_pipe(cv):
+    """A pipe run along under the beam and down into the recorder's top: it feeds on the sea."""
+    x = 904
+    cv.shadow(lambda d, o: (d.rectangle([x - 9 + o[0], 96 + o[1], W + o[0], 114 + o[1]], fill=255),
+                            d.rectangle([x - 9 + o[0], 96 + o[1], x + 9 + o[0], 200 + o[1]], fill=255)), (6, 6), 5, 80)
+    cv.rect(x - 9, 96, W + 4, 114, fill=COPPER, ol=INK, w=2.4, shade=False)
+    cv.line([(x, 100), (W, 100)], COPPER_L, 1.6, caps=False)
+    cv.rect(x - 9, 96, x + 9, 200, fill=COPPER, ol=INK, w=2.4)
+    cv.line([(x - 4, 112), (x - 4, 196)], COPPER_L, 1.6, caps=False)
+    cv.rrect(x - 16, 92, x + 16, 118, 6, fill=COPPER_D, ol=INK, w=2.2)
+    for xx in (1040, 1230, 1420):
+        cv.rect(xx - 4, BEAM_Y, xx + 4, 98, fill=IRON, ol=INK, w=1.4)
+        cv.rect(xx - 12, 92, xx + 12, 118, fill=IRON_L, ol=INK, w=1.6)
+    for yy in (150, 186):
+        cv.rect(x - 13, yy, x + 13, yy + 7, fill=BRASS_D, ol=INK, w=1.4)
+    # a valve wheel on the down-run
+    cv.ell(x + 26, 150, 15, 15, fill=None, ol=INK, w=5)
+    cv.ell(x + 26, 150, 15, 15, fill=None, ol=(150, 60, 48), w=2.6)
+    cv.line([(x + 9, 150), (x + 26, 150)], INK, 3)
+    cv.line([(x + 11, 150), (x + 41, 150)], (150, 60, 48), 1.6)
+    cv.line([(x + 26, 135), (x + 26, 165)], (150, 60, 48), 1.6)
 
 
 def sea_window_frame(cv):
-    frame_shadow(cv, (110, 150, 410, 590))
-    cv.rect(110, 150, 410, 590, fill=TEAL, ol=INK, w=3)
+    frame_shadow(cv, (110, 150, 410, 590), (8, 8), 8, 95)
+    cv.rect(110, 150, 410, 590, fill=TEAL, ol=INK, w=3.4, shade=True)
     cv.rect(98, 140, 422, 156, fill=TEAL, ol=INK, w=2.5)
     cv.rect(98, 584, 422, 604, fill=TEAL, ol=INK, w=2.5)
     cv.line([(100, 587), (420, 587)], TEAL_L, 1.4, caps=False)
@@ -1074,6 +1466,7 @@ def paint_B_base(win0):
     name = "B_base"
     cv = room_shell(name)
     sea_window_frame(cv)
+    ceiling_pipe(cv)
     tide_recorder(cv)
     plate_rack(cv)
     img = finish_rgb(cv, name)
@@ -1251,13 +1644,13 @@ def water_body(rng, x0, y0, x1, y1):
     dc = ImageDraw.Draw(cm)
     for k in range(5):
         ph = rng.uniform(0, 6.28)
-        y0c = 22 + k * 9
+        y0c = 34 + k * 7
         pts = [(x, y0c + 6 * math.sin(x * 0.07 + ph) + 3 * math.sin(x * 0.19 + ph * 1.7)) for x in range(0, w + 4, 4)]
         dc.line(pts, fill=255, width=2)
-    cm = cm.filter(ImageFilter.GaussianBlur(1.2)).point([int(v * 0.35) for v in range(256)])
+    cm = cm.filter(ImageFilter.GaussianBlur(1.0)).point([int(v * 0.62) for v in range(256)])
     img.paste(Image.new("RGBA", (w, h), (160, 206, 194, 255)), (0, 0), cm)
-    for k in range(90):
-        x, y = rng.uniform(0, w), rng.uniform(0, h)
+    for k in range(18):
+        x, y = rng.uniform(0, w), rng.uniform(30, h)
         r = rng.choice((0.7, 0.9, 1.1, 1.4, 1.9))
         a = int(rng.uniform(60, 150) * (1.0 - 0.5 * y / h))
         col = (176, 204, 192, a) if rng.random() < 0.9 else (10, 18, 24, int(a * 0.8))
@@ -1267,41 +1660,53 @@ def water_body(rng, x0, y0, x1, y1):
         an = rng.uniform(0, math.pi)
         L = rng.uniform(5, 12)
         d.line([(x, y), (x + L * math.cos(an), y + L * math.sin(an))], fill=(170, 190, 170, 120), width=1)
+    # the surface: a hair of air at the very top, a bright meniscus, its dark underside
+    d.rectangle([0, 0, w, 8], fill=(14, 20, 28, 255))
+    surf = [(x, 9 + 1.2 * math.sin(x * 0.08)) for x in range(0, w + 2, 2)]
+    d.line(surf, fill=(214, 236, 226, 255), width=3)
+    d.line([(x, y + 3) for x, y in surf], fill=(30, 52, 60, 200), width=2)
     return img.convert("RGB")
+
+
+def bulkhead(cv):
+    """A riveted iron bulkhead let into the ceiling over the hatch, knee brackets at each end."""
+    x0, x1 = 500, 1000
+    cv.shadow(lambda d, o: d.rectangle([x0 + o[0], BEAM_Y + o[1], x1 + o[0], 132 + o[1]], fill=255), (6, 8), 7, 100)
+    cv.rect(x0, BEAM_Y, x1, 124, fill=IRON, ol=INK, w=3, shade=True)
+    cv.rect(x0 - 10, 120, x1 + 10, 134, fill=IRON_D, ol=INK, w=2.6)
+    cv.line([(x0 + 4, BEAM_Y + 6), (x1 - 4, BEAM_Y + 6)], IRON_L, 1.6, caps=False)
+    for x in range(x0 + 16, x1 - 8, 26):
+        rivet(cv, x, BEAM_Y + 16, 3.6)
+        rivet(cv, x, 112, 3.6)
+    for xb, sgn in ((x0 + 8, 1), (x1 - 8, -1)):
+        knee = [(xb, 134), (xb + sgn * 44, 134), (xb, 210)]
+        cv.poly(knee, fill=IRON_D, ol=INK, w=2.4)
+        rivet(cv, xb + sgn * 12, 150, 3.2)
+        rivet(cv, xb + sgn * 8, 180, 3.2)
+    # a salt run down from a seam
+    run = cv.layer()
+    run.line([(752, 134), (751, 170), (753, 214)], rgba((200, 204, 190), 255), 3.0)
+    cv.comp(run, 0.45)
 
 
 def paint_C_base():
     name = "C_base"
     rng = rng_for(name)
     cv = room_shell(name)
-    # rope coil on a peg (decor)
-    cv.ell(320, 398, 8, 8, fill=BRASS, ol=INK, w=2)
-    lay = cv.layer()
-    for k in range(5):
-        rx = 50 - k * 3
-        cy = 470 + k * 4
-        pts = ellipse_pts(320 + (k - 2) * 2.5, cy, rx, 76 - k * 2, 64)
-        lay.line(pts, rgba(INK, 255), 9, caps=False)
-        lay.line(pts, rgba(ROPE, 255), 6, caps=False)
-        lay.line(ellipse_pts(320 + (k - 2) * 2.5 - 1, cy - 1, rx, 76 - k * 2, 64, 3.6, 5.6), rgba((186, 172, 140), 255),
-                 1.5, caps=False)
-    lay.line([(306, 548), (300, 590), (306, 616)], rgba(INK, 255), 9)
-    lay.line([(306, 548), (300, 590), (306, 616)], rgba(ROPE, 255), 6)
-    lay.line([(330, 550), (338, 584)], rgba(INK, 255), 9)
-    lay.line([(330, 550), (338, 584)], rgba(ROPE, 255), 6)
-    cv.comp(lay)
-    cv.rect(306, 394, 334, 410, fill=ROPE_D, ol=INK, w=1.8)  # the lashing over the peg
-    # timber jamb (plain, worn: the scratches are the view's)
-    cv.rect(470, 352, 554, 888, fill=TIMBER, ol=INK, w=2.5)
-    cv.rect(478, 360, 546, 880, fill=mix(TIMBER, TIMBER_L, 0.55), ol=None)
-    for k in range(7):
-        x = 482 + k * 9.5 + rng.uniform(-1.5, 1.5)
-        cv.line(smooth_open([(x, 362), (x + rng.uniform(-2, 2), 600), (x + rng.uniform(-2, 2), 878)], 6),
-                mix(TIMBER, TIMBER_D, 0.5), 1.1, caps=False)
-    cv.line([(470, 352), (554, 352)], INK, 2.5, caps=False)
+    cv.ell(320, 398, 8, 8, fill=BRASS, ol=INK, w=2)   # the rope peg (the rope is an overlay)
+    bulkhead(cv)
+    # the hatch frame's left jamb: a broad iron flange, the scratches are cut into it (view)
+    cv.shadow(lambda d, o: d.rectangle([466 + o[0], 352 + o[1], 572 + o[0], 888 + o[1]], fill=255), (7, 6), 7, 100)
+    cv.rect(466, 352, 572, 888, fill=IRON_L, ol=INK, w=3, shade=True)
+    cv.rect(478, 366, 560, 874, fill=mix(IRON_L, (96, 108, 116), 0.5), ol=INK, w=1.6)
+    for y in range(380, 870, 34):
+        rivet(cv, 472 + 0, y, 3.4)
+    for k in range(5):   # old wear on the metal: faint scuffs
+        y = 400 + k * 90 + rng.uniform(-10, 10)
+        cv.line([(484, y), (554, y + rng.uniform(-4, 4))], mix(IRON_L, SHEEN, 0.25), 1.0, caps=False)
     # the hatch: heavy riveted iron, wheel latch, shut
-    frame_shadow(cv, (570, 360, 930, 880), (7, 6), 8, 100)
-    cv.rect(570, 360, 930, 880, fill=IRON, ol=INK, w=3)
+    frame_shadow(cv, (570, 360, 930, 880), (9, 6), 8, 110)
+    cv.rect(570, 360, 930, 880, fill=IRON, ol=INK, w=3.4, shade=True)
     cv.line([(576, 366), (924, 366)], IRON_L, 2, caps=False)
     cv.line([(576, 366), (576, 874)], IRON_L, 2, caps=False)
     for x in range(586, 920, 28):
@@ -1312,35 +1717,141 @@ def paint_C_base():
         rivet(cv, 916, y, 4)
     hatch_leaf(cv)
     # outer window: heavy square frame, full of the sea
-    frame_shadow(cv, (1000, 380, 1300, 680), (7, 8), 7, 90)
-    cv.rect(1000, 380, 1300, 680, fill=TEAL_D, ol=INK, w=3)
+    frame_shadow(cv, (1000, 380, 1300, 680), (8, 8), 8, 100)
+    cv.rect(1000, 380, 1300, 680, fill=TEAL_D, ol=INK, w=3.4, shade=True)
     cv.rect(1008, 388, 1292, 672, fill=None, ol=TEAL_L, w=1.5)
-    cv.rect(990, 672, 1310, 690, fill=TEAL, ol=INK, w=2.5)
+    cv.rect(990, 672, 1310, 690, fill=TEAL, ol=INK, w=2.6)
     for (x, y) in ((1010, 390), (1290, 390), (1010, 670), (1290, 670), (1150, 390), (1150, 670), (1010, 530),
                    (1290, 530)):
         rivet(cv, x, y, 4, BRASS)
     img = finish_rgb(cv, name)
     water = water_body(rng_for("C_base:water"), *OUTER_GLASS)
     img.paste(water, OUTER_GLASS[:2])
-    # glass edge and a cold sheen, so it reads as glass holding water
     top = Cv(W, H)
     top.rect(*OUTER_GLASS, fill=None, ol=INK, w=2.5)
-    top.line([(1022, 402), (1278, 402)], rgba((150, 190, 182), 255), 1.2, caps=False)
     sh = top.layer()
-    sh.poly([(1040, 400), (1090, 400), (1020, 480), (1020, 440)], fill=rgba(SHEEN, 255), ol=None)
+    sh.poly([(1040, 412), (1090, 412), (1020, 490), (1020, 450)], fill=rgba(SHEEN, 255), ol=None)
     top.comp(sh, 0.10)
-    # condensation beads under the sill
-    for k in range(9):
-        x = 1010 + k * 34 + rng.uniform(-6, 6)
-        top.ell(x, 694 + rng.uniform(0, 6), 2.2, 2.8, fill=rgba((200, 214, 208), 200), ol=None, w=0)
     img = img.convert("RGBA")
     img.alpha_composite(top.down())
     save(img, name, "RGB")
 
 
+def rope_coil(cv, wet):
+    lay = cv.layer()
+    col = mix(ROPE, WETDARK, 0.45) if wet else ROPE
+    hi = mix((186, 172, 140), WETDARK, 0.35) if wet else (186, 172, 140)
+    for k in range(5):
+        rx = 50 - k * 3
+        cy = 470 + k * 4
+        pts = ellipse_pts(320 + (k - 2) * 2.5, cy, rx, 76 - k * 2, 64)
+        lay.line(pts, rgba(INK, 255), 9, caps=False)
+        lay.line(pts, rgba(col, 255), 6, caps=False)
+        lay.line(ellipse_pts(320 + (k - 2) * 2.5 - 1, cy - 1, rx, 76 - k * 2, 64, 3.6, 5.6), rgba(hi, 255), 1.5, caps=False)
+    for tail in ([(306, 548), (300, 590), (306, 616)], [(330, 550), (338, 584)]):
+        lay.line(tail, rgba(INK, 255), 9)
+        lay.line(tail, rgba(col, 255), 6)
+    cv.comp(lay)
+    cv.rect(306, 394, 334, 410, fill=ROPE_D, ol=INK, w=1.8)
+
+
+def paint_C_rope():
+    """The rope on its peg: dry (bands 0-2), soaked and dripping (3-5), hanging straight down
+    as if something heavy were on the end (6+)."""
+    cv = Cv(W, H)
+    rope_coil(cv, False)
+    save(finish_rgba(cv, "C_rope_0", 4), "C_rope_0", "RGBA")
+    cv = Cv(W, H)
+    rope_coil(cv, True)
+    wet = cv.layer()
+    for x, y in ((302, 618), (338, 588), (318, 560)):
+        wet.ell(x, y + 8, 3, 4.5, fill=rgba((180, 210, 204), 255), ol=None, w=0)
+    cv.comp(wet, 0.8)
+    save(finish_rgba(cv, "C_rope_1", 4), "C_rope_1", "RGBA")
+    cv = Cv(W, H)
+    col = mix(ROPE, WETDARK, 0.5)
+    cv.rect(306, 394, 334, 410, fill=ROPE_D, ol=INK, w=1.8)
+    taut = [(320, 404), (321, 600), (320, 760), (321, 896)]
+    cv.line(taut, INK, 15, caps=False)
+    cv.line(taut, col, 11, caps=False)
+    for y in range(414, 892, 12):   # the lay of the strands
+        cv.line([(314.5, y), (325.5, y + 8)], mix(col, INK, 0.5), 1.6, caps=False)
+        cv.line([(316, y + 2), (322, y + 6)], mix(col, (200, 186, 150), 0.3), 1.0, caps=False)
+    cv.ell(320, 898, 14, 4, fill=rgba(WETDARK, 170), ol=None, w=0)
+    save(finish_rgba(cv, "C_rope_2", 4), "C_rope_2", "RGBA")
+
+
+def paint_C_beads():
+    """Band 7: water beading on the inside of the open hatch leaf's riveted face."""
+    name = "C_beads"
+    rng = rng_for(name)
+    cv = Cv(W, H)
+    for k in range(70):
+        x = rng.uniform(946, 996)
+        y = rng.uniform(396, 868)
+        r = rng.choice((1.6, 2.0, 2.4, 3.0, 3.6))
+        cv.ell(x, y + 0.8, r, r * 1.2, fill=rgba(WETDARK, 150), ol=None, w=0)
+        cv.ell(x, y, r * 0.85, r, fill=rgba((150, 178, 176), 220), ol=None, w=0)
+        cv.ell(x - r * 0.3, y - r * 0.35, r * 0.32, r * 0.32, fill=rgba((240, 246, 242), 240), ol=None, w=0)
+    for k in range(5):
+        x = rng.uniform(950, 994)
+        y = rng.uniform(420, 700)
+        L = rng.uniform(60, 160)
+        cv.line([(x, y), (x + rng.uniform(-1.5, 1.5), y + L)], rgba((150, 178, 176), 200), 2.0)
+        cv.ell(x, y + L, 2.6, 3.4, fill=rgba((170, 196, 192), 230), ol=None, w=0)
+    save(cv.down(), name, "RGBA")
+
+
+STAIN_BOX = (0, 596, W, 904)
+STAIN_TOP = {2: 846, 3: 806, 4: 766, 5: 724, 6: 680, 7: 636}
+STAIN_SKIP = {
+    "A": [(516, 236, 1084, 768), (530, 750, 1070, 910), (552, 740, 718, 864), (1130, 398, 1360, 904)],
+    "B": [(94, 136, 426, 608), (462, 196, 998, 886), (984, 500, 1050, 886), (1056, 416, 1284, 704)],
+    "C": [(462, 348, 1004, 892), (986, 376, 1314, 694)],
+}
+
+
+def paint_damp():
+    """Bands 2-7: a damp tide-mark rising up the wainscot, a few centimetres a band. One crop per
+    wall and band (drawn at STAIN_BOX's corner), with every furniture mass left dry."""
+    bx0, by0, bx1, by1 = STAIN_BOX
+    for wall in "ABC":
+        rng = rng_for("damp:" + wall)
+        blot = noise(rng, W, by1 - by0, 26)
+        for band, top in STAIN_TOP.items():
+            cv = Cv(W, by1 - by0)
+            ph = rng_for(f"damp:{wall}:{band}").uniform(0, 6.28)
+            line = [(x, top - by0 + 5 * math.sin(x * 0.013 + ph) + 2.5 * math.sin(x * 0.051 + 2 * ph))
+                    for x in range(0, W + 6, 6)]
+            wet = cv.layer()
+            wet.poly(line + [(W, by1 - by0), (0, by1 - by0)], fill=rgba(WETDARK, 255), ol=None)
+            m = wet.im.getchannel("A").filter(ImageFilter.GaussianBlur(2 * SS))
+            g = Image.linear_gradient("L").resize((W * SS, (by1 - by0) * SS)).point([int(150 + v * 0.4) for v in range(256)])
+            b = blot.resize((W * SS, (by1 - by0) * SS)).point([int(170 + v * 0.33) for v in range(256)])
+            m = ImageChops.multiply(ImageChops.multiply(m, g), b)
+            wet.im.putalpha(m)
+            cv.comp(wet, 0.42)
+            for lvl in [t for b2, t in STAIN_TOP.items() if b2 < band]:   # the older, lower marks
+                old = [(x, lvl - by0 + 4 * math.sin(x * 0.017 + lvl)) for x in range(0, W + 8, 8)]
+                cv.line(old, rgba((176, 176, 160), 70), 1.6, caps=False)
+            cv.line([(x, y + 3) for x, y in line], rgba(WETDARK, 150), 2.0, caps=False)
+            cv.line(line, rgba((206, 204, 186), 190), 2.4, caps=False)
+            for k in range(26):   # salt blooms on the crown
+                x = rng.uniform(0, W)
+                y = top - by0 + 5 * math.sin(x * 0.013 + ph) - rng.uniform(0, 6)
+                cv.ell(x, y, rng.uniform(3, 9), rng.uniform(1.5, 3.5), fill=rgba((214, 212, 196), 120), ol=None, w=0)
+            img = cv.down()
+            keep = Image.new("L", img.size, 255)
+            dk = ImageDraw.Draw(keep)
+            for (x0, y0, x1, y1) in STAIN_SKIP[wall]:
+                dk.rectangle([x0, y0 - by0, x1, y1 - by0], fill=0)
+            img.putalpha(ImageChops.multiply(img.getchannel("A"), keep))
+            save(img, f"{wall}_damp_{band}", "RGBA")
+
+
 def hatch_leaf(cv):
-    cv.rect(600, 390, 900, 870, fill=IRON_L, ol=INK, w=3)
-    cv.rect(612, 402, 888, 858, fill=IRON, ol=INK, w=1.8)
+    cv.rect(600, 390, 900, 870, fill=IRON_L, ol=INK, w=3.2, shade=True)
+    cv.rect(612, 402, 888, 858, fill=IRON, ol=INK, w=1.8, shade=True)
     for y in (470, 770):
         cv.rect(600, y - 14, 900, y + 14, fill=IRON_D, ol=INK, w=2)
         for x in range(616, 890, 30):
@@ -1367,90 +1878,103 @@ def hatch_leaf(cv):
     cv.rect(600, 610, 640, 630, fill=IRON_D, ol=INK, w=2)  # the dog bolt into the frame
 
 
+def b_ok(x0, x1, inset):
+    return x1 - x0 - 2 * inset > 40
+
+
 def paint_C_hatch_open():
+    """P04: the hatch stands open on a stair that goes DOWN: the top tread at the sill, risers
+    dropping and narrowing below it, darkening with depth to storm navy at the pressure gate."""
     name = "C_hatch_open"
     cv = Cv(W, H)
     x0, y0, x1, y1 = 600, 390, 900, 870
-    # the stairwell beyond: cool pale light rising from below
-    cv.paste1x(vgrad(x1 - x0, y1 - y0, (38, 50, 58), (186, 204, 202), 1.7), x0, y0)
+    # the far wall above the stair head: dressed stone in cold half-light
+    cv.paste1x(vgrad(x1 - x0, 170, (30, 40, 48), (64, 78, 82), 1.0), x0, y0)
     lay = cv.layer()
-    for k in range(9):  # dressed-stone courses on the far wall
-        y = y0 + 24 + k * 40
+    for k in range(4):
+        y = y0 + 22 + k * 40
         lay.line([(x0, y), (x1, y)], rgba(INK, 255), 1.3, caps=False)
         for x in range(x0 + (k % 2) * 40, x1, 80):
             lay.line([(x, y), (x, y + 40)], rgba(INK, 255), 1.1, caps=False)
-    cv.comp(lay, 0.35)
-    # the stair, descending down and away to the left
-    steps = [(x1, 548)]
-    for k in range(7):
-        xa = x1 - 44 * k
-        ya = 548 + 40 * k
-        steps += [(xa, ya), (xa - 44, ya), (xa - 44, ya + 40)]
-    stair = steps + [(x0, 868), (x0, y1), (x1, y1)]
-    stone = (150, 158, 154)
-    cv.poly(stair, fill=stone, ol=None)
-    for k in range(7):
-        xa = x1 - 44 * k
-        ya = 548 + 40 * k
-        cv.rect(xa - 44, ya, xa + (44 if k == 0 else 0), ya + 6, fill=(196, 202, 194), ol=None)  # dry, dusty nosing
-        cv.line([(xa, ya), (xa - 44, ya), (xa - 44, ya + 40)], INK, 2.4, caps=False)
-    cv.line([(x1, 548), (x1, 548)], INK, 2.4, caps=False)
-    dust = cv.layer()
-    rng = rng_for(name)
-    for k in range(120):
-        x = rng.uniform(x0, x1)
-        y = rng.uniform(560, y1)
-        dust.ell(x, y, 0.9, 0.9, fill=rgba((214, 216, 206), 255), ol=None, w=0)
-    cv.comp(dust, 0.6)
-    # the pressure gate: black iron grille across the lower stair
-    for x in range(x0 + 12, x1, 24):
-        cv.rect(x - 3, 700, x + 3, 860, fill=SOOT, ol=INK, w=1.2)
-    for y in (700, 778, 852):
-        cv.rect(x0, y - 5, x1, y + 5, fill=SOOT, ol=INK, w=1.5)
+    cv.comp(lay, 0.4)
+    # the shaft walls and the stair dropping into it
+    cv.rect(x0, 560, x1, y1, fill=NAVY, ol=None)
+    y = 560.0
+    inset = 0.0
+    h = 50.0
+    k = 0
+    tread = (176, 188, 182)
+    riser = (120, 134, 132)
+    while y < y1 - 6 and h > 4 and b_ok(x0, x1, inset):
+        t = min(1.0, (y - 560) / 170.0)
+        tcol = mix(tread, NAVY, t ** 0.8)
+        rcol = mix(riser, NAVY, min(1.0, t ** 0.8 + 0.08))
+        a, b = x0 + inset, x1 - inset
+        th = min(h * 0.5, max(4.0, h * 0.22))
+        cv.rect(a, y, b, min(y1, y + th), fill=tcol, ol=None)                       # tread (lit top)
+        if y + th < y1:
+            cv.rect(a, y + th, b, min(y1, y + h), fill=rcol, ol=None)               # riser facing her
+        cv.line([(a, y), (b, y)], mix(INK, NAVY, t), 2.2 - t, caps=False)
+        cv.line([(a, y + th), (b, y + th)], mix(INK, NAVY, t), 1.6 - 0.8 * t, caps=False)
+        # the side walls close in as it goes down
+        cv.rect(x0, y, a, y + h, fill=mix((40, 52, 58), NAVY, t), ol=None)
+        cv.rect(b, y, x1, y + h, fill=mix((30, 40, 48), NAVY, t), ol=None)
+        y += h
+        inset += h * 0.12
+        h *= 0.84
+        k += 1
+    # the top tread is the sill of the hatch: worn bright at its nosing
+    cv.rect(x0, 554, x1, 562, fill=(208, 214, 204), ol=INK, w=1.6)
+    # the pressure gate: high-contrast iron grille, pale-edged so it reads on the dark
+    for x in range(x0 + 14, x1, 24):
+        cv.rect(x - 3.5, 696, x + 3.5, 866, fill=(78, 88, 96), ol=INK, w=1.6)
+        cv.line([(x - 1.5, 700), (x - 1.5, 862)], (150, 166, 168), 1.2, caps=False)
+    for yy in (696, 780, 860):
+        cv.rect(x0, yy - 6, x1, yy + 6, fill=(78, 88, 96), ol=INK, w=1.8)
+        cv.line([(x0 + 2, yy - 3), (x1 - 2, yy - 3)], (150, 166, 168), 1.2, caps=False)
         for x in range(x0 + 12, x1, 48):
-            rivet(cv, x, y, 2.8, (70, 74, 78))
-    cv.rect(x0 + 120, 760, x0 + 180, 800, fill=(30, 30, 30), ol=INK, w=2)  # gate lock box
-    cv.ell(x0 + 150, 780, 7, 7, fill=IRON_L, ol=INK, w=1.5)
-    cv.rect(x0, y0, x1, y1, fill=None, ol=INK, w=3)
-    # the leaf, swung right flat against the wall (narrow, edge-on)
-    cv.shadow(lambda d, o: d.rectangle([930 + o[0], 384 + o[1], 1000 + o[0], 878 + o[1]], fill=255), (6, 4), 6, 110)
-    cv.rect(930, 384, 1000, 878, fill=IRON, ol=INK, w=3)
+            rivet(cv, x, yy, 3, (120, 130, 136))
+    cv.rect(x0 + 116, 752, x0 + 184, 806, fill=BRASS, ol=INK, w=2.6)        # gate lock plate
+    cv.ell(x0 + 150, 774, 9, 9, fill=(16, 18, 22), ol=INK, w=1.8)
+    cv.poly([(x0 + 146, 778), (x0 + 154, 778), (x0 + 156, 796), (x0 + 144, 796)], fill=(16, 18, 22), ol=None)
+    cv.rect(x0, y0, x1, y1, fill=None, ol=INK, w=3.4)
+    # the leaf, swung right flat against the wall (narrow, edge-on), its riveted inner face out
+    cv.shadow(lambda d, o: d.rectangle([930 + o[0], 384 + o[1], 1000 + o[0], 878 + o[1]], fill=255), (8, 4), 7, 120)
+    cv.rect(930, 384, 1000, 878, fill=IRON, ol=INK, w=3, shade=True)
     cv.rect(930, 384, 944, 878, fill=IRON_L, ol=INK, w=2)
-    for y in (470, 770):
-        cv.rect(944, y - 14, 1000, y + 14, fill=IRON_D, ol=INK, w=2)
-    for y in range(400, 870, 30):
-        rivet(cv, 937, y, 3)
+    for yy in (470, 770):
+        cv.rect(944, yy - 14, 1000, yy + 14, fill=IRON_D, ol=INK, w=2)
+    for yy in range(400, 870, 30):
+        rivet(cv, 937, yy, 3)
+        rivet(cv, 990, yy + 15, 2.6)
     cv.ell(972, 620, 16, 56, fill=None, ol=INK, w=11)  # the wheel, edge-on
     cv.ell(972, 620, 16, 56, fill=None, ol=IRON_L, w=6)
-    save(finish_rgba(cv, name, 5), name, "RGBA")
+    save(finish_rgba(cv, name, 4), name, "RGBA")
 
 
 def paint_C_window_7():
+    """Band 7: the water stands upright. A hard vertical waterline divides the window: dark air
+    on the left, water on the right, its surface meniscus drawn top to bottom."""
     name = "C_window_7"
-    rng = rng_for(name)
     x0, y0, x1, y1 = OUTER_GLASS
+    mx = 1150
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     water = water_body(rng_for("C_base:water"), x0, y0, x1, y1)
-    # right of the meniscus: the same water, its surface seen edge-on, standing up
-    right = vgrad(x1 - 1150, y1 - y0, (128, 166, 160), (70, 104, 108), 1.0)
-    rm = Image.linear_gradient("L").rotate(90, expand=True).resize((x1 - 1150, y1 - y0))
-    rm = rm.point([int(60 + 140 * (1 - v / 255.0) ** 2) for v in range(256)])
-    wr = water.crop((1150 - x0, 0, x1 - x0, y1 - y0))
-    wr.paste(right, (0, 0), rm)
-    water.paste(wr, (1150 - x0, 0))
-    img.paste(water, (x0, y0))
+    # rotate the light: the water's "down" is now to the right
+    right = water.crop((0, 0, x1 - x0, y1 - y0)).rotate(90).resize((x1 - mx, y1 - y0))
+    air = vgrad(mx - x0, y1 - y0, (16, 22, 30), (10, 14, 20))
+    img.paste(air, (x0, y0))
+    img.paste(right, (mx, y0))
     cv = Cv(W, H)
-    for k in range(18):  # sheen streaks, vertical now
-        x = 1156 + rng.uniform(0, 120)
-        ya = rng.uniform(y0, y1 - 60)
-        cv.line([(x, ya), (x + rng.uniform(-2, 2), ya + rng.uniform(30, 90))], rgba((206, 226, 220), 150), 1.2,
-                caps=False)
-    # the meniscus: a hard edge, bright lip, dark underside
-    cv.rect(1143, y0, 1149, y1, fill=rgba((8, 14, 22), 230), ol=None)
-    cv.rect(1149, y0, 1155, y1, fill=rgba((226, 240, 234), 255), ol=None)
-    cv.line([(1155, y0), (1155, y1)], rgba(INK, 200), 1.2, caps=False)
-    for y in (y0 + 2, y1 - 2):
-        cv.line(smooth_open([(1132, y), (1146, y + (8 if y < 500 else -8)), (1152, y)], 6), rgba((226, 240, 234), 220), 2)
+    # the meniscus: a bright lip, a dark underside, a curl at top and bottom where it meets the frame
+    cv.rect(mx - 2, y0, mx + 3, y1, fill=rgba((222, 240, 232), 255), ol=None)
+    cv.rect(mx + 3, y0, mx + 9, y1, fill=rgba((26, 48, 56), 220), ol=None)
+    for yy, s_ in ((y0, 1), (y1, -1)):
+        cv.line(smooth_open([(mx - 10, yy), (mx - 3, yy + s_ * 10), (mx, yy + s_ * 24)], 6), rgba((222, 240, 232), 230), 2.2)
+    # faint reflection of the room in the dark air half
+    ref = cv.layer()
+    ref.poly([(1040, y0), (1080, y0), (1030, y0 + 120), (1020, y0 + 90)], fill=rgba(SHEEN, 255), ol=None)
+    cv.comp(ref, 0.06)
     img.alpha_composite(cv.down())
     top = Cv(W, H)
     top.rect(x0, y0, x1, y1, fill=None, ol=INK, w=2.5)
@@ -1472,69 +1996,83 @@ def paint_C_line():
 
 # ---------------------------------------------------------------- close-ups
 def timber_bg(name, col=(58, 50, 43), col_d=(44, 38, 33)):
+    """A bench top of long horizontal planks: straight grain, a few knots, dark seams."""
     rng = rng_for(name + ":timber")
     cv = Cv(W, H, rgba(col, 255))
-    gr = noise(rng, W // 9, H, 2).resize((W, H), Image.BICUBIC)
-    cv.paste1x(Image.new("RGB", (W, H), col_d), 0, 0, gr.point([int(clamp((v - 110) / 145.0) * 150) for v in range(256)]))
-    for x in range(0, W, 181):
-        cv.line([(x, 0), (x, H)], (30, 26, 23), 2, caps=False)
+    streak = Image.frombytes("L", (max(2, W // 40), H), rng.randbytes(max(2, W // 40) * H)).resize((W, H), Image.BICUBIC)
+    streak = streak.filter(ImageFilter.GaussianBlur(0.8))
+    cv.paste1x(Image.new("RGB", (W, H), col_d), 0, 0, streak.point([int(clamp((v - 100) / 155.0) * 170) for v in range(256)]))
+    hi = Image.frombytes("L", (max(2, W // 60), H), rng.randbytes(max(2, W // 60) * H)).resize((W, H), Image.BICUBIC)
+    cv.paste1x(Image.new("RGB", (W, H), mix(col, (120, 104, 84), 0.5)), 0, 0,
+               hi.point([int(clamp((v - 200) / 55.0) * 90) for v in range(256)]))
+    for y in range(0, H, 136):
+        cv.line([(0, y), (W, y)], (24, 20, 18), 2.4, caps=False)
+        cv.line([(0, y + 2.5), (W, y + 2.5)], mix(col, (150, 130, 104), 0.35), 1.0, caps=False)
+    for k in range(5):
+        x, y = rng.uniform(80, W - 80), rng.choice(range(40, H, 136)) + rng.uniform(20, 70)
+        cv.ell(x, y, rng.uniform(10, 18), rng.uniform(4, 7), fill=None, ol=col_d, w=1.6)
     return cv
 
 
 def paint_cu_registration():
+    """The chart table as a contraption: a sheet rack and a tray on the left, the lit table, and
+    on the right a brass panel with two turning knobs, three register pins and a clip cradle.
+    The view draws the sheets, the pins' state and every engraved word."""
     name = "cu_registration"
     cv = timber_bg(name)
-    # left panel
-    cv.rect(60, 140, 348, 900, fill=(70, 61, 52), ol=INK, w=3)
-    for r in ((84, 170, 324, 260), (84, 280, 324, 370), (84, 430, 324, 520)):
-        cv.shadow(lambda d, o, r=r: d.rectangle([r[0] + o[0], r[1] + o[1], r[2] + o[0], r[3] + o[1]], fill=255),
-                  (4, 6), 4, 110)
-        brass_plate(cv, *r, w=3, r=6)
-    # worked-example frame, glazed, empty
+    # left: the sheet rack (two slots) and a shallow tray for his sheet
+    cv.shadow(lambda d, o: d.rectangle([60 + o[0], 140 + o[1], 348 + o[0], 540 + o[1]], fill=255), (6, 8), 7, 130)
+    cv.rect(60, 140, 348, 540, fill=TIMBER, ol=INK, w=3.4, shade=True)
+    for (x0, y0, x1, y1) in ((84, 170, 324, 260), (84, 280, 324, 370)):
+        cv.rect(x0, y0, x1, y1, fill=(26, 22, 20), ol=INK, w=2.4)
+        cv.rect(x0, y1 - 14, x1, y1, fill=BRASS, ol=INK, w=2)          # the slot's brass lip
+        cv.line([(x0 + 4, y0 + 4), (x1 - 4, y0 + 4)], (52, 44, 38), 2, caps=False)
+    cv.rrect(78, 424, 330, 526, 6, fill=BRASS_D, ol=INK, w=2.8)          # his sheet's tray
+    cv.rrect(90, 436, 318, 514, 4, fill=mix(BRASS_D, (40, 34, 28), 0.5), ol=INK, w=1.6)
+    # worked-example frame, glazed
     cv.shadow(lambda d, o: d.rectangle([84 + o[0], 600 + o[1], 324 + o[0], 860 + o[1]], fill=255), (5, 7), 5, 120)
     cv.rect(84, 600, 324, 860, fill=BRASS, ol=INK, w=3)
     cv.rect(100, 616, 308, 844, fill=(214, 210, 196), ol=INK, w=2)
     sh = cv.layer()
     sh.poly([(110, 616), (170, 616), (100, 700), (100, 650)], fill=rgba((255, 255, 255), 255), ol=None)
-    sh.poly([(250, 844), (290, 844), (308, 820), (308, 780)], fill=rgba((255, 255, 255), 255), ol=None)
-    cv.comp(sh, 0.3)
+    cv.comp(sh, 0.25)
     for (x, y) in ((92, 608), (316, 608), (92, 852), (316, 852)):
         screw(cv, x, y, 3.5)
-    # light table: bone glass in a brass frame, lit from beneath
-    cv.shadow(lambda d, o: d.rectangle([374 + o[0], 130 + o[1], 1074 + o[0], 780 + o[1]], fill=255), (8, 10), 9, 140)
+    # the light table: bone glass in a brass frame, lit from beneath
+    cv.shadow(lambda d, o: d.rectangle([374 + o[0], 130 + o[1], 1074 + o[0], 780 + o[1]], fill=255), (10, 12), 10, 150)
     cv.rect(374, 130, 1074, 780, fill=BRASS, ol=INK, w=4)
-    cv.line([(382, 138), (1066, 138)], BRASS_L, 3, caps=False)
-    cv.line([(382, 772), (1066, 772)], BRASS_D, 3, caps=False)
     gw, gh = 1052 - 396, 758 - 152
     glow = Image.radial_gradient("L").resize((gw, gh))
-    lit = Image.composite(Image.new("RGB", (gw, gh), (214, 206, 184)), Image.new("RGB", (gw, gh), (240, 234, 216)),
+    lit = Image.composite(Image.new("RGB", (gw, gh), (206, 198, 176)), Image.new("RGB", (gw, gh), (242, 236, 218)),
                           glow.point([int(clamp((v - 60) / 195.0) * 255) for v in range(256)]))
     cv.paste1x(lit, 396, 152)
     cv.rect(396, 152, 1052, 758, fill=None, ol=INK, w=2.5)
     for (x, y) in ((386, 142), (1062, 142), (386, 768), (1062, 768), (724, 142), (724, 768)):
         screw(cv, x, y, 4.5)
-    # right brass control panel (blank)
-    cv.rect(1110, 280, 1420, 860, fill=BRASS_D, ol=INK, w=3)
-    cv.rect(1122, 292, 1408, 848, fill=BRASS, ol=INK, w=2)
-    for k, y in enumerate((360, 500)):
-        cv.ell(1200, y, 46, 46, fill=BRASS_D, ol=INK, w=3)
-        cv.ell(1200, y, 34, 34, fill=BRASS_L, ol=INK, w=2.5)
-        for j in range(16):
-            a = 2 * math.pi * j / 16
-            cv.line([(1200 + 34 * math.cos(a), y + 34 * math.sin(a)), (1200 + 28 * math.cos(a), y + 28 * math.sin(a))],
-                    INK, 1.5, caps=False)
-        cv.line([(1200, y), (1200, y - 26)], INK, 4)
-    for y in (360, 500):
-        cv.rrect(1300, y - 40, 1360, y + 40, 8, fill=(30, 30, 30), ol=INK, w=2.5)
-        cv.rrect(1312, y - 34, 1348, y - 2, 6, fill=BRASS_L, ol=INK, w=2)
-    cv.rect(1160, 620, 1370, 650, fill=(30, 30, 30), ol=INK, w=2.5)
-    cv.rrect(1230, 604, 1262, 666, 6, fill=BRASS_L, ol=INK, w=2.5)
-    for x in (1170, 1250, 1330):
-        cv.ell(x, 760, 22, 22, fill=BRASS_D, ol=INK, w=2.5)
-        cv.ell(x, 760, 13, 13, fill=(20, 26, 30), ol=INK, w=2)
-    for (x, y) in ((1132, 302), (1398, 302), (1132, 838), (1398, 838)):
+    # right: the brass control panel
+    cv.shadow(lambda d, o: d.rectangle([1110 + o[0], 230 + o[1], 1420 + o[0], 870 + o[1]], fill=255), (8, 10), 8, 140)
+    cv.rect(1110, 230, 1420, 870, fill=BRASS_D, ol=INK, w=3.4, shade=True)
+    cv.rect(1120, 240, 1410, 860, fill=BRASS, ol=INK, w=2)
+    for (x, y) in ((1132, 252), (1398, 252), (1132, 848), (1398, 848)):
         screw(cv, x, y, 4)
-    save(finish_rgb(cv, name, 8), name, "RGB")
+    # two knurled knobs, set into bosses
+    for cx in (1189, 1339):
+        cv.ell(cx, 345, 50, 50, fill=BRASS_D, ol=INK, w=3)
+        cv.ell(cx, 345, 40, 40, fill=(70, 60, 44), ol=INK, w=2)
+        for j in range(28):
+            a = 2 * math.pi * j / 28
+            cv.line([(cx + 40 * math.cos(a), 345 + 40 * math.sin(a)), (cx + 33 * math.cos(a), 345 + 33 * math.sin(a))],
+                    BRASS_L, 2.2, caps=False)
+        cv.ell(cx, 345, 31, 31, fill=BRASS_L, ol=INK, w=2.4)
+    # three pin plaques: a socket on the left for the pin
+    for y in (440, 526, 612):
+        cv.rrect(1124, y, 1404, y + 76, 6, fill=mix(BRASS, BRASS_L, 0.35), ol=INK, w=2.2)
+        cv.ell(1164, y + 38, 20, 20, fill=(28, 24, 20), ol=INK, w=2)
+        cv.ell(1164, y + 38, 26, 26, fill=None, ol=BRASS_D, w=3)
+    # the clip cradle
+    cv.rrect(1124, 740, 1404, 840, 10, fill=(40, 34, 28), ol=INK, w=2.6)
+    cv.rrect(1134, 750, 1394, 830, 8, fill=(58, 50, 40), ol=INK, w=1.4)
+    save(finish_rgb(cv, name, 6), name, "RGB")
 
 
 def paint_cu_recorder():
@@ -1547,7 +2085,6 @@ def paint_cu_recorder():
         cv.rect(x0, y0, x1, y1, fill=None, ol=INK, w=3)
         cv.rect(x0 + 6, y0 + 6, x1 - 6, y1 - 6, fill=None, ol=COPPER_L, w=1.5)
     for x in range(40, W, 60):
-        rivet(cv, x, 40, 6, COPPER_L)
         rivet(cv, x, 1046, 6, COPPER_L)
     # drum face
     cv.rect(200, 100, 1248, 350, fill=COPPER_DD, ol=INK, w=3)
@@ -1617,6 +2154,48 @@ def paint_cu_recorder():
     cv.rrect(1104, 856, 1204, 914, 12, fill=BRASS_L, ol=INK, w=3)
     cv.line([(1114, 866), (1194, 866)], (246, 230, 190), 3, caps=False)
     save(finish_rgb(cv, name, 8), name, "RGB")
+
+
+def paint_cu_rec_fog():
+    """Band 4+: condensation on the inside of both gauge glasses."""
+    name = "cu_rec_fog"
+    rng = rng_for(name)
+    cv = Cv(W, H)
+    for gx in (234, 474):
+        x0, y0, x1, y1 = gx + 12, 782, gx + 178, 908
+        m = Image.new("L", (x1 - x0, y1 - y0), 0)
+        ImageDraw.Draw(m).rounded_rectangle([0, 0, x1 - x0 - 1, y1 - y0 - 1], 10, fill=255)
+        n = noise(rng, x1 - x0, y1 - y0, 14).point([int(110 + v * 0.35) for v in range(256)])
+        cv.paste1x(Image.new("RGB", (x1 - x0, y1 - y0), (232, 236, 230)), x0, y0, ImageChops.multiply(m, n))
+        for k in range(40):
+            x, y = rng.uniform(x0 + 6, x1 - 6), rng.uniform(y0 + 6, y1 - 6)
+            r = rng.uniform(1.8, 4.2)
+            cv.ell(x, y + 0.8, r, r * 1.15, fill=rgba((110, 120, 116), 150), ol=None, w=0)
+            cv.ell(x - r * 0.3, y - r * 0.3, r * 0.35, r * 0.35, fill=rgba((252, 252, 248), 230), ol=None, w=0)
+    save(cv.down(), name, "RGBA")
+
+
+def paint_cu_rec_brown():
+    """Band 6+: the drum's bone paper browning, foxed, darker at its edges."""
+    name = "cu_rec_brown"
+    rng = rng_for(name)
+    x0, y0, x1, y1 = 224, 110, 1224, 340
+    w, h = x1 - x0, y1 - y0
+    n = noise(rng, w, h, 40)
+    edge = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(edge).rectangle([18, 14, w - 18, h - 14], fill=255)
+    edge = ImageOps.invert(edge.filter(ImageFilter.GaussianBlur(16)))
+    a = ImageChops.add(n.point([int(60 + v * 0.25) for v in range(256)]), edge.point([int(v * 0.5) for v in range(256)]))
+    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    wash = Image.new("RGBA", (w, h), (150, 112, 62, 255))
+    wash.putalpha(a)
+    img.alpha_composite(wash, (x0, y0))
+    d = ImageDraw.Draw(img, "RGBA")
+    for k in range(30):
+        x, y = rng.uniform(x0 + 10, x1 - 10), rng.uniform(y0 + 10, y1 - 10)
+        r = rng.uniform(2, 8)
+        d.ellipse([x - r, y - r, x + r, y + r], fill=(122, 82, 40, int(rng.uniform(40, 90))))
+    save(img, name, "RGBA")
 
 
 def paint_cu_recorder_shutter():
@@ -1756,7 +2335,7 @@ def paint_cu_plan_lid():
 def paint_cu_plan_body():
     name = "cu_plan_body"
     cv = Cv(W, H)
-    paint_body(cv, lambda p: p, 1.0, 0.22, PLAN_PAPER, 6)
+    paint_body(cv, lambda p: p, 1.0, 0.72, PLAN_PAPER, 6)
     save(cv.down(), name, "RGBA")
 
 
@@ -1848,13 +2427,15 @@ def paint_seals():
 
 JOBS = {
     "A_base": paint_A_base, "A_composite": paint_A_composite, "A_compass_bent": paint_A_compass_bent,
-    "A_standing": paint_A_standing, "A_plan_body": paint_A_plan_body,
-    "B_base": lambda: paint_B_base(window_scene(0)), "B_window": paint_windows, "B_rain": paint_rain,
+    "A_standing": paint_A_standing, "A_plan_body": paint_A_plan_body, "A_buckle": paint_A_buckle,
+    "A_fog": paint_A_fog,
+    "B_base": lambda: paint_B_base(window_scene(0)), "B_float": paint_B_float, "B_window": paint_windows, "B_rain": paint_rain,
     "seals": paint_seals, "B_pen": paint_B_pen, "B_p05": paint_B_p05, "B_strip": paint_B_strip,
     "C_base": paint_C_base, "C_hatch_open": paint_C_hatch_open, "C_window_7": paint_C_window_7,
-    "C_line": paint_C_line,
+    "C_line": paint_C_line, "C_rope": paint_C_rope, "C_beads": paint_C_beads, "damp": paint_damp,
     "cu_registration": paint_cu_registration, "cu_recorder": paint_cu_recorder,
-    "cu_recorder_shutter": paint_cu_recorder_shutter, "cu_plan": paint_cu_plan, "cu_plan_lid": paint_cu_plan_lid,
+    "cu_recorder_shutter": paint_cu_recorder_shutter, "cu_rec_fog": paint_cu_rec_fog,
+    "cu_rec_brown": paint_cu_rec_brown, "cu_plan": paint_cu_plan, "cu_plan_lid": paint_cu_plan_lid,
     "cu_plan_body": paint_cu_plan_body,
     "sheet_paper": paint_sheet_paper, "sheet_tracing": paint_sheet_tracing, "plate_blank": paint_plate_blank,
     "tile_blank": paint_tile_blank,
