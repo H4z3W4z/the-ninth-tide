@@ -143,15 +143,22 @@ const GAUGE_NUM_R := 27.0
 const NEEDLE_PIVOT := Vector2(6, 54)
 const WIN_C := Vector2(724, 346)
 const WIN_RI := 224.0
-const LID_X := 484.0
-const LID_TOP := 110.0
-const LID_BOT := 376.0
+## The lid: a thick pale band (a_lid_line, 448 x 22) bent along a sagging curve, clipped to the
+## arch. Before the third look it sweeps top to bottom and waits; after the third look it comes
+## down once and rests across the iris, over a_surface_lid, for good. The curve and the rest
+## line match tools/art/rooms/R12.py (LID_REST, LID_SAG, LID_THICK, LID_HW).
+const LID_X := 500.0
+const LID_HW := 224.0
+const LID_SAG := 44.0
+const LID_REST := 226.0
+const LID_TOP := 60.0           # the band's side edge when it starts above the arch
+const LID_BOT := 380.0
 const LID_RUN := 40.0
 const LID_WAIT := 50.0
-## The brief's 0.35 / 0.25 left the lid all but invisible on the dark surface in captures at
-## 1024x768; the owner wants the wrongness clearly seen, so it is raised.
-const LID_ALPHA := 0.75
-const LID_ALPHA_STILL := 0.5
+const LID_SETTLE := 6.0         # s, the lid coming down to rest after the third look
+const WIN_BOT := 380.0
+const LID_ALPHA := 1.0
+const LID_ALPHA_STILL := 0.85
 const LAMP_B_X0 := 214.0
 const LAMP_B_STEP := 146.0
 const LAMP_B_Y := 160.0
@@ -166,7 +173,7 @@ const SLOTS := {"sever": Vector2(140, 590), "continue": Vector2(888, 590)}
 const BTN_X := {"sever": 100.0, "continue": 748.0}
 const BTN_TEXT := {"sever": "BREAK CONNECTION AND LEAVE", "continue": "REMAIN AS WITNESS"}
 const FINAL_LAMPS_Y := [200.0, 270.0]
-const OVAL_AT := Vector2(274, 160)
+const OVAL_AT := Vector2(80, 40)     # the instrument tableau window in end_card
 const CAPTION := Rect2(514, 830, 420, 48)
 const CAPTIONS := {
 	"m_funnels": "LISTENING ROOM", "m_diaphragm": "MACHINE ROOM", "m_jars": "WET LABORATORY",
@@ -207,6 +214,8 @@ var mixer: LoopMixer
 # --- presentation clocks (never saved) ---------------------------------------------------------
 var hold_t := 0.0              # the arrival hold, seconds left
 var needle_a := 133.0          # the gauge needle's resting angle, degrees from straight up
+var lid_looks_seen := -1       # window_looks last seen by the view (-1 = not yet read)
+var lid_rest_t0 := -1.0        # time the lid began coming down to rest (-1 = already resting)
 var withdraw_pending := false  # P26 committed; the surface has not yet drawn back on screen
 var withdraw_t0 := -1.0        # time the withdrawal began (-1 = none)
 var slide_pending := false     # P25: the frames wait for the frames_slide sound
@@ -291,6 +300,16 @@ func _stage() -> int:
 			return 1
 	return 0
 
+func _window_looks() -> int:
+	return int(r.state.get("window_looks", 0)) if r != null else 0
+
+## The lid has been seen to cross (the third look) and now rests over the iris.
+func _lid_rested() -> bool:
+	return _window_looks() >= 3
+
+func _lid_rest_k() -> float:
+	return _k(lid_rest_t0, LID_SETTLE) if lid_rest_t0 >= 0.0 else 1.0
+
 func _now() -> float:
 	return time
 
@@ -319,6 +338,10 @@ func tick(dt: float) -> void:
 		hold_t = maxf(0.0, hold_t - dt)
 	var target := 118.0 if _stage() >= 2 else 133.0
 	needle_a = move_toward(needle_a, target, dt * 6.0) if motion else target
+	var looks := _window_looks()
+	if lid_looks_seen >= 0 and lid_looks_seen < 3 and looks >= 3:
+		lid_rest_t0 = _now()
+	lid_looks_seen = looks
 	if strip_since >= 0.0 and _now() - strip_since > 14.0:
 		_strip_clear()
 	if not strip_queue.is_empty() and strip_starts.size() == strip_queue.size():
@@ -537,6 +560,8 @@ func consume_click(_p: Vector2) -> bool:
 
 func apply_instantly() -> void:
 	hold_t = 0.0
+	lid_looks_seen = -1
+	lid_rest_t0 = -1.0
 	needle_a = 118.0 if _stage() >= 2 else 133.0
 	withdraw_pending = false
 	withdraw_t0 = -1.0
@@ -759,43 +784,81 @@ func _draw_view_a(c: CanvasItem, tab: String) -> void:
 		"a_morning":
 			_full(c, "a_morning")
 		_:
+			_full(c, "a_surface")
+			if _lid_rested():
+				_full(c, "a_surface_lid", _lid_rest_k())
 			if s >= 2 and not withdraw_pending:
-				var k := _k(withdraw_t0, WITHDRAW_TIME) if withdraw_t0 >= 0.0 else 1.0
-				_full(c, "a_surface", 1.0)
-				_full(c, "a_surface_withdrawn", k)
-			else:
-				_full(c, "a_surface")
+				_full(c, "a_surface_withdrawn", _withdraw_k())
 	if tab == "":
 		_draw_lid(c)
+	# the stage marks on the chamber itself: the tide line rising up the wainscot, the gauge's
+	# bowed bezel (S2), the seat pressed hollow (S1+)
+	if s >= 1 and tab != "a_day":
+		_full(c, "a_stain_2" if s >= 2 else "a_stain_1")
+	if s >= 2 and tab != "a_day":
+		_full(c, "a_gauge_pinned")
 	var low := (s >= 1 and tab == "") or tab in ["a_sit", "a_morning"]
-	_full(c, "a_arm_low" if low else "a_arm_rest")
+	if tab == "" and s >= 2:
+		_full(c, "a_arm_ready")
+	else:
+		_full(c, "a_arm_low" if low else "a_arm_rest")
 	if tab == "" and s >= 1:
 		_full(c, "a_cushion_dent")
 	if tab in ["a_sit", "a_morning"]:
 		_full(c, "a_ada_seated")
 	_draw_gauge(c, tab)
 
-## The lid line: a pale line crossing the surface, top to bottom, then a long wait.
+func _withdraw_k() -> float:
+	if _stage() < 2 or withdraw_pending:
+		return 0.0
+	return _k(withdraw_t0, WITHDRAW_TIME) if withdraw_t0 >= 0.0 else 1.0
+
+## The lid: before the third look a band sweeping top to bottom, then a long wait; after it,
+## the band comes down once and rests across the iris. Gone once the surface has drawn back.
 func _draw_lid(c: CanvasItem) -> void:
 	var t := _tex("a_lid_line")
 	if t == null:
 		return
-	var y := 250.0
-	var a := LID_ALPHA_STILL
-	if motion:
+	var a := LID_ALPHA * (1.0 - _withdraw_k())
+	if a <= 0.0:
+		return
+	var y_edge := LID_REST
+	if _lid_rested():
+		y_edge = lerpf(LID_TOP, LID_REST, _lid_rest_k())
+	elif motion:
 		var ph := fposmod(time, LID_RUN + LID_WAIT)
 		if ph > LID_RUN:
 			return
-		y = lerpf(LID_TOP, LID_BOT, ph / LID_RUN)
-		a = LID_ALPHA
-	var yc := y + t.get_size().y / 2.0
-	var hw := WIN_RI if yc >= WIN_C.y else sqrt(maxf(0.0, WIN_RI * WIN_RI - pow(WIN_C.y - yc, 2)))
-	var x0 := maxf(LID_X, WIN_C.x - hw)
-	var x1 := minf(LID_X + t.get_size().x, WIN_C.x + hw)
-	if x1 - x0 < 4.0:
-		return
-	c.draw_texture_rect_region(t, Rect2(x0, y, x1 - x0, t.get_size().y), Rect2(x0 - LID_X, 0, x1 - x0, t.get_size().y),
-		Color(1, 1, 1, a))
+		y_edge = lerpf(LID_TOP, LID_BOT, ph / LID_RUN)
+	else:
+		a *= LID_ALPHA_STILL
+	_draw_lid_band(c, t, y_edge, a)
+
+## The band bent along the lid curve (side edge at y_edge, sagging LID_SAG at the centre),
+## each vertex clamped into the arch so the band thins to nothing at the glass's edge.
+static func _lid_arch_top(x: float) -> float:
+	var dx := x - WIN_C.x
+	return WIN_C.y - sqrt(maxf(0.0, WIN_RI * WIN_RI - dx * dx))
+
+func _draw_lid_band(c: CanvasItem, t: Texture2D, y_edge: float, a: float) -> void:
+	var th := t.get_size().y
+	var n := 28
+	var col := Color(1, 1, 1, a)
+	for i in n:
+		var xs := [WIN_C.x - LID_HW + 2.0 * LID_HW * i / n, WIN_C.x - LID_HW + 2.0 * LID_HW * (i + 1) / n]
+		var pts := PackedVector2Array()
+		var uvs := PackedVector2Array()
+		for j in [0, 1, 1, 0]:
+			var x: float = xs[j]
+			var dx := (x - WIN_C.x) / LID_HW
+			var yt := y_edge + LID_SAG * maxf(0.0, 1.0 - dx * dx)
+			var top := _lid_arch_top(x)
+			var edge_y := yt if (pts.size() < 2) else yt + th
+			var y := clampf(edge_y, top, WIN_BOT)
+			pts.append(Vector2(x, y))
+			uvs.append(Vector2((x - LID_X) / t.get_size().x, (y - yt) / th))
+		if pts[3].y - pts[0].y > 0.5 or pts[2].y - pts[1].y > 0.5:
+			c.draw_polygon(pts, PackedColorArray([col, col, col, col]), uvs, t)
 
 func _draw_gauge(c: CanvasItem, tab: String) -> void:
 	# Nine tide ticks at the rim; the odd numerals inside them. The face (r 46) is too small for
@@ -832,7 +895,10 @@ func _draw_view_b(c: CanvasItem, tab: String) -> void:
 	if tab == "b_dark":
 		_full(c, "b_indicators_dark")
 	else:
-		_draw_lamp_glow(c)
+		_draw_lamp_glow(c, s)
+	if s >= 1:
+		# the NAME record: her name struck into the card in the third frame
+		_spaced(c, "ADA MERCER", Rect2(FRAMES_B[2] + 62, 432, 216, 72), 24, INK, f, 3.0)
 	# the staff names under their lamps
 	for i in 8:
 		var rect := Rect2(159 + 146 * i, 206, 110, 26)
@@ -862,15 +928,17 @@ func _draw_view_b(c: CanvasItem, tab: String) -> void:
 				_sprite(c, "card", Vector2(FRAMES_B[i] + 170 - 48, 470 - 32), 1.0, 0.32)
 
 ## Each shuttered lamp's faint glow, breathing on its own tremolo (still with Motion off).
-func _draw_lamp_glow(c: CanvasItem) -> void:
+func _draw_lamp_glow(c: CanvasItem, s := 0) -> void:
+	# once the shutters have turned (P25) the eight are dead: their glass barely warms
+	var dim := 1.0 if s == 0 else (0.35 if s == 1 else 0.15)
 	for i in 8:
 		var a := 0.17
 		if motion:
 			var f := 0.07 + 0.06 * i / 7.0
 			a = 0.15 + 0.05 * sin(TAU * f * time + i * 0.9)
 		var at := Vector2(LAMP_B_X0 + LAMP_B_STEP * i, LAMP_B_Y)
-		c.draw_circle(at, 46.0, Color(AMBER_HI, a * 0.35))
-		c.draw_circle(at, 34.0, Color(AMBER_HI, a * 0.6))
+		c.draw_circle(at, 46.0, Color(AMBER_HI, a * 0.35 * dim))
+		c.draw_circle(at, 34.0, Color(AMBER_HI, a * 0.6 * dim))
 
 ## View C, the routing wall. `tab` "c_sever" / "c_continue" in the ending, or "" (live).
 func _draw_view_c(c: CanvasItem, tab: String) -> void:
@@ -1137,11 +1205,14 @@ func _draw_c_routing(c: CanvasItem) -> void:
 	for route in R12Sim.ROUTES:
 		var cid: String = rt[route]
 		if cid != "":
-			var at: Vector2 = SLOTS[route] + Vector2(60, 0)
+			# seated in the slot's well, under the brass lip: centred, top edge tucked 2 px under
+			# the lip, the bottom cut at the well's floor
+			var at: Vector2 = SLOTS[route] + Vector2(60, 22)
+			var floor_y: float = SLOTS[route].y + 130.0
 			if sealed:
 				# the covers close over them; their top edges show
-				at.y -= 34.0 * (0.0 if covers_pending else (_k(covers_t0, COVERS_TIME) if covers_t0 >= 0.0 else 1.0))
-			_cc(c, cid, at)
+				at.y -= 56.0 * (0.0 if covers_pending else (_k(covers_t0, COVERS_TIME) if covers_t0 >= 0.0 else 1.0))
+			_cc(c, cid, at, floor_y)
 	if sealed:
 		var k := 0.0 if covers_pending else (_k(covers_t0, COVERS_TIME) if covers_t0 >= 0.0 else 1.0)
 		_full(c, "c_routing_closed", k)
@@ -1157,8 +1228,13 @@ func _draw_c_routing(c: CanvasItem) -> void:
 		elif r.cc_in_tray(cid):
 			_cc(c, cid, CC_WELLS[cid].position + Vector2(5, 5))
 
-func _cc(c: CanvasItem, cid: String, at: Vector2) -> void:
-	_sprite(c, "cc_card", at)
+func _cc(c: CanvasItem, cid: String, at: Vector2, floor_y := -1.0) -> void:
+	var t := _tex("cc_card")
+	if t and floor_y > at.y:
+		var h := minf(t.get_size().y, floor_y - at.y)
+		c.draw_texture_rect_region(t, Rect2(at, Vector2(t.get_size().x, h)), Rect2(Vector2.ZERO, Vector2(t.get_size().x, h)))
+	else:
+		_sprite(c, "cc_card", at)
 	var f := Ink.serif()
 	var y := at.y + 38
 	for line in _wrap(R12Sim.CC_TEXT[cid], 270, 17, f):

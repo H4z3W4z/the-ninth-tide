@@ -8,13 +8,17 @@ Writes, and only writes, assets/rooms/R12/*.png:
   a_daylight, a_morning                   pulled back from the glass (P26), ending A's grey sea, ending B's dawn
   a_arm_rest, a_arm_low                   the three brass armatures at rest / lowered to Ada's height (P25)
   a_cushion_dent, a_ada_seated            the seat pressed as if just sat in; Ada in the chair (ending B)
-  a_lid_line, a_gauge_needle              sprites: the pale lid line, the gauge needle (pivot 6,54)
+  a_lid_line, a_gauge_needle              sprites: the lid band (448x22, bent along the lid curve by
+                                          the view), the gauge needle (pivot 6,54)
+  a_surface_lid                           the lid at rest over the iris (after the third window look)
+  a_arm_ready                             S2: every armature fitting opened and turned to the viewer
+  a_stain_1, a_stain_2, a_gauge_pinned    S1/S2 tide line on the wainscot; S2 bowed gauge bezel
   view_b (+ b_terminal_lit, b_shutters_turned, b_copy_uncapped, b_frames_filled, b_indicators_dark)
   view_c (+ c_shutters_closed, c_lamps_ready, c_yoke_fitted, c_tray_empty, c_bridge_seated, c_handle_pulled)
   c_frames (+ c_frames_back, c_frames_lit, card, switch_witness, switch_copy, route_key, route_key_turned)
   c_routing (+ c_routing_closed, cc_card, lamp_on, lamp_off)
   c_final (+ yoke, bridge)
-  end_card (+ the eighteen m_* instrument sprites, 900x640, drawn into its oval)
+  end_card (+ the eighteen m_* room fragments, 1288x760, shown in its brass frame at M_AT)
   end_a_record, end_a_jetty, end_a_inquiry, end_a_page, end_b_terminal, end_b_wide, end_b_cover
   cover_sheet
 
@@ -117,18 +121,33 @@ def rot(p, c, deg):
 
 
 class Pen:
-    """Draws in 1x logical coordinates on a supersampled RGBA canvas."""
+    """Draws in logical coordinates on a supersampled RGBA canvas.
 
-    def __init__(self, w, h, rng, bg=None):
+    `w`, `h` are the output size in pixels. A scaled pen (the ending plates) maps logical point
+    (x, y) to output pixel ((x - ox) * scale, (y - oy) * scale), so an old drawing can be shown
+    larger without redrawing it; every plate in the room uses scale 1 and origin (0, 0)."""
+
+    def __init__(self, w, h, rng, bg=None, scale=1.0, origin=(0.0, 0.0)):
         self.w, self.h, self.rng = w, h, rng
+        self.scale, self.origin = scale, origin
+        self.ss = SS * scale
         self.im = Image.new("RGBA", (w * SS, h * SS), rgba(bg) if bg else (0, 0, 0, 0))
         self.d = ImageDraw.Draw(self.im)
 
     def iw(self, w):
-        return max(1, int(round(w * SS)))
+        return max(1, int(round(w * self.ss)))
+
+    def tx(self, x):
+        return (x - self.origin[0]) * self.ss
+
+    def ty(self, y):
+        return (y - self.origin[1]) * self.ss
 
     def _p(self, pts):
-        return [(x * SS, y * SS) for x, y in pts]
+        return [(self.tx(x), self.ty(y)) for x, y in pts]
+
+    def _box(self, x0, y0, x1, y1):
+        return (self.tx(x0), self.ty(y0), self.tx(x1), self.ty(y1))
 
     def poly(self, pts, fill=None, ink=INK, w=2.6):
         p = self._p(pts)
@@ -141,28 +160,46 @@ class Pen:
         x0, x1 = min(x0, x1), max(x0, x1)
         y0, y1 = min(y0, y1), max(y0, y1)
         r = max(0, min(r, (x1 - x0) / 2 - 1, (y1 - y0) / 2 - 1))
-        box = (x0 * SS, y0 * SS, x1 * SS, y1 * SS)
         width = self.iw(w) if (ink is not None and w) else 0
-        self.d.rounded_rectangle(box, radius=r * SS, fill=rgba(fill) if fill is not None else None,
+        self.d.rounded_rectangle(self._box(x0, y0, x1, y1), radius=r * self.ss,
+                                 fill=rgba(fill) if fill is not None else None,
                                  outline=rgba(ink) if width else None, width=width)
 
     def ell(self, cx, cy, rx, ry=None, fill=None, ink=INK, w=2.6):
         ry = rx if ry is None else ry
-        box = ((cx - rx) * SS, (cy - ry) * SS, (cx + rx) * SS, (cy + ry) * SS)
         width = self.iw(w) if (ink is not None and w) else 0
-        self.d.ellipse(box, fill=rgba(fill) if fill is not None else None,
+        self.d.ellipse(self._box(cx - rx, cy - ry, cx + rx, cy + ry), fill=rgba(fill) if fill is not None else None,
                        outline=rgba(ink) if width else None, width=width)
 
     def line(self, pts, col=INK, w=2.6):
         self.d.line(self._p(pts), fill=rgba(col), width=self.iw(w), joint="curve")
 
     def arc(self, cx, cy, rx, ry, a0, a1, col=INK, w=2.6):
-        box = ((cx - rx) * SS, (cy - ry) * SS, (cx + rx) * SS, (cy + ry) * SS)
-        self.d.arc(box, a0, a1, fill=rgba(col), width=self.iw(w))
+        self.d.arc(self._box(cx - rx, cy - ry, cx + rx, cy + ry), a0, a1, fill=rgba(col), width=self.iw(w))
 
     def pie(self, cx, cy, r, a0, a1, fill):
-        box = ((cx - r) * SS, (cy - r) * SS, (cx + r) * SS, (cy + r) * SS)
-        self.d.pieslice(box, a0, a1, fill=rgba(fill))
+        self.d.pieslice(self._box(cx - r, cy - r, cx + r, cy + r), a0, a1, fill=rgba(fill))
+
+    def mask_poly(self, pts):
+        m = Image.new("L", self.im.size, 0)
+        ImageDraw.Draw(m).polygon(self._p(pts), fill=255)
+        return m
+
+    def mask_circle(self, c, r):
+        m = Image.new("L", self.im.size, 0)
+        ImageDraw.Draw(m).ellipse(self._box(c[0] - r, c[1] - r, c[0] + r, c[1] + r), fill=255)
+        return m
+
+    def vgrad(self, x0, y0, x1, y1, c0, c1, mask=None):
+        """A flat vertical blend from c0 at y0 to c1 at y1 (1 px steps at output scale)."""
+        lay = self.layer()
+        n = max(2, int(abs(self.ty(y1) - self.ty(y0)) / SS))
+        for i in range(n):
+            t = i / (n - 1)
+            ya = lerp(y0, y1, i / n)
+            yb = lerp(y0, y1, (i + 1) / n) + 0.6 / self.scale
+            lay.rect(x0, ya, x1, yb, mix(c0, c1, t), None)
+        self.put(lay, mask=mask)
 
     def wob_poly(self, pts, col=INK, w=2.8, amp=0.6, step=14.0, closed=True):
         """A hand-inked contour along `pts`: subdivided, nudged along the normal (2-3 px, varied)."""
@@ -187,7 +224,7 @@ class Pen:
         self.wob_poly([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], col, w, amp)
 
     def layer(self):
-        return Pen(self.w, self.h, self.rng)
+        return Pen(self.w, self.h, self.rng, None, self.scale, self.origin)
 
     def put(self, other, opacity=1.0, mask=None):
         src = other.im
@@ -200,7 +237,7 @@ class Pen:
         self.im.alpha_composite(src)
 
     def put_soft(self, other, radius, opacity=1.0, mask=None):
-        other.im = other.im.convert("RGBa").filter(ImageFilter.GaussianBlur(radius * SS)).convert("RGBA")
+        other.im = other.im.convert("RGBa").filter(ImageFilter.GaussianBlur(radius * self.ss)).convert("RGBA")
         self.put(other, opacity, mask)
 
     def done(self):
@@ -537,18 +574,23 @@ def seat(p, dent):
         p.line([(392, 692), (630, 692)], LEATHER_HI, 2)
         p.line([(392, 703), (630, 703)], LEATHER_DK, 1.6)
     else:
+        # a deep, body-shaped hollow: dark inside, a pale rim where the leather is stretched
         top = [(380 + 8, 688)]
         for i in range(41):
-            x = 440 + 160 * i / 40
-            top.append((x, 688 + 14 * math.sin(math.pi * i / 40) ** 1.4))
+            x = 420 + 200 * i / 40
+            t = i / 40
+            prof = 0.85 * math.sin(math.pi * t) ** 0.9 + 0.25 * math.exp(-((t - 0.28) / 0.12) ** 2)
+            top.append((x, 688 + 16 * min(1.0, prof)))
         top += [(632, 688)]
         body = [(380, 696)] + top + [(640, 696), (640, 708), (380, 708)]
         p.poly(body, LEATHER, None)
+        hollow = top[1:-1] + [(x, 688) for x, _ in top[-2:0:-1]]
+        p.poly(hollow, mix(LEATHER_DK, BLACK, 0.4), None)
         p.line([(380, 696), (388, 688)] + top[1:] + [(640, 696)], INK, 2.6)
         p.line([(380, 708), (640, 708)], INK, 2.0)
-        sheen = [(x, y + 3) for (x, y) in top[6:-6]]
-        p.line(sheen, mix(LEATHER_HI, PAPER, 0.35), 2.2)
-        p.line([(392, 692), (436, 692)], LEATHER_HI, 1.6)
+        p.line([(x, 688) for x, _ in top[1:-1]], mix(LEATHER_HI, PAPER, 0.5), 2.4)
+        sheen = [(x, y + 3) for (x, y) in top[8:-8]]
+        p.line(sheen, mix(LEATHER, LEATHER_DK, 0.5), 1.6)
 
 
 def column(p, rng):
@@ -658,12 +700,67 @@ def caged_lamp(p, x, y):
     p.rect(x - 10, y + 114, x + 10, y + 120, BRASS_LO, INK, 1.6, 2)
 
 
-def paint_view_a(rng, dent=False):
+def wainscot(p):
+    """The lower bulkhead: a darker riveted wainscot under a rail, plates seamed every 182 px."""
+    y0, y1 = 700, 866
+    p.rect(-4, y0, W + 4, y1, mix(BULK, STORM, 0.42), None)
+    for x in range(91, W, 182):
+        p.line([(x, y0 + 12), (x, y1)], mix(BULK_DK, INK, 0.3), 3)
+        p.line([(x + 3, y0 + 12), (x + 3, y1)], mix(BULK, BULK_HI, 0.4), 1.2)
+        for y in range(y0 + 36, y1 - 6, 44):
+            rivet(p, x - 11, y, 2.6)
+            rivet(p, x + 13, y, 2.6)
+    p.rect(-4, y0, W + 4, y0 + 12, mix(BULK_HI, BRASS_LO, 0.18), INK, 2.4)
+    p.line([(-4, y0 + 3), (W + 4, y0 + 3)], mix(BULK_HI, PAPER, 0.18), 1.2)
+    for x in range(30, W, 60):
+        rivet(p, x, y0 + 6, 2.2)
+    sh = p.layer()
+    sh.rect(-4, y0 + 12, W + 4, y0 + 22, BLACK, None)
+    p.put_soft(sh, 4, 0.3)
+
+
+STAIN_TOP = {1: 800, 2: 736}
+
+
+def tide_stain(p, level):
+    """Condensation and a tide line on the lower bulkhead, rising with the stage (as the office's
+    water band does): a flat sea-glass wash, a hard pale line with ink under it, short drips.
+    Its own Random, so the room's other plates paint identically with or without it."""
+    r = random.Random(SEED + 9100)          # the same drips at both levels, so S2 is S1 grown
+    top = STAIN_TOP[level]
+    lay = p.layer()
+    lay.rect(-4, top, W + 4, 866, mix(SEAGLASS, BULK, 0.42), None)
+    p.put(lay, 0.62)
+    if level >= 2:
+        # the S1 line is still there, lower down: an older mark
+        old = STAIN_TOP[1]
+        p.line([(-4, old), (W + 4, old)], mix(SEAGLASS, BULK, 0.25), 2.0)
+    drips = p.layer()
+    for _ in range(60):
+        x = r.uniform(0, W)
+        L = r.uniform(14, 70) * (1.35 if level >= 2 else 1.0)
+        drips.rect(x, top + 2, x + r.uniform(2.5, 4.5), top + L, mix(SEAGLASS, INK, 0.35), None, r=2)
+    p.put(drips, 0.7)
+    p.line([(-4, top + 3), (W + 4, top + 3)], INK, 2.6)
+    p.line([(-4, top), (W + 4, top)], mix(SEAGLASS_HI, PAPER, 0.25), 3.0)
+    # beads of condensation above the line
+    beads = p.layer()
+    for _ in range(70):
+        x = r.uniform(0, W)
+        y = top - r.uniform(4, 60)
+        beads.ell(x, y, 1.4, 2.0, mix(SEAGLASS_HI, PAPER, 0.3), None)
+    p.put(beads, 0.3)
+
+
+def paint_view_a(rng, dent=False, stain=0, pinned=False):
     p = Pen(W, H, rng, BULK)
     bulkhead(p, rng, -4, -4, W + 4, 900, [362, 1086])
     # deckhead coaming and skirting, riveted every 120 px
     p.rect(-4, -4, W + 4, 36, mix(STORM, BULK, 0.4), INK, 2.6)
-    p.rect(-4, 866, W + 4, 900, mix(STORM, BULK, 0.5), INK, 2.6)
+    wainscot(p)
+    if stain:
+        tide_stain(p, stain)
+    p.rect(-4, 866, W + 4, 900, mix(STORM, BULK_DK, 0.5), INK, 2.6)
     for x in range(60, W, 120):
         rivet(p, x, 18, 2.8)
         rivet(p, x, 883, 2.8)
@@ -680,17 +777,43 @@ def paint_view_a(rng, dent=False):
     stair_door(p, rng)
     column(p, rng)
     gauge(p)
+    if pinned:
+        gauge_pinned(p)
     chair(p, rng)
     if dent:
         seat(p, True)
-        # a slight crease in the back cushion, where a back has been
-        p.line(bezier([(420, 600), (432, 616), (430, 640), (436, 662)], 16), LEATHER_DK, 2.2)
-        p.line(bezier([(423, 602), (435, 618), (433, 640), (439, 662)], 16), mix(LEATHER_HI, PAPER, 0.25), 1.2)
+        # the back cushion and the headrest pressed hollow where a back and a head have been
+        for (cx, cy, rx, ry) in ((436, 626, 9, 44), (422, 508, 10, 22)):
+            p.ell(cx, cy, rx, ry, mix(LEATHER_DK, BLACK, 0.35), INK, 1.8)
+            p.arc(cx, cy, rx + 1.5, ry + 1.5, 290, 70, mix(LEATHER_HI, PAPER, 0.45), 2.0)
     return p
 
 
-def view_a_final(rng, dent=False):
-    im = paint_view_a(rng, dent).done()
+def gauge_pinned(p, cx=1170, cy=490, r=56):
+    """S2: the needle is hard against IX and the bezel has bowed out there; the glass is crazed."""
+    lay = p.layer()
+    pts_out, pts_in = [], []
+    for i in range(41):
+        a = 10 + 70 * i / 40
+        bow = 11 * math.sin(math.pi * i / 40) ** 1.2
+        pts_out.append((cx + (r + bow) * math.cos(math.radians(a)), cy + (r + bow) * math.sin(math.radians(a))))
+        pts_in.append((cx + (r - 2) * math.cos(math.radians(a)), cy + (r - 2) * math.sin(math.radians(a))))
+    lay.poly(pts_out + pts_in[::-1], BRASS, None)
+    lay.line(pts_out, INK, 2.8)
+    lay.line(offset_line(pts_out, 3), BRASS_HI, 1.4)
+    p.put(lay)
+    # the crazing: four ink cracks out of the point the needle presses on
+    hit = (cx + (r - 14) * math.cos(math.radians(45)), cy + (r - 14) * math.sin(math.radians(45)))
+    for a, L in ((200, 34), (235, 40), (262, 26), (300, 30), (170, 22)):
+        q = (hit[0] + L * math.cos(math.radians(a)), hit[1] + L * math.sin(math.radians(a)))
+        mid = (lerp(hit[0], q[0], 0.5) + 3, lerp(hit[1], q[1], 0.5) - 2)
+        p.line([hit, mid, q], INK, 1.5)
+    # the stop pin at IX
+    p.ell(hit[0] + 6, hit[1] + 6, 3.2, 3.2, BRASS_DK, INK, 1.2)
+
+
+def view_a_final(rng, dent=False, stain=0, pinned=False):
+    im = paint_view_a(rng, dent, stain, pinned).done()
     return grain(im, rng_for(1000))
 
 
@@ -704,45 +827,178 @@ def paint_cushion_dent(rng):
     return diff_overlay(base, var)
 
 
+def a_overlay(**kw):
+    return lambda rng: diff_overlay(view_a_final(rng_for(0)), view_a_final(rng_for(0), **kw))
+
+
 def interior_mask():
     return mask1x(poly_mask((W, H), window_interior()))
 
 
-def surface_pen(rng):
-    p = Pen(W, H, rng)
-    p.poly(window_interior(), SURFACE, None)
+# --- the surface beyond the glass
+# The same standing plane the lantern gallery (R09) shows -- storm navy at the top blending down to
+# sea-glass, crossed by the immense pale arc of something with no edge -- now so close that the arc
+# is two lid-folds across the top of the arch and, low and centred, one huge flat iris whose pupil
+# sits off-centre toward the chair. Mid value (about 90-140), flat shapes, navy ink contours.
+SURF_TOP = mix(BULK_HI, SEAGLASS, 0.45)            # ~ (85,108,109)
+SURF_BOT = mix(SEAGLASS, SEAGLASS_HI, 0.30)        # ~ (113,141,131)
+SURF_FOLD = mix(SURF_TOP, SEAGLASS_HI, 0.30)
+SURF_RIM = mix(SEAGLASS_HI, PAPER_HI, 0.45)        # the pale bone of the rims
+SURF_IRIS = mix(SEAGLASS, STORM, 0.32)
+SURF_IRIS_RING = mix(SEAGLASS, SEAGLASS_HI, 0.55)
+SURF_PUPIL = mix(STORM, BULK_DK, 0.35)
+SURF_LID = mix(STORM, BULK, 0.55)                  # the resting lid: storm navy, ~55
+SURF_MARGIN = mix(STORM, BULK_DK, 0.5)             # the withdrawn margin of darker water
+FOLD_C = (724, 1100)                               # the lid-folds' centre, far below the floor
+FOLD_R = (950, 904)
+IRIS_C, IRIS_R = (712, 318), 136                   # 272 px across: ~60% of the 448 px arch
+PUPIL_C, PUPIL_R = (642, 352), 40                  # toward the chair (down and left)
+# the resting lid line: apex at LID_REST at the arch sides, sagging LID_SAG at the centre; the
+# view draws the a_lid_line band along the same curve (R12_view.gd LID_* constants)
+LID_REST, LID_SAG, LID_THICK = 226, 44, 22
+LID_HW = 224
+
+
+def lid_curve_y(x, y_edge):
+    dx = (x - WIN_C[0]) / LID_HW
+    return y_edge + LID_SAG * max(0.0, 1 - dx * dx)
+
+
+def fold_arcs(p, base, opacity=1.0):
+    """The two lid-folds: bands of immense circles whose ends run off both sides of the arch."""
+    cx, cy = FOLD_C
     lay = p.layer()
-    y = 118
-    while y < WIN_BOT:
-        h = rng.uniform(2, 6)
-        lay.rect(470, y, 980, y + h, SEAGLASS, None)
-        y += rng.uniform(10, 46)
-    lay.im = lay.im.filter(ImageFilter.GaussianBlur(1.6 * SS))
-    p.put(lay, 0.08, mask=poly_mask((W, H), window_interior()))
+    lay.ell(cx, cy, FOLD_R[0], FOLD_R[0], SURF_FOLD, None)
+    lay.ell(cx, cy, FOLD_R[1], FOLD_R[1], base, None)
+    for r, w_ink, w_rim in ((FOLD_R[0], 3.0, 4.0), (FOLD_R[1], 2.6, 3.0)):
+        lay.arc(cx, cy, r + 2.5, r + 2.5, 240, 300, INK, w_ink)
+        lay.arc(cx, cy, r - 2.0, r - 2.0, 240, 300, SURF_RIM, w_rim)
+    p.put(lay, opacity, mask=interior_mask_ss())
+
+
+def iris(p, c, r, pupil_c, pupil_r, rings=5):
+    """A pale bone ring, a flat iris field, eccentric rings drawing in toward an off-centre pupil."""
+    m = interior_mask_ss()
+    lay = p.layer()
+    lay.ell(c[0], c[1], r + 10, r + 10, SURF_RIM, INK, 3.2)
+    lay.ell(c[0], c[1], r - 8, r - 8, SURF_IRIS, INK, 2.6)
+    for k in range(1, rings + 1):
+        t = k / (rings + 1)
+        rr = lerp(r - 8, pupil_r + 6, t)
+        cc = (lerp(c[0], pupil_c[0], t), lerp(c[1], pupil_c[1], t))
+        lay.ell(cc[0], cc[1], rr, rr, None, mix(SURF_IRIS, SURF_IRIS_RING, 1 - 0.5 * t), 2.4 if k % 2 else 1.6)
+    lay.ell(pupil_c[0], pupil_c[1], pupil_r + 7, pupil_r + 7, mix(SURF_IRIS, STORM, 0.5), None)
+    lay.ell(pupil_c[0], pupil_c[1], pupil_r, pupil_r, SURF_PUPIL, INK, 3.0)
+    p.put(lay, mask=m)
+
+
+def interior_mask_ss():
+    return poly_mask((W, H), window_interior())
+
+
+def surface_pen(rng, iris_r=IRIS_R, iris_c=IRIS_C, pupil_c=PUPIL_C, pupil_r=PUPIL_R, folds=True):
+    p = Pen(W, H, rng)
+    m = interior_mask_ss()
+    top = WIN_C[1] - WIN_RI
+    p.vgrad(470, top - 4, 980, WIN_BOT + 4, SURF_TOP, SURF_BOT, mask=m)
+    # a broad flat sheen band at mid height, as on R09's standing plane
+    sheen = p.layer()
+    sheen.rect(470, 268, 980, 300, mix(SURF_BOT, PAPER_HI, 0.25), None)
+    p.put_soft(sheen, 18, 0.25, mask=m)
+    if folds:
+        fold_arcs(p, SURF_TOP)
+    iris(p, iris_c, iris_r, pupil_c, pupil_r)
     return p
+
+
+def surface_final(pen, k):
+    im = pen.done()
+    return grain(im, rng_for(k), amp=4, mottle=4, speck=6)
 
 
 def paint_surface(rng):
-    return surface_pen(rng)
+    return surface_final(surface_pen(rng), 2010)
+
+
+def lid_region_pts(y_edge, step=4):
+    """The arch interior above the resting lid curve (polygon, 1x)."""
+    top = WIN_C[1] - WIN_RI - 6
+    pts = [(470, top)]
+    for x in range(470, 981, step):
+        pts.append((x, lid_curve_y(x, y_edge)))
+    pts.append((980, top))
+    return pts
+
+
+def paint_surface_lid(rng):
+    """After the third look: the lid has come down and rests, half over the iris. Persistent."""
+    p = Pen(W, H, rng)
+    m = ImageChops.multiply(interior_mask_ss(), poly_mask((W, H), lid_region_pts(LID_REST + LID_THICK / 2)))
+    lay = p.layer()
+    lay.rect(460, 80, 990, 400, SURF_LID, None)
+    # the fold of the lid itself: two flat creases parallel to its edge
+    for dy, col, w in ((-34, mix(SURF_LID, SEAGLASS, 0.35), 3.0), (-70, mix(SURF_LID, SEAGLASS, 0.22), 2.4)):
+        pts = [(x, lid_curve_y(x, LID_REST + dy)) for x in range(470, 981, 6)]
+        lay.line([(x, y + 2.5) for x, y in pts], INK, w * 0.8)
+        lay.line(pts, col, w)
+    p.put(lay, mask=m)
+    # the iris below the lid falls into the lid's shadow: a darker crescent just under the edge
+    sh = p.layer()
+    sh.poly(lid_region_pts(LID_REST + LID_THICK / 2 + 18), STORM, None)
+    p.put_soft(sh, 8, 0.35, mask=interior_mask_ss())
+    return grain(p.done(), rng_for(2011), amp=4, mottle=4, speck=6)
+
+
+def withdrawn_inner_pts(inset_side=50, inset_bot=30):
+    r = WIN_RI - inset_side
+    pts = [(WIN_C[0] + r * math.cos(math.radians(a)), WIN_C[1] + r * math.sin(math.radians(a)))
+           for a in [180 + i * 1.5 for i in range(121)]]
+    return pts + [(WIN_C[0] + r, WIN_BOT - inset_bot), (WIN_C[0] - r, WIN_BOT - inset_bot)]
+
+
+def withdrawn_pen(rng):
+    """P26: it drew back from the glass. A broad margin of darker water; a lighter field inside,
+    the iris smaller and further off -- and still turned toward the chair."""
+    p = Pen(W, H, rng)
+    m = interior_mask_ss()
+    lay = p.layer()
+    lay.rect(460, 80, 990, 400, SURF_MARGIN, None)
+    p.put(lay, mask=m)
+    inner = withdrawn_inner_pts()
+    mi = poly_mask((W, H), inner)
+    top = WIN_C[1] - (WIN_RI - 50)
+    p.vgrad(470, top - 4, 980, WIN_BOT, mix(SURF_BOT, SEAGLASS_HI, 0.35), mix(SEAGLASS_HI, PAPER_HI, 0.30), mask=mi)
+    # the folds, seen further off: smaller, tighter, the same pale bone
+    lay = p.layer()
+    for r, w_ink, w_rim in ((FOLD_R[0] - 70, 2.6, 3.4), (FOLD_R[1] - 70, 2.2, 2.6)):
+        lay.arc(FOLD_C[0], FOLD_C[1], r + 2.5, r + 2.5, 240, 300, INK, w_ink)
+        lay.arc(FOLD_C[0], FOLD_C[1], r - 2.0, r - 2.0, 240, 300, SURF_RIM, w_rim)
+    p.put(lay, mask=mi)
+    il = p.layer()
+    ic, ir = (716, 300), 92
+    pc, pr = (688, 316), 28
+    il.ell(ic[0], ic[1], ir + 8, ir + 8, SURF_RIM, INK, 3.0)
+    il.ell(ic[0], ic[1], ir - 6, ir - 6, mix(SURF_IRIS, SEAGLASS, 0.3), INK, 2.4)
+    for k in range(1, 4):
+        t = k / 4
+        rr = lerp(ir - 6, pr + 5, t)
+        cc = (lerp(ic[0], pc[0], t), lerp(ic[1], pc[1], t))
+        il.ell(cc[0], cc[1], rr, rr, None, mix(SURF_IRIS, SURF_IRIS_RING, 1 - 0.4 * t), 2.0)
+    il.ell(pc[0], pc[1], pr, pr, SURF_PUPIL, INK, 2.8)
+    p.put(il, mask=mi)
+    # the edge of the drawn-back water: a hard ink line with a pale lip on the inside
+    p.line(inner[:-2], INK, 3.4)
+    p.line([inner[-2], inner[-1], inner[0]], INK, 3.4)
+    p.line([inner[-2], inner[-2 - 0]], INK, 3.4)
+    p.line(withdrawn_inner_pts(54, 34)[:-2], SURF_RIM, 2.0)
+    # ripples of the margin: three flat lines following the arch, darker on darker
+    for d in (14, 28):
+        p.line(withdrawn_inner_pts(50 - d, 30 - d * 0.6)[:-2], mix(SURF_MARGIN, SEAGLASS, 0.35), 1.8)
+    return p
 
 
 def paint_surface_withdrawn(rng):
-    p = surface_pen(rng_for(20))
-    inner_r = WIN_RI - 28
-    pts_out = window_interior()
-    pts_in = [(WIN_C[0] + inner_r * math.cos(math.radians(a)), WIN_C[1] + inner_r * math.sin(math.radians(a)))
-              for a in [180 + i * 1.5 for i in range(121)]]
-    pts_in = pts_in + [(WIN_C[0] + inner_r, WIN_BOT + 2), (WIN_C[0] - inner_r, WIN_BOT + 2)]
-    band = poly_mask((W, H), pts_out)
-    band = ImageChops.subtract(band, poly_mask((W, H), pts_in))
-    lay = p.layer()
-    lay.rect(0, 0, W, H, (6, 12, 17), None)
-    p.put(lay, mask=band)
-    rim = p.layer()
-    rim.line(pts_in[:-2] + [pts_in[-2]], SEAGLASS_HI, 2)
-    rim.line([pts_in[-1], pts_in[0]], SEAGLASS_HI, 2)
-    p.put(rim, 0.4, mask=poly_mask((W, H), pts_out))
-    return p
+    return surface_final(withdrawn_pen(rng_for(20)), 2012)
 
 
 def paint_daylight(rng):
@@ -773,7 +1029,7 @@ def paint_daylight(rng):
 
 
 def paint_morning(rng):
-    p = surface_pen(rng_for(20))
+    p = withdrawn_pen(rng_for(20))
     m = poly_mask((W, H), window_interior())
     top = WIN_C[1] - WIN_RI
     lay = p.layer()
@@ -781,8 +1037,8 @@ def paint_morning(rng):
         y = top + i
         a = 1.0 if i < 24 else max(0.0, 1 - (i - 24) / 60) ** 1.3
         lay.rect(470, y, 980, y + 1, rgba(AMBER, int(255 * a)), None)
-    p.put(lay, mask=m)
-    return p
+    p.put(lay, 0.85, mask=m)
+    return surface_final(p, 2013)
 
 
 # --- armatures
@@ -800,39 +1056,57 @@ def arm_rod(p, pts, width=10):
 
 
 def paint_arms(rng, low):
+    """The three armatures. `low` False: at rest (S0); True: lowered to Ada's height (P25, S1);
+    "ready" (S2): lower still, every fitting opened and turned out toward the viewer, waiting."""
+    ready = low == "ready"
     p = Pen(W, H, rng)
-    cup = (440, 520) if low else (440, 480)
-    cuff = (560, 612) if low else (560, 598)
-    plate = (610, 884) if low else (600, 876)
+    cup = (440, 534) if ready else ((440, 520) if low else (440, 480))
+    cuff = (566, 626) if ready else ((560, 612) if low else (560, 598))
+    plate = (622, 890) if ready else ((610, 884) if low else (600, 876))
     sh = p.layer()
-    # head arm
     head = bezier([(892, 440), (780, 396), (600, 404), (cup[0] + 70, cup[1] - 30), (cup[0] + 36, cup[1])], 48)
     hand = bezier([(892, 600), (800, 636), (680, 628), (cuff[0] + 30, cuff[1])], 40)
     foot = bezier([(892, 860), (800, 884), (700, plate[1] - 6), (plate[0] + 40, plate[1])], 40)
     for path in (head, hand, foot):
         sh.line([(x + 6, y + 10) for x, y in path], BLACK, 10)
     p.put_soft(sh, 6, 0.35)
-    # head: cup ring on a short stem, a set screw
     arm_rod(p, head, 11)
-    p.ell(cup[0], cup[1], 34, 34, None, BRASS, 10)
-    p.ell(cup[0], cup[1], 39, 39, None, INK, 2.4)
-    p.ell(cup[0], cup[1], 29, 29, None, INK, 2.0)
-    p.arc(cup[0], cup[1], 35, 35, 200, 290, BRASS_HI, 1.6)
-    p.arc(cup[0], cup[1], 33, 33, 20, 120, BRASS_DK, 1.6)
-    for a in (90, 210, 330):
-        x = cup[0] + 34 * math.cos(math.radians(a))
-        y = cup[1] + 34 * math.sin(math.radians(a))
-        p.ell(x, y, 3.2, 3.2, BRASS_DK, INK, 1)
+    if ready:
+        # the head cup hinged open into two jaws, the inner faces bright
+        for side, off in ((-1, -10), (1, 10)):
+            a0, a1 = (100, 260) if side < 0 else (280, 440)
+            cx = cup[0] + off
+            p.arc(cx, cup[1], 39, 39, a0, a1, INK, 13)
+            p.arc(cx, cup[1], 34, 34, a0 + 2, a1 - 2, BRASS, 9)
+            p.arc(cx, cup[1], 29, 29, a0 + 4, a1 - 4, BARE, 2.4)
+            for a in (a0, a1):
+                x = cx + 34 * math.cos(math.radians(a))
+                y = cup[1] + 34 * math.sin(math.radians(a))
+                p.ell(x, y, 5, 5, BRASS, INK, 1.6)
+        p.ell(cup[0] + 10, cup[1] - 36, 6, 6, BRASS_LO, INK, 1.6)      # the hinge
+    else:
+        p.ell(cup[0], cup[1], 34, 34, None, BRASS, 10)
+        p.ell(cup[0], cup[1], 39, 39, None, INK, 2.4)
+        p.ell(cup[0], cup[1], 29, 29, None, INK, 2.0)
+        p.arc(cup[0], cup[1], 35, 35, 200, 290, BRASS_HI, 1.6)
+        p.arc(cup[0], cup[1], 33, 33, 20, 120, BRASS_DK, 1.6)
+        for a in (90, 210, 330):
+            x = cup[0] + 34 * math.cos(math.radians(a))
+            y = cup[1] + 34 * math.sin(math.radians(a))
+            p.ell(x, y, 3.2, 3.2, BRASS_DK, INK, 1)
     knuckle(p, *head[16])
     knuckle(p, *head[34], r=8)
-    # hand: an open cuff, the gap at the top for a wrist
+    # hand: an open cuff, the gap at the top for a wrist; at S2 it gapes, turned to the viewer
     arm_rod(p, hand, 9)
-    rc = 30 if low else 26
-    gap = 70 if low else 46
-    a0, a1 = 270 + gap / 2, 270 - gap / 2 + 360
+    rc = 34 if ready else (30 if low else 26)
+    gap = 150 if ready else (70 if low else 46)
+    face = 235 if ready else 270
+    a0, a1 = face + gap / 2, face - gap / 2 + 360
     p.arc(cuff[0], cuff[1], rc, rc, a0, a1, INK, 11.5)
     p.arc(cuff[0], cuff[1], rc, rc, a0 + 1.5, a1 - 1.5, BRASS, 7)
     p.arc(cuff[0], cuff[1], rc + 1, rc + 1, 120, 200, BRASS_HI, 1.4)
+    if ready:
+        p.arc(cuff[0], cuff[1], rc - 4, rc - 4, a0 + 4, a1 - 4, BARE, 2.0)
     for a in (a0, a1):
         x = cuff[0] + rc * math.cos(math.radians(a))
         y = cuff[1] + rc * math.sin(math.radians(a))
@@ -845,8 +1119,20 @@ def paint_arms(rng, low):
     p.line([(fx0 + 3, plate[1] - 4), (fx1 - 3, plate[1] - 4)], BRASS_HI, 1.4)
     for x in range(int(fx0) + 10, int(fx1) - 4, 14):
         p.line([(x, plate[1] - 2), (x + 6, plate[1] - 2)], BRASS_DK, 1.4)
+    if low:
+        # two heel-shaped dents pressed into the plate's top edge, bright where the metal stretched
+        for dx in (-18, 16):
+            cx = plate[0] + dx
+            p.ell(cx, plate[1] - 7, 11, 6, mix(BRASS_DK, BLACK, 0.3), INK, 1.6)
+            p.arc(cx, plate[1] - 7, 12, 7, 20, 160, BARE, 1.8)
+    if ready:
+        # the stirrup straps stand open above the plate
+        for dx in (-30, 30):
+            x = plate[0] + dx
+            p.line([(x, plate[1] - 7), (x + dx * 0.4, plate[1] - 46)], INK, 7)
+            p.line([(x, plate[1] - 7), (x + dx * 0.4, plate[1] - 46)], BRASS, 3.6)
+            p.ell(x + dx * 0.4, plate[1] - 48, 4.5, 4.5, BRASS, INK, 1.6)
     knuckle(p, *foot[18])
-    # collars at the roots
     for (rx, ry) in ARM_ROOTS:
         p.rect(rx - 14, ry - 11, rx + 4, ry + 11, BRASS_LO, INK, 2.2, 3)
         p.line([(rx - 10, ry - 8), (rx - 10, ry + 8)], BRASS_HI, 1.2)
@@ -909,19 +1195,16 @@ def paint_ada(rng):
 
 
 def paint_lid_line(rng):
-    w, h = 480, 12
-    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    px = im.load()
-    for x in range(w):
-        t = x / (w - 1)
-        env = math.sin(math.pi * t) ** 0.8
-        for y in range(h):
-            dy = abs(y + 0.5 - h / 2) / (h / 2)
-            v = max(0.0, 1 - dy) ** 2.2
-            a = int(round(255 * 0.70 * env * v))
-            if a:
-                px[x, y] = rgba(mix(SEAGLASS_HI, PAPER_HI, 0.35), a)
-    return im
+    """The lid: a thick pale bone / sea-glass band with navy ink edges, 448 x 22 (the view bends it
+    along the lid curve and clips it to the arch)."""
+    w, h = 2 * LID_HW, LID_THICK
+    p = Pen(w, h, rng)
+    p.rect(-4, 0, w + 4, h, mix(SURF_RIM, SEAGLASS_HI, 0.25), None)
+    p.rect(-4, 4, w + 4, 9, mix(SURF_RIM, PAPER_HI, 0.55), None)
+    p.rect(-4, h - 7, w + 4, h - 3.5, mix(SURF_RIM, SEAGLASS, 0.45), None)
+    p.rect(-4, 0, w + 4, 2.6, INK, None)
+    p.rect(-4, h - 2.6, w + 4, h, INK, None)
+    return grain(p.done(), rng_for(2014), amp=4, mottle=3, speck=4)
 
 
 def paint_needle(rng):
@@ -938,9 +1221,11 @@ LAMPS_B = [(214 + 146 * i, 160) for i in range(8)]
 FRAMES_B = (130, 554, 978)
 TERM_LAMP = (420, 780)
 SLOT_B = (260, 790, 396, 806)   # the strip slot; its right end stops short of the lamp bezel
+TURN_ANG = (-14, -27, -19, -33, -9, -24, -30, -17)     # each shutter turned its own way at P25
+SLACK_ANG = (104, 71, 118, 86, 128, 64, 97, 112)       # and each needle hanging slack at its own angle
 
 
-def shutter(p, cx, cy, r, ang=0.0, mode="closed"):
+def shutter(p, cx, cy, r, ang=0.0, mode="closed", slack=None):
     """A round shuttered lamp: brass bezel and two half-disc iron leaves meeting at a seam."""
     p.ell(cx, cy, r, r, BRASS, INK, 2.8)
     p.arc(cx, cy, r - 3, r - 3, 195, 300, BRASS_HI, 1.8)
@@ -956,7 +1241,10 @@ def shutter(p, cx, cy, r, ang=0.0, mode="closed"):
             p.pie(cx, cy, ri, 90 - s * 90 - 18, 90 - s * 90 + 18, IRON)
         p.ell(cx, cy, ri, ri, None, INK, 1.6)
         return
-    gap = 0.0 if mode == "closed" else 3.2
+    gap = 0.0 if mode == "closed" else 3.6
+    if mode == "turned":
+        # behind the parted leaves: dull dead glass, not a lit lens
+        p.ell(cx, cy, ri, ri, mix(GLASS_DEAD, BULK_DK, 0.35), None)
     for s in (-1, 1):
         lay = p.layer()
         # leaf: half disc, rotated about the centre
@@ -978,11 +1266,16 @@ def shutter(p, cx, cy, r, ang=0.0, mode="closed"):
         p.line([(s0[0] + 2.5, s0[1] + 3), (s1[0] + 2.5, s1[1] - 3)], IRON_HI, 1.2)
     else:
         p.line([s0, s1], INK, 1.2)
+    if slack is not None:
+        # a dead subject's needle: slack, hanging off true, each at its own angle
+        tip = (cx + (ri - 5) * math.cos(math.radians(slack)), cy + (ri - 5) * math.sin(math.radians(slack)))
+        p.line([(cx, cy), tip], INK, 4.2)
+        p.line([(cx, cy), tip], mix(BRASS_LO, PAPER, 0.25), 2.0)
     p.ell(cx, cy, 4, 4, BRASS_LO, INK, 1.2)
     p.ell(cx, cy, ri, ri, None, INK, 1.6)
 
 
-def frame_b(p, rng, fx, deep=False):
+def frame_b(p, rng, fx, deep=False, image=None):
     x0, y0, x1, y1 = fx, 330, fx + 340, 710
     sh = p.layer()
     sh.rect(x0 + 8, y0 + 10, x1 + 8, y1 + 12, BLACK, None)
@@ -1008,11 +1301,14 @@ def frame_b(p, rng, fx, deep=False):
            mix(back, BULK_HI, 0.4), 1.2)
     if deep:
         cd = 14
-        p.rect(wx0 + cd + 6, wy0 + cd + 10, wx1 - cd - 6, wy1 - cd - 6, mix(PAPER, BULK_DK, 0.2), INK, 2)
-        p.line([(wx0 + cd + 10, wy0 + cd + 14), (wx1 - cd - 10, wy0 + cd + 14)], mix(PAPER, BULK_DK, 0.15), 1.2)
+        card = (wx0 + cd + 6, wy0 + cd + 10, wx1 - cd - 6, wy1 - cd - 6)
+        p.rect(*card, PAPER, INK, 2.4)
+        p.rect(card[0] + 7, card[1] + 7, card[2] - 7, card[3] - 7, None, mix(PAPER, INK, 0.4), 1.2)
+        if image:
+            record_image(p, image, card)
         shd = p.layer()
-        shd.rect(wx0, wy0, wx1, wy0 + cd + 34, BLACK, None)
-        p.put_soft(shd, 10, 0.45, mask=poly_mask((W, H), [(wx0, wy0), (wx1, wy0), (wx1, wy1), (wx0, wy1)]))
+        shd.rect(wx0, wy0, wx1, wy0 + cd + 24, BLACK, None)
+        p.put_soft(shd, 10, 0.3, mask=poly_mask((W, H), [(wx0, wy0), (wx1, wy0), (wx1, wy1), (wx0, wy1)]))
     # spring clips, top and bottom
     for cx in (fx + 120, fx + 220):
         p.rect(cx - 9, wy0 - 12, cx + 9, wy0 + 12, BRASS_HI, INK, 1.8, 2)
@@ -1022,6 +1318,50 @@ def frame_b(p, rng, fx, deep=False):
     for (sx, sy) in ((x0 + 16, y0 + 16), (x1 - 16, y0 + 16), (x0 + 16, y1 - 16), (x1 - 16, y1 - 16)):
         screw(p, sx, sy, 4)
     enamel_plate(p, fx + 40, 650, fx + 300, 690)
+
+
+def record_image(p, kind, card):
+    """The record of Ada, in the record-card style: flat navy on cream, ink contours.
+    BODY: her, seated, from behind -- she has not yet looked behind her. PLACE: the station on
+    its piles with a dot at its centre. NAME: a typed-name field (the view types ADA MERCER)."""
+    x0, y0, x1, y1 = card
+    cx = (x0 + x1) / 2
+    navy = mix(STORM, BULK_DK, 0.3)
+    if kind == "body":
+        # Ada seated, seen from behind: head bowed a little, shoulders, the chair's back below them
+        back = ([(cx - 70, y1 - 8)] + bezier([(cx - 70, y0 + 120), (cx - 72, y0 + 84), (cx - 40, y0 + 78), (cx - 12, y0 + 76)], 12)
+                + bezier([(cx + 12, y0 + 76), (cx + 40, y0 + 78), (cx + 72, y0 + 84), (cx + 70, y0 + 120)], 12) + [(cx + 70, y1 - 8)])
+        p.poly(back, navy, INK, 2.4)
+        p.rect(cx - 11, y0 + 60, cx + 11, y0 + 82, navy, INK, 2.2)
+        p.ell(cx, y0 + 40, 28, 31, navy, INK, 2.4)
+        p.ell(cx, y0 + 56, 14, 10, mix(navy, INK, 0.45), INK, 1.8)       # hair pinned at the nape
+        p.line([(cx - 10, y0 + 54), (cx + 10, y0 + 58)], mix(navy, PAPER, 0.35), 1.4)   # the pin
+        wood = mix(TIMBER_DK, SOOT, 0.2)
+        for dx in (-84, 72):
+            p.rect(cx + dx, y0 + 108, cx + dx + 12, y1 - 6, wood, INK, 2.2, 3)
+        p.rect(cx - 88, y0 + 120, cx + 88, y0 + 132, wood, INK, 2.2, 3)
+    elif kind == "place":
+        base = y1 - 26
+        p.line([(x0 + 10, base), (x1 - 10, base)], INK, 2.2)
+        for k in range(6):
+            x = x0 + 22 + k * 40
+            p.line([(x, base + 6), (x + 14, base + 3), (x + 28, base + 6)], INK, 1.6)
+        bx0, bx1 = cx - 70, cx + 70
+        for x in range(int(bx0) + 8, int(bx1), 26):
+            p.line([(x, base - 2), (x, y0 + 106)], INK, 2.4)              # piles
+        p.line([(bx0 - 14, y0 + 106), (bx1 + 14, y0 + 106)], INK, 2.6)  # deck
+        p.rect(bx0, y0 + 54, bx1, y0 + 106, None, INK, 2.6)              # station house
+        p.poly([(bx0 - 8, y0 + 56), (cx, y0 + 26), (bx1 + 8, y0 + 56)], None, INK, 2.6)
+        p.rect(cx + 34, y0 + 14, cx + 52, y0 + 40, None, INK, 2.2)       # lantern
+        for wx in (bx0 + 16, bx1 - 34):
+            p.rect(wx, y0 + 70, wx + 18, y0 + 86, None, INK, 1.8)
+        p.ell(cx, y0 + 80, 11, 11, None, INK, 2.2)                        # you are here
+        p.ell(cx, y0 + 80, 6, 6, mix(VIOLET, INK, 0.35), None)
+    else:
+        p.rect(x0 + 22, y0 + 38, x1 - 22, y1 - 46, mix(PAPER, PAPER_HI, 0.5), INK, 1.6)
+        p.line([(x0 + 30, y1 - 58), (x1 - 30, y1 - 58)], mix(PAPER, INK, 0.5), 1.4)
+        p.line([(x0 + 26, y0 + 22), (x0 + 96, y0 + 22)], mix(PAPER, INK, 0.45), 2.0)
+        p.line([(x1 - 96, y1 - 24), (x1 - 26, y1 - 24)], mix(PAPER, INK, 0.45), 2.0)
 
 
 def terminal_b(p, rng, lit=False, dark=False):
@@ -1174,13 +1514,13 @@ def paint_view_b(rng, state=()):
         if "dark" in state:
             shutter(p, cx, cy, 40, mode="open")
         elif "turned" in state:
-            shutter(p, cx, cy, 40, ang=-20, mode="turned")
+            shutter(p, cx, cy, 40, ang=TURN_ANG[i], mode="turned", slack=SLACK_ANG[i])
         else:
             shutter(p, cx, cy, 40)
         enamel_plate(p, 159 + 146 * i, 206, 269 + 146 * i, 232)
     name_plate(p, rng)
-    for fx in FRAMES_B:
-        frame_b(p, rng, fx, deep=("filled" in state))
+    for fx, image in zip(FRAMES_B, ("body", "place", "name")):
+        frame_b(p, rng, fx, deep=("filled" in state), image=image)
     terminal_b(p, rng, lit=("lit" in state), dark=("dark" in state))
     rack_b(p, rng)
     copy_port(p, rng, open_=("uncapped" in state))
@@ -1218,20 +1558,42 @@ LEVER_PIVOT = (1315, 730)
 def roller_shutter(p, x0, y0, x1, y1):
     p.rect(x0 - 6, y0 - 22, x1 + 6, y0 + 4, BRASS_LO, INK, 2.6, 4)
     p.line([(x0, y0 - 16), (x1, y0 - 16)], BRASS_HI, 1.4)
-    p.rect(x0, y0, x1, y1, mix(BRASS_LO, VERD, 0.35), INK, 2.6)
+    box = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+    m = poly_mask((W, H), box)
+    # tarnish: bright brass at the head where hands have rubbed it, going to verdigris at the foot
+    p.vgrad(x0, y0, x1, y1, mix(BRASS, BRASS_HI, 0.2), mix(BRASS_DK, VERD, 0.55), mask=m)
     y = y0 + 4
     while y < y1 - 4:
-        p.line([(x0 + 2, y + 13), (x1 - 2, y + 13)], INK, 1.6)
-        p.line([(x0 + 2, y + 3), (x1 - 2, y + 3)], mix(BRASS, BRASS_HI, 0.4), 1.2)
+        # each slat: a bevelled face, an ink seam, a shadow cast on the slat below
+        sh = p.layer()
+        sh.rect(x0, y + 14, x1, y + 19, BLACK, None)
+        p.put(sh, 0.28, mask=m)
+        p.line([(x0 + 2, y + 13), (x1 - 2, y + 13)], INK, 2.0)
+        p.line([(x0 + 2, y + 3), (x1 - 2, y + 3)], mix(mix(BRASS_HI, PAPER, 0.15), VERD, 0.6 * (y - y0) / (y1 - y0)), 1.4)
         y += 16
+    streaks = p.layer()
+    r = random.Random(SEED + int(x0) * 7 + int(y0))
+    for _ in range(int((x1 - x0) / 40)):
+        x = r.uniform(x0 + 8, x1 - 14)
+        yy = r.uniform(y0 + 40, y1 - 120)
+        streaks.rect(x, yy, x + r.uniform(3, 7), yy + r.uniform(60, 160), mix(VERD, SEAGLASS, 0.3), None, r=2)
+    p.put_soft(streaks, 1.2, 0.45, mask=m)
+    p.rect(x0, y0, x1, y1, None, INK, 2.6)
     p.rect(x0 - 2, y1 - 14, x1 + 2, y1 + 2, BRASS, INK, 2.4, 2)
+    p.line([(x0 + 2, y1 - 11), (x1 - 2, y1 - 11)], BRASS_HI, 1.4)
     for gx in (x0 + 2, x1 - 10):
         p.rect(gx - 4, y0, gx + 8, y1, IRON, INK, 1.8)
-    # padlock silhouette through the bottom rail
+        p.line([(gx - 1, y0 + 2), (gx - 1, y1 - 2)], IRON_HI, 1.2)
+    # padlock through the bottom rail: a shackle with a highlight, a body with a shadow under it
     cx = (x0 + x1) / 2
+    sh = p.layer()
+    sh.rect(cx - 18, y1 + 12, cx + 24, y1 + 46, BLACK, None, r=5)
+    p.put_soft(sh, 3, 0.4)
     p.arc(cx, y1 + 6, 13, 15, 180, 360, INK, 7)
     p.arc(cx, y1 + 6, 13, 15, 180, 360, IRON_HI, 3)
-    p.rect(cx - 20, y1 + 6, cx + 20, y1 + 40, SOOT, INK, 2.4, 4)
+    p.rect(cx - 20, y1 + 6, cx + 20, y1 + 40, mix(BRASS_LO, SOOT, 0.45), INK, 2.4, 4)
+    p.line([(cx - 16, y1 + 10), (cx + 16, y1 + 10)], mix(BRASS, PAPER, 0.1), 1.4)
+    p.rect(cx + 12, y1 + 10, cx + 17, y1 + 37, mix(SOOT, BLACK, 0.4), None, r=2)
     p.ell(cx, y1 + 20, 3.2, 3.2, BLACK, None)
     p.line([(cx, y1 + 20), (cx, y1 + 30)], BLACK, 2.4)
 
@@ -1551,7 +1913,14 @@ def paint_c_frames(rng, state=()):
     p.line([(96, 646), (1064, 646)], TIMBER_HI, 1.8)
     for px in (110, 430, 750):
         p.rect(px, 660, px + 300, 860, TIMBER_DK, INK, 2.6, 4)
-        p.rect(px + 8, 668, px + 292, 676, mix(TIMBER_DK, BLACK, 0.4), None)
+        # felt lining, as in the yoke tray
+        p.rect(px + 10, 672, px + 290, 850, FELT, INK, 1.8, 3)
+        lay = p.layer()
+        for _ in range(160):
+            x, y = rng.uniform(px + 12, px + 288), rng.uniform(676, 846)
+            lay.line([(x, y), (x + rng.uniform(-3, 3), y + rng.uniform(-3, 3))], FELT_DK, 1)
+        p.put(lay, 0.6)
+        p.rect(px + 10, 672, px + 290, 684, mix(FELT_DK, BLACK, 0.4), None)
         p.line([(px + 4, 664), (px + 296, 664)], TIMBER_HI, 1.4)
     for x in (100, 1060):
         screw(p, x, 860, 4)
@@ -1796,46 +2165,91 @@ def paint_bridge(rng):
 
 
 # ============================================================================ the ending frame
-OVAL = (274, 160, 1174, 800)
+# Each instrument tableau is a flat front-elevation fragment of the room it names, on that
+# room's own wall, in a brass record frame on a storm-navy paper field (no oval, no black).
+# The fragments were drawn on a 900 x 640 sheet; they are shown 1.4x larger through a
+# 1288 x 760 window at M_AT, so the sheet's (450, 330) lands at the window's centre.
+M_AT = (80, 40)
+M_SIZE = (1288, 760)
+M_SCALE = 1.4
+M_ORIGIN = (450 - M_SIZE[0] / 2 / M_SCALE, 330 - M_SIZE[1] / 2 / M_SCALE)
+FIELD = (60, 76, 86)                      # storm-navy paper, ~72
 
 
 def paint_end_card(rng):
-    p = Pen(W, H, rng, (20, 28, 34))
+    p = Pen(W, H, rng, FIELD)
     lay = p.layer()
     for _ in range(30):
-        lay.ell(rng.uniform(0, W), rng.uniform(0, H), rng.uniform(100, 300), rng.uniform(60, 160), (28, 38, 46), None)
-    p.put_soft(lay, 60, 0.5)
-    cx, cy = 724, 480
+        lay.ell(rng.uniform(0, W), rng.uniform(0, H), rng.uniform(100, 300), rng.uniform(60, 160),
+                mix(FIELD, BULK_HI, 0.6) if rng.random() < 0.5 else mix(FIELD, STORM, 0.5), None)
+    p.put_soft(lay, 60, 0.45)
+    x0, y0 = M_AT
+    x1, y1 = x0 + M_SIZE[0], y0 + M_SIZE[1]
     sh = p.layer()
-    sh.ell(cx + 6, cy + 10, 470, 340, BLACK, None)
-    p.put_soft(sh, 14, 0.5)
-    p.ell(cx, cy, 462, 332, BRASS, INK, 3)
-    p.ell(cx, cy, 450, 320, (14, 22, 28), INK, 2.6)
-    p.arc(cx, cy, 456, 326, 190, 300, BRASS_HI, 2.2)
-    p.arc(cx, cy, 456, 326, 10, 120, BRASS_DK, 2.2)
-    # inner window (900x640 at 274,160): the oval's own darker ground
-    p.ell(cx, cy, 448, 318, (16, 24, 30), None)
-    for a in (0, 90, 180, 270):
-        x = cx + 456 * math.cos(math.radians(a))
-        y = cy + 326 * math.sin(math.radians(a))
-        screw(p, x, y, 4.2, BRASS_LO)
+    sh.rect(x0 - 12, y0 - 6, x1 + 22, y1 + 26, BLACK, None, r=6)
+    p.put_soft(sh, 12, 0.4)
+    p.rect(x0 - 20, y0 - 20, x1 + 20, y1 + 20, BRASS, INK, 3.2, 5)
+    p.rect(x0 - 9, y0 - 9, x1 + 9, y1 + 9, BRASS_LO, INK, 2.2, 2)
+    p.line([(x0 - 15, y1 + 15), (x0 - 15, y0 - 15), (x1 + 15, y0 - 15)], BRASS_HI, 2.2)
+    p.line([(x0 - 14, y1 + 15), (x1 + 15, y1 + 15), (x1 + 15, y0 - 14)], BRASS_DK, 2.2)
+    p.rect(x0, y0, x1, y1, FIELD, INK, 2.6)
+    for (sx, sy) in ((x0 - 12, y0 - 12), (x1 + 12, y0 - 12), (x0 - 12, y1 + 12), (x1 + 12, y1 + 12)):
+        screw(p, sx, sy, 4.4, BRASS_LO)
+    for lx in (620, 828):
+        p.rect(lx - 3, y1 + 20, lx + 3, 834, BRASS_LO, INK, 1.4)
     brass_plate(p, 514, 830, 934, 878)
     return p
 
 
 def sprite_pen(rng):
-    return Pen(900, 640, rng)
+    return Pen(M_SIZE[0], M_SIZE[1], rng, None, M_SCALE, M_ORIGIN)
+
+
+def panelled_wall(p, rng, upper, rail_y, lower=None, tiles=False, planks=False):
+    """A room's wall behind its instrument: matte upper wall, a rail, panelled wainscot below."""
+    x0, x1, y0, y1 = M_ORIGIN[0] - 4, M_ORIGIN[0] + M_SIZE[0] / M_SCALE + 4, M_ORIGIN[1] - 4, M_ORIGIN[1] + M_SIZE[1] / M_SCALE + 4
+    p.rect(x0, y0, x1, y1, upper, None)
+    lay = p.layer()
+    for _ in range(14):
+        lay.ell(rng.uniform(x0, x1), rng.uniform(y0, rail_y), rng.uniform(60, 180), rng.uniform(30, 90),
+                mix(upper, PAPER_HI, 0.35) if rng.random() < 0.5 else mix(upper, INK, 0.2), None)
+    p.put_soft(lay, 40, 0.35)
+    if tiles:
+        for x in range(int(x0) + 30, int(x1), 64):
+            p.line([(x, y0), (x, rail_y)], mix(upper, INK, 0.3), 1.6)
+        for y in range(int(y0) + 20, int(rail_y), 48):
+            p.line([(x0, y), (x1, y)], mix(upper, INK, 0.3), 1.6)
+    if planks:
+        for y in range(int(y0) + 26, int(rail_y), 44):
+            p.line([(x0, y), (x1, y)], mix(upper, INK, 0.45), 2.0)
+            p.line([(x0, y + 2.5), (x1, y + 2.5)], mix(upper, PAPER, 0.15), 1.0)
+    if lower is not None:
+        p.rect(x0, rail_y, x1, y1, lower, None)
+        for x in range(int(x0) + 50, int(x1), 120):
+            p.rect(x + 10, rail_y + 26, x + 104, y1 + 30, None, mix(lower, INK, 0.5), 2.0, 3)
+            p.line([(x + 13, rail_y + 29), (x + 101, rail_y + 29)], mix(lower, PAPER, 0.18), 1.2)
+        p.rect(x0, rail_y - 8, x1, rail_y + 10, mix(lower, PAPER, 0.1), INK, 2.4)
+        p.line([(x0, rail_y - 5), (x1, rail_y - 5)], mix(lower, PAPER, 0.3), 1.2)
+
+
+SEA_WALL = mix(SEAGLASS, PAPER, 0.32)         # the station's sea-glass rooms, ~(135,150,139)
+NAVY_WALL = mix(STORM, BULK_HI, 0.62)         # storm-navy panelled rooms, ~(58,75,86)
+NAVY_PANEL = mix(STORM, SEAGLASS, 0.30)
 
 
 def in_oval(fn):
-    """Clip a montage sprite to the inside of the end card's oval window."""
+    """A tableau sprite: the painter's room fragment, full bleed in the record frame's window."""
     def run(rng):
         im = fn(rng).done()
-        m = Image.new("L", (900 * 4, 640 * 4), 0)
-        ImageDraw.Draw(m).ellipse((8 * 4, 8 * 4, 892 * 4, 632 * 4), fill=255)
-        m = m.resize((900, 640), Image.LANCZOS)
-        im.putalpha(ImageChops.multiply(im.getchannel("A"), m))
-        return im
+        # a soft inner shadow from the frame's lip along the top and left edges
+        sh = Image.new("L", im.size, 0)
+        ImageDraw.Draw(sh).rectangle((0, 0, im.size[0], 18), fill=150)
+        ImageDraw.Draw(sh).rectangle((0, 0, 14, im.size[1]), fill=110)
+        sh = sh.filter(ImageFilter.GaussianBlur(10))
+        dark = Image.new("RGBA", im.size, rgba(BLACK))
+        dark.putalpha(sh)
+        im.alpha_composite(dark)
+        return grain(im, rng_for(6000 + rng.randrange(1000)), amp=5, mottle=5, speck=8)
     return run
 
 
@@ -1894,36 +2308,49 @@ def hiss_marks(p, mx, my, ang, mouth, scale=1.0):
 
 
 def paint_m_funnels(rng, on):
+    """LISTENING ROOM. On: three funnels pressed to the plaster, hissing. Off: let go of the
+    wall, hanging slack from their tubes, mouths turned down -- nothing left to listen to."""
     p = sprite_pen(rng)
+    panelled_wall(p, rng, SEA_WALL, 540, NAVY_PANEL)
     plaster_wall(p, 90, 60, 230, 600)
     mouths = ((232, 170, -12), (232, 320, 4), (232, 470, 14))
     for (mx, my, a) in mouths:
-        funnel(p, mx, my, a, L=360, mouth=70)
-    if on:
-        # hiss at the mouths: short pale strokes standing off the plaster seam
-        for (mx, my, a) in mouths:
+        if on:
+            funnel(p, mx, my, a, L=360, mouth=70)
             hiss_marks(p, mx, my, a, 70)
+        else:
+            funnel(p, mx + 46, my + 38, a + 34, L=360, mouth=70)
     return p
 
 
 def paint_m_funnel_venn(rng, on):
     p = sprite_pen(rng)
+    panelled_wall(p, rng, SEA_WALL, 540, NAVY_PANEL)
     plaster_wall(p, 140, 80, 300, 560)
-    funnel(p, 302, 300, 0, L=420, mouth=90, tag=True)
     if on:
+        funnel(p, 302, 300, 0, L=420, mouth=90, tag=True)
         hiss_marks(p, 302, 300, 0, 90, scale=1.25)
+    else:
+        funnel(p, 352, 350, 36, L=420, mouth=90, tag=True)
     return p
 
 
 def paint_m_diaphragm(rng, mode):
     p = sprite_pen(rng)
-    cx, cy, r = 450, 320, 220
+    panelled_wall(p, rng, NAVY_WALL, 600, None, planks=True)
+    for x in (150, 750):
+        for y in range(90, 600, 60):
+            rivet(p, x, y, 3.4, mix(NAVY_WALL, PAPER, 0.25))
+    cx, cy, r = 450, 330, 220
     mem = (22, 30, 40)
     p.ell(cx, cy, r + 32, r + 32, IRON_HI, INK, 3)
     p.arc(cx, cy, r + 28, r + 28, 200, 300, mix(IRON_HI, PAPER, 0.3), 2.4)
     p.ell(cx, cy, r + 6, r + 6, IRON, INK, 2.4)
     p.ell(cx, cy, r, r, mem, INK, 2.6)
     lay = p.layer()
+    if mode != "in":
+        # slack: the skin hangs flat and pale, the boss sunk to its seat
+        p.ell(cx, cy, r, r, mix(mem, SEAGLASS, 0.45), INK, 2.6)
     if mode == "in":
         # drawn in toward the boss: radial folds and the rim pulled off its seat between the bolts
         for k in range(24):
@@ -1936,13 +2363,13 @@ def paint_m_diaphragm(rng, mode):
             lay.line([(x + 3, y + 3) for x, y in pts], BLACK, 2.4)
         for rr in (60, 110, 160):
             lay.arc(cx, cy, rr, rr, 200, 290, mix(mem, SEAGLASS, 0.35), 2)
-        p.put(lay, mask=circle_mask((900, 640), (cx, cy), r - 2))
+        p.put(lay, mask=p.mask_circle((cx, cy), r - 2))
         p.ell(cx, cy, 34, 34, BLACK, None)
     else:
         # slack: one long shallow sag, a single dull sheen low on the skin
         lay.arc(cx, cy - 40, r - 40, r - 70, 30, 150, mix(mem, SEAGLASS, 0.4), 4)
         lay.arc(cx, cy - 60, r - 20, r - 40, 40, 140, mix(mem, SEAGLASS, 0.25), 2.4)
-        p.put_soft(lay, 1.5, 1.0, mask=circle_mask((900, 640), (cx, cy), r - 2))
+        p.put_soft(lay, 1.5, 1.0, mask=p.mask_circle((cx, cy), r - 2))
     p.ell(cx, cy, 24, 24, BRASS, INK, 2.4)
     p.arc(cx, cy, 20, 20, 200, 290, BRASS_HI, 1.8)
     p.ell(cx, cy, 8, 8, BRASS_DK, None)
@@ -1956,29 +2383,45 @@ def paint_m_diaphragm(rng, mode):
 
 
 def paint_m_jars(rng, level):
+    """WET LABORATORY. Tilted: five specimen jars leaning on the shelf at five angles, the water
+    in each lying along its tilted base, not level. Level: upright, the water flat."""
     p = sprite_pen(rng)
-    p.rect(40, 470, 860, 494, TIMBER, INK, 2.8, 2)
-    p.line([(46, 474), (854, 474)], TIMBER_HI, 1.6)
+    panelled_wall(p, rng, SEA_WALL, 520, NAVY_PANEL, tiles=True)
+    p.rect(30, 470, 870, 494, TIMBER, INK, 2.8, 2)
+    p.line([(36, 474), (864, 474)], TIMBER_HI, 1.6)
     for x in (110, 790):
         p.poly([(x - 10, 494), (x + 10, 494), (x + 4, 560), (x - 4, 560)], TIMBER_DK, INK, 2)
-    angs = (0, 0, 0, 0, 0) if level else (-18, 12, -6, 22, -14)
+    angs = (0, 0, 0, 0, 0) if level else (-14, -5, -12, -3, -10)
+    glass = mix(SEAGLASS, PAPER, 0.35)
+    water = mix(SEAGLASS, STORM, 0.25)
     for i, a in enumerate(angs):
         cx = 130 + i * 160
+        piv = (cx, 470)
+
+        def R(q):
+            return rot(q, piv, a)
         x0, x1, y0, y1 = cx - 56, cx + 56, 210, 470
-        glass = mix(SEAGLASS, PAPER, 0.15)
-        p.rect(x0, y0, x1, y1, mix(glass, INK, 0.25), INK, 2.8, 14)
-        # water: a polygon under a tilted line through the jar's middle
-        wy = 330
-        t = math.tan(math.radians(a))
+        jar = [R(q) for q in ((x0 + 10, y0), (x1 - 10, y0), (x1, y0 + 12), (x1, y1 - 10), (x1 - 10, y1),
+                               (x0 + 10, y1), (x0, y1 - 10), (x0, y0 + 12))]
+        sh = p.layer()
+        sh.poly([(x + 8, y + 6) for x, y in jar], BLACK, None)
+        p.put_soft(sh, 4, 0.3)
+        p.poly(jar, glass, None)
+        # water: in the jar's own frame, so a tilted jar holds tilted water
+        wl = [R(q) for q in ((x0 - 20, 320), (x1 + 20, 320), (x1 + 20, y1 + 20), (x0 - 20, y1 + 20))]
         lay = p.layer()
-        lay.poly([(x0 - 10, wy - t * (x0 - 10 - cx)), (x1 + 10, wy - t * (x1 + 10 - cx)), (x1 + 10, y1 + 10), (x0 - 10, y1 + 10)],
-                 mix(SEAGLASS, SEAGLASS_HI, 0.35), None)
-        lay.line([(x0 - 10, wy - t * (x0 - 10 - cx)), (x1 + 10, wy - t * (x1 + 10 - cx))], SEAGLASS_HI, 3)
-        p.put(lay, mask=poly_mask((900, 640), [(x0 + 4, y0 + 4), (x1 - 4, y0 + 4), (x1 - 4, y1 - 4), (x0 + 4, y1 - 4)]))
-        p.rect(x0, y0, x1, y1, None, INK, 2.8, 14)
-        p.line([(x0 + 12, y0 + 30), (x0 + 12, y1 - 30)], PAPER_HI, 2)
-        p.rect(x0 - 6, y0 - 26, x1 + 6, y0 + 4, BRASS, INK, 2.6, 4)
-        p.line([(x0, y0 - 20), (x1, y0 - 20)], BRASS_HI, 1.4)
+        lay.poly(wl, water, None)
+        lay.line([wl[0], wl[1]], SEAGLASS_HI, 4)
+        p.put(lay, mask=p.mask_poly(jar))
+        # something pale suspended in each: a flat, folded shape
+        sc = R((cx, 390))
+        p.ell(sc[0], sc[1], 20, 30, mix(PAPER, SEAGLASS, 0.3), INK, 2)
+        p.line([R((cx - 8, 372)), R((cx + 6, 404))], mix(PAPER, INK, 0.4), 1.6)
+        p.poly(jar, None, INK, 3.0)
+        p.line([R((x0 + 12, y0 + 30)), R((x0 + 12, y1 - 30))], PAPER_HI, 2.4)
+        lid = [R(q) for q in ((x0 - 6, y0 - 26), (x1 + 6, y0 - 26), (x1 + 6, y0 + 4), (x0 - 6, y0 + 4))]
+        p.poly(lid, BRASS, INK, 2.6)
+        p.line([R((x0, y0 - 18)), R((x1, y0 - 18))], BRASS_HI, 1.6)
     return p
 
 
@@ -1989,67 +2432,91 @@ def cloth(p, x0, y0, x1, y1):
         p.line([(x0 + 6, y), (x1 - 6, y + 4)], mix(PAPER, SEAGLASS, 0.35), 1.4)
 
 
+def kitchen(p, rng):
+    panelled_wall(p, rng, SEA_WALL, 300, None, tiles=True)
+    p.rect(20, 300, 880, 640, mix(TIMBER, SOOT, 0.2), None)
+    p.line([(20, 300), (880, 300)], INK, 2.6)
+
+
 def paint_m_spoon(rng, up):
+    """KITCHEN AND MESS. Up: his spoon stands off the cloth in the air, tilted, its shadow far
+    below in its dent. Down: it has settled into the dent it left."""
     p = sprite_pen(rng)
+    kitchen(p, rng)
     cloth(p, 70, 330, 830, 560)
     metal, metal_hi = (196, 194, 184), (238, 236, 228)
-    # the dent: a spoon-shaped hollow pressed in the cloth
     dent = mix(PAPER, INK, 0.3)
     p.ell(620, 440, 96, 36, dent, None)
     p.rect(160, 432, 540, 452, dent, None, r=10)
     p.line([(170, 452), (530, 452)], mix(PAPER, PAPER_HI, 0.6), 1.6)
     p.arc(620, 444, 96, 36, 20, 160, mix(PAPER, PAPER_HI, 0.6), 1.8)
-    lift = 12 if up else 0
+    ang = -14 if up else 0
+    lift = 120 if up else 0
+    piv = (450, 440)
+
+    def R(q):
+        return rot((q[0], q[1] - lift), (piv[0], piv[1] - lift), ang)
     if up:
         sh = p.layer()
         sh.ell(626, 446, 88, 28, BLACK, None)
         sh.rect(170, 438, 530, 452, BLACK, None, r=7)
-        p.put_soft(sh, 3, 0.5)
-    oy = 432 - lift
-    p.rect(160, oy, 540, oy + 18, metal, INK, 2.6, 9)
-    p.poly([(520, oy + 2), (540, oy - 2), (548, oy + 9), (540, oy + 20), (520, oy + 16)], metal, None)
-    p.ell(620, oy + 8, 94, 34, metal, INK, 2.8)
-    p.ell(610, oy + 2, 62, 16, metal_hi, None)
-    p.line([(172, oy + 5), (520, oy + 5)], metal_hi, 2)
+        p.put_soft(sh, 6, 0.35)
+    oy = 432
+    handle = [R(q) for q in ((160, oy + 2), (530, oy), (548, oy + 9), (530, oy + 18), (160, oy + 16))]
+    p.poly(handle, metal, INK, 2.6)
+    bc = R((620, oy + 8))
+    bowl = p.layer()
+    bowl.ell(bc[0], bc[1], 94, 34, metal, INK, 2.8)
+    bowl.ell(bc[0] - 10, bc[1] - 6, 62, 16, metal_hi, None)
+    p.put(bowl)
+    p.line([R((172, oy + 6)), R((520, oy + 5))], metal_hi, 2)
     return p
 
 
 def paint_m_bed(rng, pressed):
+    """BUNK ROOM. Pressed: the mattress holds a deep body-shaped hollow, blanket kicked to the
+    foot. Risen: the hollow has come up and kept coming -- the mattress domes above its frame
+    under a smooth wave-striped blanket, as if breathing in."""
     p = sprite_pen(rng)
-    # bunk frame
+    panelled_wall(p, rng, NAVY_WALL, 640, None, planks=True)
     p.rect(60, 420, 840, 450, TIMBER, INK, 2.8, 2)
     p.rect(60, 450, 80, 600, TIMBER_DK, INK, 2.4)
     p.rect(820, 450, 840, 600, TIMBER_DK, INK, 2.4)
-    p.rect(40, 260, 70, 600, TIMBER, INK, 2.8, 3)
+    p.rect(40, 230, 70, 600, TIMBER, INK, 2.8, 3)
+    p.rect(830, 300, 860, 600, TIMBER, INK, 2.8, 3)
     top = []
     for i in range(61):
         x = 80 + 740 * i / 60
+        t = (x - 160) / 600
         y = 330
-        if pressed:
-            # a body-shaped hollow: shoulders, waist, hips, legs
-            t = (x - 160) / 600
-            if 0 < t < 1:
+        if 0 < t < 1:
+            if pressed:
                 prof = 0.8 * math.exp(-((t - 0.12) / 0.07) ** 2) + 0.65 * math.exp(-((t - 0.45) / 0.12) ** 2) + 0.4 * math.exp(-((t - 0.78) / 0.14) ** 2)
-                y += 46 * min(1.0, prof + 0.35 * math.sin(math.pi * t) ** 2)
+                y += 74 * min(1.0, prof + 0.35 * math.sin(math.pi * t) ** 2)
+            else:
+                y -= 96 * math.sin(math.pi * t) ** 1.6
         top.append((x, y))
     mat = top + [(820, 420), (80, 420)]
     p.poly(mat, mix(PAPER, SEAGLASS, 0.12), None)
-    p.line(top, INK, 2.8)
-    p.line([(80, 330), (80, 420), (820, 420), (820, 330)], INK, 2.6)
     if pressed:
-        p.line([(x, y + 6) for x, y in top[10:52]], mix(PAPER, INK, 0.3), 2.4)
-        # blanket kicked to the foot
+        p.poly(top[6:56] + [(x, 330) for x, _ in top[55:5:-1]], mix(PAPER, INK, 0.28), None)
+        p.line([(x, 330) for x, _ in top[6:56]], mix(PAPER, PAPER_HI, 0.6), 2.0)
         p.poly([(700, 300), (820, 290), (836, 360), (780, 380), (690, 350)], mix(SEAGLASS, INK, 0.25), INK, 2.6)
     else:
-        p.rect(400, 300, 820, 372, mix(SEAGLASS, INK, 0.2), INK, 2.6, 3)
-        p.line([(406, 310), (814, 310)], SEAGLASS, 2)
-        p.line([(404, 340), (816, 340)], mix(SEAGLASS, INK, 0.4), 1.6)
-    p.rect(92, 296, 200, 334, PAPER_HI, INK, 2.4, 12)  # pillow
+        # the wave blanket rides the dome
+        blanket = [(x, y + 12) for x, y in top[22:]]
+        p.poly(blanket + [(820, 420), (top[22][0], 420)], mix(SEAGLASS, INK, 0.2), INK, 2.6)
+        for k, off in enumerate((30, 52, 74)):
+            p.line([(x, y + off + 6 * math.sin(x / 26)) for x, y in top[24:59]], SEAGLASS if k % 2 == 0 else mix(SEAGLASS, INK, 0.4), 2.2)
+    p.line(top, INK, 2.8)
+    p.line([(80, 330), (80, 420), (820, 420), (820, 330)], INK, 2.6)
+    p.rect(92, 296, 200, 334, PAPER_HI, INK, 2.4, 12)
     return p
 
 
 def paint_m_pen(rng, down):
     p = sprite_pen(rng)
+    panelled_wall(p, rng, SEA_WALL, 600, NAVY_PANEL)
     # drum, still: a paper cylinder seen front-on
     p.rect(120, 300, 620, 560, PAPER, INK, 2.8, 6)
     p.rect(110, 290, 130, 570, BRASS, INK, 2.4, 3)
@@ -2060,25 +2527,29 @@ def paint_m_pen(rng, down):
     pen_x, pen_y = 520, 420
     scratch = [(132, 446), (200, 440), (260, 452), (320, 430), (380, 444), (440, 418), (480, 428), (pen_x, pen_y)]
     p.line(scratch, (60, 70, 96), 2.4)
-    lift = 0 if down else 20
+    lift = 0 if down else 110
     # pen arm from the right pivot
     piv = (800, 300)
     tip = (pen_x, pen_y - lift)
     p.ell(piv[0], piv[1], 26, 26, BRASS, INK, 2.6)
     p.ell(piv[0], piv[1], 9, 9, BRASS_DK, None)
-    strap(p, [piv, (660, tip[1] - 60), (tip[0] + 20, tip[1] - 14)], 12, BRASS, INK, 2.2, hi=BRASS_HI)
+    strap(p, [piv, (660, (tip[1] + piv[1]) / 2 - 20), (tip[0] + 20, tip[1] - 14)], 12, BRASS, INK, 2.2, hi=BRASS_HI)
     p.poly([(tip[0] + 22, tip[1] - 20), (tip[0] + 26, tip[1] - 6), (tip[0], tip[1])], SOOT, INK, 2)
     if not down:
-        sh = p.layer()
-        sh.ell(pen_x + 4, pen_y + 2, 8, 3, BLACK, None)
-        p.put_soft(sh, 2, 0.35)
+        # the line simply stops where the nib was; a small blot
+        p.ell(pen_x, pen_y, 5, 4, (60, 70, 96), None)
     p.rect(760, 300, 840, 600, IRON, INK, 2.6, 3)
     return p
 
 
 def paint_m_coat(rng, full):
     p = sprite_pen(rng)
-    p.rect(330, 90, 570, 118, TIMBER, INK, 2.6, 2)
+    # the intake office: sea-glass plaster over its blue wainscot, the hook rail
+    panelled_wall(p, rng, SEA_WALL, 470, mix(STORM, SEAGLASS, 0.18))
+    p.rect(200, 90, 700, 118, TIMBER, INK, 2.6, 2)
+    for hx2 in (260, 330, 570, 640):
+        p.arc(hx2, 136, 12, 14, 0, 200, BRASS, 6)
+        p.arc(hx2, 136, 12, 14, 0, 200, INK, 1.4)
     hx = 450
     p.arc(hx, 136, 12, 14, 0, 200, BRASS, 6)
     p.arc(hx, 136, 12, 14, 0, 200, INK, 1.4)
@@ -2108,6 +2579,7 @@ def paint_m_coat(rng, full):
 
 def paint_m_cup(rng, warm):
     p = sprite_pen(rng)
+    kitchen(p, rng)
     cloth(p, 120, 400, 780, 580)
     # dry ring left of the cup
     rc = AMBER if warm else mix(PAPER, INK, 0.3)
@@ -2133,8 +2605,10 @@ def paint_m_cup(rng, warm):
     p.rect(cx + 166, 352, cx + 172, 380, BRASS, INK, 1.6)
     p.line([(cx - 76, 320), (cx - 66, 470)], PAPER_HI, 2.2)
     if warm:
-        steam = bezier([(cx - 10, 290), (cx - 40, 220), (cx + 30, 170), (cx - 10, 90)], 40)
-        p.line(steam, mix(PAPER_HI, AMBER_HI, 0.2), 3)
+        for dx in (-30, 24):
+            steam = bezier([(cx + dx, 290), (cx + dx - 40, 220), (cx + dx + 30, 170), (cx + dx - 10, 80)], 40)
+            p.line(steam, INK, 7)
+            p.line(steam, mix(PAPER_HI, AMBER_HI, 0.2), 4)
     return p
 
 
@@ -2454,26 +2928,69 @@ def paint_end_b_terminal(rng):
 
 
 def paint_end_b_wide(rng):
-    p = Pen(W, H, rng, (11, 17, 22))
+    """CONTINUE, the wide shot: the whole station on its piles in a sea-glass dusk, and above the
+    horizon the edgeless surface -- a vast flat curved lid, its iris turned on the one lit window."""
+    p = Pen(W, H, rng)
+    hor = 720
+    p.vgrad(-4, -4, W + 4, hor, mix(SEAGLASS_HI, PAPER, 0.15), SEAGLASS)
+    clouds = p.layer()
+    for _ in range(9):
+        clouds.ell(rng.uniform(0, W), rng.uniform(40, 220), rng.uniform(120, 300), rng.uniform(10, 24),
+                   mix(SEAGLASS_HI, PAPER_HI, 0.4), None)
+    p.put_soft(clouds, 8, 0.4)
+    # the lid: a dome far wider than the frame, rising out of the horizon
+    lid_c, lid_r = (724, 1500), 1250
+    lid = mix(BULK_HI, SEAGLASS, 0.30)
     lay = p.layer()
-    for _ in range(30):
-        lay.ell(rng.uniform(0, W), rng.uniform(0, H), rng.uniform(100, 300), rng.uniform(60, 160), (16, 24, 30), None)
-    p.put_soft(lay, 70, 0.6)
-    outl = p.layer()
-    n = 0
-    r2 = random.Random(SEED + 4242)
-    while n < 2400:
-        x = r2.uniform(10, W - 20)
-        y = r2.uniform(10, H - 14)
-        if abs(x - 868) < 40 and abs(y - 610) < 30:
-            continue
-        w = r2.choice((6, 7, 8, 9, 10))
-        h = r2.choice((4, 5, 6)) if w > 7 else r2.choice((4, 5))
-        outl.d.rectangle((x * SS, y * SS, (x + w) * SS, (y + h) * SS), fill=rgba((16, 23, 29)),
-                         outline=rgba(SEAGLASS, 52), width=2)
-        n += 1
-    p.put(outl)
-    glow(p, 875, 614, 30 * 2, AMBER, 0.55)
+    lay.ell(lid_c[0], lid_c[1], lid_r + 14, lid_r + 14, SURF_RIM, None)
+    lay.ell(lid_c[0], lid_c[1], lid_r, lid_r, lid, None)
+    lay.ell(lid_c[0], lid_c[1], lid_r - 70, lid_r - 70, mix(lid, SEAGLASS_HI, 0.18), None)
+    lay.ell(lid_c[0], lid_c[1], lid_r - 92, lid_r - 92, lid, None)
+    p.put(lay)
+    for r, w in ((lid_r + 15, 3.4), (lid_r, 2.6), (lid_r - 70, 2.0), (lid_r - 92, 2.0)):
+        p.arc(lid_c[0], lid_c[1], r, r, 200, 340, INK, w)
+    # its iris, low on the dome, the pupil turned toward the lit window
+    ic, ir = (560, 540), 150
+    pc, pr = (620, 566), 46
+    p.ell(ic[0], ic[1], ir + 12, ir + 12, SURF_RIM, INK, 3.4)
+    p.ell(ic[0], ic[1], ir - 8, ir - 8, SURF_IRIS, INK, 2.8)
+    for k in range(1, 5):
+        t = k / 5
+        rr = lerp(ir - 8, pr + 6, t)
+        cc = (lerp(ic[0], pc[0], t), lerp(ic[1], pc[1], t))
+        p.ell(cc[0], cc[1], rr, rr, None, mix(SURF_IRIS, SURF_IRIS_RING, 1 - 0.5 * t), 2.4)
+    p.ell(pc[0], pc[1], pr, pr, SURF_PUPIL, INK, 3.0)
+    # the sea: mid storm navy, flat chop
+    p.vgrad(-4, hor, W + 4, H + 4, mix(STORM, SEAGLASS, 0.45), mix(STORM, BULK, 0.6))
+    chop = p.layer()
+    for _ in range(90):
+        x, y = rng.uniform(-20, W), rng.uniform(hor + 12, H)
+        L = rng.uniform(30, 90) * (0.5 + (y - hor) / 400)
+        chop.line([(x, y), (x + L * 0.5, y - 4), (x + L, y)], mix(SEAGLASS, PAPER, 0.15), 2)
+    p.put(chop, 0.5)
+    p.line([(-4, hor), (W + 4, hor)], INK, 2.6)
+    # the station: house, lantern tower, deck and piles; flat navy, ink contours
+    st = mix(STORM, BULK, 0.55)
+    st_hi = mix(st, SEAGLASS, 0.35)
+    for x in range(780, 1000, 30):
+        p.rect(x, 690, x + 9, 812, mix(st, INK, 0.3), INK, 2)
+    p.line([(770, 740), (1000, 760)], INK, 2.4)
+    p.line([(770, 760), (1000, 740)], INK, 2.4)
+    p.rect(740, 680, 1030, 694, st, INK, 2.6)                       # deck
+    for x in range(746, 1030, 22):
+        p.line([(x, 662), (x, 680)], INK, 1.8)
+    p.line([(740, 662), (1030, 662)], INK, 2.2)                     # rail
+    p.rect(780, 560, 980, 680, st, INK, 2.8)                        # house
+    p.poly([(766, 562), (880, 500), (994, 562)], st, INK, 2.8)       # roof
+    p.line([(782, 560), (880, 506), (978, 560)], st_hi, 1.6)
+    p.rect(940, 430, 980, 548, st, INK, 2.6)                        # tower
+    p.rect(930, 400, 990, 432, mix(st, SEAGLASS, 0.2), INK, 2.4)    # lantern
+    p.poly([(926, 402), (960, 380), (994, 402)], st, INK, 2.2)
+    for wx, wy in ((800, 600), (830, 600), (920, 600), (950, 600), (800, 640), (950, 640)):
+        p.rect(wx, wy, wx + 16, wy + 14, mix(st, BLACK, 0.35), INK, 1.6)
+    # the chamber's window: the one light
+    glow(p, 875, 614, 60, AMBER, 0.55)
+    p.rect(866, 608, 884, 621, None, INK, 2)
     p.rect(868, 610, 882, 619, AMBER, None)
     p.rect(869, 611, 881, 613, AMBER_HI, None)
     return p
@@ -2546,8 +3063,13 @@ ASSETS = [  # name, seed index, painter, opaque
     ("a_arm_rest", 14, lambda r: paint_arms(r, False), False),
     ("a_arm_low", 15, lambda r: paint_arms(r, True), False),
     ("a_cushion_dent", 16, paint_cushion_dent, False),
+    ("a_arm_ready", 21, lambda r: paint_arms(r, "ready"), False),
+    ("a_stain_1", 22, a_overlay(stain=1), False),
+    ("a_stain_2", 23, a_overlay(stain=2), False),
+    ("a_gauge_pinned", 24, a_overlay(pinned=True), False),
     ("a_ada_seated", 17, paint_ada, False),
     ("a_lid_line", 18, paint_lid_line, False),
+    ("a_surface_lid", 20, paint_surface_lid, False),
     ("a_gauge_needle", 19, paint_needle, False),
     ("view_b", 100, lambda r: view_b_final(), True),
     ("b_terminal_lit", 101, b_overlay(("lit",)), False),
