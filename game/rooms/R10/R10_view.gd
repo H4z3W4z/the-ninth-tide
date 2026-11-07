@@ -22,6 +22,10 @@ const STORM := Color("22384a")
 const VIOLET := Color("746577")
 const BRASS := Color("9c7e46")
 const BRASS_HI := Color("c9a869")
+const BRASS_LO := Color("745c32")
+const EBONITE := Color("25313b")
+const SEPIA := Color("a99f8b")          # the panels' photograph ground (R10.py SEPIA)
+const GLASS := Color("bccbc3")          # the contact table's glass, pale sea-glass
 const AMBER := Color("c39959")
 const GRAPHITE := Color("2e3338")
 const OCCLUDER := Color("0d1418")
@@ -163,6 +167,20 @@ const TURN_TIME := 2.4
 const REFL_TIME := 1.5
 const REFL_AFTER_TURN := 6.2
 const LIFT := 12.0
+## The chair lamps on every panel (panel space): centres, radius. Lit: a solid amber dot;
+## out: a navy ring. At the loose scale a dot is still at least 8 px across.
+const LAMP_Y := 130.0
+const LAMP_X0 := 28.0
+const LAMP_DX := 32.0
+const LAMP_R := 8.0
+const LAMP_BED := Rect2(4, 125, 272, 24)
+## Frame 16, the last blank on panel C (panel space), and its turned silhouette's feet.
+const FRAME16 := Rect2(222, 132, 56, 100)
+const TURNED_FEET := Vector2(253, 229)
+## The glance at frame 16 once the cover has slid off.
+const GLANCE_TIME := 2.5
+## The reflection in the glass: an inset in the emptied lower tray.
+const REFL_INSET := Rect2(510, 640, 160, 220)
 
 # --- c_folders geometry -------------------------------------------------------------------
 const POCKETS := [Rect2(110, 190, 360, 400), Rect2(544, 190, 360, 400), Rect2(978, 190, 360, 400)]
@@ -192,6 +210,7 @@ const LEAF_FOLD := 0.4
 const BAR_DROP := 0.4
 const BAR_X := 104.0
 const BAR_Y := 360.0
+const LEVER_PULL := 0.4
 const BACK_TIME := 0.8
 const RIFFLE_TIME := 0.25
 const RIFFLE_STILL := 1.2
@@ -282,6 +301,9 @@ var cmp_date := ""              # the date COMPARE last read (stamped in the tra
 var cmp_recs := []              # the records it read in the folders (their shadows in the tray)
 var ap_hold := false            # P23: the mirror still shows the STAFF opening as it was
 var ap_t := -1.0                # seconds into its widening in the mirror; -1 settled
+var cg_t := -1.0                # c_contact's own glance (frame 16); -1 none
+var cg_rect := Rect2()
+var bg_t := -1.0                # view B's two-part glance after P18: STAFF, then Venn's drawer
 
 func _ready() -> void:
 	narrow = SystemFont.new()
@@ -345,12 +367,20 @@ func _side() -> String:
 ## Band 4: the stripes ripple once (the sea heard through the wall). Band 5 on: damp, the tide
 ## line and leaning stripes. Band 7 (view A): the breach and the card trail.
 func plate_id() -> String:
-	var b := _band()
-	if _side() == "b":
-		return "view_b_s5" if b >= 5 else "view_b"
-	if r.shelves_more():
-		return "view_a_s7"
-	return "view_a_s5" if b >= 5 else "view_a"
+	return "view_%s_t%d" % [_side(), tide_n()]
+
+## The tide the vault's plates are painted for: VI to IX. Each one deepens the shelf bay and
+## darkens the paper one step toward storm navy (R10.py view_a_t*, view_b_t*).
+func tide_n() -> int:
+	return clampi(r.tide(), 6, 9)
+
+## The receding shelf bay's nested frames at this tide (painted into view_a_t*).
+func bay_frames() -> int:
+	return {6: 6, 7: 9}.get(tide_n(), 14)
+
+## From tide VIII the innermost frame is a lit doorway with the ninth photograph's chair in it.
+func bay_doorway() -> bool:
+	return tide_n() >= 8
 
 ## The view A / view B overlays drawn now, in order (tests and captures read this).
 func overlay_ids() -> Array:
@@ -406,6 +436,51 @@ func cover_dx() -> float:
 	var k := clampf(cover_t / COVER_TIME, 0.0, 1.0)
 	return 1344.0 * (1.0 - pow(1.0 - k, 3.0))
 
+## The film-edge numbers drawn on each placed panel: {slot: [cell, ...]}. Only where two
+## neighbouring placed panels meet: cell 3 toward a filled slot on the right, cell 0 toward a
+## filled slot on the left. Continuity reads when they run on; the break shows when not.
+func edge_cells() -> Dictionary:
+	var slots: Array = r.slot_letters()
+	var out := {}
+	for k in 4:
+		if slots[k] == "":
+			continue
+		var cells := []
+		if k > 0 and slots[k - 1] != "":
+			cells.append(0)
+		if k < 3 and slots[k + 1] != "":
+			cells.append(3)
+		out[k] = cells
+	return out
+
+## The film edge's date shows only once the cover has slid off.
+func date_shown() -> bool:
+	return r.state.cover_off and cover_dx() < 0.0
+
+## Frame 16 on the table (panel C's last seat), or an empty rect when C is not placed.
+func frame16_rect() -> Rect2:
+	var k: int = r.slot_letters().find("C")
+	if k < 0:
+		return Rect2()
+	return Rect2(Vector2(SLOT_X[k], SLOT_Y) + FRAME16.position, FRAME16.size)
+
+## 0..1: the release lever's pull (0 up, 1 down).
+func lever_k() -> float:
+	if not r.state.p18_complete:
+		return 0.0
+	if seq_on:
+		if rel_t < 0.0:
+			return 0.0
+		if motion:
+			return clampf(rel_t / LEVER_PULL, 0.0, 1.0)
+	return 1.0
+
+## View B's glance after P18: "staff", then "drawer", or "".
+func b_glance() -> String:
+	if bg_t < 0.0:
+		return ""
+	return "staff" if bg_t < GLANCE_TIME / 2.0 else "drawer"
+
 ## 0..1: how far folder k's leaf is shut.
 func leaf_closed(k: int) -> float:
 	if not seq_on:
@@ -450,7 +525,7 @@ func teeth_shown() -> bool:
 
 ## The release lever is down once P18 is done and its pull has been seen.
 func lever_down() -> bool:
-	return r.state.p18_complete and not (seq_on and rel_t < 0.0)
+	return lever_k() >= 1.0
 
 ## The model strip's lines as drawn now (typed reveals cut short).
 func strip_lines() -> Array:
@@ -491,6 +566,19 @@ func tick(dt: float) -> void:
 		cover_t += dt
 		if cover_t > COVER_TIME:
 			cover_t = -1.0
+			start_glance("frame_16", frame16_rect())
+	if cg_t >= 0.0:
+		cg_t += dt
+		if cg_t > GLANCE_TIME or _view() != "c_contact":
+			cg_t = -1.0
+	if bg_t >= 0.0:
+		bg_t += dt
+		if b_glance() == "drawer" and drawer_hide:
+			drawer_hide = false
+			drawer_t = 0.0 if motion else -1.0
+		if bg_t > GLANCE_TIME or _view() != "catalogue":
+			bg_t = -1.0
+			drawer_hide = false
 	if turn_t >= 0.0:
 		turn_t += dt
 		if turn_t > TURN_TIME:
@@ -557,7 +645,7 @@ func loop_targets() -> Dictionary:
 	var b := _band()
 	var v := _view()
 	var out := {}
-	out["r10_room"] = 1.0 if b >= 7 else 0.9
+	out["r10_room"] = 0.45 if b >= 7 else 0.4
 	out["r10_paper_far"] = 0.55 if b >= 4 and b <= 6 else 0.0
 	out["r10_sea_wall"] = 0.35 if b == 4 else 0.0
 	var ap := 0.0
@@ -600,6 +688,8 @@ func play_fx(id: String, e: Dictionary) -> void:
 		"cover_off":
 			cover_hold = false
 			cover_t = 0.0 if motion else -1.0
+			if not motion:
+				start_glance("frame_16", frame16_rect())
 			turn_hold = true
 			refl_hold = true
 		"index_close":
@@ -724,13 +814,21 @@ func _start_hold(n: String) -> void:
 func hold_active() -> bool:
 	return hold_t > 0.0
 
-## Venn's drawer slides out on its own; the other rewards get the core's brackets.
-func start_glance(target: String, _rect: Rect2) -> bool:
-	if target == "correspondence_drawer" and drawer_hide:
-		drawer_hide = false
-		if motion and _view() == "catalogue":
-			drawer_t = 0.0
+## Frame 16 is bracketed on the contact table once the cover is off. After P18 the catalogue
+## wall shows STAFF, then Venn's drawer sliding out on its own; the other rewards get the
+## core's brackets.
+func start_glance(target: String, rect: Rect2) -> bool:
+	if target == "frame_16":
+		if rect.size == Vector2.ZERO or _view() != "c_contact":
+			return false
+		cg_rect = rect
+		cg_t = 0.0
+		return true
+	if target == "correspondence_drawer":
+		if _view() == "catalogue":
+			bg_t = 0.0
 			return true
+		drawer_hide = false
 	return false
 
 func exit_arrow(to: String) -> String:
@@ -784,6 +882,9 @@ func reset_presentation() -> void:
 	cmp_recs = []
 	ap_hold = false
 	ap_t = -1.0
+	cg_t = -1.0
+	cg_rect = Rect2()
+	bg_t = -1.0
 
 func redraw() -> void:
 	room.queue_redraw()
@@ -1104,6 +1205,11 @@ func _draw_view_b(c: CanvasItem) -> void:
 	if not r.shutter_open():
 		_rtext(c, "OBSERVER", OBSERVER_PLATE, 15, INK, narrow)
 	_rtext(c, "◂ The shelves", TURN_PLATE, 22, INK, narrow)
+	match b_glance():
+		"staff":
+			_brackets(c, GameView.glance_rect_of(R10Sim.GLANCE_STAFF))
+		"drawer":
+			_brackets(c, GameView.glance_rect_of(R10Sim.GLANCE_DRAWER))
 
 ## The pendant's constant amber glow (additive, on the glow node).
 func _draw_glow() -> void:
@@ -1128,14 +1234,18 @@ func _draw_close() -> void:
 			_draw_model(close)
 
 # --- c_contact ----------------------------------------------------------------------------
-## Panel `x` with its top-left at `pos`, scaled `s`: the sprite, its letter, edge numbers,
-## clock hands and (for C) the last blank.
-func _draw_panel(c: CanvasItem, x: String, pos: Vector2, s: float) -> void:
+## Panel `x` with its top-left at `pos`, scaled `s`: the sprite, its letter, the chair lamps,
+## clock hands, the film-edge numbers in `cells` (none on the felt) and, for C, the last blank.
+func _draw_panel(c: CanvasItem, x: String, pos: Vector2, s: float, cells: Array = []) -> void:
 	c.draw_set_transform(pos, 0.0, Vector2(s, s))
 	_sprite(c, "c_panel_" + x.to_lower(), Vector2.ZERO)
+	_draw_lamps(c, R10Sim.lamps_lit(x))
 	if x == "C":
 		for pa in last_blank():
-			_sprite(c, pa[0], LAST_SEAT, pa[1])
+			if pa[0] == "c_blank_t2":
+				_draw_turned(c, pa[1])
+			else:
+				_sprite(c, pa[0], LAST_SEAT, pa[1])
 	if s < 1.0:
 		# on the felt the panels are small: their clocks are drawn a third larger to stay legible
 		var k := LOOSE_CLOCK
@@ -1149,9 +1259,38 @@ func _draw_panel(c: CanvasItem, x: String, pos: Vector2, s: float) -> void:
 		_clock_hands(c, PANEL_CLOCK, R10Sim.panel_clock(x), 13.0, 21.0, 4.0, 3.0, INK)
 	_rtext(c, x, LETTER_PLATE, 28, INK, narrow)
 	var nums := R10Sim.edge_numbers(x)
-	for k in 4:
+	for k in cells:
 		_rtext(c, str(nums[k]), Rect2(CELL_X[k], CELL.position.y, CELL.size.x, CELL.size.y), 22, INK, narrow)
 	c.draw_set_transform_matrix(Transform2D.IDENTITY)
+
+## The eight chair lamps along a panel's top rail, in panel space, countable by eye: the
+## painted lamps are covered by a strip of the photograph's ground, then each lamp is a solid
+## amber dot (lit) or a navy ring (out).
+func _draw_lamps(c: CanvasItem, lit: int) -> void:
+	c.draw_rect(LAMP_BED, SEPIA)
+	for k in 8:
+		var at := Vector2(LAMP_X0 + LAMP_DX * k, LAMP_Y)
+		if k < lit:
+			c.draw_circle(at, LAMP_R + 1.4, INK)
+			c.draw_circle(at, LAMP_R, AMBER)
+			c.draw_circle(at + Vector2(-2.5, -2.5), 2.4, PAPER_HI)
+		else:
+			c.draw_arc(at, LAMP_R - 1.2, 0.0, TAU, 28, INK, 2.8)
+
+## Frame 16 turned: one stark navy silhouette about 90 px tall, its back to us (no face, a
+## centre seam down the coat, the collar's notch), taller than the blanks either side of it.
+func _draw_turned(c: CanvasItem, a: float) -> void:
+	var f := TURNED_FEET
+	var col := Color(OCCLUDER, a)
+	var body := PackedVector2Array([f + Vector2(-25, 0), f + Vector2(-24, -30), f + Vector2(-21, -46),
+		f + Vector2(-12, -54), f + Vector2(-6, -57), f + Vector2(6, -57), f + Vector2(12, -54),
+		f + Vector2(21, -46), f + Vector2(24, -30), f + Vector2(25, 0)])
+	c.draw_colored_polygon(body, col)
+	c.draw_rect(Rect2(f + Vector2(-7, -64), Vector2(14, 10)), col)
+	c.draw_colored_polygon(Ink.ellipse(f + Vector2(0, -75), 14.0, 16.0, 28), col)
+	var seam := Color(STORM, a)
+	c.draw_line(f + Vector2(0, -50), f + Vector2(0, -2), seam, 1.6)
+	c.draw_polyline(PackedVector2Array([f + Vector2(-9, -55), f + Vector2(0, -48), f + Vector2(9, -55)]), seam, 1.6)
 
 func _draw_contact(c: CanvasItem) -> void:
 	var st: Dictionary = r.state
@@ -1159,20 +1298,16 @@ func _draw_contact(c: CanvasItem) -> void:
 	for k in 4:
 		_ctext(c, str(k + 1), SLOT_X[k] + PANEL.x / 2.0, 171, 24, INK, narrow)
 	var slots: Array = r.slot_letters()
+	var cells := edge_cells()
 	for k in 4:
 		var x: String = slots[k]
 		if x == "":
 			continue
-		_draw_panel(c, x, Vector2(SLOT_X[k], SLOT_Y), 1.0)
+		_draw_panel(c, x, Vector2(SLOT_X[k], SLOT_Y), 1.0, cells.get(k, []))
 		if x == "C" and turn_t >= 0.0 and motion:
 			# a paper rim pulses on panel C's frame while its last blank turns
 			var a := 0.5 - 0.5 * cos(turn_t / TURN_TIME * TAU * 2.0)
 			c.draw_rect(Rect2(SLOT_X[k] - 3, SLOT_Y - 3, PANEL.x + 6, PANEL.y + 6), Color(PAPER_HI, a), false, 3.0)
-		# the pencil tally on its slip under the panel
-		var cx: float = SLOT_X[k] + PANEL.x / 2.0
-		var slip := Rect2(cx - 52, 626, 104, 36)
-		_slip(c, slip, false)
-		_ctext(c, R10Sim.lamp_tally(x), cx, 652, 22, GRAPHITE, Ink.hand())
 	# the edge break: a violet dashed bracket and an ink cross over the pair that doesn't run on
 	if r.edge_break >= 0 and r.edge_break < 3:
 		var k := r.edge_break
@@ -1191,11 +1326,11 @@ func _draw_contact(c: CanvasItem) -> void:
 		if clamp_t >= 0.0:
 			y = lerpf(CLAMP_Y - 70.0, CLAMP_Y, smoothstep(0.0, 1.0, clamp_t / CLAMP_TIME))
 		_sprite(c, "c_clamp", Vector2(CLAMP_X, y))
-	# the film edge's date, and after the cover its pencilled note
-	var date_slip := Rect2(1150, 572, 108, 32)
-	_slip(c, date_slip, false)
-	_rtext(c, "18 OCT 1927", date_slip, 20, INK, narrow)
-	if st.cover_off:
+	# the film edge's date and its pencilled note, once the cover has slid off
+	if date_shown():
+		var date_slip := Rect2(1150, 572, 108, 32)
+		_slip(c, date_slip, false)
+		_rtext(c, "18 OCT 1927", date_slip, 20, INK, narrow)
 		var note := Rect2(194, 574, 104, 30)
 		_slip(c, note, false)
 		_rtext(c, "Sync: bell.", note, 18, GRAPHITE, Ink.hand())
@@ -1226,7 +1361,45 @@ func _draw_contact(c: CanvasItem) -> void:
 			_brackets(c, Rect2(pos, Vector2(w, h)), BRASS, 8.0)
 	var ra := reflection_alpha()
 	if ra > 0.0:
-		_full(c, "c_reflection", ra)
+		_draw_reflection(c, ra)
+	if cg_t >= 0.0:
+		_brackets(c, cg_rect, INK, 10.0)
+
+## The reflection in the glass, in the emptied lower tray: eight empty chairs in a row in flat
+## ink, and one standing figure outside the row, with no head detail. Fixed geometry.
+func _draw_reflection(c: CanvasItem, a: float) -> void:
+	var g := REFL_INSET
+	c.draw_rect(Rect2(g.position + Vector2(4, 6), g.size), Color(0.05, 0.08, 0.1, 0.3 * a))
+	c.draw_rect(g, Color(GLASS, a))
+	var ink := Color(INK, a)
+	var floor_y := g.end.y - 22.0
+	c.draw_line(Vector2(g.position.x + 6, floor_y), Vector2(g.end.x - 6, floor_y), Color(STORM, 0.5 * a), 2.0)
+	for k in 8:
+		_mini_chair(c, g.position.x + 13.0 + 14.5 * k, floor_y, ink)
+	# the standing figure, past the end of the row: taller than the chairs by more than twice
+	var fx := g.end.x - 18.0
+	var body := PackedVector2Array([Vector2(fx - 9, floor_y), Vector2(fx - 11, floor_y - 52),
+		Vector2(fx - 13, floor_y - 92), Vector2(fx - 8, floor_y - 100), Vector2(fx + 8, floor_y - 100),
+		Vector2(fx + 13, floor_y - 92), Vector2(fx + 11, floor_y - 52), Vector2(fx + 9, floor_y)])
+	c.draw_colored_polygon(body, ink)
+	c.draw_rect(Rect2(fx - 3.5, floor_y - 106, 7, 8), ink)
+	c.draw_colored_polygon(Ink.ellipse(Vector2(fx, floor_y - 114), 8.0, 10.0, 20), ink)
+	# the glass: one diagonal gleam and an ink rim
+	var p0 := g.position
+	c.draw_colored_polygon(PackedVector2Array([p0 + Vector2(96, 0), p0 + Vector2(122, 0), p0 + Vector2(38, 120),
+		p0 + Vector2(12, 120)]), Color(PAPER_HI, 0.22 * a))
+	c.draw_rect(g, Color(BRASS_LO, a), false, 5.0)
+	c.draw_rect(g.grow(-3), ink, false, 1.6)
+
+## One empty chair, front view, flat: back posts and rail, seat, two legs, 12 px wide.
+func _mini_chair(c: CanvasItem, cx: float, floor_y: float, col: Color) -> void:
+	var seat := floor_y - 20.0
+	c.draw_rect(Rect2(cx - 6, seat - 24, 2.4, 24), col)
+	c.draw_rect(Rect2(cx + 3.6, seat - 24, 2.4, 24), col)
+	c.draw_rect(Rect2(cx - 6, seat - 24, 12, 4), col)
+	c.draw_rect(Rect2(cx - 7, seat, 14, 3.2), col)
+	c.draw_rect(Rect2(cx - 6.5, seat + 3, 2.4, 17), col)
+	c.draw_rect(Rect2(cx + 4.1, seat + 3, 2.4, 17), col)
 
 # --- c_folders ----------------------------------------------------------------------------
 func _rec_at(c: CanvasItem, rec: String, pos: Vector2, s := 1.0, a := 1.0) -> void:
@@ -1305,7 +1478,13 @@ func _draw_folders(c: CanvasItem) -> void:
 	# the release: its printed panel either side of the knob, the lever, the slip below
 	_ctext(c, "TRAINING", TRAINING_AT.x, TRAINING_AT.y, 17, INK, narrow)
 	_ctext(c, "RELEASE", RELEASE_AT.x, RELEASE_AT.y, 17, INK, narrow)
-	_sprite(c, "c_lever_down" if lever_down() else "c_lever_up", LEVER_POS)
+	var lk := lever_k()
+	if lk <= 0.0:
+		_sprite(c, "c_lever_up", LEVER_POS)
+	elif lk >= 1.0:
+		_sprite(c, "c_lever_down", LEVER_POS)
+	else:
+		_draw_lever(c, lk)
 	_slip(c, RELEASE_SLIP)
 	_cpara(c, "Training model. Release returns all records.", RELEASE_SLIP.get_center().x,
 		RELEASE_SLIP.position.y + 25, 17, INK, RELEASE_SLIP.size.x - 16, narrow_reg, 1.15)
@@ -1313,6 +1492,26 @@ func _draw_folders(c: CanvasItem) -> void:
 		_slip(c, INDEX_CARD)
 		_cpara(c, "THE STATION INDEX RETAINED EIGHT SUBJECTS THROUGH THESE THREE CORRESPONDENCES. 18.X.27.",
 			INDEX_CARD.get_center().x, INDEX_CARD.position.y + 30, 20, INK, INDEX_CARD.size.x - 28, narrow, 1.2)
+
+## The release lever mid-pull (R10.py lever()): the knob travels from above the pivot boss
+## to below it, the arm shortening through the boss as it swings toward her.
+func _draw_lever(c: CanvasItem, k: float) -> void:
+	var cx := LEVER_POS.x + 60.0
+	var cy := LEVER_POS.y + 85.0
+	var ty := lerpf(LEVER_POS.y + 20.0, LEVER_POS.y + 150.0, smoothstep(0.0, 1.0, k))
+	var top := minf(cy, ty)
+	var bot := maxf(cy, ty)
+	if bot - top > 1.0:
+		var arm := Rect2(cx - 9, top, 18, bot - top)
+		c.draw_rect(arm, BRASS)
+		c.draw_rect(arm, INK, false, 2.6)
+	c.draw_circle(Vector2(cx, ty), 18.3, INK)
+	c.draw_circle(Vector2(cx, ty), 17.0, EBONITE)
+	c.draw_circle(Vector2(cx, cy), 25.3, INK)
+	c.draw_circle(Vector2(cx, cy), 24.0, BRASS_LO)
+	c.draw_circle(Vector2(cx, cy), 13.0, BRASS_HI)
+	c.draw_arc(Vector2(cx, cy), 13.0, 0.0, TAU, 24, INK, 1.8)
+	c.draw_circle(Vector2(cx, cy), 5.0, BRASS)
 
 ## Index tabs along the NAME leaf's lower edge, the same as the STAFF drawer's: uneven heights,
 ## each leaning its own way.
@@ -1381,7 +1580,7 @@ func mirror_staff() -> Array:
 	return [[ids[w], 1.0]]
 
 func _draw_mirror(c: CanvasItem) -> void:
-	var plate := _tex("view_b_s5" if _band() >= 5 else "view_b")
+	var plate := _tex("view_b_t%d" % tide_n())
 	c.draw_set_transform(MIRROR.position + Vector2(MIRROR.size.x, 0), 0.0, Vector2(-1, 1))
 	var dst := Rect2(Vector2.ZERO, MIRROR.size)
 	if plate:

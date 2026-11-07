@@ -9,6 +9,7 @@ const EXPECT_REQUIRES := ["P15"]
 ## First tide at whose start the room is reachable from the office by real gates.
 const OPEN_TIDE := 6
 const VIEW_PATH := "res://game/rooms/R10/R10_view.gd"
+const RV := preload("res://game/rooms/R10/R10_view.gd")
 
 ## Reference tables written from the cards, independent of R10Sim's constants.
 const REF_SOLUTION := ["B", "D", "A", "C"]
@@ -16,6 +17,10 @@ const REF_FIRST := {"B": 1, "D": 5, "A": 9, "C": 13}
 const REF_LAMPS := {"B": 8, "D": 6, "A": 3, "C": 0}
 const REF_WORD := {8: "Eight", 6: "Six", 3: "Three", 0: "None"}
 const REF_WORD_LC := {8: "eight", 6: "six", 3: "three", 0: "none"}
+const REF_COUNT := {2: "two", 3: "three"}
+## P18's reveal chain (the owner's three lines).
+const P18_CHAIN := ["The folders shut on her, all three.", "The STAFF drawer slides open on its own.",
+	"I pull the release. Venn's drawer opens."]
 const RECS := ["nora_frame", "nora_spatial_strip", "nora_register_card"]
 const REF_HOME := {"nora_frame": "BODY", "nora_spatial_strip": "PLACE", "nora_register_card": "NAME"}
 const FOLDER_IDS := {"BODY": "fold_body", "PLACE": "fold_place", "NAME": "fold_name"}
@@ -73,6 +78,8 @@ func run_tests() -> void:
 	test_flag_adoption()
 	test_malformed_saves()
 	test_chain_scripts()
+	await test_view_presentation()
+	await test_view_p18_staging()
 	if _view_ready():
 		await view_checks(ROOM)
 	else:
@@ -224,8 +231,12 @@ func expected_break(order: Array) -> Array:
 		if REF_FIRST[y] != REF_FIRST[x] + 4:
 			var lx: int = REF_LAMPS[x]
 			var ly: int = REF_LAMPS[y]
-			var tail := "Lamps don't come back on." if ly > lx else "Some went out between them."
-			return [k, "Frame %d, then frame %d. %s lit, then %s. %s" % [REF_FIRST[x] + 3, REF_FIRST[y],
+			var tail := "lamps don't come back on."
+			if ly < lx:
+				# the lamps that went out before the panel she skipped
+				var gone: int = lx - REF_LAMPS[REF_SOLUTION[REF_SOLUTION.find(x) + 1]]
+				tail = "%s lamps went out between them that I haven't got." % REF_COUNT[gone]
+			return [k, "Frame %d, then frame %d. %s, %s: %s" % [REF_FIRST[x] + 3, REF_FIRST[y],
 				REF_WORD[lx], REF_WORD_LC[ly], tail]]
 	return [-1, ""]
 
@@ -252,8 +263,9 @@ func test_p16_orders() -> void:
 		check(g.has_item("chart_clips"), "%s: clips kept" % [order])
 	check(clipped == 1, "only one order clips")
 	# Spot checks against the card's wording.
-	check(expected_break(["B", "A", "D", "C"])[1] == "Frame 4, then frame 9. Eight lit, then three. Some went out between them.", "B then A")
-	check(expected_break(["C", "B", "D", "A"])[1] == "Frame 16, then frame 1. None lit, then eight. Lamps don't come back on.", "C then B")
+	check(expected_break(["B", "A", "D", "C"])[1] == "Frame 4, then frame 9. Eight, three: two lamps went out between them that I haven't got.", "B then A")
+	check(expected_break(["B", "D", "C", "A"])[1] == "Frame 8, then frame 13. Six, none: three lamps went out between them that I haven't got.", "D then C (the card's frame 8, then 13)")
+	check(expected_break(["C", "B", "D", "A"])[1] == "Frame 16, then frame 1. None, eight: lamps don't come back on.", "C then B")
 
 func test_p16_incomplete() -> void:
 	for n in 4:
@@ -358,10 +370,11 @@ func test_p16_panel_handling() -> void:
 	check(says(ev) == "The contact table. Four panels of one night, and a cover pinned over the faces." and r.has_seen("contact_table"), "first table line")
 	ev = g.dispatch("loose_a")
 	check(r.held == "A" and has_ev(ev, "sfx", "panel_pick") and r.has_seen("panel_a"), "pick A")
-	check(says(ev) == "Panel A. Frames 9 to 12. The clock behind the chairs says 21:40. Three lamps lit.", "panel A line (got %s)" % says(ev))
-	check(says(g.dispatch("loose_b")) == "Panel B. Frames 1 to 4. The clock behind the chairs says 21:00. All eight lamps lit.", "swap to B")
+	# Picking a panel up names it and nothing else: no frames, clock or lamps (the sort key).
+	check(says(ev) == "Panel A.", "panel A line (got %s)" % says(ev))
+	check(says(g.dispatch("loose_b")) == "Panel B.", "swap to B")
 	check(r.held == "B" and r.loose_letters() == ["A", "C", "D"], "A back with the loose ones")
-	check(says(g.dispatch("loose_c")).ends_with("No lamps lit.") and says(g.dispatch("loose_d")).ends_with("Six lamps lit."), "C and D lines")
+	check(says(g.dispatch("loose_c")) == "Panel C." and says(g.dispatch("loose_d")) == "Panel D.", "C and D lines")
 	g.dispatch("loose_d")
 	check(r.held == "", "D put down")
 	check(says(g.dispatch("slot_3")) == "Slot 3. Empty.", "empty slot")
@@ -379,7 +392,7 @@ func test_p16_panel_handling() -> void:
 	g.dispatch("back")
 	check(r.held == "" and r.loose_letters() == ["B", "C", "D"], "leaving drops the hand")
 	check(says(g.dispatch("contact_table")) == "The contact table.", "later visit")
-	check(r.edge_numbers("C") == [13, 14, 15, 16] and r.lamp_tally("D") == "6 lit" and r.panel_clock("A") == "21:40", "panel helpers")
+	check(r.edge_numbers("C") == [13, 14, 15, 16] and r.lamps_lit("D") == 6 and r.panel_clock("A") == "21:40", "panel helpers")
 	g = fresh()
 	solve_p16(g)
 	g.dispatch("back")
@@ -533,13 +546,22 @@ func test_p18_success() -> void:
 	check(r.state.filed.values() == ["", "", ""] and r.state.tray.is_empty(), "folders empty")
 	check(r.strip_text == "SUBJECT COMPLETE", "strip")
 	var lines := says(ev).split(" | ")
-	check(lines.size() == 7 and lines[0] == "The folders shut on her. All three."
-		and lines[1] == "Behind me, the STAFF drawer slid open on its own. Every tab inside moved at once.", "chain (drawer was shut)")
+	check(Array(lines) == P18_CHAIN, "chain (drawer was shut): three lines (got %s)" % [lines])
+	for k in 3:
+		check(ev.any(func(e): return e.type == "say" and e.get("text", "") == P18_CHAIN[k] and e.get("story", false)),
+			"chain line %d is a story line" % k)
+	var order := []
+	for e in ev:
+		if e.type == "fx" and e.id in ["index_close", "release", "records_back", "glance"]:
+			order.append(e.id)
+	check(order == ["index_close", "release", "records_back", "glance"], "staged: flaps, release, records, glance (got %s)" % [order])
 	var glance := {}
 	for e in ev:
 		if e.type == "fx" and e.id == "glance":
 			glance = e
-	check(glance.get("target", "") == "correspondence_drawer", "glance at Venn's drawer")
+	check(glance.get("target", "") == "correspondence_drawer" and glance.get("rect", []) == R10Sim.GLANCE_DRAWER
+		and glance.get("also", []) == R10Sim.GLANCE_STAFF, "glance at STAFF and Venn's drawer")
+	check(r.local_view == "c_folders", "she stays at the folders through COMPARE")
 	ev = g.dispatch("compare")
 	check(says(ev) == "It's done its demonstration. I won't file her again." and r.strip_text == "SUBJECT COMPLETE"
 		and not has_ev(ev, "fx", "item_added"), "compare again")
@@ -552,7 +574,7 @@ func test_p18_success() -> void:
 	play(g, ["back", "staff_drawer", "folders"])
 	file_all_correct(g)
 	set_date(g, "18 OCT 1927")
-	check("Behind me, every tab in the STAFF drawer moved at once. Like a breath." in says(g.dispatch("compare")), "chain (drawer was open)")
+	check(says(g.dispatch("compare")) == "The folders shut on her, all three. | Every tab in the STAFF drawer moves at once. | I pull the release. Venn's drawer opens.", "chain (drawer was open)")
 
 func test_p18_returns() -> void:
 	var g := folders_game()
@@ -1200,3 +1222,122 @@ func test_chain_scripts() -> void:
 	check(g.flag("P23") and g.has_item("witness_bridge"), "chain P23")
 	for o in ["contact_sheet_1927", "index_protocol", "witness_test"]:
 		check(g.has_seen(ROOM, o), "chain: %s noted" % o)
+
+# ---------------------------------------------------------------------------------------------
+# view: presentation of P16, P18 and the tide plates (scene-level, timing driven by tick)
+# ---------------------------------------------------------------------------------------------
+func _vault_scene(path: String, jump: int, motion := true) -> Array:
+	var scene = new_scene(path)
+	await process_frame
+	scene.sim.settings.motion = motion
+	scene.room_jump(ROOM, jump)
+	await process_frame
+	return [scene, scene.room_view, scene.room_sim()]
+
+func test_view_presentation() -> void:
+	var t: Array = await _vault_scene("user://room_test_R10_view.json", 1)
+	var scene = t[0]
+	var v = t[1]
+	var r: R10Sim = t[2]
+	# The tide plates exist; the bay deepens and the bed loop sits low.
+	for side in ["a", "b"]:
+		for n in range(6, 10):
+			check(ResourceLoader.exists("res://assets/rooms/R10/view_%s_t%d.png" % [side, n]), "plate view_%s_t%d" % [side, n])
+	check(scene.sim.tide() == 6 and v.plate_id() == "view_a_t6" and v.bay_frames() == 6 and not v.bay_doorway(), "tide VI: six frames")
+	check(is_equal_approx(v.loop_targets()["r10_room"], 0.4), "bed loop 0.4 below band 7")
+	# P16 on the table: numbers only where placed panels meet; no date before the cover.
+	scene.room_jump(ROOM, 2)
+	scene.dispatch("contact_table")
+	check(r.local_view == "c_contact", "view: at the contact table")
+	check(v.edge_cells() == {0: [3], 1: [0, 3], 2: [0, 3], 3: [0]}, "edge numbers at the three joins (got %s)" % [v.edge_cells()])
+	check(not v.date_shown(), "no date while the cover is on")
+	scene.dispatch("slot_2")
+	check(v.edge_cells() == {0: [], 2: [3], 3: [0]}, "a gap shows no numbers either side (got %s)" % [v.edge_cells()])
+	scene.dispatch("slot_2")
+	check(2.0 * RV.LAMP_R * RV.LOOSE_SCALE >= 8.0, "a lamp is at least 8 px across on the felt")
+	check(R10Sim.lamps_lit("B") == 8 and R10Sim.lamps_lit("C") == 0, "lamps drawn from the sim's counts")
+	scene.dispatch("item:chart_clips")
+	scene.dispatch("clip")
+	scene.dispatch("cover")
+	check(r.state.p16_complete and not v.date_shown(), "P16: the date waits for the slide")
+	v.tick(RV.COVER_TIME + 0.05)
+	check(v.date_shown(), "the date shows once the cover is off")
+	var f16: Rect2 = v.frame16_rect()
+	check(v.cg_t >= 0.0 and v.cg_rect == f16, "the glance goes to frame 16")
+	check(Rect2(RV.SLOT_X[3], RV.SLOT_Y, 280, 360).encloses(f16) and f16.size.y >= 90.0, "frame 16 is panel C's last seat in slot 4")
+	v.tick(RV.GLANCE_TIME + 0.05)
+	check(v.cg_t < 0.0, "the glance lasts 2.5 s")
+	v._begin("last_turn")
+	v.tick(RV.TURN_TIME + 0.05)
+	check(v.last_blank()[0][0] == "c_blank_t2", "frame 16 has turned")
+	v._begin("reflection")
+	v.tick(RV.REFL_TIME + 0.05)
+	check(v.reflection_alpha() == 1.0, "the reflection is up")
+	var inset: Rect2 = RV.REFL_INSET
+	check(inset.size == Vector2(160, 220) and inset.end.y <= 860.0 and inset.position.y >= 620.0, "the reflection inset sits in the lower tray")
+	await free_scene(scene)
+	# Motion off: the glance and the date at once.
+	t = await _vault_scene("user://room_test_R10_still.json", 3, false)
+	scene = t[0]
+	v = t[1]
+	scene.dispatch("contact_table")
+	scene.dispatch("cover")
+	check(v.date_shown() and v.cg_t >= 0.0, "Motion off: date and frame-16 glance at once")
+	await free_scene(scene)
+	# Tides VII, VIII and IX: the bay and the plates.
+	t = await _vault_scene("user://room_test_R10_tides.json", 6)
+	scene = t[0]
+	v = t[1]
+	scene.sim.set_flag("P17")
+	check(scene.sim.tide() == 7 and v.plate_id() == "view_a_t7" and v.bay_frames() == 9 and not v.bay_doorway(), "tide VII: nine frames")
+	scene.room_jump(ROOM, 7)
+	v = scene.room_view
+	check(scene.sim.tide() == 8 and v.plate_id() == "view_a_t8" and v.bay_frames() == 14 and v.bay_doorway(), "tide VIII: fourteen frames, the lit doorway")
+	scene.room_jump(ROOM, 9)
+	v = scene.room_view
+	check(scene.sim.tide() == 9 and v.plate_id() == "view_a_t9" and v.bay_frames() == 14 and v.bay_doorway(), "tide IX: the same depth")
+	check(is_equal_approx(v.loop_targets()["r10_room"], 0.45), "bed loop 0.45 at band 7")
+	scene.dispatch("to_catalogue")
+	check(v.plate_id() == "view_b_t9", "view B: the tide IX plate")
+	await free_scene(scene)
+
+func test_view_p18_staging() -> void:
+	for motion in [true, false]:
+		var t: Array = await _vault_scene("user://room_test_R10_p18.json", 5, motion)
+		var scene = t[0]
+		var v = t[1]
+		var r: R10Sim = t[2]
+		if r.local_view != "c_folders":
+			if r.local_view != "catalogue":
+				scene.dispatch("to_catalogue")
+			scene.dispatch("folders")
+		scene.dispatch("day_up")
+		for i in 4:
+			scene.dispatch("year_dn")
+		scene.dispatch("compare")
+		var tag := "motion %s" % motion
+		check(r.state.p18_complete and r.local_view == "c_folders", "%s: P18, still at the folders" % tag)
+		check(v.seq_on and v.lever_k() == 0.0 and not v.lever_down(), "%s: the lever waits up" % tag)
+		v._begin("index_close")
+		v.tick(0.05)
+		if motion:
+			check(v.leaf_closed(0) > 0.0 and v.leaf_closed(2) < 1.0, "%s: the flaps swing shut" % tag)
+			v.tick(2.0)
+		check(v.leaf_closed(0) == 1.0 and v.leaf_closed(1) == 1.0 and v.leaf_closed(2) == 1.0, "%s: all three flaps shut" % tag)
+		v._begin("release")
+		v.tick(0.2)
+		if motion:
+			check(v.lever_k() > 0.0 and v.lever_k() < 1.0, "%s: the lever mid-pull (%f)" % [tag, v.lever_k()])
+			v.tick(0.3)
+		check(v.lever_down(), "%s: the lever down" % tag)
+		v._begin("records_back")
+		v.tick(1.0)
+		scene.dispatch("back")
+		check(r.local_view == "catalogue", "%s: back at the catalogue" % tag)
+		check(v.start_glance("correspondence_drawer", Rect2()) and v.b_glance() == "staff", "%s: the glance shows STAFF first" % tag)
+		check("b_drawer_open" not in v.overlay_ids(), "%s: Venn's drawer still shut while STAFF is shown" % tag)
+		v.tick(RV.GLANCE_TIME / 2.0 + 0.05)
+		check(v.b_glance() == "drawer" and "b_drawer_open" in v.overlay_ids(), "%s: then Venn's drawer, open" % tag)
+		v.tick(RV.GLANCE_TIME)
+		check(v.b_glance() == "" and "b_drawer_open" in v.overlay_ids(), "%s: the glance ends, the drawer stays open" % tag)
+		await free_scene(scene)

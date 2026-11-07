@@ -42,7 +42,7 @@ const EDGE_FIRST := {"B": 1, "D": 5, "A": 9, "C": 13}
 const LAMPS := {"B": 8, "D": 6, "A": 3, "C": 0}
 const CLOCK := {"B": "21:00", "D": "21:20", "A": "21:40", "C": "22:00"}
 const LAMP_WORD := {8: "eight", 6: "six", 3: "three", 0: "none"}
-const LAMP_LINE := {8: "All eight lamps lit.", 6: "Six lamps lit.", 3: "Three lamps lit.", 0: "No lamps lit."}
+const COUNT_WORD := {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight"}
 const CLIPPED_HOLDS := "Clipped. It holds."
 const COVER_REGISTERED := "The cover's registered to the edge. It won't slide until the edge is clipped."
 const COVER_OFF := "The cover's off. They stay uncovered."
@@ -91,6 +91,11 @@ const STRIP_NOT_YET := "DATE DOES NOT CORRESPOND.\nNOT YET."
 const FOLDERS_DONE := "It's done its demonstration. I won't file her again."
 const SHEET_DATE := "The sheet only gives the date. 18 October 1927."
 const GLANCE_DRAWER := [100, 680, 240, 120]
+## P18's reveal chain, three lines (the folders' card and the records' return are shown).
+const P18_SHUT := "The folders shut on her, all three."
+const P18_STAFF_OPENS := "The STAFF drawer slides open on its own."
+const P18_STAFF_RIFFLE := "Every tab in the STAFF drawer moves at once."
+const P18_RELEASE := "I pull the release. Venn's drawer opens."
 
 # --- P23: the Index model --------------------------------------------------------------------
 const SHUTTER_LINE := "A brass shutter over the terminals. A hollow circle on it: OBSERVER. No keyhole this side. It opens from the other side."
@@ -243,6 +248,10 @@ func objective() -> String:
 func band() -> int:
 	return game.weather_band()
 
+## The current tide (VI on arrival). The vault's bay deepens and its paper darkens with it.
+func tide() -> int:
+	return game.tide()
+
 func slot_letters() -> Array:
 	return state.slots
 
@@ -258,8 +267,9 @@ static func edge_numbers(letter: String) -> Array:
 	var n: int = EDGE_FIRST[letter]
 	return [n, n + 1, n + 2, n + 3]
 
-static func lamp_tally(letter: String) -> String:
-	return "%d lit" % LAMPS[letter]
+## How many of panel `letter`'s chair lamps are lit (the view draws them; nobody says it).
+static func lamps_lit(letter: String) -> int:
+	return LAMPS[letter]
 
 static func panel_clock(letter: String) -> String:
 	return CLOCK[letter]
@@ -602,10 +612,10 @@ func _contact(action: String, ev: Array) -> void:
 	else:
 		_say(ev, "Slot %d. Empty." % (k + 1))
 
+## Picking a panel up names it and nothing else: the frame numbers, the clock and the lamps
+## are hers to read off the panel.
 static func _panel_line(x: String) -> String:
-	var n: int = EDGE_FIRST[x]
-	return "Panel %s. Frames %d to %d. The clock behind the chairs says %s. %s" % [x, n, n + 3, CLOCK[x],
-		LAMP_LINE[LAMPS[x]]]
+	return "Panel %s." % x
 
 ## The first break in `slots` (four distinct panels): the k whose pair k, k + 1 does not run
 ## on. -1 when the edge is continuous from frame 1.
@@ -618,12 +628,20 @@ static func first_break(slots: Array) -> int:
 		return 0
 	return -1
 
+## The clip's refusal for panel x followed by panel y: the break in the film edge, then the
+## lamps as the independent check (the card: "Frame 8, then frame 13." and "Eight, three: two
+## lamps went out between them that I haven't got."). A falling pair that breaks the edge
+## always skips a panel; the lamps "I haven't got" are the ones that went out before it.
 static func break_line(x: String, y: String) -> String:
 	var lx: int = LAMPS[x]
 	var ly: int = LAMPS[y]
 	var word: String = LAMP_WORD[lx]
-	var lamp := "%s lit, then %s. " % [word.substr(0, 1).to_upper() + word.substr(1), LAMP_WORD[ly]]
-	lamp += "Lamps don't come back on." if ly > lx else "Some went out between them."
+	var lamp := "%s, %s: " % [word.substr(0, 1).to_upper() + word.substr(1), LAMP_WORD[ly]]
+	if ly > lx:
+		lamp += "lamps don't come back on."
+	else:
+		var gone: int = lx - LAMPS[SOLUTION[SOLUTION.find(x) + 1]]
+		lamp += "%s lamps went out between them that I haven't got." % COUNT_WORD[gone]
 	return "Frame %d, then frame %d. %s" % [EDGE_FIRST[x] + 3, EDGE_FIRST[y], lamp]
 
 func _clip(ev: Array) -> void:
@@ -810,28 +828,24 @@ func _solve_p18(ev: Array) -> void:
 	_observe("index_protocol")
 	_observe("venn_drawer_open")
 	strip_text = STRIP_COMPLETE
+	# Staged in c_folders: the flaps shut on her records, the STAFF drawer is heard, she pulls
+	# the release and they come back; then the glance shows STAFF and Venn's drawer.
 	_sfx(ev, "strip_print", 0.2)
 	_fx(ev, "index_close", {"delay": 0.8})
 	_sfx(ev, "index_close", 0.8)
-	_say(ev, "The folders shut on her. All three.", 1.0, true)
+	_say(ev, P18_SHUT, 1.0, true)
 	_sfx(ev, "tabs_riffle", 4.2)
 	_fx(ev, "riffle", {"delay": 4.2})
-	if was_open:
-		_say(ev, "Behind me, every tab in the STAFF drawer moved at once. Like a breath.", 4.4, true)
-	else:
-		_say(ev, "Behind me, the STAFF drawer slid open on its own. Every tab inside moved at once.", 4.4, true)
-	_say(ev, "TRAINING RELEASE. 'Release returns all records.' I pull it.", 7.4, true)
+	_say(ev, P18_STAFF_RIFFLE if was_open else P18_STAFF_OPENS, 4.4, true)
 	_fx(ev, "release", {"delay": 7.6})
 	_sfx(ev, "release_lever", 7.6)
-	_sfx(ev, "records_return", 10.2)
-	_fx(ev, "records_back", {"delay": 10.2})
-	_say(ev, "They come back. Frame, strip, card. Nothing on them has changed.", 10.2, true)
-	_say(ev, "The card under the release: 'THE STATION INDEX RETAINED EIGHT SUBJECTS THROUGH THESE THREE CORRESPONDENCES. 18.X.27.' It did this to all eight.", 13.0, true)
-	_sfx(ev, "drawer_self", 17.0)
-	_say(ev, "Across the vault, a drawer opened by itself. Venn's.", 17.0, true)
-	_sfx(ev, "letters_take", 19.6)
-	_say(ev, "His letters. A clipping from the 1929 inquiry. The contract. All addressed to me.", 19.6, true)
-	_fx(ev, "glance", {"rect": GLANCE_DRAWER.duplicate(), "target": "correspondence_drawer"})
+	_say(ev, P18_RELEASE, 7.6, true)
+	_sfx(ev, "records_return", 8.4)
+	_fx(ev, "records_back", {"delay": 8.4})
+	_sfx(ev, "drawer_self", 9.4)
+	_sfx(ev, "letters_take", 10.4)
+	_fx(ev, "glance", {"rect": GLANCE_DRAWER.duplicate(), "target": "correspondence_drawer",
+		"also": GLANCE_STAFF.duplicate()})
 
 # ---------------------------------------------------------------------------------------------
 # P23: c_model

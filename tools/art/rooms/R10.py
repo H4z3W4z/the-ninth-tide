@@ -10,6 +10,11 @@ Writes, and only writes, assets/rooms/R10/*.png:
                       breaks through the wall, index cards drift across the floor to it, and more
                       bays continue past the room's own corner)
   view_b, view_b_s5   the catalogue wall (1448x1086 opaque): band 4, and bands 5-7
+  view_a_t6..t9, view_b_t6..t9
+                      the tide plates the view draws (Tides VI-IX): the band features above for
+                      that tide, the wallpaper one step darker toward storm navy per tide, and
+                      view A's shelf bay deepening (6 nested frames at VI, 9 at VII, 14 from
+                      VIII, the innermost then a lit doorway with the ninth photograph's chair)
   a_panels_loose, a_sheet_assembled, a_photos_turned, a_ninth_photo, a_mercer_card
                       view A overlays (full-plate RGBA, registered)
   b_staff_open, b_aperture_1, b_aperture_2, b_tabs_riffle, b_drawer_open, b_terminals,
@@ -364,6 +369,16 @@ TIDE_Y = 512                # the office's tide line height (painter_1.TIDE_Y)
 RIPPLE_Y = 300              # band 4: where the stripes ripple once, the sea heard through the wall
 
 
+# Tide plates (view_*_t6..t9): the wallpaper darkens one step per tide from VI toward storm
+# navy. 0.0 (every older stem) leaves the colours exactly as they were.
+WALL_DARK_STEP = 0.12
+_wall_dark = 0.0
+
+
+def wall(c):
+    return mix(c, STORM, _wall_dark) if _wall_dark else c
+
+
 def stripe_dx(y, lean=0.0, ripple=0.0):
     """x offset of a wallpaper stripe at height y. `lean` tips the stripe's top toward the left
     (px per 100 px of height above the dado); `ripple` is one damped wave about RIPPLE_Y."""
@@ -382,8 +397,8 @@ def wall_stripes(p, x_from=8, lean=0.0, ripple=0.0, top=CEIL_Y + 22, bot=DADO_Y)
     while x < W + 80:
         left = [(x + stripe_dx(y, lean, ripple), y) for y in ys]
         right = [(x + 12 + stripe_dx(y, lean, ripple), y) for y in ys]
-        lay.poly(left + right[::-1], WALL_STRIPE, None)
-        lay.line([(x + 22 + stripe_dx(y, lean, ripple), y) for y in ys], WALL_STRIPE, 1.4)
+        lay.poly(left + right[::-1], wall(WALL_STRIPE), None)
+        lay.line([(x + 22 + stripe_dx(y, lean, ripple), y) for y in ys], wall(WALL_STRIPE), 1.4)
         x += 64
     p.put(lay, 0.75)
 
@@ -396,7 +411,7 @@ def shell(p, rng, lean=0.0, ripple=0.0):
     p.rect(-4, CEIL_Y - 4, W + 4, CEIL_Y + 14, TRIM, INK, 3.4)
     p.line([(-4, CEIL_Y + 2), (W + 4, CEIL_Y + 2)], TRIM_HI, 1.6)
     p.rect(-4, CEIL_Y + 14, W + 4, CEIL_Y + 22, mix(TRIM, INK, 0.4), INK, 2)
-    p.rect(-4, CEIL_Y + 22, W + 4, DADO_Y, WALLPAPER, None)
+    p.rect(-4, CEIL_Y + 22, W + 4, DADO_Y, wall(WALLPAPER), None)
     wall_stripes(p, lean=lean, ripple=ripple)
     # a gentle seeded mottle so the paper is not flat
     mot = p.layer(PAPER_HI)
@@ -740,6 +755,52 @@ def shelves(p):
     p.rect(SHELF[0] - 4, SHELF[3] - 2, SHELF[2] + 4, SHELF[3] + 10, OAK_DK, INK, 4.4)
 
 
+def bay_t(n):
+    """The nested frames' lerp positions for an n-frame bay: wide near frames, then each
+    further one thinner, never thinner than a few pixels."""
+    return tuple(1.0 - (1.0 - k / n) ** 1.5 for k in range(n))
+
+
+DOOR_CASING = 8
+DOOR_CHAIR = mix(SEPIA_DK, SEAGLASS, 0.45)     # the ninth photograph's chair
+
+
+def shelves_deep(p, n, doorway=False):
+    """The tide plates' shelf run: `n` nested frames from the near flat to the recess. With
+    `doorway` the recess is the innermost frame made a doorway: a casing round a lit opening
+    and in it, empty and sharp, the chair from the ninth photograph. The view's lamp dot and
+    the passer stay registered to RECESS."""
+    rng = rng_for(620)
+    rects = [lerp_rect(SHELF, RECESS, t) for t in bay_t(n)] + [RECESS]
+    x0, y0, x1, y1 = RECESS
+    if doorway:
+        c = DOOR_CASING
+        p.rect(x0, y0, x1, y1, mix(OAK, STORM, 0.35), INK, 2.4)
+        lit = (x0 + c, y0 + c, x1 - c, y1)
+        p.rect(*lit, mix(GLASS_LIT, AMBER, 0.28), None)
+        glow = p.layer(PAPER_HI)
+        glow.ell((x0 + x1) / 2, y1 - 40, 30, 46, PAPER_HI, None)
+        p.put_soft(glow, 10, 0.55)
+        fy = y1 - 6
+        p.rect(lit[0], fy, lit[2], y1, mix(GLASS_LIT, TIMBER, 0.35), None)
+        p.line([(lit[0], fy), (lit[2], fy)], mix(TIMBER, INK, 0.3), 1.4)
+        sc = 1.1
+        chair(p, (x0 + x1) / 2, fy - 30 * sc + 1, sc, col=DOOR_CHAIR, bh=40)
+        p.rect(*lit, None, INK, 2.2)
+        p.rect(x0, y0, x1, y1, None, INK, 2.6)
+    else:
+        p.rect(*RECESS, mix(STORM, SOOT, 0.35), INK, 2.4)
+    lx, ly = LAMP_FIT
+    p.line([(lx, y0 + (DOOR_CASING if doorway else 0) + 2), (lx, ly - 6)], STORM_HI if not doorway else INK, 1.4)
+    p.poly([(lx - 4, ly - 6), (lx + 4, ly - 6), (lx + 9, ly + 2), (lx - 9, ly + 2)],
+           STORM_HI if not doorway else BRASS_LO, None)
+    p.ell(lx, ly + 3.5, 2.2, 1.6, STORM_HI, None)
+    for k in range(len(rects) - 2, -1, -1):
+        shelf_flat(p, rng, rects[k], rects[k + 1], k)
+    p.rect(SHELF[0] + 6, SHELF[3] + 10, SHELF[2] - 6, FLOOR_Y, TIMBER_DK, INK, 4.4)
+    p.rect(SHELF[0] - 4, SHELF[3] - 2, SHELF[2] + 4, SHELF[3] + 10, OAK_DK, INK, 4.4)
+
+
 S7_BAYS = ((-60, 206, 100, 622), (-60, 258, 74, 566), (-60, 302, 52, 520), (-60, 338, 32, 486),
            (-60, 366, 14, 458))
 
@@ -762,11 +823,11 @@ def shelves_beyond(p):
 def corner(p, over=False):
     """The left wall corner: the side wall seen edge-on, a little darker, with its own rails."""
     if not over:
-        p.rect(-4, CEIL_Y + 22, CORNER_X, SKIRT_Y, WALL_SIDE, None)
+        p.rect(-4, CEIL_Y + 22, CORNER_X, SKIRT_Y, wall(WALL_SIDE), None)
         p.rect(-4, DADO_Y - 6, CORNER_X, DADO_Y + 10, mix(TRIM, INK, 0.3), INK, 2.4)
         p.rect(-4, DADO_Y + 10, CORNER_X, SKIRT_Y, mix(WAINSCOT, INK, 0.3), None)
     p.line([(CORNER_X, CEIL_Y + 18), (CORNER_X, FLOOR_Y)], INK, 3.2)
-    p.line([(CORNER_X + 3, CEIL_Y + 22), (CORNER_X + 3, FLOOR_Y)], mix(WALLPAPER, PAPER_HI, 0.4), 1.4)
+    p.line([(CORNER_X + 3, CEIL_Y + 22), (CORNER_X + 3, FLOOR_Y)], wall(mix(WALLPAPER, PAPER_HI, 0.4)), 1.4)
 
 
 CLOCK = (934, 112, 1084, 262)
@@ -1043,9 +1104,12 @@ def view_a_common(rng, stage=4):
     return p
 
 
-def paint_view_a(rng, stage=4):
+def paint_view_a(rng, stage=4, bays=None, doorway=False):
     p = view_a_common(rng, stage)
-    shelves(p)
+    if bays is None:
+        shelves(p)
+    else:
+        shelves_deep(p, bays, doorway)
     wall_clock(p)
     frieze(p)
     card_cabinet(p)
@@ -2288,12 +2352,40 @@ def paint_stamp(rng, style):
 
 # ----------------------------------------------------------------------------- the list
 
+# The tide plates: tide -> (band stage painted, bay frames, doorway). Wall darkening is one
+# WALL_DARK_STEP per tide from VI (VI one step ... IX four).
+TIDE_PLATES = {6: (4, 6, False), 7: (5, 9, False), 8: (5, 14, True), 9: (7, 14, True)}
+
+
+def tide_plate(side, tide):
+    stage, bays, door = TIDE_PLATES[tide]
+
+    def paint(rng):
+        global _wall_dark
+        _wall_dark = WALL_DARK_STEP * (tide - 5)
+        try:
+            if side == "a":
+                return paint_view_a(rng, stage, bays, door).done()
+            return paint_view_b(rng, stage).done()
+        finally:
+            _wall_dark = 0.0
+    return paint
+
+
 ASSETS = [  # name, seed index, painter, opaque, grain
     ("view_a", 0, lambda r: paint_view_a(r, 4), True, True),
     ("view_a_s5", 0, lambda r: paint_view_a(r, 5), True, True),
     ("view_a_s7", 0, lambda r: paint_view_a(r, 7), True, True),
     ("view_b", 10, lambda r: paint_view_b(r, 4), True, True),
     ("view_b_s5", 10, lambda r: paint_view_b(r, 5), True, True),
+    ("view_a_t6", 0, tide_plate("a", 6), True, True),
+    ("view_a_t7", 0, tide_plate("a", 7), True, True),
+    ("view_a_t8", 0, tide_plate("a", 8), True, True),
+    ("view_a_t9", 0, tide_plate("a", 9), True, True),
+    ("view_b_t6", 10, tide_plate("b", 6), True, True),
+    ("view_b_t7", 10, tide_plate("b", 7), True, True),
+    ("view_b_t8", 10, tide_plate("b", 8), True, True),
+    ("view_b_t9", 10, tide_plate("b", 9), True, True),
     ("a_panels_loose", 20, paint_a_panels_loose, False, False),
     ("a_sheet_assembled", 21, paint_a_sheet_assembled, False, False),
     ("a_photos_turned", 22, paint_a_photos_turned, False, False),
