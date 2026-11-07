@@ -31,6 +31,7 @@ func run_tests() -> void:
 	test_determinism()
 	test_service_door()
 	await view_checks(ROOM)
+	await test_view_presentation()
 
 # ---------------------------------------------------------------------------
 # helpers
@@ -396,3 +397,183 @@ func test_service_door() -> void:
 	var b := GameSim.new()
 	b.from_dict(g.to_dict())
 	check("R05" in b.reachable("R02") and not b.has_item("service_key"), "19: stays open after a load")
+
+# ---------------------------------------------------------------------------
+# view (presentation only: layer stacks, labels, mix, fx timelines)
+# ---------------------------------------------------------------------------
+## Puts a live scene's jetty in state `s` (through the room's own debug stages).
+func scene_in(scene, s: String) -> void:
+	match s:
+		"arrival": scene.room_jump(ROOM, 0)
+		"boat": scene.room_jump(ROOM, 1)
+		"s1": scene.room_jump(ROOM, 3)
+		"s2": scene.tide_jump(4, ROOM)
+		"s3": scene.room_jump(ROOM, 5)
+		"s4": scene.tide_jump(6, ROOM)
+		"s5": scene.room_jump(ROOM, 6)
+		"s6": scene.room_jump(ROOM, 7)
+		"s7": scene.room_jump(ROOM, 8)
+		"A": scene.room_jump(ROOM, 9)
+
+func layer_ids(v) -> Array:
+	var out := []
+	for l in v.layer_stack():
+		out.append(l[0])
+	return out
+
+func layer(v, id: String) -> Array:
+	for l in v.layer_stack():
+		if l[0] == id:
+			return l
+	return []
+
+func test_view_presentation() -> void:
+	var scene = new_scene("user://room_test_R01_view.json")
+	await process_frame
+	const BACK := {"arrival": "back_b0", "boat": "back_b0", "s1": "back_b1", "s2": "back_b2",
+		"s3": "back_b3", "s4": "back_b4", "s5": "back_b5", "s6": "back_b5", "s7": "back_b7",
+		"A": "back_end_a"}
+	for s in STATES:
+		scene_in(scene, s)
+		var v = scene.room_view
+		var r: R01Sim = scene.sim.room(ROOM)
+		check(r.jetty_state() == s, "V: the scene stands in %s (got %s)" % [s, r.jetty_state()])
+		var ids := layer_ids(v)
+		var n := R01Sim.rank(s)
+		check(ids[0] == BACK[s], "V: %s backdrop is %s" % [s, BACK[s]])
+		check(ids.has("fg_jetty") and ids.has("line"), "V: %s draws the jetty and the line" % s)
+		check(ids.has("stump") == (n >= 3), "V: %s stump only from s3" % s)
+		check(ids.has("bell_calm") == (s != "s7"), "V: %s bell disc" % s)
+		check(ids.has("lighthouse_roof") == (s == "s6"), "V: %s roof lighthouse only at s6" % s)
+		check(ids.has("surface_drift") == (s == "s7") and ids.has("station_window_figure") == (s == "s7"),
+			"V: %s surface and office figure only at s7" % s)
+		check(ids.has("launch_real") == (s == "A") and ids.has("boat") == (s == "boat"),
+			"V: %s the right vessel" % s)
+		check(ids.has("gangway_down") == (s == "boat") and (ids.has("gangway_up") != ids.has("gangway_down")),
+			"V: %s one gangway, down only for the boat" % s)
+		var rain := ids.filter(func(i): return i.begins_with("rain_"))
+		var want := "" if (n == 0 or n == 7 or s == "A") else ("rain_light" if n == 1 else "rain_heavy")
+		check((rain.is_empty() and want == "") or (rain.size() == 1 and rain[0].begins_with(want)),
+			"V: %s rain %s" % [s, want])
+		check(ids.has("station_lamp") == (scene.sim.flag("P01") and s != "A"), "V: %s office lamp follows P01" % s)
+		check(ids.has("station_lamp") == false or ids.find("station_lamp") > ids.find("fg_jetty"),
+			"V: %s the lamp sits over the painted station" % s)
+		var cap := ids.has("capsule_closed") or ids.has("capsule_open")
+		check(cap == (r.capsule_state() != "none"), "V: %s capsule drawn after P06" % s)
+		for l in v.layer_stack():
+			var m: Color = l[2]
+			check(m.r >= 0.85, "V: %s %s modulate stays at or above 0.85" % [s, l[0]])
+		var w := layer(v, "waves_0") if not layer(v, "waves_0").is_empty() else []
+		for k in 3:
+			if w.is_empty():
+				w = layer(v, "waves_%d" % k)
+		if n <= 6 and s != "A":
+			var a: float = w[2].a if not w.is_empty() else -1.0
+			var wa := 1.0 if n <= 2 else (0.8 if n <= 4 else 0.5)
+			check(is_equal_approx(a, wa), "V: %s waves alpha %.1f" % [s, wa])
+		else:
+			check(w.is_empty(), "V: %s no waves" % s)
+		# The mix follows the state; a close-up keeps it at 0.7x.
+		v.tick(0.016)
+		var tg: Dictionary = v.mixer.last_targets
+		check(tg == v.MIX[s], "V: %s loop targets" % s)
+	# Labels per state.
+	scene_in(scene, "boat")
+	var v = scene.room_view
+	check(v.label_for("launch") == "Boat" and v.label_for("stump") == "Past the jetty's end", "V: boat labels")
+	scene_in(scene, "arrival")
+	check(scene.room_view.label_for("launch") == "Open water", "V: open water before the boat")
+	scene_in(scene, "s3")
+	check(scene.room_view.label_for("stump") == "Tenth piling" and scene.room_view.label_for("line") == "Capsule",
+		"V: s3 labels")
+	scene_in(scene, "s6")
+	check(scene.room_view.label_for("roof_light") == "Lighthouse", "V: s6 roof label")
+	scene_in(scene, "A")
+	check(scene.room_view.label_for("launch") == "Launch", "V: A label")
+	# Hotspots never move, and each answers at its centre in every state.
+	for s in STATES:
+		scene_in(scene, s)
+		for h in scene.room_view.HOTSPOTS:
+			check(scene.action_at(h[1].get_center()) == h[0], "V: %s %s answers at its centre" % [s, h[0]])
+	# Motion: still alternatives.
+	scene_in(scene, "s3")
+	v = scene.room_view
+	scene.sim.settings.motion = false
+	check(v.reflection_dx("s3") == 6.0 and v.wave_frame("s3") == 0 and v.rain_frame("s3") == 0,
+		"V: still s3 is displaced reflections, wave 0, rain 0")
+	scene.sim.settings.motion = true
+	# The arrival hold: exits off, hover off, a line up ends it, the timer ends it.
+	v.play_fx("notice", {"state": "s3"})
+	check(not v.exits_active() and v.hover_at(Vector2(700, 700)) == "", "V: the hold suppresses exits and hover")
+	v.tick(1.6)
+	check(v.exits_active(), "V: the hold ends after 1.5 s")
+	v.play_fx("notice", {"state": "s3"})
+	scene.cur_text = R01Sim.NOTICE["s3"]
+	v.tick(0.01)
+	check(not v.holding(), "V: the noticed line going up ends the hold")
+	# The withdrawal, from the commit click.
+	scene.room_jump(ROOM, 2)
+	scene.dispatch("panel")
+	scene.dispatch("bell_2")
+	v = scene.room_view
+	var r01s: R01Sim = scene.sim.room(ROOM)
+	check(scene.sim.flag("P06") and v.withdrawing(), "V: the commit starts the withdrawal")
+	check(r01s.jetty_state() == "s1", "V: the jetty is already s1 underneath")
+	v.withdraw_t = 4.9
+	check(layer_ids(v).has("gangway_down") and layer(v, "boat")[1].x == 0.0, "V: moored until 5.0 s")
+	check(layer_ids(v).has("figure_window") or layer_ids(v).has("figure_window_turned"),
+		"V: the figure is in the window during the withdrawal")
+	v.withdraw_t = 8.0
+	var bx: float = layer(v, "boat")[1].x
+	check(layer_ids(v).has("gangway_up") and bx > 0.0 and bx < 350.0, "V: stern first, easing in (%.0f)" % bx)
+	check(not layer_ids(v).has("capsule_closed"), "V: no capsule before the rise")
+	v.withdraw_t = 11.2
+	check(not layer_ids(v).has("boat"), "V: the boat has gone by 11 s")
+	v.withdraw_t = 12.5
+	var cl := layer(v, "capsule_closed")
+	check(not cl.is_empty() and cl[1].y > 0.0 and cl[3] == 870.0, "V: the capsule rises, clipped at the waterline")
+	v.withdraw_t = 14.9
+	check(not v.exits_active(), "V: exits wait for 15 s")
+	v.withdraw_t = 15.1
+	check(v.exits_active() and layer(v, "capsule_closed")[1].y == 0.0, "V: the capsule at the cleat, exits back")
+	# Hush, then restore.
+	v.withdraw_t = 1.0
+	v.tick(0.016)
+	check(v.mixer.last_targets.is_empty(), "V: every loop hushes during the dead bell")
+	# Still withdrawal.
+	scene.sim.settings.motion = false
+	v.withdraw_t = 6.0
+	check(layer(v, "boat")[1].x == 350.0, "V: still, the boat stands off at +350")
+	v.withdraw_t = 8.5
+	check(not layer_ids(v).has("boat"), "V: still, gone after 8 s")
+	v.withdraw_t = 11.6
+	check(layer(v, "capsule_closed")[1].y == 0.0, "V: still, the capsule appears at the top")
+	scene.sim.settings.motion = true
+	v.apply_instantly()
+	check(not v.withdrawing() and layer(v, "capsule_closed")[1].y == 0.0, "V: entry snaps, no replay")
+	# The gangway cut.
+	scene.room_jump(ROOM, 1)
+	scene.dispatch("gangway")
+	v = scene.room_view
+	var ids2 := layer_ids(v)
+	check(ids2.has("ada_door") and ids2.has("gangway_up") and ids2.has("boat"), "V: the cut shows her at the door")
+	v.tick(2.7)
+	check(not layer_ids(v).has("ada_door") and layer_ids(v).has("gangway_down"), "V: and cuts back after 2.6 s")
+	# Close-ups: controls, the mix at 0.7x, the note card.
+	scene.room_jump(ROOM, 2)
+	scene.dispatch("panel")
+	v = scene.room_view
+	check(scene.action_at(Vector2(500, 360)) == "tally_verified" and scene.action_at(Vector2(900, 360)) == "tally_unverified"
+		and scene.action_at(Vector2(700, 600)) == "placard" and scene.action_at(Vector2(644, 800)) == "bell_2",
+		"V: panel controls")
+	v.tick(0.016)
+	check(is_equal_approx(v.mixer.last_targets.get("sea_jetty", 0.0), 0.7), "V: close-ups keep the mix at 0.7x")
+	scene.room_jump(ROOM, 3)
+	scene.dispatch("line")
+	scene.dispatch("cap")
+	scene.dispatch("note")
+	v = scene.room_view
+	check(v.note_open, "V: the note card opens")
+	check(scene.room_view.action_at(Vector2(100, 900)) == "" and not v.note_open, "V: a click dismisses it")
+	check(scene.action_at(Vector2(660, 400)) == "key", "V: the key under the note")
+	await free_scene(scene)

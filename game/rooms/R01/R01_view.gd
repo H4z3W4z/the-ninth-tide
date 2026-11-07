@@ -1,21 +1,615 @@
 extends RoomView
-## R01, the Jetty: skeleton view. A flat placeholder elevation (RoomView.draw_placeholder)
-## with every hotspot as a labelled card. The room team replaces _draw() with the painted
-## plates under assets/rooms/R01/, keeping the hotspot rects registered to the art.
+## R01, the Jetty: the painted room view. Plays R01Sim's state and events and stores no
+## story state. Every frame the layer stack is rebuilt from sim.jetty_state() (which folds
+## in the weather band and the ending), so weather is never stored here and a revisit or a
+## load shows the latest state at once. Everything timed (the arrival hold, the withdrawal,
+## the capsule rise, the gangway cut, the figure fade) is presentation and is never saved.
+##
+## Plates come from tools/art/rooms/R01.py (assets/rooms/R01/*.png, full-canvas, registered
+## at the origin); loops and one-shots from tools/audio/rooms/R01.py (assets/audio/R01/).
 
-## [id, rect, label]; first match wins, so small objects come first.
+## [id, rect, label]; first match wins. Every hotspot answers in every state and never moves.
 const HOTSPOTS := [
-	["bell", Rect2(96, 250, 328, 260), "Mooring bell"],
-	["panel", Rect2(560, 250, 328, 260), "Mooring panel"],
-	["line", Rect2(1024, 250, 328, 260), "Mooring line"],
-	["lighthouse", Rect2(96, 580, 328, 260), "Lighthouse"],
-	["causeway", Rect2(560, 580, 328, 260), "Causeway"],
-	["gangway", Rect2(1024, 580, 328, 260), "Gangway"],
+	["gangway", Rect2(750, 600, 130, 200), "Gangway"],
+	["line", Rect2(1300, 680, 72, 240), "Mooring line"],
+	["bell", Rect2(620, 590, 130, 290), "Mooring bell"],
+	["panel", Rect2(280, 580, 140, 190), "Mooring panel"],
+	["launch", Rect2(880, 510, 410, 360), "Boat"],
+	["stump", Rect2(1380, 790, 68, 120), "Past the jetty's end"],
+	["station", Rect2(60, 300, 180, 150), "Office window"],
+	["roof_light", Rect2(110, 150, 120, 140), "Over the roof"],
+	["lighthouse", Rect2(1150, 300, 120, 150), "Lighthouse"],
+	["causeway", Rect2(430, 440, 610, 70), "Causeway"],
+	["pilings", Rect2(450, 860, 880, 64), "Pilings"],
 ]
-## Where each exit is clicked. The core draws these as tabs on the HUD layer.
+## Under the painted outer door; no hotspot overlaps it.
 const EXIT_RECTS := {
-	"R02": Rect2(20, 922, 250, 64),
+	"R02": Rect2(100, 922, 250, 64),
 }
-const PALETTE := {"wall": Color("8fa3a6"), "trim": Color("22303a"), "floor": Color("675d51")}
-const SFX_DB := {}
-const SFX_SOFT := []
+
+const SFX_DB := {"station_bell_1": -8.0, "station_bell_2": -8.0, "station_bell_2_dead": -6.0,
+	"station_bell_3": -8.0, "station_bell_4": -8.0, "bell_low": -6.0, "pen_near": -14.0,
+	"tally_flip": -8.0, "tally_reset": -8.0, "bell_pull": -9.0, "lens_click": -10.0,
+	"gangway_step": -7.0, "door_shed": -7.0, "water_close": -8.0, "capsule_rise": -8.0,
+	"capsule_knock": -6.0, "cap_unscrew": -9.0, "key_take": -9.0, "note_unfold": -10.0}
+const SFX_SOFT := ["tally_reset", "door_shed", "capsule_knock", "bell_low", "station_bell_1",
+	"station_bell_2", "station_bell_2_dead", "station_bell_3", "station_bell_4"]
+const SFX_SOFT_CUT := {"station_bell_1": 6.0, "station_bell_2": 6.0, "station_bell_2_dead": 6.0,
+	"station_bell_3": 6.0, "station_bell_4": 6.0}
+
+const LOOPS := ["sea_jetty", "sea_slap", "sea_thin", "wind_jetty", "wind_whistle", "rain_planks",
+	"pressure_hum", "gulls", "engine_idle"]
+## Loop targets (linear) per jetty state.
+const MIX := {
+	"arrival": {"sea_jetty": 1.0, "wind_jetty": 0.6},
+	"boat": {"sea_jetty": 1.0, "wind_jetty": 0.6},
+	"s1": {"sea_jetty": 1.0, "wind_jetty": 0.7, "wind_whistle": 0.5},
+	"s2": {"sea_jetty": 0.9, "wind_jetty": 0.7, "wind_whistle": 0.5, "rain_planks": 0.8},
+	"s3": {"sea_slap": 0.9, "wind_jetty": 0.6, "wind_whistle": 0.4, "rain_planks": 0.8},
+	"s4": {"sea_thin": 0.7, "wind_jetty": 0.5, "wind_whistle": 0.3, "rain_planks": 0.7},
+	"s5": {"sea_thin": 0.5},
+	"s6": {"sea_thin": 0.4},
+	"s7": {"pressure_hum": 0.9},
+	"A": {"sea_jetty": 1.0, "gulls": 0.7, "engine_idle": 0.6, "wind_jetty": 0.4},
+}
+const CLOSEUP_MIX := 0.7
+
+const BACKDROP := {"arrival": "back_b0", "boat": "back_b0", "s1": "back_b1", "s2": "back_b2",
+	"s3": "back_b3", "s4": "back_b4", "s5": "back_b5", "s6": "back_b5", "s7": "back_b7",
+	"A": "back_end_a"}
+## Foreground modulate (fg_jetty, gangway, boat, line, capsule). Never below 0.85: every
+## painted change must read at 1024x768, so there is no CanvasModulate and no vignette.
+const FG_MOD := {"arrival": 1.0, "boat": 1.0, "s1": 0.96, "s2": 0.93, "s3": 0.90, "s4": 0.90,
+	"s5": 0.88, "s6": 0.88, "s7": 1.0, "A": 1.0}
+
+# --- motion -------------------------------------------------------------------------
+const WAVE_STEP := 0.5           # waves_0..2, one frame per half second
+const RAIN_FAST := 0.25          # s1-s2
+const RAIN_SLOW := 1.2           # s3-s6: the rain hangs slower than the waves move
+const REFLECT_AMP := 6.0
+const REFLECT_PERIOD := 1.6
+const SOUND_LAG := 0.45          # the chop leads the slap; the reflections lag the chop
+## Heavy rain is a veil, not a wall: the art under it must still read at 1024x768.
+const RAIN_HEAVY_ALPHA := 0.7
+const DRIFT_CENTRE := 900.0
+const DRIFT_SPAN := 300.0
+const DRIFT_CYCLE := 40.0
+
+# --- fx timings (seconds) -------------------------------------------------------------
+const NOTICE_HOLD := 1.5
+## What still plays during the arrival hold: everything else holds its still frame.
+const NOTICE_PLAYS := {"arrival": ["waves"], "boat": ["waves"], "s3": ["waves", "reflections"],
+	"s5": ["rain"], "s7": ["drift"]}
+const HUSH_FROM := 0.15
+const HUSH_TO := 2.6
+const HUSH_RATE := 6.0
+const RESTORE_RATE := 0.4
+const BOAT_GO := 5.0
+const BOAT_TRAVEL := 6.0
+const BOAT_DX := 700.0
+const BOAT_STILL_DX := 350.0
+const BOAT_STILL_GONE := 8.0
+const RISE_AT := 11.5
+const RISE_TIME := 3.0
+const RISE_DY := 120.0
+const WATERLINE := 870.0
+const WITHDRAW_END := 15.0
+const LOOP_CUT := 2.6
+const FIGURE_FADE := 0.8
+const PULL_TIME := 0.4
+
+# --- close-up controls ------------------------------------------------------------------
+const PANEL_RECTS := {
+	"tally_verified": Rect2(324, 240, 360, 250),
+	"tally_unverified": Rect2(764, 240, 360, 250),
+	"placard": Rect2(324, 520, 800, 210),
+}
+const PEER_RECT := Rect2(404, 280, 640, 400)
+const CAPSULE_RECTS := {
+	"cap": Rect2(594, 200, 260, 120),
+	"key": Rect2(630, 320, 90, 280),
+	"note": Rect2(726, 320, 100, 280),
+}
+const HEADER_RECT := Rect2(300, 140, 848, 64)
+const TALLY_LABEL_RECTS := {"verified": Rect2(344, 420, 320, 50), "unverified": Rect2(784, 420, 320, 50)}
+const PLACARD_RECT := Rect2(344, 536, 760, 150)
+## The placard sets 19 px on 23 px leading (22/26 overflows the painted placard and runs
+## the last rule into the pencil); the Board's line sits right, clear of the rising pencil.
+const PLACARD_SIZE := 19
+const PLACARD_LEADING := 23
+const PENCIL_AT := Vector2(360, 694)
+const ADA_AT := Vector2(380, 718)
+const KEY_TAG_AT := Vector2(675, 438)   # the paper tag on the key (a little tilted)
+const NOTE_PAPER := Rect2(424, 300, 600, 360)
+const PENCIL_COL := Color("3d4148")
+
+var jetty: R01Sim:
+	get:
+		return sim as R01Sim
+
+var textures := {}
+var narrow: SystemFont
+var bold: SystemFont
+var close: Node2D
+var pencil_line: Node2D        # Venn's pencil, at -2 degrees
+var ada_line: Node2D           # the second hand under it
+var mixer: LoopMixer
+
+var notice_t := INF            # seconds into the arrival hold
+var notice_state := ""
+var withdraw_t := INF          # seconds since the commit click
+var loop_t := INF              # seconds into the gangway cut
+var figure_k := 1.0            # 0..1 fade of the figure in the boat's window
+var note_open := false
+var pull_t := INF              # seconds since a bell pull
+var pull_n := 1
+
+func _ready() -> void:
+	narrow = SystemFont.new()
+	narrow.font_names = PackedStringArray(["Liberation Sans Narrow", "Nimbus Sans Narrow",
+		"DejaVu Sans Condensed", "sans-serif"])
+	narrow.font_weight = 700
+	bold = SystemFont.new()
+	bold.font_names = PackedStringArray(["Noto Serif", "DejaVu Serif", "Liberation Serif", "serif"])
+	bold.font_weight = 700
+	_build_nodes()
+	_build_audio()
+	apply_instantly()
+
+func _build_nodes() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 5
+	add_child(layer)
+	close = Node2D.new()
+	close.name = "Close"
+	layer.add_child(close)
+	close.draw.connect(_draw_close)
+	pencil_line = Node2D.new()
+	pencil_line.position = PENCIL_AT
+	pencil_line.rotation = deg_to_rad(-2.0)
+	close.add_child(pencil_line)
+	pencil_line.draw.connect(_draw_pencil)
+	ada_line = Node2D.new()
+	ada_line.position = ADA_AT
+	ada_line.rotation = deg_to_rad(-1.0)
+	close.add_child(ada_line)
+	ada_line.draw.connect(_draw_ada)
+
+func _build_audio() -> void:
+	mixer = LoopMixer.new()
+	add_child(mixer)
+	for id in LOOPS:
+		mixer.add_loop(id, game.load_audio(id) if game else null)
+
+func _tex(id: String) -> Texture2D:
+	if not textures.has(id):
+		var path := "res://assets/rooms/R01/%s.png" % id
+		textures[id] = load(path) as Texture2D if ResourceLoader.exists(path) else null
+	return textures[id]
+
+# ---------------------------------------------------------------------------
+# frame
+# ---------------------------------------------------------------------------
+func tick(dt: float) -> void:
+	notice_t += dt
+	withdraw_t += dt
+	loop_t += dt
+	pull_t += dt
+	if figure_k < 1.0:
+		figure_k = minf(1.0, figure_k + dt / FIGURE_FADE)
+	if holding() and game and notice_state in R01Sim.NOTICE and game.cur_text == R01Sim.NOTICE[notice_state]:
+		notice_t = INF   # the noticed line went up (its time, or a click advanced it)
+	_tick_audio(dt)
+	queue_redraw()
+	close.queue_redraw()
+	pencil_line.queue_redraw()
+	ada_line.queue_redraw()
+
+func holding() -> bool:
+	return notice_t < NOTICE_HOLD
+
+func withdrawing() -> bool:
+	return withdraw_t < WITHDRAW_END
+
+func cutting() -> bool:
+	return loop_t < LOOP_CUT
+
+func _state() -> String:
+	return jetty.jetty_state()
+
+func _targets() -> Dictionary:
+	var t: Dictionary = MIX.get(_state(), {}).duplicate()
+	if jetty.is_closeup():
+		for k in t:
+			t[k] *= CLOSEUP_MIX
+	return t
+
+func _tick_audio(dt: float) -> void:
+	var targets := _targets()
+	var rates := {}
+	if withdraw_t >= HUSH_FROM and withdraw_t < HUSH_TO:
+		targets = {}
+		for id in LOOPS:
+			rates[id] = HUSH_RATE
+	elif withdraw_t >= HUSH_TO and withdrawing():
+		for id in LOOPS:
+			rates[id] = RESTORE_RATE
+	mixer.tick(targets, rates, dt)
+
+## True when this kind of motion runs now (Motion & flicker on, and not held by the
+## arrival hold unless it is the noticed thing).
+func _plays(kind: String) -> bool:
+	if not motion:
+		return false
+	if holding():
+		return kind in NOTICE_PLAYS.get(notice_state, [])
+	return true
+
+## The wave clock: scene time, or at s3 the slap loop's position plus the lead, so the
+## chop leads the sound.
+func _wave_clock(s: String) -> float:
+	if s == "s3" and mixer.players.has("sea_slap"):
+		var p: AudioStreamPlayer = mixer.players["sea_slap"]
+		if p.playing:
+			return p.get_playback_position() + SOUND_LAG
+	return time
+
+func wave_frame(s: String) -> int:
+	if not _plays("waves"):
+		return 0
+	return int(floor(_wave_clock(s) / WAVE_STEP)) % 3
+
+func rain_frame(s: String) -> int:
+	if not _plays("rain"):
+		return 0
+	var step := RAIN_FAST if R01Sim.rank(s) <= 2 else RAIN_SLOW
+	return int(floor(time / step)) % 2
+
+func reflection_dx(s: String) -> float:
+	var r := R01Sim.rank(s)
+	if s == "A" or r < 3 or r > 4:
+		return 0.0
+	if not _plays("reflections"):
+		return REFLECT_AMP   # still: visibly displaced
+	return REFLECT_AMP * sin(TAU * (_wave_clock(s) - SOUND_LAG) / REFLECT_PERIOD)
+
+func drift_dx() -> float:
+	if not _plays("drift"):
+		return 0.0
+	var half := DRIFT_CYCLE / 2.0
+	return -DRIFT_SPAN + 2.0 * DRIFT_SPAN * pingpong(time, half) / half
+
+## The boat layers' x offset during the withdrawal, or -1 when they are not drawn.
+func boat_dx(s: String) -> float:
+	if withdrawing():
+		if withdraw_t < BOAT_GO:
+			return 0.0
+		if not motion:
+			return BOAT_STILL_DX if withdraw_t < BOAT_STILL_GONE else -1.0
+		var k := (withdraw_t - BOAT_GO) / BOAT_TRAVEL
+		if k >= 1.0:
+			return -1.0
+		return BOAT_DX * k * k   # ease-in: stern first, to the right
+	return 0.0 if s == "boat" else -1.0
+
+## The capsule's y offset while it rises, 0 at rest, -1 hidden.
+func capsule_dy() -> float:
+	if jetty.capsule_state() == "none":
+		return -1.0
+	if not withdrawing():
+		return 0.0
+	if withdraw_t < RISE_AT:
+		return -1.0
+	if not motion:
+		return 0.0
+	var k := clampf((withdraw_t - RISE_AT) / RISE_TIME, 0.0, 1.0)
+	return RISE_DY * (1.0 - (1.0 - (1.0 - k) * (1.0 - k)))   # ease-out into the cleat
+
+## The ordered layer list for this frame: [[texture id, offset, modulate, clip_y], ...].
+## Tests and the dev overlay read it; _draw draws it.
+func layer_stack() -> Array:
+	var s := _state()
+	var r := R01Sim.rank(s)
+	var early := s in ["arrival", "boat"]
+	var mid := not early and s != "A"
+	var m: float = FG_MOD.get(s, 1.0)
+	var fg := Color(m, m, m)
+	var out := []
+	out.append([BACKDROP[s], Vector2.ZERO, Color.WHITE, -1.0])
+	if early or (mid and r <= 4):
+		var rdx := Vector2(reflection_dx(s), 0)
+		out.append(["reflections", rdx, Color.WHITE, -1.0])
+		if r >= 3:
+			# Laid twice when they lag: under the rain the faint plate alone doesn't read.
+			out.append(["reflections", rdx, Color.WHITE, -1.0])
+	if early or (mid and r <= 6):
+		var a := 1.0 if r <= 2 else (0.8 if r <= 4 else 0.5)
+		out.append(["waves_%d" % wave_frame(s), Vector2.ZERO, Color(1, 1, 1, a), -1.0])
+	if s != "s7":
+		out.append(["bell_calm", Vector2.ZERO, Color.WHITE, -1.0])
+	if not gsim().flag("P05"):
+		out.append(["launch_departing", Vector2.ZERO, Color.WHITE, -1.0])
+	if s == "s6":
+		out.append(["lighthouse_roof", Vector2.ZERO, Color.WHITE, -1.0])
+	if s == "s7":
+		out.append(["surface_drift", Vector2(drift_dx(), 0), Color.WHITE, -1.0])
+	out.append(["fg_jetty", Vector2.ZERO, fg, -1.0])
+	# The office window is painted in fg_jetty, so its lamp and figure sit just above it.
+	if gsim().flag("P01") and s != "A":
+		out.append(["station_lamp", Vector2.ZERO, Color.WHITE, -1.0])
+	if s == "s7":
+		out.append(["station_window_figure", Vector2.ZERO, Color.WHITE, -1.0])
+	if r >= 3:
+		out.append(["stump", Vector2.ZERO, Color.WHITE, -1.0])
+	var down := (s == "boat" and not cutting()) or (withdrawing() and withdraw_t < BOAT_GO)
+	out.append(["gangway_down" if down else "gangway_up", Vector2.ZERO, fg, -1.0])
+	if s == "A":
+		out.append(["launch_real", Vector2.ZERO, fg, -1.0])
+	else:
+		var dx := boat_dx(s)
+		if dx >= 0.0:
+			var at := Vector2(dx, 0)
+			out.append(["boat", at, fg, -1.0])
+			out.append(["boat_window_lit", at, Color.WHITE, -1.0])
+			if jetty.figure_seen() or withdrawing():
+				var fig := "figure_window_turned" if gsim().flag("t1x_turned") else "figure_window"
+				out.append([fig, at, Color.WHITE, -1.0])
+	if mid and r >= 2 and r <= 6:
+		out.append(["mist_far", Vector2.ZERO, Color.WHITE, -1.0])
+	out.append(["line", Vector2.ZERO, fg, -1.0])
+	var dy := capsule_dy()
+	if dy >= 0.0:
+		var cap := "capsule_open" if jetty.capsule_state() == "open" else "capsule_closed"
+		out.append([cap, Vector2(0, dy), fg, WATERLINE if dy > 0.0 else -1.0])
+	if s == "s1":
+		out.append(["rain_light_%d" % rain_frame(s), Vector2.ZERO, Color.WHITE, -1.0])
+	elif mid and r >= 2 and r <= 6:
+		out.append(["rain_heavy_%d" % rain_frame(s), Vector2.ZERO, Color(1, 1, 1, RAIN_HEAVY_ALPHA), -1.0])
+	if cutting():
+		out.append(["ada_door", Vector2.ZERO, Color.WHITE, -1.0])
+	return out
+
+func _draw() -> void:
+	for l in layer_stack():
+		var tex := _tex(l[0])
+		if tex == null:
+			continue
+		var at: Vector2 = l[1]
+		var clip_y: float = l[3]
+		if clip_y > 0.0:
+			# Clipped below the waterline: it comes up out of the water.
+			var h := clip_y - at.y
+			if h > 0.0:
+				draw_texture_rect_region(tex, Rect2(at, Vector2(SIZE.x, h)), Rect2(0, 0, SIZE.x, h), l[2])
+		else:
+			draw_texture(tex, at, l[2])
+
+# ---------------------------------------------------------------------------
+# close-ups (layer 5, never modulated)
+# ---------------------------------------------------------------------------
+func _draw_close() -> void:
+	var c := close
+	match jetty.local_view:
+		R01Sim.C_PANEL:
+			_draw_panel(c)
+		R01Sim.C_WINDOW:
+			_blit(c, "c_boat_window")
+			if jetty.figure_seen():
+				var fig := "c_boat_window_figure_turned" if gsim().flag("t1x_turned") else "c_boat_window_figure"
+				_blit(c, fig, Vector2.ZERO, Color(1, 1, 1, figure_k))
+		R01Sim.C_CAPSULE:
+			_draw_capsule(c)
+
+func _blit(c: CanvasItem, id: String, at := Vector2.ZERO, mod := Color.WHITE) -> void:
+	var tex := _tex(id)
+	if tex:
+		c.draw_texture(tex, at, mod)
+
+func _centred(c: CanvasItem, s: String, r: Rect2, size: int, col: Color, font: Font) -> void:
+	Ink.text(c, s, Vector2(r.position.x, r.position.y + r.size.y / 2.0 + size * 0.36), size, col, font, r.size.x)
+
+func _draw_panel(c: CanvasItem) -> void:
+	_blit(c, "c_mooring_panel")
+	var t := jetty.tally()
+	if t == "verified":
+		_blit(c, "c_panel_tally_v")
+	elif t == "unverified":
+		_blit(c, "c_panel_tally_u")
+	if pull_t < PULL_TIME:
+		_blit(c, "c_panel_pull_down", Vector2(200 * (pull_n - 1), 0))
+	_centred(c, R01Sim.PANEL_HEADER, HEADER_RECT, 30, Ink.INK, narrow)
+	for k in TALLY_LABEL_RECTS:
+		_centred(c, R01Sim.TALLY_LABELS[k], TALLY_LABEL_RECTS[k], 26, Ink.INK, narrow)
+	if t != "":
+		var plate: Rect2 = PANEL_RECTS["tally_" + t]
+		_centred(c, "SET", Rect2(plate.position.x + 130, 476, 100, 30), 22, Ink.INK, narrow)
+	var lines: Array = R01Sim.PLACARD_LINES
+	var y := PLACARD_RECT.position.y + 20
+	for i in lines.size():
+		var f: Font = bold if i == 0 else Ink.serif()
+		var last := i == lines.size() - 1
+		Ink.text(c, lines[i], Vector2(PLACARD_RECT.position.x, y), PLACARD_SIZE, Ink.INK, f,
+			PLACARD_RECT.size.x, HORIZONTAL_ALIGNMENT_RIGHT if last else HORIZONTAL_ALIGNMENT_LEFT)
+		y += PLACARD_LEADING
+	for i in 4:
+		var at := Vector2(444 + 200 * i, 760)
+		_centred(c, str(i + 1), Rect2(at.x - 40, at.y - 20, 80, 40), 28, Ink.INK, narrow)
+
+func _draw_pencil() -> void:
+	if jetty == null or jetty.local_view != R01Sim.C_PANEL:
+		return
+	var s := R01Sim.PLACARD_PENCIL
+	Ink.handwriting(pencil_line, s, s.length(), Vector2.ZERO, 22, 3, false, PENCIL_COL, null, 0.08)
+
+func _draw_ada() -> void:
+	if jetty == null or jetty.local_view != R01Sim.C_PANEL or not jetty.has_seen("placard_ada"):
+		return
+	var s := R01Sim.PLACARD_ADA
+	Ink.handwriting(ada_line, s, s.length(), Vector2.ZERO, 22, 11, false, Ink.BLUE_INK)
+
+func _draw_capsule(c: CanvasItem) -> void:
+	_blit(c, "c_capsule")
+	var st: Dictionary = jetty.state
+	if st.capsule_opened:
+		_blit(c, "c_capsule_open")
+		if not st.key_taken:
+			_blit(c, "c_capsule_key")
+			c.draw_set_transform(KEY_TAG_AT, deg_to_rad(-4.0))
+			Ink.text(c, R01Sim.KEY_TAG, Vector2(-30, 6), 16, Ink.INK, narrow, 60)
+			c.draw_set_transform(Vector2.ZERO)
+		_blit(c, "c_capsule_note")
+	if note_open:
+		_draw_note(c)
+
+func _draw_note(c: CanvasItem) -> void:
+	c.draw_rect(Rect2(Vector2.ZERO, SIZE), Color(Ink.INK, 0.55))
+	c.draw_rect(NOTE_PAPER, Ink.PAPER)
+	c.draw_rect(NOTE_PAPER, Ink.INK, false, 3.0)
+	c.draw_rect(NOTE_PAPER.grow(-10), Color(Ink.INK, 0.25), false, 1.0)
+	var font := Ink.hand()
+	var lines := _wrap(R01Sim.NOTE_TEXT, 30, 540.0, font)
+	var y := NOTE_PAPER.position.y + 110
+	for i in lines.size():
+		Ink.handwriting(c, lines[i], lines[i].length(), Vector2(NOTE_PAPER.position.x + 30, y), 30, 40 + i,
+			false, PENCIL_COL)
+		y += 46
+	var sign := R01Sim.NOTE_SIGN
+	var w := font.get_string_size(sign, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
+	Ink.handwriting(c, sign, sign.length(), NOTE_PAPER.end - Vector2(w + 50, 36), 30, 60, false, PENCIL_COL)
+
+func _wrap(s: String, size: int, width: float, font: Font) -> Array:
+	var out := []
+	var line := ""
+	for word in s.split(" "):
+		var trial := word if line == "" else line + " " + word
+		if line != "" and font.get_string_size(trial, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > width:
+			out.append(line)
+			line = word
+		else:
+			line = trial
+	if line != "":
+		out.append(line)
+	return out
+
+# ---------------------------------------------------------------------------
+# hooks
+# ---------------------------------------------------------------------------
+func apply_instantly() -> void:
+	notice_t = INF
+	withdraw_t = INF
+	loop_t = INF
+	pull_t = INF
+	figure_k = 1.0
+	note_open = false
+	if mixer:
+		mixer.snap(_targets())
+	queue_redraw()
+	if close:
+		close.queue_redraw()
+
+func reset_presentation() -> void:
+	apply_instantly()
+
+func redraw() -> void:
+	queue_redraw()
+	if close:
+		close.queue_redraw()
+
+func play_fx(id: String, e: Dictionary) -> void:
+	match id:
+		"notice":
+			notice_state = str(e.get("state", ""))
+			notice_t = 0.0
+		"withdraw":
+			withdraw_t = 0.0
+			loop_t = INF
+		"gangway_loop":
+			loop_t = 0.0   # a hard cut, the same in both motion modes
+		"figure":
+			figure_k = 0.0 if motion else 1.0
+		"note":
+			note_open = true
+		"cap_off":
+			pass   # the capsule close-up draws c_capsule_open from the state
+	redraw()
+
+func on_sfx(id: String) -> void:
+	if id != "bell_pull":
+		return
+	pull_t = 0.0
+	# Which bell: the click's own events name it (station_bell_N or the dead bell 2).
+	if game:
+		for e in game.last_events:
+			if e.type == "sfx" and str(e.id).begins_with("station_bell_"):
+				pull_n = clampi(int(str(e.id).substr(13, 1)), 1, 4)
+				return
+
+func on_view_changed(_before: String) -> void:
+	if jetty.local_view != R01Sim.C_CAPSULE:
+		note_open = false
+
+func exits_active() -> bool:
+	return jetty.local_view == "room" and not holding() and not withdrawing() and not cutting()
+
+func hover_at(p: Vector2) -> String:
+	if holding():
+		return ""
+	return super.hover_at(p)
+
+func label_for(id: String) -> String:
+	var s := _state()
+	match id:
+		"launch":
+			return "Launch" if s == "A" else ("Boat" if s == "boat" else "Open water")
+		"stump":
+			if R01Sim.rank(s) >= 3:
+				return "Tenth piling"
+		"roof_light":
+			if s == "s6":
+				return "Lighthouse"
+		"line":
+			if jetty.state.p06_complete:
+				return "Capsule"
+	return super.label_for(id)
+
+func action_at(p: Vector2) -> String:
+	match jetty.local_view:
+		"room":
+			# During the arrival hold the noticed line is a queued story line, so the core
+			# turns a click into advance(); tick() ends the hold when that line goes up.
+			return super.action_at(p)
+		R01Sim.C_PANEL:
+			for k in PANEL_RECTS:
+				if PANEL_RECTS[k].has_point(p):
+					return k
+			for n in range(1, 5):
+				if _bell_rect(n).has_point(p):
+					pull_n = n
+					return "bell_%d" % n
+		R01Sim.C_WINDOW:
+			if PEER_RECT.has_point(p):
+				return "peer"
+		R01Sim.C_CAPSULE:
+			if note_open:
+				note_open = false
+				return ""
+			for k in CAPSULE_RECTS:
+				if CAPSULE_RECTS[k].has_point(p):
+					return k
+	return ""
+
+func _bell_rect(n: int) -> Rect2:
+	return Rect2(444 + 200 * (n - 1) - 80, 740, 160, 190)
+
+func dev_rects() -> Array:
+	match jetty.local_view:
+		R01Sim.C_PANEL:
+			var out: Array = PANEL_RECTS.values()
+			for n in range(1, 5):
+				out.append(_bell_rect(n))
+			return out
+		R01Sim.C_WINDOW:
+			return [PEER_RECT]
+		R01Sim.C_CAPSULE:
+			return CAPSULE_RECTS.values()
+	return super.dev_rects()
