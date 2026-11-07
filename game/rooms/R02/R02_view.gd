@@ -59,6 +59,50 @@ const THRESHOLD_SHADE := Color(0.40, 0.39, 0.48)
 ## are large: scale about a pivot on the right edge, so the door stays on screen.
 const THRESHOLD_ZOOM := 1.3
 const THRESHOLD_PIVOT := Vector2(1448, 560)
+## After the lean the camera closes on the doorway: the slab fills over 42% of the frame,
+## its vanishing point at the centre of the screen. Motion off: it is simply there.
+const THRESHOLD_PUSH_SCALE := 3.0
+const THRESHOLD_PUSH_AT := 2.2
+const THRESHOLD_PUSH_TIME := 2.8
+const SCREEN_C := Vector2(724, 543)
+## The corridor, drawn flat in code (no upscaled texture): nested casings toward VP.
+const CORRIDOR_NAVY := Color("1b2a36")
+const CORRIDOR_TEAL := Color("2c5a5e")
+const CORRIDOR_GAP := Color("0a1117")
+const CORRIDOR_END := 0.12      # depth scale of the corridor's far end
+const CORRIDOR_SKY := Color("4d6466")   # what the far end opens on when the tide is out
+const WATER_SKIN := Color("8fa3b0")
+const WATER_TOP := Color("22384a")
+const MUD := Color("6d6150")
+const WINDOW_MUD := Color("9c8868")   # the window's mud: the room's dusk takes it down to wet brown
+const STUB := Color("2a2f33")
+const FIGURE_INK := Color("05080b")
+const FIGURE_DEPTH := 0.15      # where it stands: near the far end, its head on the horizon
+const FIGURE_SCALES := [1.0, 1.12, 1.24, 1.35]   # per exhale, about VP
+const FIGURE_SCALE_STILL := 1.2  # Motion off
+## Corridor-space x offsets and depths of the five piling stubs on the drained floor.
+const STUBS := [[62.0, 0.62], [58.0, 0.45], [54.0, 0.33], [50.0, 0.245], [46.0, 0.18]]
+## The tide's resting height (0 floor .. 1 top casing bar).
+const TIDE_REST := 0.10
+const GO_ON_LINE := "Go on, then."
+## The window during the threshold: the horizon, the piling feet's mud line, the top bar.
+const WINDOW_HORIZON := 476.0
+const WINDOW_MUD_LOW := 532.0
+const WINDOW_TOP := 144.0
+## The plate's jetty pilings below the deck (x), and the ninth, for the drained window.
+const WINDOW_PILINGS := [646, 665, 684, 700, 715, 731, 749, 768, 783, 797]
+## Off the plate's right edge (the push sees past it): the door's right casing, then wall.
+const OFF_CASING := Color8(45, 82, 97)
+const OFF_WALL := Color8(164, 180, 162)
+const OFF_WAINSCOT := Color8(41, 79, 95)
+## The wet seat's silence: room, drone and sea fall away and stay away until the third
+## line has been read, then come back slowly.
+const SEAT_HUSH_IN := 0.4
+const SEAT_HUSH_OUT := 3.0
+const SEAT_HUSH_LINE_AT := 6.6
+const SEAT_HUSH_LINE := "Low down. Below the sill. Where the wall goes straight down into the water."
+## Exit tabs at rest: faint, raised clear of the subtitle bar.
+const TAB_REST_ALPHA := 0.35
 const SHADOW_COL := Color(0.02, 0.04, 0.07, 0.42)
 const PRINT_COL := Color(0.06, 0.09, 0.12)
 const PILING_COL := Color(0.07, 0.08, 0.11, 0.92)
@@ -314,6 +358,12 @@ var photo_armed := false       # P20 solved: the photograph waits for its pin
 var oil_hush := 0.0            # seconds the room holds near-silence around 'Yes.'
 var oil_hush_done := false
 var zoom_k := 0.0              # 0..1 the threshold lean toward the doorway
+var push_k := 0.0              # 0..1 the push in on the doorway after the lean
+var door_phase := 0.0          # the breath phase as last drawn (frozen while she holds hers)
+var exhales := 0               # exhales begun since the door opened
+var fig_scale := 1.0           # the figure's scale about VP
+var go_on_said := false
+var seat_hush_t := -1.0        # seconds since the wet seat; < 0 when none
 
 func _ready() -> void:
 	rng.seed = 9
@@ -553,6 +603,12 @@ func _tick_stage(dt: float) -> void:
 	if _at_threshold():
 		threshold_t += dt
 		_tick_still(dt, get_global_mouse_position())
+		_tick_figure(dt)
+		_tick_go_on()
+	if seat_hush_t >= 0.0:
+		seat_hush_t += dt
+		if seat_hush_k(seat_hush_t) >= 1.0 and seat_hush_t > SEAT_HUSH_IN:
+			seat_hush_t = -1.0
 	if office.view == "end":
 		end_t += dt
 	breath_hold = maxf(0.0, breath_hold - dt)
@@ -563,13 +619,21 @@ func _tick_stage(dt: float) -> void:
 ## The lean toward the doorway: in with the door's opening, back out when she turns round.
 ## Motion off: it snaps.
 func _tick_zoom(dt: float) -> void:
-	var target := 1.0 if _at_threshold() else 0.0
+	var at := _at_threshold()
+	var target := 1.0 if at else 0.0
+	var push_target := 1.0 if at and (threshold_t >= THRESHOLD_PUSH_AT or not motion) else 0.0
 	if not motion:
 		zoom_k = target
-	elif zoom_k < target:
-		zoom_k = minf(target, zoom_k + dt / 2.2)
+		push_k = push_target
 	else:
-		zoom_k = maxf(target, zoom_k - dt / 0.6)
+		if zoom_k < target:
+			zoom_k = minf(target, zoom_k + dt / 2.2)
+		else:
+			zoom_k = maxf(target, zoom_k - dt / 0.6)
+		if push_k < push_target:
+			push_k = minf(push_target, push_k + dt / THRESHOLD_PUSH_TIME)
+		else:
+			push_k = maxf(push_target, push_k - dt / 0.6)
 	var xf := _zoom_xform()
 	if transform != xf:
 		transform = xf
@@ -578,7 +642,79 @@ func _tick_zoom(dt: float) -> void:
 ## Room space to screen space at the current lean.
 func _zoom_xform() -> Transform2D:
 	var s := lerpf(1.0, THRESHOLD_ZOOM, smoothstep(0.0, 1.0, zoom_k))
-	return Transform2D(0.0, Vector2(s, s), 0.0, THRESHOLD_PIVOT - THRESHOLD_PIVOT * s)
+	var o := THRESHOLD_PIVOT - THRESHOLD_PIVOT * s
+	var p := smoothstep(0.0, 1.0, push_k)
+	if p > 0.0:
+		o = o.lerp(SCREEN_C - VP * THRESHOLD_PUSH_SCALE, p)
+		s = lerpf(s, THRESHOLD_PUSH_SCALE, p)
+	return Transform2D(0.0, Vector2(s, s), 0.0, o)
+
+## The figure keeps count of the breaths: each exhale it stands a little nearer (scaled
+## about VP). Holding her breath freezes it where it is; Motion off holds one fixed size.
+func _tick_figure(dt: float) -> void:
+	if not motion:
+		fig_scale = FIGURE_SCALE_STILL
+		return
+	if _breath_held():
+		return
+	var ph := _breath_phase()
+	if door_phase < BREATH_IN and ph >= BREATH_IN and ph - door_phase < 2.0:
+		exhales += 1
+	door_phase = ph
+	var want: float = FIGURE_SCALES[clampi(exhales - 1, 0, FIGURE_SCALES.size() - 1)]
+	fig_scale = move_toward(fig_scale, want, dt * 0.06)
+
+## Once she may go on and has stood a while without going, one quiet push.
+func _tick_go_on() -> void:
+	if go_on_said or not continue_ready or office.view != "threshold":
+		return
+	if threshold_t >= maxf(12.0, continue_t + 3.0):
+		go_on_said = true
+		game._insert_line(GO_ON_LINE, maxf(time, game._story_backlog_end()), false)
+
+## The figure at the corridor's end fades in over the first seconds and then stays: with
+## Motion off, or while she holds her breath, it is frozen, never hidden.
+static func threshold_figure_alpha(t: float, _motion: bool, _held: bool) -> float:
+	return 0.9 * smoothstep(1.5, 3.0, t)
+
+## The tide in the corridor at a breath phase: x = how far the water has drained back
+## toward the far end (0..1), y = its height up the corridor (0 floor .. 1 top casing bar).
+## The inhale drains it to bare mud; the exhale brings it back and up to the top bar; the
+## stillness lets it settle to rest.
+static func threshold_tide(phase: float) -> Vector2:
+	var env := _breath_env(phase)
+	if phase < BREATH_IN:
+		return Vector2(clampf(env, 0.0, 1.0), TIDE_REST)
+	if phase < BREATH_OUT_END:
+		var u := clampf(1.0 - env / BREATH_OUT_PEAK, 0.0, 1.0)
+		return Vector2(1.0 - smoothstep(0.0, 0.12, u), lerpf(TIDE_REST, 1.0, smoothstep(0.08, 0.6, u)))
+	var v := (phase - BREATH_OUT_END) / (BREATH_PERIOD - BREATH_OUT_END)
+	return Vector2(0.0, lerpf(1.0, TIDE_REST, smoothstep(0.0, 1.0, v)))
+
+## The tide as drawn. Motion off: the state the current line describes.
+func _tide_drawn() -> Vector2:
+	if not motion:
+		if threshold_t < R02Sim.THRESHOLD_LINES[1][0]:
+			return Vector2(0.0, TIDE_REST)
+		if threshold_t < R02Sim.THRESHOLD_LINES[2][0]:
+			return Vector2(1.0, TIDE_REST)
+		return Vector2(0.0, 1.0)
+	var ph := door_phase if _breath_held() else _breath_phase()
+	if exhales == 0 and ph >= BREATH_IN:
+		return Vector2(0.0, TIDE_REST)   # the tail of a breath from before the door: at rest
+	return threshold_tide(ph)
+
+## The wet seat's silence factor at `t` seconds after the click: 1 -> 0 over SEAT_HUSH_IN,
+## held at 0 until the third line has been read, then back to 1 over SEAT_HUSH_OUT.
+static func seat_hush_k(t: float) -> float:
+	if t < 0.0:
+		return 1.0
+	var hold_end := SEAT_HUSH_LINE_AT + GameView.min_read(SEAT_HUSH_LINE)
+	if t < SEAT_HUSH_IN:
+		return 1.0 - t / SEAT_HUSH_IN
+	if t < hold_end:
+		return 0.0
+	return clampf((t - hold_end) / SEAT_HUSH_OUT, 0.0, 1.0)
 
 ## The threshold asks her to hold still. The cursor is her body: once it has stayed within
 ## 4 px for long enough (or the fallback passes, for anyone who can't), she may go on.
@@ -819,6 +955,13 @@ func _tick_audio(dt: float) -> void:
 			for k in target:
 				target[k] *= 0.4
 				rates[k] = 3.0
+		if seat_hush_t >= 0.0:
+			# The wet seat: no stinger, the room simply stops. The knock's own hush sits
+			# inside this one; afterwards only this factor brings the loops back.
+			var f := seat_hush_k(seat_hush_t)
+			for k in ["room", "drone", "sea"]:
+				target[k] *= f
+				rates[k] = 1.0 / SEAT_HUSH_IN if seat_hush_t < SEAT_HUSH_IN else (4.0 if f == 0.0 else 1.0 / SEAT_HUSH_OUT)
 	if office.view != "end" and _motif_playing():
 		target["drone"] *= 0.6   # the harmonium sits on top of the drone, not inside it
 	last_targets = target
@@ -989,6 +1132,11 @@ func reset_presentation() -> void:
 	oil_hush = 0.0
 	oil_hush_done = false
 	zoom_k = 0.0
+	push_k = 0.0
+	exhales = 0
+	fig_scale = 1.0
+	go_on_said = false
+	seat_hush_t = -1.0
 	transform = Transform2D.IDENTITY
 	deep.transform = Transform2D.IDENTITY
 
@@ -1012,6 +1160,8 @@ func play_fx(id: String, e: Dictionary = {}) -> void:
 			var change := str(e.get("change", ""))
 			if change != "":
 				away_alpha[change] = 0.0 if motion else 1.0
+		"seat_hush":
+			seat_hush_t = 0.0
 		"p20_solved":
 			photo_armed = true
 			oil_hush_done = false
@@ -1051,6 +1201,10 @@ func play_fx(id: String, e: Dictionary = {}) -> void:
 			# Phase-lock the breath: the first inhale begins with the 3.4 s line.
 			var seek := fposmod(THRESHOLD_BREATH_SEEK - (base - time), BREATH_PERIOD)
 			breath_clock = seek
+			door_phase = seek
+			exhales = 0
+			fig_scale = 1.0 if motion else FIGURE_SCALE_STILL
+			go_on_said = false
 			if mixer.players.has("breath"):
 				mixer.players["breath"].seek(seek)
 		"turn":
@@ -1106,6 +1260,7 @@ func apply_instantly() -> void:
 	away_alpha.clear()
 	eye_x = 640.0
 	zoom_k = 1.0 if _at_threshold() else 0.0
+	push_k = zoom_k
 	transform = _zoom_xform()
 	deep.transform = transform
 	if mixer.players.has("hum"):
@@ -1210,7 +1365,7 @@ func action_at(p: Vector2) -> String:
 				return "turn"
 			for h in _hotspots():
 				if h[1].has_point(p):
-					return h[0]
+					return _door_action(h[0])
 		"repair":
 			if Rect2(260, 582, 370, 126).has_point(p): return "toggle_supply"
 			if Rect2(250, 435, 415, 132).has_point(p): return "fit"
@@ -1262,8 +1417,12 @@ func action_at(p: Vector2) -> String:
 			if not office.state.report_filed and REPORT_SIGN.has_point(p):
 				return "file_report"
 		"threshold":
-			# Two ways out: turn round to the chair, or go on through the doorway. The view
-			# leans in on the door here, so the click is taken back into the room's frame.
+			# Two ways out: turn round (the turn tab, or the chair while it is in view), or go
+			# on through the doorway once she may. The view leans in on the door here, so the
+			# click is taken back into the room's frame. Before she may go on, a click on the
+			# doorway does nothing at all: it can never skip to the card.
+			if TURN_RECT.has_point(p):
+				return "turn"
 			p = _zoom_xform().affine_inverse() * p
 			if _hotspot_rect("chair").has_point(p):
 				return "turn"
@@ -1271,6 +1430,19 @@ func action_at(p: Vector2) -> String:
 				return "continue"
 			return ""
 	return ""
+
+## The doors are ways out once there is somewhere to go: the corridor door leads to the
+## chart room from P01 (the sim's exit rules still apply), except when it opens on the
+## threshold; the outer door leads to the jetty whenever that exit is open.
+func _door_action(id: String) -> String:
+	if game == null:
+		return id
+	if id == "door" and game.sim.flag("P01") and not (office.state.report_filed \
+			and office.state.heard_unlatch and not office.state.finished):
+		return "go:R03"
+	if id == "outer_door" and game.sim.exit_open("R02", "R01"):
+		return "go:R01"
+	return id
 
 func _hotspot_rect(id: String) -> Rect2:
 	for h in HOTSPOTS:
@@ -1350,6 +1522,8 @@ func _draw_room() -> void:
 		c.draw_set_transform_matrix(Transform2D.IDENTITY)
 		if b >= 1:
 			_draw_rain(c, b)
+		if office.view == "threshold" and _window_in_frame():
+			_draw_window_tide(c, _tide_drawn())
 		_draw_palms(c)
 		_draw_away_one(c, "window")
 	elif ending == "sever" and _tex("R02/window_day"):
@@ -1390,10 +1564,12 @@ func _draw_room() -> void:
 	if b >= 6:
 		_draw_hook_tag(c)
 	_draw_coat_weight(c, s)
+	if office.state.seat_wet and not office.state.report_filed:
+		_draw_report_edge(c)
 	_draw_prints(c, s)
 	_draw_drawer_gap(c)
 	if _at_threshold():
-		pass   # the doorway draws on its own layer
+		_draw_off_plate(c)   # the doorway draws on its own layer; the push sees past the plate
 	elif office.state.report_filed and not office.state.finished:
 		c.draw_rect(Rect2(1228, 168, 6, 736), Color(0.01, 0.01, 0.02, 0.85))   # unlatched, ajar
 	var vig: float = VIGNETTE.get(phase, 0.0)
@@ -1427,13 +1603,82 @@ func _base_plate() -> String:
 ## Rain on the glass: quick at bands 1-2, slow at 3-4 (rain falling slower than rain falls),
 ## and still from 5 (rain seen, not heard). Motion off: the first frame, still.
 func _draw_rain(c: Node2D, b: int) -> void:
+	if b >= 5:
+		_draw_rain_still(c)
+		return
 	var frame := 0
-	if motion and b <= 4:
+	if motion:
 		var period := 0.12 if b <= 2 else 0.36
 		frame = int(floor(time / period)) % 3
 	var tex := _tex("rain_%d" % frame)
 	if tex:
 		c.draw_texture_rect(tex, Rect2(Vector2.ZERO, SIZE), false, Color(1, 1, 1, 0.85))
+
+## True while any of the window glass is on screen at the current lean.
+func _window_in_frame() -> bool:
+	return Rect2(Vector2.ZERO, SIZE).intersects(_zoom_xform() * GLASS)
+
+## The sea in the window keeps time with the corridor: on the inhale the water drops below
+## the piling feet to bare mud; on the exhale it climbs past the sill to the top bar. Flat
+## colour in the panes; the sash bars stay the plate's own.
+func _draw_window_tide(c: Node2D, tide: Vector2) -> void:
+	for pane in PANES:
+		var r: Rect2 = pane
+		if tide.x > 0.0:
+			var yw := lerpf(WINDOW_HORIZON, WINDOW_MUD_LOW, tide.x)
+			var mud := Rect2(r.position.x, maxf(r.position.y, WINDOW_HORIZON), r.size.x, 0.0)
+			mud.size.y = minf(r.end.y, yw) - mud.position.y
+			if mud.size.y > 0.0:
+				c.draw_rect(mud, WINDOW_MUD)
+				for x in WINDOW_PILINGS:
+					if x >= r.position.x and x + 7 <= r.end.x:
+						c.draw_rect(Rect2(x - 3.5, WINDOW_HORIZON - 4.0, 7.0, yw - WINDOW_HORIZON + 4.0), STUB)
+				if r.has_point(Vector2(616, 480)):
+					c.draw_rect(Rect2(612, 452, 9, minf(64.0, yw - 452.0)), STUB)   # the ninth
+				c.draw_line(Vector2(r.position.x, yw), Vector2(r.end.x, yw), WATER_SKIN, 1.5)
+		var rise := clampf((tide.y - TIDE_REST) / (1.0 - TIDE_REST), 0.0, 1.0)
+		if rise > 0.01:
+			var yh := lerpf(WINDOW_HORIZON, WINDOW_TOP, rise)
+			var top := maxf(r.position.y, yh)
+			if top < r.end.y:
+				c.draw_rect(Rect2(r.position.x, top, r.size.x, r.end.y - top), CORRIDOR_NAVY)
+				if yh >= r.position.y:
+					c.draw_line(Vector2(r.position.x, yh), Vector2(r.end.x, yh), WATER_SKIN, 1.5)
+
+## Past the plate's right edge, which only the push-in sees: the door's right casing, a
+## contour, then the wall and wainscot, flat, matching the plate.
+func _draw_off_plate(c: Node2D) -> void:
+	var x0 := SIZE.x
+	c.draw_rect(Rect2(x0, -600, 28, SIZE.y + 1200), OFF_CASING)
+	c.draw_rect(Rect2(x0 + 28, -600, 600, 580 + 600), OFF_WALL)
+	c.draw_rect(Rect2(x0 + 28, 580, 600, 4), INK)
+	c.draw_rect(Rect2(x0 + 28, 584, 600, SIZE.y + 600 - 584), OFF_WAINSCOT)
+	c.draw_line(Vector2(x0 + 28, -600), Vector2(x0 + 28, SIZE.y + 600), INK, 2.5)
+
+## From the wet seat until it is filed, the closure report's ruled edge shows under the duty
+## card's clip: the desk has changed, and it can be seen without a click.
+func _draw_report_edge(c: Node2D) -> void:
+	var cream := Color("e9e1cc")
+	var form := PackedVector2Array([Vector2(744, 708), Vector2(896, 704), Vector2(899, 728), Vector2(747, 731)])
+	c.draw_colored_polygon(form, cream)
+	c.draw_polyline(form + PackedVector2Array([form[0]]), INK, 1.5, true)
+	for i in 3:
+		var y0 := 713.0 + i * 5.5
+		c.draw_line(Vector2(752, y0 - i * 0.1), Vector2(890, y0 - 3.0 - i * 0.1), Color(INK, 0.8), 1.0, true)
+	c.draw_line(Vector2(792, 706), Vector2(793, 730), Color(INK, 0.8), 1.0, true)   # the form's column rule
+
+## From band 5 the rain has stopped falling and hangs where it was: one fixed set of short
+## pale dashes in the glass, seeded, never advancing, whatever Motion says.
+func _draw_rain_still(c: Node2D) -> void:
+	var g := RandomNumberGenerator.new()
+	g.seed = 5005
+	var col := Color(Color("c9d3da"), 0.7)
+	for pane in PANES:
+		var r: Rect2 = pane
+		var n := int(r.size.x * r.size.y / 900.0)
+		for i in n:
+			var p := Vector2(g.randf_range(r.position.x + 3, r.end.x - 3), g.randf_range(r.position.y + 3, r.end.y - 12))
+			c.draw_line(p, p + Vector2(-1.2, g.randf_range(5.0, 9.0)), col, 1.5)
 
 ## Band 3: a pale crest crosses the lower pane once a loop, a beat before its sound. It follows
 ## the late_wave loop's own playhead. Motion off: drawn still, mid-pane.
@@ -1793,9 +2038,20 @@ func _draw_wrong_shadow(c: Node2D, s: int) -> void:
 		c.draw_polyline(head_rim, rim, 1.5, true)
 		c.draw_polyline(PackedVector2Array([sit.call(Vector2(598, 618), 0.0), sit.call(Vector2(603, 603), 0.0),
 			sit.call(Vector2(614, 595), 0.0), sit.call(Vector2(630, 590), 0.0)]), rim, 1.5, true)
-	# The chair back: one solid shape, so it reads as a chair and not a comb.
-	c.draw_colored_polygon(PackedVector2Array([sh.call(Vector2(561, 622)), sh.call(Vector2(728, 622)),
-		sh.call(Vector2(728, 684)), sh.call(Vector2(561, 684))]), Color(SHADOW_COL, 0.42))
+	if s >= 3:
+		# Behind the sitter, the chair back stays one solid shape.
+		c.draw_colored_polygon(PackedVector2Array([sh.call(Vector2(561, 622)), sh.call(Vector2(728, 622)),
+			sh.call(Vector2(728, 684)), sh.call(Vector2(561, 684))]), Color(SHADOW_COL, 0.42))
+		return
+	# Stages 1-2: the chair's own back, sheared: a top rail, four spindles, the seat edge.
+	# The parts abut and never overlap, so the shadow is one even tone.
+	var col := Color(SHADOW_COL, 0.45)
+	var parts := [Rect2(561, 622, 167, 12), Rect2(553, 676, 183, 8)]
+	for x in [561.0, 614.0, 667.0, 720.0]:
+		parts.append(Rect2(x, 634, 8, 42))
+	for r in parts:
+		c.draw_colored_polygon(PackedVector2Array([sh.call(r.position), sh.call(Vector2(r.end.x, r.position.y)),
+			sh.call(r.end), sh.call(Vector2(r.position.x, r.end.y))]), col)
 
 func _arc_pts(center: Vector2, rx: float, ry: float, a0: float, a1: float) -> PackedVector2Array:
 	var pts := PackedVector2Array()
@@ -1857,7 +2113,8 @@ func _draw_deep() -> void:
 	if deep_drawn:
 		_draw_door_opening(deep)
 
-## The open door, and the corridor behind it: deeper than the building, breathing.
+## The open door, and the corridor behind it: deeper than the building, breathing. Drawn
+## as crisp flat shapes (casings, water, mud, a silhouette), so the push-in stays sharp.
 ## Deep layer, unlit: what is down there makes its own light.
 
 func _draw_door_opening(c: Node2D) -> void:
@@ -1866,83 +2123,174 @@ func _draw_door_opening(c: Node2D) -> void:
 		k = smoothstep(0.0, 1.0, clampf(threshold_t / 2.2, 0.0, 1.0))
 	var slab := DOOR_SLAB
 	var open := Rect2(slab.position, Vector2(slab.size.x * k, slab.size.y))
-	c.draw_rect(open, Color(0.01, 0.012, 0.02))
+	c.draw_rect(open, CORRIDOR_GAP)
 	if k <= 0.0:
 		return
-	var held := _breath_held()
-	var env := door_env if held else _env_drawn()
-	var corridor := _tex("threshold_corridor")
-	if corridor:
-		# The corridor swells on the exhale: the source is the slab shrunk toward the
-		# vanishing point, so the image grows about it and never spills past the doorway.
-		var f := 1.0
-		if motion:
-			f = 1.0 / (1.0 + 0.025 * env)
-		var src := Rect2(VP + (slab.position - VP) * f, slab.size * f)
-		src.size.x *= k
-		c.draw_texture_rect_region(corridor, open, _canvas_to_tex(corridor, src))
-	else:
-		_draw_casings(c, open)
-	# The water comes up the corridor while she stands there. Its height runs on threshold
-	# time, so it always reaches the same end.
-	var water := 860.0
-	if motion:
-		water = lerpf(904.0, 860.0, clampf(threshold_t / 11.0, 0.0, 1.0))
-	if water < slab.end.y - 0.5:
-		c.draw_colored_polygon(PackedVector2Array([Vector2(open.position.x, water), Vector2(open.end.x, water),
-			Vector2(open.end.x, slab.end.y), Vector2(open.position.x, slab.end.y)]), Color(0.05, 0.08, 0.11, 0.8))
-		c.draw_line(Vector2(open.position.x, water), Vector2(open.end.x, water), Color(0.55, 0.62, 0.70, 0.3), 1.0)
-	# At the end of it, something opens an eye as it breathes. It freezes when she holds hers.
-	if open.end.x > VP.x + 12.0:
-		var hh := lerpf(1.0, 3.5, env)
-		var almond := PackedVector2Array()
-		for j in 13:
-			var u := j / 12.0
-			almond.append(VP + Vector2(lerpf(-11.0, 11.0, u), -hh * sin(PI * u)))
-		for j in range(11, 0, -1):
-			var u := j / 12.0
-			almond.append(VP + Vector2(lerpf(-11.0, 11.0, u), hh * sin(PI * u)))
-		c.draw_colored_polygon(almond, Color(0.85, 0.88, 0.92, 0.5 * env))
-		c.draw_rect(Rect2(VP - Vector2(1.5, 1.5), Vector2(3, 3)), Color(0.02, 0.02, 0.03, 0.9))
-	# Only at the top of a breath, only while she isn't holding hers: someone standing there.
-	var figure := _tex("threshold_figure")
-	if figure and k >= 1.0 and motion and not held and not still_spoken:
-		var fa := 0.68 * smoothstep(0.85, 1.0, env)
-		if fa > 0.0:
-			c.draw_texture_rect(figure, Rect2(Vector2.ZERO, SIZE), false, Color(1, 1, 1, fa))
+	var clip := _rect_poly(open)
+	var tide := _tide_drawn()
+	var far := _draw_casings(c, open)
+	_draw_far_end(c, far, clip, tide.x)
+	_draw_corridor_floor(c, clip, tide.x)
+	var skin := _draw_corridor_water(c, clip, tide)
+	_draw_threshold_figure(c, clip)
+	for seg in skin:
+		c.draw_line(seg[0], seg[1], WATER_SKIN, _px(1.5))
 	if k < 1.0:
 		return
 	# On the inhale, a wet gleam reaches out of the doorway across the floor toward the desk.
+	var env := door_env if _breath_held() else _env_drawn()
 	var reach := 260.0 * env
 	if reach < 2.0:
 		return
 	c.draw_colored_polygon(PackedVector2Array([Vector2(1228, 900), Vector2(1228, 920),
 		Vector2(1228 - reach, 916), Vector2(1228 - reach, 906)]), Color(0.70, 0.76, 0.84, 0.08 * env))
 
-## Fallback corridor: nine teal casings, each 0.86 of the last toward the vanishing point,
-## black inside, darker with distance. Clipped to the opened part of the doorway.
+## A width in screen pixels, in room units at the current lean.
+func _px(w: float) -> float:
+	return w / maxf(_zoom_xform().get_scale().x, 0.01)
 
-func _draw_casings(c: Node2D, open: Rect2) -> void:
-	var frame := DOOR_SLAB.grow(-6)
-	for i in 9:
-		var f := pow(0.78, i)
-		var casing := frame.intersection(open)
-		if casing.has_area():
-			c.draw_rect(casing, Color(0.11 * f, 0.18 * f, 0.22 * f))
-		var inner := frame.grow(-10.0 * pow(0.86, i)).intersection(open)
+static func _rect_poly(r: Rect2) -> PackedVector2Array:
+	return PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
+
+## The doorway's cross-section at depth scale f (1 = the door itself), shrunk toward VP.
+static func corridor_section(f: float) -> Rect2:
+	return Rect2(VP + (DOOR_SLAB.position - VP) * f, DOOR_SLAB.size * f)
+
+## Fills `poly` clipped to `clip`.
+func _fill_clipped(c: Node2D, poly: PackedVector2Array, clip: PackedVector2Array, col: Color) -> void:
+	for part in Geometry2D.intersect_polygons(poly, clip):
+		if part.size() >= 3 and not Geometry2D.triangulate_polygon(part).is_empty():
+			c.draw_colored_polygon(part, col)
+
+## Nested casings toward VP, teal and storm navy by turns, each 0.86 of the last, with dark
+## corridor between them. Clipped to the opened part of the doorway. Returns the far end.
+func _draw_casings(c: Node2D, open: Rect2) -> Rect2:
+	var f := 1.0
+	var i := 0
+	var far := corridor_section(CORRIDOR_END)
+	while f > CORRIDOR_END:
+		var r := corridor_section(f)
+		var band := r.intersection(open)
+		if band.has_area():
+			c.draw_rect(band, CORRIDOR_TEAL if i % 2 == 0 else CORRIDOR_NAVY)
+		far = r.grow(-maxf(12.0 * f, 1.0))
+		var inner := far.intersection(open)
 		if inner.has_area():
-			c.draw_rect(inner, Color(0, 0, 0))
-		frame = Rect2(VP + (frame.position - VP) * 0.86, frame.size * 0.86)
+			c.draw_rect(inner, CORRIDOR_GAP)
+		f *= 0.86
+		i += 1
+	return far
 
-## Maps a canvas-space rect onto a texture: full-canvas plates are 1:1; a texture cut to
-## the door slab is scaled from it.
+## The corridor's end. When the tide goes out it opens on the drained Sound, as far as the
+## lighthouse: a tiny rock and a dark tower, on the horizon at VP.
+func _draw_far_end(c: Node2D, far: Rect2, clip: PackedVector2Array, drain: float) -> void:
+	if drain <= 0.0:
+		return
+	var sky := Rect2(far.position, Vector2(far.size.x, VP.y - far.position.y))
+	_fill_clipped(c, _rect_poly(sky), clip, Color(CORRIDOR_SKY, drain))
+	_fill_clipped(c, _rect_poly(Rect2(far.position.x, VP.y, far.size.x, far.end.y - VP.y)), clip, Color(MUD, drain))
+	var rock := PackedVector2Array()
+	for j in 13:
+		var a := PI + PI * j / 12.0
+		rock.append(VP + Vector2(cos(a) * 7.0, sin(a) * 2.6))
+	_fill_clipped(c, rock, clip, Color(FIGURE_INK, drain))
+	_fill_clipped(c, _rect_poly(Rect2(VP.x - 1.2, VP.y - 11.0, 2.4, 10.0)), clip, Color(FIGURE_INK, drain))
+	_fill_clipped(c, _rect_poly(Rect2(VP.x - 1.8, VP.y - 12.2, 3.6, 1.4)), clip, Color(FIGURE_INK, drain))
 
-func _canvas_to_tex(tex: Texture2D, r: Rect2) -> Rect2:
-	var ts := tex.get_size()
-	if ts.is_equal_approx(SIZE):
-		return r
-	var sc := ts / DOOR_SLAB.size
-	return Rect2((r.position - DOOR_SLAB.position) * sc, r.size * sc)
+## The corridor floor: wet mud, five piling stubs walking off toward the lighthouse. Under
+## the water, so it only shows where the tide has gone out.
+func _draw_corridor_floor(c: Node2D, clip: PackedVector2Array, drain: float) -> void:
+	if drain <= 0.0:
+		return
+	var near := corridor_section(1.0)
+	var far := corridor_section(CORRIDOR_END)
+	var floor_poly := PackedVector2Array([Vector2(near.position.x, near.end.y), near.end,
+		far.end, Vector2(far.position.x, far.end.y)])
+	_fill_clipped(c, floor_poly, clip, MUD)
+	for st in STUBS:
+		var f: float = st[1]
+		var base := Vector2(VP.x + st[0] * f, VP.y + (DOOR_SLAB.end.y - VP.y) * f)
+		var w := 18.0 * f
+		var h := 110.0 * f
+		_fill_clipped(c, _rect_poly(Rect2(base.x - w / 2.0, base.y - h, w, h)), clip, STUB)
+		_fill_clipped(c, _ellipse(Vector2(base.x, base.y - h), w / 2.0, w * 0.22, 12), clip, STUB.lightened(0.12))
+
+## The water in the corridor: a dark body (convex hull of its near and far faces) and its
+## surface, both flat. Drained, its near edge pulls back toward the far end. Returns the
+## surface skin's segments, drawn last so they cross whatever stands in it.
+func _draw_corridor_water(c: Node2D, clip: PackedVector2Array, tide: Vector2) -> Array:
+	var f_near := lerpf(1.0, CORRIDOR_END, clampf(tide.x, 0.0, 1.0))
+	if f_near <= CORRIDOR_END + 0.002:
+		return []
+	var h := clampf(tide.y, 0.0, 1.0)
+	var near := corridor_section(f_near)
+	var far := corridor_section(CORRIDOR_END)
+	var yn := near.end.y - h * near.size.y
+	var yf := far.end.y - h * far.size.y
+	var pts := PackedVector2Array([Vector2(near.position.x, yn), Vector2(near.end.x, yn), near.end,
+		Vector2(near.position.x, near.end.y), Vector2(far.position.x, yf), Vector2(far.end.x, yf), far.end,
+		Vector2(far.position.x, far.end.y)])
+	_fill_clipped(c, Geometry2D.convex_hull(pts), clip, Color(CORRIDOR_NAVY, 0.8))
+	var surface := PackedVector2Array([Vector2(near.position.x, yn), Vector2(near.end.x, yn),
+		Vector2(far.end.x, yf), Vector2(far.position.x, yf)])
+	if yn - yf > 0.5:
+		_fill_clipped(c, surface, clip, WATER_TOP)   # seen from above only: below her eye
+	# The waterline on every casing it reaches, so its height reads all the way down.
+	var f := 0.86
+	while f > CORRIDOR_END:
+		if f < f_near:
+			var r := corridor_section(f)
+			var y := r.end.y - h * r.size.y
+			for part in Geometry2D.intersect_polyline_with_polygon(PackedVector2Array([
+					Vector2(r.position.x, y), Vector2(r.end.x, y)]), clip):
+				if part.size() >= 2:
+					c.draw_line(part[0], part[part.size() - 1], Color(WATER_SKIN, 0.55), _px(1.5))
+		f *= 0.86
+	var out := []
+	for part in Geometry2D.intersect_polyline_with_polygon(PackedVector2Array([
+			Vector2(near.position.x, yn), Vector2(near.end.x, yn)]), clip):
+		if part.size() >= 2:
+			out.append([part[0], part[part.size() - 1]])
+	return out
+
+## Someone standing at the far end: a flat navy-black silhouette with a pale rim, its head
+## on the horizon (her own eye height), a long body. No eyes. It stands nearer each exhale.
+func _draw_threshold_figure(c: Node2D, clip: PackedVector2Array) -> void:
+	var a := threshold_figure_alpha(threshold_t, motion, _breath_held())
+	if a <= 0.0:
+		return
+	var feet := Vector2(VP.x, VP.y + (DOOR_SLAB.end.y - VP.y) * FIGURE_DEPTH)
+	var hh := feet.y - VP.y - 1.0   # head to heel
+	var sc := fig_scale if motion else FIGURE_SCALE_STILL
+	var to_screen := func(u: Vector2) -> Vector2:
+		# u in figure units (x across, y up from the heel, both in head-to-heel heights).
+		var p := feet + Vector2(u.x * hh, -u.y * hh)
+		return VP + (p - VP) * sc
+	var head_c := Vector2(0.0, 0.94)
+	var head := PackedVector2Array()
+	var rim_head := PackedVector2Array()
+	for j in 24:
+		var t := TAU * j / 24.0
+		head.append(to_screen.call(head_c + Vector2(cos(t) * 0.05, sin(t) * 0.06)))
+	for j in 19:
+		var t := lerpf(-0.25 * PI, 1.25 * PI, j / 18.0)   # over the top, not across the neck
+		rim_head.append(to_screen.call(head_c + Vector2(cos(t) * 0.05, sin(t) * 0.06)))
+	# A long neck, sloped shoulders, arms hanging past the hips, legs together.
+	var half := [Vector2(0.026, 0.885), Vector2(0.03, 0.84), Vector2(0.11, 0.80), Vector2(0.15, 0.76),
+		Vector2(0.158, 0.66), Vector2(0.15, 0.44), Vector2(0.138, 0.27), Vector2(0.116, 0.25),
+		Vector2(0.104, 0.36), Vector2(0.094, 0.30), Vector2(0.078, 0.0), Vector2(0.014, 0.0), Vector2(0.0, 0.2)]
+	var body := PackedVector2Array()
+	for u in half:   # down the left side to the crotch
+		body.append(to_screen.call(Vector2(-u.x, u.y)))
+	for i in range(half.size() - 2, -1, -1):   # and back up the right
+		body.append(to_screen.call(half[i]))
+	var ink := Color(FIGURE_INK, a)
+	_fill_clipped(c, body, clip, ink)
+	_fill_clipped(c, head, clip, ink)
+	var rim := Color(WATER_SKIN, a)
+	var w := _px(2.0)
+	c.draw_polyline(rim_head, rim, w, true)
+	c.draw_polyline(body, rim, w, true)
 
 func _draw_vignette(c: Node2D, a: float) -> void:
 	if a <= 0.0:
@@ -2416,20 +2764,7 @@ func _end_button_ready() -> bool:
 
 func _draw_repair(c: Node2D) -> void:
 	c.draw_texture_rect(textures["repair_panel"], Rect2(Vector2.ZERO, SIZE), false)
-	# Water damage over the solved steps and reference: stained, tide-marked, dripping.
-	var stain := Color("b8a47c", 0.55)
-	var mark := Color("8f7a55", 0.45)
-	for blob in [[Vector2(1010, 356), 44], [Vector2(1090, 350), 40], [Vector2(1160, 362), 36],
-			[Vector2(960, 362), 30], [Vector2(1050, 575), 70], [Vector2(980, 590), 50],
-			[Vector2(1120, 590), 55], [Vector2(1060, 660), 62], [Vector2(980, 690), 48],
-			[Vector2(1150, 690), 52], [Vector2(1080, 720), 40], [Vector2(1220, 670), 34]]:
-		c.draw_circle(blob[0], blob[1], stain)
-		c.draw_arc(blob[0], blob[1], 0, TAU, 48, mark, 2.0, true)
-	for drip in [[Vector2(1068, 758), 34], [Vector2(986, 736), 22], [Vector2(1162, 740), 28]]:
-		c.draw_line(drip[0], drip[0] + Vector2(0, drip[1]), Color("8f7a55", 0.3), 2.0)
-		c.draw_circle(drip[0] + Vector2(0, drip[1]), 2.4, Color("8f7a55", 0.3))
-	for ring in [[Vector2(1050, 610), 120], [Vector2(1060, 358), 76]]:
-		c.draw_arc(ring[0], ring[1], 0, TAU, 64, Color("8f7a55", 0.5), 3.0)
+	_draw_repair_stains(c)
 	_text(c, "(water-damaged)", Vector2(896, 765), 18, Color(INK, 0.6), hand, 400, HORIZONTAL_ALIGNMENT_LEFT)
 	c.draw_texture_rect(textures["switch_on" if office.state.supply_on else "switch_off"],
 		Rect2(Vector2.ZERO, SIZE), false)
@@ -2443,6 +2778,24 @@ func _draw_repair(c: Node2D) -> void:
 	if office.selected != "":
 		var r := Rect2(88, 867, 278, 122) if office.selected == "B" else Rect2(376, 867, 278, 122)
 		c.draw_rect(r, GOLD, false, 5)
+
+## The card's water damage: a seeded cluster of stains and tide-marks in the margin below
+## the card's '(water-damaged)' caption, clear of all three steps and the B shape.
+const REPAIR_STAIN_BOX := Rect2(880, 778, 400, 80)
+
+func _draw_repair_stains(c: Node2D) -> void:
+	var g := RandomNumberGenerator.new()
+	g.seed = 1852
+	var stain := Color("b8a47c", 0.55)
+	var mark := Color("8f7a55", 0.45)
+	var box := REPAIR_STAIN_BOX
+	for i in 8:
+		var r := g.randf_range(18.0, box.size.y / 2.0 - 2.0)
+		var p := Vector2(g.randf_range(box.position.x + r, box.end.x - r),
+			g.randf_range(box.position.y + r, box.end.y - r))
+		c.draw_circle(p, r, stain)
+		c.draw_arc(p, r, 0, TAU, 40, mark, 2.0, true)
+	c.draw_arc(box.get_center() + Vector2(60, 0), box.size.y / 2.0 - 1.0, 0, TAU, 64, Color("8f7a55", 0.5), 3.0)
 
 func _draw_logbook(c: Node2D) -> void:
 	c.draw_rect(Rect2(Vector2.ZERO, SIZE), Color(INK, 0.96))
@@ -2617,8 +2970,9 @@ func _draw_drawer_open(c: Node2D) -> void:
 	c.draw_line(WATCH_C, WATCH_C + Vector2(sin(hour_a), -cos(hour_a)) * 60, INK, 6.0, true)
 	c.draw_line(WATCH_C, WATCH_C + Vector2(sin(min_a), -cos(min_a)) * 95, INK, 3.0, true)
 	c.draw_circle(WATCH_C, 6, INK)
+	# A hairline crack across the glass, flat navy.
 	c.draw_polyline(PackedVector2Array([WATCH_C + Vector2(-96, -52), WATCH_C + Vector2(-30, -14),
-		WATCH_C + Vector2(18, -40), WATCH_C + Vector2(88, 30)]), Color(1, 1, 1, 0.35), 2.0, true)
+		WATCH_C + Vector2(18, -40), WATCH_C + Vector2(88, 30)]), Color(INK, 0.85), 1.0, true)
 	_text(c, "stopped 18:52", Vector2(480, 770), 22, PAPER, hand, 300, HORIZONTAL_ALIGNMENT_LEFT)
 	if not office.board_solved():
 		_draw_photo(c, PHOTO_RECT, office.photo_variant())
@@ -2789,36 +3143,47 @@ func _draw_report_time(c: Node2D, filed: bool) -> void:
 # drawing: HUD
 # ---------------------------------------------------------------------------
 
-## The threshold's prompt, once she may go on.
+## The exits and the turn tab are always there: faint at rest, raised clear of the subtitle
+## bar; full when the cursor is on one or at the bottom edge (then the core draws the exits).
+## At the threshold only the turn tab remains, so she can always turn round.
 func draw_hud(c: Node2D) -> void:
 	if office.view == "room" and game and game.sim.view == "room":
 		if _exit_bar_live():
-			_draw_turn_tab(c)
+			_draw_turn_tab(c, 1.0)
 		else:
-			_draw_exit_lips(c)
+			_draw_rest_tabs(c)
 		_draw_anchored_label(c)
-	if office.view == "threshold" and continue_ready:
-		var a := clampf((threshold_t - continue_t - 1.5) / 1.5, 0.0, 1.0)
-		if a > 0.0:
-			var prompt := "Click the doorway to step into the corridor."
-			var w := hand.get_string_size(prompt, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x + 60
-			c.draw_rect(Rect2((SIZE.x - w) / 2.0, 940, w, 40), Color(0.03, 0.06, 0.08, 0.85 * a))
-			_text(c, prompt, Vector2(0, 967), 22, Color(PAPER, 0.9 * a), hand, SIZE.x)
+	if office.view == "threshold" and game and game.sim.view == "room":
+		var hot := _has_pointer() and TURN_RECT.has_point(get_global_mouse_position())
+		_draw_turn_tab(c, 1.0 if hot else TAB_REST_ALPHA, hot)
 
-## While the exit bar is away, a slim lip at the very bottom edge says it is there: one
-## short plaque edge per tab, in the tabs' own ink, under the subtitle slab.
-func _draw_exit_lips(c: Node2D) -> void:
-	var rects: Array = [TURN_RECT]
+## The exit tabs and the turn tab at rest, faint, in the core's own plaque style.
+func _draw_rest_tabs(c: Node2D) -> void:
 	for e in game.sim.exits():
-		if exit_rects().has(e[0]):
-			rects.append(exit_rects()[e[0]])
-	for r in rects:
-		var lip := Rect2(r.position.x + 6, SIZE.y - 9, r.size.x - 12, 9)
-		c.draw_rect(lip, Color(0.03, 0.06, 0.08, 0.82))
-		c.draw_line(lip.position, Vector2(lip.end.x, lip.position.y), Color(PAPER, 0.55), 1.5)
-		var ctr := Vector2(lip.get_center().x, lip.position.y + 1)
-		c.draw_colored_polygon(PackedVector2Array([ctr + Vector2(-6, 6), ctr + Vector2(6, 6), ctr + Vector2(0, 1)]),
-			Color(PAPER, 0.7))
+		if not exit_rects().has(e[0]):
+			continue
+		var r: Rect2 = exit_rects()[e[0]]
+		var open: bool = game.sim.exit_open(game.sim.state.room, e[0])
+		var label: String = ("◂ " + e[1]) if r.get_center().x < SIZE.x / 2.0 else (e[1] + " ▸")
+		_plaque(c, r, label, TAB_REST_ALPHA * (1.0 if open else 0.6), false)
+	_draw_turn_tab(c, TAB_REST_ALPHA)
+
+## Ink.button with an opacity: the same plaque, faded as a whole.
+func _plaque(c: CanvasItem, rect: Rect2, label: String, a: float, active: bool, size := 19) -> void:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(Color("786440") if active else Color(0.15, 0.25, 0.29), 0.92 * a)
+	style.border_color = Color(GOLD if active else Color("8ba19a"), a)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(5)
+	c.draw_style_box(style, rect)
+	if label == "":
+		return
+	var ts := serif.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, size)
+	while ts.x > rect.size.x - 12.0 and size > 13:
+		size -= 1
+		ts = serif.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, size)
+	c.draw_string(serif, rect.position + Vector2((rect.size.x - ts.x) / 2.0, rect.size.y / 2.0 + size * 0.36),
+		label, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(PAPER, a))
 
 ## Facing the entry wall, a hovered object's name sits just above it (or just inside its
 ## top edge), not at the cursor, so it never lies over the stamp rail or the board.
@@ -2842,10 +3207,10 @@ func _draw_anchored_label(c: Node2D) -> void:
 
 ## The turn tab: a plaque like the exit tabs, with a curved arrow drawn in ink lines that
 ## bends the way she turns.
-func _draw_turn_tab(c: Node2D) -> void:
-	Ink.button(c, TURN_RECT, "", game.hover_id == "turn", 19)
+func _draw_turn_tab(c: Node2D, alpha := 1.0, hot := false) -> void:
+	_plaque(c, TURN_RECT, "", alpha, hot or game.hover_id == "turn")
 	var ctr := TURN_RECT.get_center() + Vector2(0, 6)
-	var col := Color(PAPER, 0.95)
+	var col := Color(PAPER, 0.95 * alpha)
 	var sweep := 1.0 if office.facing == "A" else -1.0
 	var pts := PackedVector2Array()
 	for i in 17:

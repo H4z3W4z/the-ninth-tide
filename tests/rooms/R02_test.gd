@@ -153,6 +153,7 @@ func run_tests() -> void:
 	await test_view_escalation()
 	await test_view_notice_and_board()
 	await test_repaint_pass()
+	await test_fix_w1()
 
 func test_full_playthrough() -> void:
 	var s := new_sim()
@@ -205,7 +206,8 @@ func test_full_playthrough() -> void:
 	s.dispatch("back")
 	check(s.objective() == "chair", "objective -> chair")
 	ev = s.dispatch("chair")
-	check(s.state.seat_wet and has_ev(ev, "sfx", "sting"), "wet seat + sting")
+	check(s.state.seat_wet and not has_ev(ev, "sfx", "sting") and has_ev(ev, "fx", "seat_hush"),
+		"wet seat: no stinger, the room hushes")
 	check(has_ev(ev, "sfx", "knock_glass") and not has_ev(ev, "sfx", "latch_near"), "the knock follows; the latch does not")
 	check(s.objective() == "report", "objective -> report")
 	ev = s.dispatch("door")
@@ -1910,7 +1912,8 @@ func test_click_driver() -> void:
 		step(scene, 1.0)
 	check(scene.room_sim().view == "threshold" and unlatch_before, "the unlatch line shows before the threshold")
 	step(scene, 20.0)
-	ok = click_through(scene, hs(scene, "door"), ev)
+	# Pushed in on the doorway: the click goes where the doorway is drawn.
+	ok = click_through(scene, scene.room_view._zoom_xform() * hs(scene, "door"), ev)
 	check(ok and scene.room_sim().view == "end" and not scene.room_sim().state.turned, "driver reaches the end card")
 	var missing := []
 	for e in ev:
@@ -2118,7 +2121,7 @@ func test_rewrite_needs_tide1() -> void:
 			"%s then %s: the log rewrites, without the prints" % order)
 	check(R02Sim.HINTS["reread"] == ["Something in the office has changed.", "Venn's log is not finished with you.",
 		"Go back to the Intake Office and open the tide log."], "reread hints")
-	check(R02Sim.OBJECTIVES["reread"] == "Something on the desk has changed.", "reread objective")
+	check(R02Sim.OBJECTIVES["reread"] == "The logbook has been written in since I left.", "reread objective")
 	check(R02Sim.HINTS["instruments"].size() == 3 and "chart room" in R02Sim.HINTS["instruments"][2], "instruments hints")
 	var bad := new_sim()
 	bad.from_dict({"schema": 5, "started": true, "p01_complete": true, "log_read": true, "log_rewritten": true})
@@ -2856,7 +2859,8 @@ func test_view_b() -> void:
 	check(scene.action_at(turn_rect.get_center()) == "turn", "the turn rect facing B")
 	for id in R02Sim.HOTSPOTS_B:
 		if rects.has(id):
-			check(scene.action_at(rects[id].get_center()) == id, "facing B, the centre of %s is %s" % [id, id])
+			var want: String = "go:R01" if id == "outer_door" else id   # the outer door leads to the jetty
+			check(scene.action_at(rects[id].get_center()) == want, "facing B, the centre of %s is %s" % [id, want])
 	await free_scene(scene)
 
 # ---------------------------------------------------------------------------
@@ -3032,6 +3036,7 @@ func test_repaint_pass() -> void:
 	await process_frame
 	v = scene.room_view
 	v.zoom_k = 1.0
+	v.push_k = 0.0
 	var xf: Transform2D = v._zoom_xform()
 	check(xf.get_scale().x > 1.2, "the threshold leans in")
 	v.continue_ready = true
@@ -3039,8 +3044,10 @@ func test_repaint_pass() -> void:
 	var chair_c: Vector2 = xf * Rect2(553, 618, 180, 66).get_center()
 	check(scene.action_at(door_c) == "continue" and scene.action_at(chair_c) == "turn",
 		"leaned in, the doorway and the chair are where they are drawn")
-	check(Rect2(Vector2.ZERO, v.SIZE).has_point(xf * v.DOOR_SLAB.end) and (xf * v.DOOR_SLAB.position).x > 1000.0,
-		"the doorway stays on screen, wider")
+	v.push_k = 1.0
+	xf = v._zoom_xform()
+	check(scene.action_at(xf * v.VP) == "continue" and scene.action_at(v.TURN_RECT.get_center()) == "turn",
+		"pushed in, the doorway is where it is drawn and the turn tab still turns her")
 	scene.dispatch("turn")
 	await process_frame
 	v._tick_zoom(5.0)
@@ -3060,4 +3067,115 @@ func test_repaint_pass() -> void:
 	for i in v.HOOK_TAGS.size():
 		var w: float = v.serif.get_string_size(v.HOOK_TAGS[i][1], HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
 		check(w <= v.HOOK_TAG_W - 10.0, "hook %d's figure fits at full size" % (i + 1))
+	await free_scene(scene)
+
+# ---------------------------------------------------------------------------
+# Fixer w1: the threshold shows what the lines say; the wet seat's silence; exits always
+# visible; the closure report visible; the repair card clear; the chair's shadow a chair.
+# ---------------------------------------------------------------------------
+func test_fix_w1() -> void:
+	var src := FileAccess.get_file_as_string("res://game/rooms/R02/R02_view.gd")
+	var VC = load("res://game/rooms/R02/R02_view.gd")
+	# The figure: there from 3 s, the same with Motion off or held (frozen, not hidden).
+	check(VC.threshold_figure_alpha(4.0, false, false) > 0.8, "figure visible at 4 s, Motion off")
+	check(VC.threshold_figure_alpha(4.0, true, true) > 0.8, "figure visible at 4 s while she holds her breath")
+	check(VC.threshold_figure_alpha(1.0, true, false) == 0.0, "no figure in the first second")
+	check(not src.contains("Click the doorway to step into the corridor."), "no doorway prompt in the HUD")
+	check(not src.contains("threshold_corridor") and not src.contains("almond"), "no upscaled corridor, no eye-glint")
+	check(not src.contains("_draw_exit_lips"), "no hidden-lip exit mode")
+	# The tide on screen: drained on the inhale, at the top bar after the exhale, continuous.
+	var drained: Vector2 = VC.threshold_tide(VC.BREATH_IN - 0.01)
+	var full: Vector2 = VC.threshold_tide(VC.BREATH_OUT_END - 0.01)
+	check(drained.x > 0.95 and full.x == 0.0 and full.y > 0.95, "inhale drains to mud; exhale fills to the top bar")
+	var smooth := true
+	var prev: Vector2 = VC.threshold_tide(0.0)
+	for i in range(1, 1101):
+		var cur: Vector2 = VC.threshold_tide(i * 0.01)
+		smooth = smooth and absf(cur.x - prev.x) < 0.1 and absf(cur.y - prev.y) < 0.1
+		prev = cur
+	check(smooth and VC.threshold_tide(VC.BREATH_PERIOD - 0.001).distance_to(VC.threshold_tide(0.0)) < 0.02,
+		"the tide never jumps, and loops cleanly")
+	# The wet seat's silence: in over 0.4 s, held through the third line, out over 3 s.
+	var hold_end: float = VC.SEAT_HUSH_LINE_AT + GameView.min_read(VC.SEAT_HUSH_LINE)
+	check(VC.seat_hush_k(0.0) == 1.0 and VC.seat_hush_k(0.2) > 0.4 and VC.seat_hush_k(0.4) == 0.0
+		and VC.seat_hush_k(hold_end - 0.05) == 0.0 and is_equal_approx(VC.seat_hush_k(hold_end + 1.5), 0.5)
+		and VC.seat_hush_k(hold_end + 3.0) == 1.0, "seat hush envelope")
+	check(src.contains(VC.SEAT_HUSH_LINE) or FileAccess.get_file_as_string("res://game/rooms/R02/R02_sim.gd").contains(VC.SEAT_HUSH_LINE),
+		"the hush is timed to the real third line")
+	# Items: short names for the long ones.
+	for id in R02Sim.ITEMS:
+		var it: Dictionary = R02Sim.ITEMS[id]
+		check(it.name.length() <= 14 or (it.has("short") and it.short.length() <= 14), "item %s has a short name" % id)
+	# Papers: back from the instruments, the moved card says where to look; the report opens first after the seat.
+	var s := new_sim()
+	s.dispatch("begin")
+	s.debug_jump(2)
+	s.state.drawer_open = true
+	tide1(s)
+	var ev := s.dispatch("papers")
+	check(s.view == "room" and "Someone has written in the log since I left." in says(ev) and s.has_seen("note"),
+		"papers after Tide I: the moved card, no close-up, the note kept")
+	s = new_sim()
+	s.dispatch("begin")
+	s.debug_jump(3)
+	check(s.state.seat_wet and not s.state.report_filed, "at the wet seat")
+	s.dispatch("papers")
+	check(s.view == "report", "the first papers click after the wet seat opens the report")
+	# The scene.
+	var scene = new_scene("user://office_fix_w1.json")
+	await process_frame
+	scene.room_jump("R02", 3)
+	await process_frame
+	var v = scene.room_view
+	# The doors navigate once the lamp is lit.
+	check(scene.room_sim().state.p01_complete and scene.action_at(hs(scene, "door")) == "go:R03",
+		"with P01, the corridor door leads to the chart room")
+	scene.room_jump("R02", 0)
+	await process_frame
+	check(scene.action_at(hs(scene, "door")) == "door", "before P01 the corridor door keeps its line")
+	# The wet seat's mix: room, drone and sea held at zero, then back.
+	scene.room_jump("R02", 3)
+	await process_frame
+	v = scene.room_view
+	v.play_fx("seat_hush")
+	v.seat_hush_t = 2.0
+	v._tick_audio(0.1)
+	check(v.last_targets.room == 0.0 and v.last_targets.drone == 0.0 and v.last_targets.sea == 0.0,
+		"the wet seat: room, drone and sea silent")
+	v.hush = 0.0
+	v.seat_hush_t = hold_end + 0.1
+	v._tick_audio(0.1)
+	check(v.last_targets.room == 0.0 or v.last_targets.room < 0.05, "still almost silent as it starts back")
+	# The threshold: pushed in on the doorway, the vanishing point at the centre.
+	scene.room_jump("R02", 4)
+	scene.dispatch("door")
+	await process_frame
+	v = scene.room_view
+	v.zoom_k = 1.0
+	v.push_k = 1.0
+	var xf: Transform2D = v._zoom_xform()
+	var slab_w: float = (xf * v.DOOR_SLAB.end).x - (xf * v.DOOR_SLAB.position).x
+	check(slab_w >= 0.42 * v.SIZE.x, "the doorway fills at least 42% of the frame width")
+	check((xf * v.VP).distance_to(Vector2(724, 543)) < 1.0, "the vanishing point at the centre of the screen")
+	check(scene.action_at(v.DOOR_SLAB.get_center()) == "" and scene.action_at(xf * v.DOOR_SLAB.get_center()) == ""
+		and scene.action_at(xf * v.VP) == "", "a doorway click before she may go on does nothing")
+	# The figure is at least 120 px tall on screen, its head on the horizon.
+	var feet_y: float = v.VP.y + (v.DOOR_SLAB.end.y - v.VP.y) * v.FIGURE_DEPTH
+	check((feet_y - v.VP.y) * xf.get_scale().x >= 120.0, "the figure is at least 120 px tall on screen")
+	# 'Go on, then.' once, only after she may go on and has waited.
+	v.continue_ready = true
+	v.continue_t = 9.0
+	v.threshold_t = 11.0
+	v._tick_go_on()
+	check(count_line(scene, VC.GO_ON_LINE) == 0, "no nudge before 12 s")
+	v.threshold_t = 12.5
+	v._tick_go_on()
+	v._tick_go_on()
+	check(count_line(scene, VC.GO_ON_LINE) == 1, "'Go on, then.' once")
+	# The exits at rest: the tabs keep their rects, bottoms clear of the subtitle bar.
+	for r in v.exit_rects().values():
+		check(r.end.y <= 986.0, "exit tab clear of the subtitle bar")
+	check(v.TURN_RECT.end.y <= 986.0, "turn tab clear of the subtitle bar")
+	# The repair card's stains sit below the card, clear of every step and the B shape.
+	check(v.REPAIR_STAIN_BOX.position.y > 774.0 and v.REPAIR_STAIN_BOX.end.y < 870.0, "stains in the margin")
 	await free_scene(scene)

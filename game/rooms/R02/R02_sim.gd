@@ -42,8 +42,8 @@ const HOTSPOTS_B := ["outer_door", "service_door", "board", "barometer", "receip
 ## Items this room hands out (docs/design/puzzle-cards/flags.md section 4).
 const ITEMS := {
 	"pencil": {"name": "Pencil", "desc": "Ada's own pencil. Short, and sharpened with a knife."},
-	"venn_tide_sheet": {"name": "Venn's tide sheet, 17 Oct", "desc": "His second tide sheet from the drawer, with a registration cross and a north arrow."},
-	"inspection_lens": {"name": "Inspection lens", "desc": "A brass-rimmed lens from Venn's drawer."},
+	"venn_tide_sheet": {"name": "Venn's tide sheet, 17 Oct", "short": "Tide sheet", "desc": "His second tide sheet from the drawer, with a registration cross and a north arrow."},
+	"inspection_lens": {"name": "Inspection lens", "short": "Lens", "desc": "A brass-rimmed lens from Venn's drawer."},
 }
 
 ## The drawer plate wants the hour the log says she mends the lamp: 18:52.
@@ -95,7 +95,7 @@ const OBJECTIVES := {
 	"changed": "Something in the room changed while I was reading.",
 	"drawer": "The footprints stop at a locked desk drawer.",
 	"instruments": "Venn's note names two jobs down the corridor: the chart sheets and the recording.",
-	"reread": "Something on the desk has changed.",
+	"reread": "The logbook has been written in since I left.",
 	"chair": "The log has written what I do next.",
 	"report": "Reconcile the records. The closure report is under the duty card.",
 	"filed": "The report is signed.",
@@ -824,6 +824,11 @@ func _papers(ev: Array) -> void:
 		else:
 			_say(ev, "Under the duty card, his closure report. Blank. Four lines to reconcile before the station can be left.")
 		return
+	if state.p01_complete and game.tide_done(1) and not state.log_rewritten:
+		# Back from the instruments: the desk has been touched, and the log is what changed.
+		_observe("note")   # the note's evidence stays in the notebook either way
+		_say(ev, "The duty card's been moved. Someone has written in the log since I left.")
+		return
 	if state.p01_complete:
 		local_view = "note"
 		_observe("note")
@@ -1056,7 +1061,7 @@ func _chair(s: int, ev: Array) -> void:
 		state.seat_wet = true
 		_observe("shadow")
 		_observe("seat")
-		_sfx(ev, "sting")
+		_fx(ev, "seat_hush")   # no stinger: the room goes silent around the wet seat
 		_say(ev, "The seat is wet. Still warm underneath.", 0.0, true)
 		_sfx(ev, "knock_glass", 3.4)
 		_observe("knock")
