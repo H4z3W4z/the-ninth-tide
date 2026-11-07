@@ -6136,6 +6136,24 @@
       "source_svg": null
     },
     {
+      "id": "R09/c_rim_crack",
+      "path": "assets/rooms/R09/c_rim_crack.png",
+      "width": 280,
+      "height": 280,
+      "sha256": "02f6981df39435af066f0629e300666d6ea35bf002212b913ef6dc222f87c91e",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R09/c_rim_round",
+      "path": "assets/rooms/R09/c_rim_round.png",
+      "width": 280,
+      "height": 280,
+      "sha256": "e1dde81a5694962bc72517de544a9a934acb3bfdee05a9e64d5ea4ed434dd946",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R09/c_ruler",
       "path": "assets/rooms/R09/c_ruler.png",
       "width": 1448,
@@ -6208,11 +6226,29 @@
       "source_svg": null
     },
     {
+      "id": "R09/c_view_land_r3",
+      "path": "assets/rooms/R09/c_view_land_r3.png",
+      "width": 620,
+      "height": 620,
+      "sha256": "062fc2f8510800bf76366a74c404835f206de1fd0a9642f64b178dabfbdbbec6",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R09/c_view_sea",
       "path": "assets/rooms/R09/c_view_sea.png",
       "width": 620,
       "height": 620,
       "sha256": "ccb69e652971a384460c2e34147d758015750eae1d5b18c5855b2a642e68df7a",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R09/c_view_sea_r3",
+      "path": "assets/rooms/R09/c_view_sea_r3.png",
+      "width": 620,
+      "height": 620,
+      "sha256": "33b29b434741a4a7de1db1f6b5871a99f3a0a07651c85ef07dd1e55db1c8168e",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -6267,6 +6303,24 @@
       "width": 512,
       "height": 512,
       "sha256": "4846d4ac7dc0a4d41240cfa5e9680c90fb4451d8a93ce79afaacf906ffabfde4",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R09/surface_standing",
+      "path": "assets/rooms/R09/surface_standing.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "ee443b71ec83544df41f847f042ba1b9c9f9eba5b5e73484e825349bee98d06e",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R09/surface_standing_b6",
+      "path": "assets/rooms/R09/surface_standing_b6.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "f474322a21005b10159ddb83464315d34077ab39af6232ffa1fbce2db6f5fc73",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },

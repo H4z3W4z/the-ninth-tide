@@ -9,7 +9,8 @@ seamless(1.0), so the file's last sample runs straight into its first.
 
 Levels: loops are mastered to about -18 dBFS RMS, one-shots peak at -3 dBFS; the view sets
 the final level (SFX_DB, LoopMixer targets). The one exception is lid_pass, written at
-LID_PASS_PEAK (-21 dBFS), so it sits -18 dB under deep_tone at equal view gain.
+LID_PASS_PEAK (-9 dBFS), so it sits 6 dB under deep_tone at equal view gain; the view also ducks
+deep_tone 8 dB while it plays, so it is heard.
 
 Transients: no loop has a rise faster than LOOP_ATTACK (16 ms), and every irregular loop event
 (escapement tick, rain tick) is placed by a seeded walk and kept out of the crossfade window,
@@ -22,7 +23,7 @@ simply absent from band 4 on; r09_wind and r09_rain_glass stop at band 5 while t
 still seen on the glass; glass_tap_dead is a knuckle on something that is not glass (the
 strike with its ring removed). deep_tone is the card's one very low tone, built on 55 Hz so a
 laptop can carry it (110 / 165 / 220 Hz partials, nothing pitched above 400 Hz); lid_pass is a
-hush that slides down past the gallery and is barely there. The view syncs the reveal to
+hush that slides down past the gallery, quiet but heard. The view syncs the reveal to
 deep_tone at 0.4 s and lid_pass at 7.0 s, so their lengths are fixed: DEEP_TONE_LEN and
 LID_PASS_LEN.
 
@@ -44,7 +45,7 @@ OUT = room_out("R09")
 
 LOOP_RMS = 10 ** (-18 / 20)        # about -18 dBFS RMS
 SHOT_PEAK = 10 ** (-3 / 20)        # -3 dBFS peak
-LID_PASS_PEAK = 10 ** (-21 / 20)   # -18 dB under deep_tone's -3 dBFS peak
+LID_PASS_PEAK = 10 ** (-9 / 20)    # 6 dB under deep_tone's -3 dBFS peak
 LOOP_ATTACK = 0.016                # no loop transient rises faster than 16 ms
 SUDDEN_ATTACK = 0.010              # every sudden transient rises over 10 ms
 FADE = 1.0                         # seamless() crossfade, seconds
@@ -656,7 +657,7 @@ def deep_tone() -> list[float]:
 
 def lid_pass() -> list[float]:
     """The lid line passing: band-limited hush whose centre slides from 900 Hz to 200 Hz over 6 s,
-    barely there; written at LID_PASS_PEAK. Exactly LID_PASS_LEN."""
+    quiet but heard; written at LID_PASS_PEAK (-9 dBFS). Exactly LID_PASS_LEN."""
     rnd = seed(26)
     n = n_of(LID_PASS_LEN)
     fcs = [900.0 * (200.0 / 900.0) ** (i / (n - 1)) for i in range(n)]

@@ -16,6 +16,9 @@ Writes, and only writes, assets/rooms/R09/*.png:
   c_view_*                        aperture scenes (620x620, circle r 310, subject at the centre)
   c_eyepiece_ring, c_patch, c_steam, c_loupe_ring, c_frame_mounted, c_sel_knob, c_key_*, c_strip
                                   close-up sprites
+  surface_standing*, c_view_*_r3, c_rim_*
+                                  fix pass w3 (see ASSETS_W3): the standing sea at a glance, and
+                                  a bowl in every aperture with its rim under the lens
 
 The upright sea is one flat matte plane: no waves and no creature, ever. What makes it wrong is
 what it carries: pale reflections of the rooms behind Ada, the office lamp a warm point among them.
@@ -2602,6 +2605,227 @@ def paint_view_surface2(rng):
     return p
 
 
+# ============================================================================= fix pass (w3)
+# Review: the sea standing up has to read at a glance, and P15's lens has to be the deduction.
+# Every asset here is a NEW file; nothing above is touched, so a full rerun still writes the
+# earlier files byte for byte.
+#
+#   surface_standing      view A, from the reveal on: one flat vertical sea-glass plane fills every
+#                         pane edge to edge (#6f9a93 at the rail shading to storm navy at the top,
+#                         no sky, no rain texture in it). The station hangs in it upside down as a
+#                         stark cutaway: a row of bunk doors under the top floor slab, the office
+#                         lamp standing on its cord, the mess table with its nine bowls. The
+#                         pennant stands straight out on its staff. Rain streaks run down in front
+#                         and stop dead on one line, 60 px above the rail.
+#   surface_standing_b6   the same plate with the inverted lighthouse hung in the right-hand strip
+#                         beside the lens (band 6's notice).
+#   c_view_land_r3        LAND 1 with a tin bowl wedged in the causeway's break
+#   c_view_sea_r3         SEA 2 with a bowl floating at the cross
+#   c_rim_round           the lens on LAND 1's bowl: tin, a round soldered patch
+#   c_rim_crack           the lens on SEA 2's bowl: enamel, a bare crack, sea water in it
+
+STAND_TOP = (34, 56, 74)         # storm navy
+STAND_LOW = (111, 154, 147)      # #6f9a93 sea glass
+STAND_INK = INK
+STAND_SLAB = (20, 34, 44)
+STAND_PALE = mix(PAPER, STAND_LOW, 0.15)
+A_RAIL_TOP = 560
+RAIN_STOP = A_RAIL_TOP - 60      # the clean dry gap
+SLAB1 = (222, 240)               # the top floor slab (the resting lid covers its upper part)
+SLAB2 = (384, 400)
+LENS_X = (504, 944)              # opaque in a_room_r2: nothing is put behind it
+
+
+def inv_door(p, x0, y0, x1, y1):
+    """A bunk door hung upside down from the slab above: the threshold strip at the top, the
+    lintel at the bottom, the long panel above the short one, the knob high."""
+    p.rect(x0 - 8, y0, x1 + 8, y1 + 8, STAND_PALE, INK, 5.0)            # the jamb
+    p.rect(x0, y0, x1, y1, STORM_DK, INK, 4.0)
+    w, h = x1 - x0, y1 - y0
+    p.rect(x0 + w * 0.2, y0 + h * 0.08, x1 - w * 0.2, y0 + h * 0.52, mix(STORM_DK, STORM, 0.6), INK, 2.6)
+    p.rect(x0 + w * 0.2, y0 + h * 0.62, x1 - w * 0.2, y1 - h * 0.08, mix(STORM_DK, STORM, 0.6), INK, 2.6)
+    p.ell(x1 - w * 0.16, y0 + h * 0.42, 4.5, 4.5, BRASS_HI, INK, 1.8)
+    p.rect(x0 - 8, y0, x1 + 8, y0 + 7, STAND_SLAB, None)                # the threshold, up top
+
+
+def inv_lamp(p, cx, base_y, top_y):
+    """The office lamp, standing on its cord from the ceiling at the bottom: shade open upward,
+    the warm point above it."""
+    p.rect(cx - 26, base_y - 10, cx + 26, base_y + 4, STAND_PALE, INK, 3.0)      # the ceiling rose
+    p.rect(cx - 3.5, top_y + 64, cx + 3.5, base_y - 10, INK, None)               # the cord, rigid
+    sh_y0, sh_y1 = top_y + 28, top_y + 74
+    p.poly([(cx - 78, sh_y0), (cx + 78, sh_y0), (cx + 22, sh_y1), (cx - 22, sh_y1)],
+           mix(SEAGLASS, STORM_DK, 0.35), INK, 4.0)
+    p.rect(cx - 82, sh_y0 - 6, cx + 82, sh_y0 + 2, STAND_PALE, INK, 3.0)          # the shade's rim
+    soft_disc(p, cx, top_y + 14, 56, AMBER, 0.55, 16)
+    soft_disc(p, cx, top_y + 14, 28, LAMP_WARM, 0.8, 5)
+    p.ell(cx, top_y + 14, 15, 15, mix(AMBER, PAPER_HI, 0.45), INK, 2.4)
+
+
+def inv_table(p, x0, x1, slab_y, top_y):
+    """The mess table hung from the floor slab: legs up, the top below them, nine bowls hanging
+    under it, upside down."""
+    for lx in (x0 + 16, x1 - 30):
+        p.rect(lx, slab_y, lx + 14, top_y, STAND_PALE, INK, 3.0)
+    p.rect(x0, top_y, x1, top_y + 16, STAND_PALE, INK, 4.0)
+    p.line([(x0 + 4, top_y + 6), (x1 - 4, top_y + 6)], mix(STAND_PALE, INK, 0.3), 1.6)
+    step = (x1 - x0) / 9.0
+    br = step * 0.4
+    for i in range(9):
+        bx = x0 + step * (i + 0.5)
+        y = top_y + 16
+        # rim against the underside of the top, the bowl hanging below it
+        pts = [(bx - br * 1.1, y), (bx + br * 1.1, y)] + \
+              [(bx + br * math.cos(t), y + br * 0.95 * math.sin(t)) for t in [math.pi * k / 14 for k in range(15)]]
+        p.poly(pts, STAND_PALE, INK, 2.6)
+        p.rect(bx - br * 0.36, y + br * 0.9, bx + br * 0.36, y + br * 1.12, STAND_PALE, INK, 2.0)   # the foot
+
+
+def stand_pennant(p, staff_x, top_y, rail_y, tip_x):
+    """The pennant on its staff, flat navy, ruler straight and level: no wind holds it there."""
+    p.rect(staff_x - 4, top_y, staff_x + 4, rail_y, STAND_SLAB, INK, 2.0)
+    p.ell(staff_x, top_y - 4, 6, 6, BRASS, INK, 1.8)
+    y0, y1 = top_y + 4, top_y + 48
+    d = 1 if tip_x > staff_x else -1
+    p.poly([(staff_x + d * 4, y0), (tip_x, (y0 + y1) / 2 - 2), (tip_x, (y0 + y1) / 2 + 2), (staff_x + d * 4, y1)],
+           STAND_SLAB, INK, 2.4)
+
+
+def paint_surface_standing(rng, lighthouse_too=False):
+    p = Pen(W, H, rng, STAND_TOP)
+    # one plane: storm navy at the top of the glass to sea glass at the rail, flat and matte
+    p.vgrad(0, 0, W, H, STAND_TOP, STAND_LOW, 150, A_RAIL_TOP + 40)
+    # the cutaway, upside down: floor slabs run the whole width
+    for y0, y1 in (SLAB1, SLAB2):
+        p.rect(-4, y0, W + 4, y1, STAND_SLAB, INK, 3.0)
+    # storey 1 (hangs from SLAB1): a row of bunk doors, all the way across
+    dy0, dy1 = SLAB1[1], SLAB2[0] - 12
+    doors = [(76, 148), (172, 244), (268, 340), (416, 488), (1100, 1172), (1196, 1268), (1292, 1364)]
+    if not lighthouse_too:
+        doors.append((964, 1036))
+    for x0, x1 in doors:
+        inv_door(p, x0, dy0, x1, dy1)
+    # storey 2 (hangs from SLAB2; its ceiling is down at the rail): the office lamp standing on
+    # its cord, left; the mess table with nine bowls, right
+    inv_lamp(p, 236, A_RAIL_TOP + 6, SLAB2[1] + 12)
+    inv_table(p, 1092, 1388, SLAB2[1], SLAB2[1] + 74)
+    if lighthouse_too:
+        inv_lighthouse2(p, 1000, SLAB1[1], 2.0)
+    # the pennant on its staff, straight out, level
+    stand_pennant(p, 1372, RAIN_STOP + 6, A_RAIL_TOP + 4, 1372 - 156)
+    # rain in front: long pale streaks that all stop on one line, 60 px above the rail
+    lay = p.layer()
+    for _ in range(170):
+        x = rng.uniform(52, 1396)
+        if LENS_X[0] - 4 < x < LENS_X[1] + 4:
+            continue
+        y0 = rng.uniform(150, RAIN_STOP - 30)
+        ln = rng.uniform(40, 120)
+        lay.line([(x, y0), (x - ln * 0.04, min(RAIN_STOP, y0 + ln))], mix(PAPER_HI, SEAGLASS_HI, 0.3), 2.2)
+    # a set of streaks reaches the line exactly, so the stop reads as a cut
+    for k in range(38):
+        x = 64 + k * 36.5 + rng.uniform(-6, 6)
+        if LENS_X[0] - 4 < x < LENS_X[1] + 4:
+            continue
+        ln = rng.uniform(50, 110)
+        lay.line([(x + ln * 0.04, RAIN_STOP - ln), (x, RAIN_STOP)], mix(PAPER_HI, SEAGLASS_HI, 0.3), 2.2)
+    lay.clip(rect_mask((W, H), [(0, 0, W, RAIN_STOP)]))
+    p.put(lay, 0.75)
+    return p
+
+
+def paint_view_land3(rng):
+    p = paint_view_land(rng)
+    p.im.putalpha(255)
+    # a tin bowl wedged in the causeway's break, tipped a little, at the cross
+    tin = mix(PAPER, STORM_HI, 0.45)
+    lay = p.layer()
+    bowl(lay, 302, 302, 72, tin, INK)
+    rot = lay.im.rotate(-9, resample=Image.BICUBIC, center=(302 * SS, 296 * SS))
+    lay.im = rot
+    p.put(lay)
+    p.line([(258, 296), (346, 296)], mix(STORM_DK, INK, 0.4), 2.0)
+    p.clip(circle_mask((620, 620), VIEW_C, 310))
+    return p
+
+
+def paint_view_sea3(rng):
+    p = paint_view_sea(rng)
+    p.im.putalpha(255)
+    cx, cy = VIEW_C
+    # the bowl rides low: everything under the waterline is cut away, so it sits in the sea
+    lay = p.layer()
+    wl = cy + 18
+    bowl(lay, cx, cy + 4, 88, mix(PAPER, STORM_HI, 0.25), INK)
+    lay.clip(rect_mask((620, 620), [(0, 0, 620, wl)]))
+    p.put(lay)
+    p.line([(cx - 96, wl), (cx - 52, wl - 3), (cx, wl), (cx + 52, wl - 3), (cx + 96, wl)],
+           mix(SEAGLASS_HI, PAPER, 0.3), 2.4)
+    p.line([(cx - 90, wl + 5), (cx + 90, wl + 5)], mix(STORM_DK, INK, 0.5), 2.2)
+    p.clip(circle_mask((620, 620), VIEW_C, 310))
+    return p
+
+
+def rim_base(p, wall0, wall1, inside, inside_hi):
+    rim_y = 104
+    p.vgrad(0, 0, 280, 280, mix(STORM_HI, TIMBER, 0.4), mix(TIMBER_DK, STORM_DK, 0.4))
+    p.rect(-10, rim_y - 34, 290, rim_y, inside, None)
+    p.line([(-10, rim_y - 22), (290, rim_y - 22)], inside_hi, 2)
+    p.rect(-10, rim_y - 6, 290, rim_y + 8, mix(wall0, PAPER_HI, 0.3), INK, 2.6, r=4)
+    p.rect(-10, rim_y + 8, 290, 290, wall0, INK, 2.6)
+    p.vgrad(-6, rim_y + 10, 286, 286, wall0, wall1)
+    p.line([(-10, rim_y + 8), (290, rim_y + 8)], INK, 2.6)
+    return rim_y
+
+
+def paint_rim_round(rng):
+    """LAND 1 under the lens: tin, salt-dry, and a ROUND patch soldered on. No rivets."""
+    p = Pen(280, 280, rng)
+    tin = mix(PAPER, STORM_HI, 0.45)
+    rim_y = rim_base(p, tin, mix(tin, STORM_DK, 0.35), mix(STORM_DK, TIMBER_DK, 0.5), mix(PAPER, STORM_HI, 0.5))
+    # salt grains in the empty bowl
+    for _ in range(26):
+        x, y = rng.uniform(0, 280), rng.uniform(rim_y - 32, rim_y - 8)
+        p.ell(x, y, 1.6, 1.6, PAPER_HI, None)
+    sh = p.layer()
+    sh.ell(148, 192, 50, 50, SHADOW, None)
+    p.put_soft(sh, 3, 0.35)
+    # the solder bead round it, lumpy, then the disc
+    for k in range(36):
+        a = math.tau * k / 36
+        p.ell(144 + 50 * math.cos(a), 186 + 50 * math.sin(a), 5.5 + rng.uniform(-1, 1.2), None,
+              mix(PAPER_HI, STORM_HI, 0.35), INK, 1.2)
+    p.ell(144, 186, 46, 46, mix(tin, PAPER_HI, 0.3), INK, 2.6)
+    p.arc(144, 186, 38, 38, 200, 300, PAPER_HI, 1.6)
+    p.clip(circle_mask((280, 280), (140, 140), 130))
+    return p
+
+
+def paint_rim_crack(rng):
+    """SEA 2 under the lens: enamel, sea water standing in it, and a bare crack. No patch."""
+    p = Pen(280, 280, rng)
+    rim_y = rim_base(p, ENAMEL, mix(ENAMEL, STORM_HI, 0.35), mix(SEAGLASS, STORM, 0.45), mix(SEAGLASS_HI, PAPER, 0.3))
+    p.line([(132, rim_y - 6), (138, rim_y + 8), (128, 140), (146, 168), (136, 200), (150, 232), (140, 290)], INK, 3.0)
+    p.line([(146, 168), (172, 180), (184, 204)], INK, 1.8)
+    p.line([(136, 200), (108, 214)], INK, 1.6)
+    # a dark seep along the crack
+    seep = p.layer()
+    seep.line([(128, 140), (146, 168), (136, 200), (150, 232), (140, 290)], STORM_DK, 9.0)
+    p.put_soft(seep, 4, 0.3)
+    p.clip(circle_mask((280, 280), (140, 140), 130))
+    return p
+
+
+ASSETS_W3 = [
+    ("surface_standing", 140, paint_surface_standing, True, True),
+    ("surface_standing_b6", 140, lambda r: paint_surface_standing(r, True), True, True),
+    ("c_view_land_r3", 62, paint_view_land3, False, True),
+    ("c_view_sea_r3", 63, paint_view_sea3, False, True),
+    ("c_rim_round", 141, paint_rim_round, False, False),
+    ("c_rim_crack", 142, paint_rim_crack, False, False),
+]
+
+
 ASSETS_R2 = [
     ("a_room_r2", 100, paint_a_room2, False, True),
     ("b_room_r2", 101, paint_b_room2, False, True),
@@ -2689,7 +2913,7 @@ ASSETS = [  # name, seed index, painter, opaque, grain
 
 def main(argv):
     pats = argv or ["*"]
-    for name, k, fn, opaque, gr in ASSETS + ASSETS_R2:
+    for name, k, fn, opaque, gr in ASSETS + ASSETS_R2 + ASSETS_W3:
         if not any(fnmatch.fnmatch(name, pat) for pat in pats):
             continue
         rng = rng_for(k)

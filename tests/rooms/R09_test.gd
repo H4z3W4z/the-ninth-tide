@@ -32,10 +32,13 @@ func run_tests() -> void:
 	test_record_empty()
 	test_mount_unmount()
 	test_apertures()
+	test_lens_rims()
+	test_no_answer_named()
 	test_confirmation_resets()
 	test_lens_before_mount()
 	test_success_outputs()
 	test_idempotent()
+	test_selector_locked_roundtrip()
 	test_reveal_on_back()
 	test_deferred_reveal()
 	test_frame_returned()
@@ -49,6 +52,7 @@ func run_tests() -> void:
 	test_glass_sfx()
 	test_observation_ids()
 	await test_hit_purity()
+	await test_view_standing()
 	test_canonical_chain()
 	test_debug_jumps()
 	test_invariant_over_play()
@@ -247,6 +251,7 @@ func test_mount_unmount() -> void:
 	check(not r.state.frame_mounted and g.has_item("nora_frame") and r.local_view == "room", "(f) leaving by a hotspot returns the frame")
 
 func test_apertures() -> void:
+	# LAND 1 and SEA 2, with or without the lens on their bowls: NO SUBJECT, mark dark.
 	for a in [1, 2]:
 		for with_lens in [false, true]:
 			var g := mounted()
@@ -259,40 +264,79 @@ func test_apertures() -> void:
 			check(R09Sim.NO_SUBJECT in says(ev), "(g) aperture %d lens %s: NO SUBJECT" % [a, with_lens])
 			check(not g.flag("P15"), "(g) aperture %d lens %s: P15 false" % [a, with_lens])
 			check(r.state.frame_mounted and not g.has_item("nora_frame"), "(g) aperture %d: frame still mounted" % a)
-			check(not r.state.patch_confirmed, "(g) aperture %d: patch not confirmed" % a)
+			check(not r.state.patch_confirmed and not r.relation_lit(), "(g) aperture %d: not confirmed, mark dark" % a)
 			check(r.last_record == "nosubject" and has_ev(ev, "fx", "no_subject") and has_ev(ev, "sfx", "record_key"), "(g) no-subject events")
 			check(r.has_seen("no_subject"), "(g) no_subject observed")
 			# The miss line rotates.
 			var ev2 := g.dispatch("record")
 			check(says(ev2) != says(ev) and R09Sim.NO_SUBJECT in says(ev2), "(g) aperture %d: miss line rotates" % a)
 			check(int(r.state.record_miss) == 2, "(g) record_miss counts")
-	# STATION 3 without the lens: the contract rule.
+	# STATION 3 without the lens: refused the same way, NO SUBJECT ON BEARING, the mark dark.
 	var g := mounted()
 	var ev := g.dispatch("sel_3")
 	check(story_lines(ev).size() == 3 and has_ev(ev, "sfx", "glass_hum"), "(g) STATION 3 first look is a story chain")
+	check(story_lines(ev)[0] == "Station, aperture three. The mess table.", "(g) STATION 3 names only what is in view: %s" % story_lines(ev)[0])
 	check(r9(g).has_seen("view_station"), "(g) view_station observed")
 	ev = g.dispatch("scope_view")
-	check(says(ev) == "The bowl's at the cross. It looks like hers. I can't see the patch from here.", "(g) unconfirmed scope view")
+	check(says(ev) == "The mess table, in the glass. Bowls along it. I can't make out a rim from here.", "(g) unconfirmed scope view: %s" % says(ev))
 	ev = g.dispatch("record")
-	var s := []
-	for e in ev:
-		if e.type == "say":
-			s.append(e)
-	check(s.size() == 2 and s[0].text == "It looks like the bowl. I'd want to see the patch before I record it." and s[1].text == R09Sim.CONTRACT_RULE,
-		"(g) STATION 3 unconfirmed lines exact: %s" % says(ev))
-	check(s.size() == 2 and not s[0].story and not s[1].story, "(g) the refusal lines are feedback")
-	check(not "record_key" in ids(ev, "sfx") and ids(ev, "sfx").is_empty(), "(g) no record_key sfx when refused")
-	check(not g.flag("P15"), "(g) unconfirmed STATION 3 does not solve")
-	# With the lens: solves.
+	check(R09Sim.NO_SUBJECT in says(ev) and R09Sim.CONTRACT_RULE in says(ev), "(g) STATION 3 unconfirmed: NO SUBJECT and the rule: %s" % says(ev))
+	check(r9(g).last_record == "nosubject" and has_ev(ev, "fx", "no_subject"), "(g) STATION 3 unconfirmed prints empty")
+	check(not r9(g).relation_lit(), "(g) the relation mark stays dark")
+	check(not g.flag("P15") and not g.has_item("nora_spatial_strip"), "(g) unconfirmed STATION 3 does not solve")
+	# With the lens: the square patch, and the only line that confirms.
 	ev = play_lens(g)
-	check(r9(g).state.patch_confirmed and r9(g).has_seen("bowl_patch") and has_ev(ev, "fx", "lens_patch"), "(g) lens confirms the patch")
+	var r := r9(g)
+	check(r.state.patch_confirmed and r.has_seen("bowl_patch") and has_ev(ev, "fx", "lens_patch"), "(g) lens confirms the patch")
+	check(story_lines(ev).size() >= 1 and story_lines(ev)[0] == "A square patch, riveted. A bowl, at the cross.", "(g) the confirming line: %s" % [story_lines(ev)])
+	check(r.rim_shown() == "square" and r.relation_lit(), "(g) the square patch in the eyepiece; the mark lights")
 	check(g.has_item("inspection_lens"), "(g) the lens is never consumed")
 	ev = play_lens(g)
-	check(says(ev) == "The square patch. Four rivets. It's hers.", "(g) lens again")
+	check(says(ev) == "The square patch. Four rivets.", "(g) lens again")
 	ev = g.dispatch("scope_view")
-	check(says(ev) == "Her bowl. The square patch, riveted. Soup in it, steaming.", "(g) confirmed scope view")
+	check(says(ev) == "The square patch, riveted. Soup in it, steaming.", "(g) confirmed scope view")
 	g.dispatch("record")
 	check(g.flag("P15"), "(g) STATION 3 + lens + RECORD solves P15")
+
+## The lens shows each aperture's bowl rim; only STATION 3's square riveted patch confirms.
+func test_lens_rims() -> void:
+	var expect := {1: ["round", "rim_land", "A round patch, soldered over the rim. Tin."],
+		2: ["crack", "rim_sea", "A crack down the rim. No patch."]}
+	for a in expect:
+		var g := mounted()
+		if a != 2:
+			g.dispatch("sel_%d" % a)
+		var r := r9(g)
+		check(r.rim_shown() == "", "(g2) %d: no rim before the lens" % a)
+		var ev := play_lens(g)
+		check(says(ev) == expect[a][2], "(g2) %d: lens line %s" % [a, says(ev)])
+		check(r.rim_shown() == expect[a][0] and r.has_seen(expect[a][1]), "(g2) %d: %s rim shown and observed" % [a, expect[a][0]])
+		check(not r.state.patch_confirmed and not r.relation_lit(), "(g2) %d: no confirmation" % a)
+		check(has_ev(ev, "fx", "lens_rim") and not has_ev(ev, "fx", "lens_patch"), "(g2) %d: lens_rim fx" % a)
+		# re-aiming takes the lens off the rim
+		g.dispatch("sel_%d" % (3 if a == 1 else 1))
+		check(r.rim_shown() != expect[a][0], "(g2) %d: the rim goes with the aim" % a)
+		var g2 := roundtrip(g)
+		check(r9(g2).rim_shown() == "" and r9(g2).lens_rim == 0, "(g2) %d: the lens rim is never saved" % a)
+	# Each aperture shows a bowl: the views say so.
+	var g := mounted()
+	var ev := g.dispatch("sel_1")
+	check(says(ev) == R09Sim.SEL_LINES[1] and "bowl" in says(ev), "(g2) LAND 1 shows a tin bowl")
+	ev = g.dispatch("sel_2")
+	check(says(ev) == R09Sim.SEL_LINES[2] and "bowl" in says(ev), "(g2) SEA 2 shows a floating bowl")
+	check("bowl" in R09Sim.OBSERVATIONS.view_land and "bowl" in R09Sim.OBSERVATIONS.view_sea and "bowls" in R09Sim.OBSERVATIONS.view_station,
+		"(g2) the notebook has a bowl in every aperture")
+
+## Aiming never names the answer: only the lens on STATION 3 says it.
+func test_no_answer_named() -> void:
+	var g := mounted()
+	var all := []
+	for a in ["sel_1", "scope_view", "sel_2", "scope_view", "sel_3", "scope_view", "sel_1", "sel_3", "record"]:
+		all.append(says(g.dispatch(a)))
+	for t in all:
+		check(not "at the cross" in t and not "hers" in t and not "square" in t, "(g3) no answer named before the lens: %s" % t)
+	for k in ["view_land", "view_sea", "view_station", "no_subject"]:
+		check(not "at the cross" in R09Sim.OBSERVATIONS[k] and not "square" in R09Sim.OBSERVATIONS[k], "(g3) %s names no answer" % k)
 
 func test_confirmation_resets() -> void:
 	var g := mounted()
@@ -302,9 +346,9 @@ func test_confirmation_resets() -> void:
 	g.dispatch("sel_1")
 	check(not r9(g).state.patch_confirmed, "(h) a selector clears the confirmation")
 	var ev := g.dispatch("sel_3")
-	check(says(ev) == "STATION 3. The rooms behind me.", "(h) repeat STATION 3 line")
+	check(says(ev) == "Station, aperture three. The mess table.", "(h) repeat STATION 3 line: %s" % says(ev))
 	ev = g.dispatch("record")
-	check(R09Sim.CONTRACT_RULE in says(ev) and not g.flag("P15"), "(h) RECORD refused after re-aiming")
+	check(R09Sim.NO_SUBJECT in says(ev) and not g.flag("P15") and not r9(g).relation_lit(), "(h) RECORD refused after re-aiming")
 	ev = g.dispatch("sel_3")
 	check(says(ev) == "STATION 3. It's already there.", "(h) already there")
 
@@ -362,11 +406,26 @@ func test_idempotent() -> void:
 	ev = g.dispatch("mount")
 	check(says(ev) == "It's recorded. She doesn't need placing twice." and g.has_item("nora_frame"), "(k) frame not taken after P15")
 	ev = g.dispatch("sel_1")
-	check(says(ev) == "LAND 1. The surface. Every bearing finds it now.", "(k) selector after P15")
+	check(says(ev) == "The bearing's recorded. I leave it where it is." and ids(ev, "sfx").is_empty() and not has_ev(ev, "fx", "aim"),
+		"(k) the selector is locked after P15: %s" % says(ev))
+	check(int(r9(g).state.aperture) == 3 and r9(g).state.patch_confirmed, "(k) aperture and confirmation untouched")
 	ev = g.dispatch("scope_view")
 	check(says(ev) == "The surface. Under the glass it looks like skin.", "(k) scope view after P15")
 	ev = g.dispatch("strip_slot")
 	check(says(ev) == "The strip's with me.", "(k) strip slot after P15")
+
+## After P15 the selector is locked, so the live state is the loaded one: a save after a
+## selector press round-trips byte-identical.
+func test_selector_locked_roundtrip() -> void:
+	var g := solved()
+	g.dispatch("sel_2")
+	var r := r9(g)
+	check(int(r.state.aperture) == 3 and r.state.patch_confirmed, "(k2) sel_2 after P15 changes nothing")
+	var before := JSON.stringify(g.to_dict())
+	var g2 := roundtrip(g)
+	check(JSON.stringify(g2.to_dict()) == before, "(k2) after P15 and sel_2, save and load are byte-identical")
+	g2.dispatch("sel_1")
+	check(JSON.stringify(roundtrip(g2).to_dict()) == JSON.stringify(g2.to_dict()), "(k2) and again after a load")
 
 func test_reveal_on_back() -> void:
 	var g := solved()
@@ -666,7 +725,8 @@ func test_observation_ids() -> void:
 	_sweep(sv)
 	games.append(sv)
 	var g := mounted()
-	g.dispatch("sel_1"); g.dispatch("record"); g.dispatch("scope_view")
+	g.dispatch("sel_1"); g.dispatch("record"); g.dispatch("scope_view"); play_lens(g)
+	g.dispatch("sel_2"); play_lens(g)
 	g.dispatch("sel_3"); play_lens(g); g.dispatch("record"); g.dispatch("back")
 	_sweep(g)
 	games.append(g)
@@ -697,6 +757,61 @@ func test_hit_purity() -> void:
 		var h2: String = v.hover_at(p)
 		check(a1 == a2 and h1 == h2, "(x) hit-tests are stable at %s" % p)
 	check(JSON.stringify(scene.sim.to_dict()) == before and scene.sim.room(ROOM).local_view == lv, "(x) hit-tests change nothing")
+	await free_scene(scene)
+
+## View A after the reveal: the standing plate, the resting lid, the lens overlay at 0.35; the
+## lid crosses once on the reveal; deep_tone's duck under lid_pass.
+func test_view_standing() -> void:
+	var scene = new_scene("user://room_test_R09_standing.json")
+	await process_frame
+	scene.tide_jump(5, ROOM)
+	await process_frame
+	var v = scene.room_view
+	check(v.standing_plate() == "" and v.lid_rest_k() == 0.0 and v.lens_alpha() == 1.0, "(vw) before P15: the old sea, no lid, lens at full")
+	for t in [6, 7, 8, 9]:
+		scene.tide_jump(t, ROOM)
+		await process_frame
+		v = scene.room_view
+		var want: String = {6: "surface_standing", 7: "surface_standing", 8: "surface_standing_b6", 9: ""}[t]
+		check(v.standing_plate() == want, "(vw) tide %d plate %s (got %s)" % [t, want, v.standing_plate()])
+		check(want == "" or ResourceLoader.exists("res://assets/rooms/R09/%s.png" % want), "(vw) %s exists" % want)
+		check(v.lid_rest_k() == 1.0 and v.lens_alpha() == 0.35 and v.lid_y() < 0.0, "(vw) tide %d: lid at rest, lens 0.35" % t)
+		check(v.plate_k() == (1.0 if want != "" else 0.0), "(vw) tide %d: plate settled" % t)
+	scene.tide_jump(6, ROOM)
+	await process_frame
+	v = scene.room_view
+	# the reveal: the lid crosses the glass once, top to bottom, over 4 s, then rests
+	v.play_fx("reveal_upright", {})
+	var motion_on: bool = v.motion
+	if motion_on:
+		v.reveal_t = v.LID_START - 0.1
+		check(v.lid_y() < 0.0 and v.lid_rest_k() == 0.0, "(vw) no lid before LID_START")
+		var ys := []
+		for k in 5:
+			v.reveal_t = v.LID_START + 0.01 + k * (v.LID_CROSS - 0.02) / 4.0
+			ys.append(v.lid_y())
+		check(ys[0] <= v.A_GLASS.position.y + 1.0 and ys[4] >= v.A_GLASS.end.y + v.LID_H - 1.0, "(vw) the lid crosses the whole glass: %s" % [ys])
+		var mono := true
+		for k in 4:
+			mono = mono and ys[k + 1] > ys[k]
+		check(mono, "(vw) top to bottom, once")
+		check(is_equal_approx(v.LID_CROSS, 4.0), "(vw) the crossing takes 4.0 s")
+		v.reveal_t = v.LID_END + 0.01
+		check(v.lid_y() < 0.0, "(vw) the crossing is over")
+		v.reveal_t = v.reveal_len() + 0.01
+		check(v.lid_rest_k() == 1.0, "(vw) then it rests")
+	scene.sim.settings.motion = false
+	v.play_fx("reveal_upright", {})
+	check(v.lid_y() < 0.0 and v.lid_rest_k() == 1.0 and v.plate_k() == 1.0, "(vw) Motion off: only the resting band")
+	scene.sim.settings.motion = motion_on
+	# deep_tone's duck under lid_pass: 0 dB, ramp from 2.0 s, -8 dB, ramp out after 8.0 s
+	var V = load("res://game/rooms/R09/R09_view.gd")
+	check(V.deep_duck_db(0.0) == 0.0 and V.deep_duck_db(1.99) == 0.0, "(vw) no duck before 2.0 s")
+	check(is_equal_approx(V.deep_duck_db(2.15), -4.0), "(vw) a 0.3 s ramp in")
+	check(is_equal_approx(V.deep_duck_db(2.3), -8.0) and V.deep_duck_db(5.0) == -8.0 and V.deep_duck_db(8.0) == -8.0, "(vw) -8 dB from 2.3 to 8.0 s")
+	check(is_equal_approx(V.deep_duck_db(8.15), -4.0) and V.deep_duck_db(8.31) == 0.0, "(vw) a 0.3 s ramp out")
+	check(V.LOOP_DB.b3.r09_wind == -3.0 and V.LOOP_DB.b3.r09_rain_glass == -13.0 and V.LOOP_DB.b4.r09_wind == -5.0
+		and V.LOOP_DB.b5.r09_room == -10.0 and not V.LOOP_DB.b5.has("r09_wind"), "(vw) the wind bed levels")
 	await free_scene(scene)
 
 func test_canonical_chain() -> void:
