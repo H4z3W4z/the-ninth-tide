@@ -386,7 +386,7 @@ func test_p12_success() -> void:
 	check(g.flag("P12") and g.tide_done(4) and g.weather_band() == 3, "P12: tide IV done, band 3")
 	check(count_ev(ev, "fx", "tide") == 1, "one tide fx")
 	var gl := ev_of(ev, "fx", "glance")
-	check(gl.get("rect", []) == [386, 330, 140, 120] and gl.get("target", "") == "bell_sound", "glance at the bell (%s)" % [gl])
+	check(gl.get("rect", []) == [366, 334, 220, 170] and gl.get("target", "") == "bell_sound", "glance at the bell (%s)" % [gl])
 	check(r.landing == 2 and r.local_view == "room", "she is on the lower landing")
 	check(r.has_seen("gate_opened") and r.has_seen("bell"), "gate_opened and bell noted")
 	check(g.exit_open(ROOM, "R07") and g.exit_open(ROOM, "R09") and not g.exit_open(ROOM, "R12"), "R07 and R09 open; R12 shut")
@@ -394,7 +394,7 @@ func test_p12_success() -> void:
 	var first := say_ev(ev, "PRESSURE EQUAL. LANDING 1 CORRESPONDS.")
 	check(first.get("story", false) and is_equal_approx(float(first.get("delay", 0)), 0.2), "the flags line opens the chain")
 	var bell := say_ev(ev, "There. It hangs stopped, halfway through a swing. It has no clapper.")
-	check(bell.get("story", false) and is_equal_approx(float(bell.get("delay", 0)), 9.0), "the clapper line closes it")
+	check(bell.get("story", false) and is_equal_approx(float(bell.get("delay", 0)), 11.6), "the clapper line closes it, after the cut")
 	check(r.gate_up() and r.glass_mode() == "glass" and r.bell_dir() == "above" and r.port_view() == "true", "view helpers after P12")
 	check(r.flags_shown() == {"p": "equal", "l": "ok"}, "the flags stay EQUAL / CORRESPONDS")
 	check(g.state.inventory == roundtrip(g).state.inventory, "nothing given or taken")
@@ -1238,7 +1238,7 @@ func test_view_p12_clicks() -> void:
 	check(t.r11_air == 0.0 and t.r11_glass > 0.0, "only the glass sounds in the cut")
 	for i in 20:
 		scene._process(0.1)
-	check(v.cut_playing() and v.cut_t >= 1.8, "the cut is on the glass at 2 s")
+	check(v.cut_playing() and v.cut_t >= 1.8, "the cut is past the gate at 2 s")
 	check(v.consume_click(Vector2(700, 500)) and not v.cut_playing(), "a click skips the rest of the cut")
 	check(r.landing == 2 and r.local_view == "room", "the lower landing after the cut")
 	check(not v.live_exit_rects().has("R12"), "no lower door tab yet")
@@ -1249,9 +1249,13 @@ func test_view_p12_clicks() -> void:
 	click_on(scene, "gate")
 	click_on(scene, "lever_open")
 	check(v.cut_playing(), "stage 5: the cut plays")
-	for i in 70:
+	for i in 40:
 		scene._process(0.1)
-	check(not v.cut_playing() and v.close.modulate.a == 1.0, "the cut ends by itself at 6.6 s")
+	check(v.cut_playing() and v.cut_t < v.CUT_GRILLE and v.grille_rise() > 0.0 and v.grille_rise() < 1.0,
+		"at 4 s the grille is still going up into the lintel: the bolts and grille come before the hand")
+	for i in 60:
+		scene._process(0.1)
+	check(not v.cut_playing() and v.close.modulate.a == 1.0, "the cut ends by itself at 9.6 s")
 	await free_scene(scene)
 
 func test_view_p24_clicks() -> void:
@@ -1280,7 +1284,7 @@ func test_view_p24_clicks() -> void:
 	check(not v.cut_playing() and r.landing == 2, "the lower landing, the door open")
 	check(v.live_exit_rects().has("R12"), "the lower door's tab after P24")
 	check(not v.start_glance("lower_door", Rect2(320, 450, 280, 430)) == false, "the view shows the finger marks itself")
-	check(v.start_glance("bell_sound", Rect2(386, 330, 140, 120)) == false, "the bell lets the core bracket it")
+	check(v.start_glance("bell_sound", Rect2(366, 334, 220, 170)) == false, "the bell lets the core bracket it")
 	await free_scene(scene)
 
 func test_view_presentation() -> void:

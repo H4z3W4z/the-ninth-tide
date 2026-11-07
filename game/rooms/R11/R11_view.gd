@@ -20,8 +20,8 @@ const HOTSPOTS := [
 ]
 ## Landing 2 (below the gate).
 const L2_HOTSPOTS := [
-	["shoes", Rect2(676, 228, 160, 80), "Shoes"],
-	["bell_sound", Rect2(386, 330, 140, 120), "Bell"],
+	["shoes", Rect2(668, 226, 252, 84), "Shoes"],
+	["bell_sound", Rect2(366, 334, 220, 170), "Bell"],
 	["ceiling", Rect2(96, 96, 1256, 226), "Ceiling"],
 	["return_door", Rect2(60, 420, 230, 460), "Laboratory door"],
 	["upper_stair", Rect2(1140, 330, 250, 550), "Stair up"],
@@ -131,16 +131,22 @@ const NOTICE_RECTS := {
 	"n_arrival": Rect2(548, 486, 354, 80), "n_tide1": Rect2(0, 440, 540, 60),
 	"n_tide2": Rect2(0, 380, 540, 120), "n_more_steps": Rect2(540, 160, 370, 720),
 	"n_shelves": Rect2(540, 520, 370, 360), "n_tide_top": Rect2(0, 90, 1448, 60),
-	"n_shoes_wet": Rect2(640, 210, 240, 120), "n_shoes_facing": Rect2(640, 210, 240, 120),
-	"n_bell": Rect2(386, 330, 140, 120),
+	"n_shoes_wet": Rect2(650, 210, 340, 120), "n_shoes_facing": Rect2(650, 210, 600, 120),
+	"n_bell": Rect2(366, 334, 220, 170),
 }
 const HOLD_TIME := 1.5
 
 # --- timings -----------------------------------------------------------------------------
 const CUT_GATE := 1.8        # P12: the gate, lever down
+const CUT_GRILLE := 5.0      # then the gateway: the bolts draw (shake), the grille rises into the lintel
+const CUT_GRILLE_RISE := [2.3, 4.3]
+const CUT_HAND_AT := 5.8     # then the standing water: the hand goes through it
 const CUT_HAND_FADE := 1.6   # cut_hand_a -> cut_hand_b
-const CUT_FADE_AT := 6.0     # fade to landing 2
-const CUT_END := 6.6
+const CUT_FADE_AT := 9.0     # fade to landing 2
+const CUT_END := 9.6
+## The gateway beat's framing: the L1 plate at 1.25x about the gateway.
+const CUT_ZOOM := 1.25
+const CUT_ZOOM_AT := Vector2(-182, -105)
 const DOOR_HOLD := 4.4       # P24: the door close-up held
 const DOOR_SWING := 1.6
 const DOOR_DISSOLVE := 0.6
@@ -156,6 +162,16 @@ const GLINT_PERIOD := 9.0
 const BELL_GLANCE_SETTLE := 0.5
 const BELL_GLANCE_TIME := 2.5
 const FINGER_FADE := 2.0
+
+## Late wrongness on the landings.
+const SPILL_BAND := 5        # gate landing: sea-glass light up out of the water onto the floor
+const FAR_MARKS_BAND := 6    # gate landing: the jamb marks again beyond the water, at the wrong heights
+const TILT_BAND := 7         # gate landing: the plane tilts in the standing water
+const CAUSTIC_BAND := 5      # lower landing: a slow caustic band under the glass floor
+const THRESHOLD_BAND := 6    # lower landing: cold light under the lower door
+const GHOST_BAND := 5        # c_gate: a second faint needle resting on 2
+## Where the far-side marks stand (beyond the water, inside the gateway), in the jamb's order reversed.
+const FAR_MARKS := {"circle": Vector2(588, 610), "linked": Vector2(588, 712), "bracket": Vector2(588, 820)}
 
 ## Ambient loops.
 const LOOPS := ["r11_air", "r11_line_pulse", "r11_glass", "r11_bell_above", "r11_bell_below", "r11_pressure"]
@@ -227,7 +243,7 @@ func _load_textures() -> void:
 		"L2_door_open", "L2_finger_marks", "plate_blank", "port_false", "port_true", "cut_glass",
 		"cut_hand_a", "cut_hand_b", "c_gate", "c_wheel", "c_lever_up", "c_lever_down", "c_port_shutter",
 		"c_door", "c_access_up", "c_access_down", "c_copy_shut", "rec_frame", "rec_strip", "rec_card",
-		"rec_card_amended", "rec_bridge"]
+		"rec_card_amended", "rec_bridge", "L1_glass_tilt", "L1_spill", "c_copy_smear"]
 	for k in range(1, 6):
 		names.append("L1_tide_%d" % k)
 	for n in names:
@@ -298,6 +314,8 @@ func tick(dt: float) -> void:
 	access_t = maxf(0.0, access_t - dt)
 	flag_t += dt
 	bell_glance_t += dt
+	if cut == "door" and cut_t >= DOOR_HOLD and finger_k < 1.0 and not finger_fading:
+		_start_finger_fade()
 	if finger_fading:
 		finger_k = minf(1.0, finger_k + dt / FINGER_FADE)
 		finger_fading = finger_k < 1.0
@@ -495,6 +513,12 @@ func play_fx(id: String, e: Dictionary) -> void:
 	queue_redraw()
 	close.queue_redraw()
 
+## The finger marks come up on the open leaf (motion: over FINGER_FADE; still: at once).
+func _start_finger_fade() -> void:
+	finger_fading = motion
+	if not motion:
+		finger_k = 1.0
+
 func _drop_flags() -> void:
 	flags_waiting = false
 	flag_t = 0.0 if motion else FLAG_DROP
@@ -521,8 +545,8 @@ func start_glance(target: String, rect: Rect2) -> bool:
 			bell_glance_t = 0.0
 			return false
 		"lower_door":
-			finger_k = 0.0 if motion else 1.0
-			finger_fading = motion
+			if finger_k < 1.0 and not finger_fading:
+				_start_finger_fade()
 			return true
 	return false
 
@@ -555,7 +579,7 @@ func consume_click(_p: Vector2) -> bool:
 	if cut_playing():
 		_end_cut()
 		if r11 and r11.door_open() and finger_k < 1.0 and not finger_fading:
-			finger_k = 0.0
+			_start_finger_fade()
 		return true
 	if holding():
 		hold_id = ""
@@ -685,18 +709,40 @@ func _draw_l1() -> void:
 	_draw_water_glint()
 	var gm := r11.glass_mode()
 	if gm != "":
-		_plate("L1_glass_deep" if gm == "deep" else "L1_glass")
+		_plate(glass_plate(gm))
 		_draw_caustics()
 	# The shelves go over the glass: the pane is opaque inside the opening and would hide them.
 	if r11.shelves_shown():
 		_plate("L1_shelves")
+	if _band() >= SPILL_BAND:
+		_plate("L1_spill")
 	_plate("L1_grille_up" if r11.gate_up() else "L1_grille")
 	_draw_stair_marks()
+	if _band() >= FAR_MARKS_BAND and r11.state.p12_complete:
+		_draw_far_marks()
 	_draw_l1_gauge()
 	_draw_wheel(self, L1_HUB, 0.57)
 	_draw_l1_plates()
 	_draw_l1_lever()
 	_draw_l1_placard()
+
+## The standing water's plate: shallow, deep (band 4+), or deep with its plane tilted (band 7).
+func glass_plate(gm: String) -> String:
+	if gm != "deep":
+		return "L1_glass"
+	return "L1_glass_tilt" if _band() >= TILT_BAND else "L1_glass_deep"
+
+## Band 6+: the jamb's three marks again, faintly, beyond the water and in the wrong order.
+func _draw_far_marks() -> void:
+	var src := stair_strokes()
+	var centres := [Vector2(512, 450), Vector2(512, 570), Vector2(512, 690)]
+	var at := [FAR_MARKS.bracket, FAR_MARKS.linked, FAR_MARKS.circle]
+	for i in mini(src.size(), 3):
+		var pts := PackedVector2Array()
+		for q in src[i]:
+			pts.append(at[i] + (q - centres[i]) * 0.4)
+		draw_polyline(pts, Color(PALE, 0.35), 5.0, true)
+		draw_polyline(pts, Color(0.06, 0.16, 0.18, 0.62), 3.0, true)
 
 ## A glint slides along the water plane's bright edge every 9 s (still: one fixed glint).
 func glint_x() -> float:
@@ -773,6 +819,14 @@ func _needles(cv: CanvasItem, c0: Vector2, r: float, k: float) -> void:
 	cv.draw_circle(c0, 14.0 * k, Ink.INK)
 	cv.draw_circle(c0, 6.0 * k, Ink.BRASS)
 
+## Band 5+: a second, faint hairline needle resting on 2. Nothing moves it.
+func _ghost_needle(cv: CanvasItem, c0: Vector2, r: float) -> void:
+	var tip := _from_up(c0, r * 1.02, tick_deg(2))
+	var tail := _from_up(c0, r * 0.34, tick_deg(2) + 180.0)
+	var col := Color(Ink.INK, 0.45)
+	cv.draw_line(tail, tip, col, 2.0, true)
+	cv.draw_circle(tail, 7.0, col)
+
 func _numerals(cv: CanvasItem, c0: Vector2, r: float, size: int) -> void:
 	var nf := narrow()
 	for n in 6:
@@ -840,17 +894,18 @@ func _draw_l1_placard() -> void:
 func _draw_l2() -> void:
 	if not _plate("L2_base"):
 		_placeholder(L2_HOTSPOTS)
+	if _band() >= CAUSTIC_BAND:
+		_draw_floor_caustics()
 	_plate("L2_shoes_" + r11.shoes_state())
 	var bd := r11.bell_dir()
 	_plate("L2_bell_down" if bd == "below" else "L2_bell_up")
 	if r11.door_open():
 		_draw_door_leaf()
-		if finger_k > 0.0:
-			var t := _tex("L2_finger_marks")
-			if t:
-				draw_texture(t, Vector2.ZERO, Color(1, 1, 1, finger_k))
-	elif latch_t >= 0.0 and motion:
-		_draw_latch_shake()
+	else:
+		if _band() >= THRESHOLD_BAND:
+			_draw_threshold_glow()
+		if latch_t >= 0.0 and motion:
+			_draw_latch_shake()
 	_draw_l2_marks()
 	_draw_motes()
 
@@ -870,7 +925,36 @@ func _draw_door_leaf() -> void:
 	if k <= 0.0:
 		return
 	var leaf := Rect2(290, 430, HINGE_X - 290, 480)
-	draw_texture_rect_region(t, Rect2(HINGE_X - leaf.size.x * k, leaf.position.y, leaf.size.x * k, leaf.size.y), leaf)
+	var dest := Rect2(HINGE_X - leaf.size.x * k, leaf.position.y, leaf.size.x * k, leaf.size.y)
+	draw_texture_rect_region(t, dest, leaf)
+	# Its inner face's marks swing in with it, fading up from the swing.
+	var fm := _tex("L2_finger_marks")
+	if fm and finger_k > 0.0:
+		draw_texture_rect_region(fm, dest, leaf, Color(1, 1, 1, finger_k))
+
+## Band 5+: a slow flat sea-glass caustic band on the wall under the glass floor (still: fixed).
+func _draw_floor_caustics() -> void:
+	var ph := time * 0.22 if motion else 0.0
+	for j in 3:
+		var top := PackedVector2Array()
+		var bot := PackedVector2Array()
+		var y0 := 346.0 + 22.0 * j
+		var x := 310.0
+		while x <= 1132.0:
+			var w := 4.0 * sin(x / 53.0 + ph * (1.0 + 0.3 * j) + j * 1.7) + 3.0 * sin(x / 21.0 - ph * 0.7 + j)
+			top.append(Vector2(x, y0 + w))
+			bot.append(Vector2(x, y0 + w + 5.0 + 3.0 * sin(x / 37.0 + ph + j * 2.3)))
+			x += 12.0
+		var poly := top.duplicate()
+		bot.reverse()
+		poly.append_array(bot)
+		draw_colored_polygon(poly, Color(0.62, 0.78, 0.72, 0.30 - 0.06 * j))
+
+## Band 6+, the door still shut: cold light under its foot, a hard bar, and a little on the flags.
+func _draw_threshold_glow() -> void:
+	draw_rect(Rect2(604, 872, 272, 7), Color(0.9, 0.97, 0.95, 0.9))
+	draw_colored_polygon(PackedVector2Array([Vector2(604, 880), Vector2(876, 880), Vector2(910, 900), Vector2(570, 900)]),
+		Color(0.75, 0.9, 0.86, 0.3))
 
 func _draw_latch_shake() -> void:
 	var t := _tex("L2_base")
@@ -987,7 +1071,7 @@ func _draw_plate(cv: CanvasItem, pid: String, at: Vector2, k: float) -> void:
 	cv.draw_string(nf, at + Vector2(78.0 * k - bw / 2.0, 98.0 * k), brk, HORIZONTAL_ALIGNMENT_LEFT, -1, big, Ink.INK)
 	var nw := nf.get_string_size(num, HORIZONTAL_ALIGNMENT_LEFT, -1, big).x
 	cv.draw_string(nf, at + Vector2(158.0 * k - nw / 2.0, 98.0 * k), num, HORIZONTAL_ALIGNMENT_LEFT, -1, big, Ink.INK)
-	if k >= 0.5:
+	if k >= 1.0:
 		var small := int(round(13.0 * k))
 		var sw := nf.get_string_size("BOUNDARY", HORIZONTAL_ALIGNMENT_LEFT, -1, small).x
 		cv.draw_string(nf, at + Vector2(78.0 * k - sw / 2.0, 122.0 * k), "BOUNDARY", HORIZONTAL_ALIGNMENT_LEFT, -1, small, Ink.INK)
@@ -1017,7 +1101,7 @@ func _rec(cv: CanvasItem, item: String, r: Rect2, words: bool) -> void:
 		"nora_spatial_strip":
 			cv.draw_string(nf, o + Vector2(196, 140) * k, "N. BELL", HORIZONTAL_ALIGNMENT_LEFT, -1, int(14 * k), Ink.INK)
 		"amended_nora_card", "nora_register_card":
-			cv.draw_string(nf, o + Vector2(64, 45) * k, "NORA BELL", HORIZONTAL_ALIGNMENT_LEFT, -1, int(19 * k), Ink.INK)
+			cv.draw_string(nf, o + Vector2(64, 58) * k, "NORA BELL", HORIZONTAL_ALIGNMENT_LEFT, -1, int(19 * k), Ink.INK)
 			if item == "amended_nora_card":
 				var lines := ["PERSONAL EFFECT IDENTIFIED", "REPAIRED CUP", "NORA BELL"]
 				for i in lines.size():
@@ -1062,6 +1146,8 @@ func _draw_gate(cv: CanvasItem, in_cut: bool) -> void:
 	var nf := narrow()
 	# The dial: numerals, needles, its status window.
 	_numerals(cv, DIAL_C, DIAL_R - 88.0, 34)
+	if _band() >= GHOST_BAND:
+		_ghost_needle(cv, DIAL_C, DIAL_R - 20.0)
 	_needles(cv, DIAL_C, DIAL_R - 20.0, 1.0)
 	_centered(cv, status_text(), STATUS_WIN, 20, Ink.INK)
 	# The handwheel and its two step plates.
@@ -1169,16 +1255,61 @@ func _draw_p12_cut(cv: CanvasItem) -> void:
 	if cut_t < CUT_GATE:
 		_draw_gate(cv, true)
 		return
+	if cut_t < CUT_GRILLE:
+		_draw_grille_beat(cv)
+		return
 	_bg(cv, "cut_glass", Color("2b3d44"))
 	var a := _tex("cut_hand_a")
 	var b := _tex("cut_hand_b")
 	var k := 1.0
 	if motion:
-		k = clampf((cut_t - CUT_GATE - 0.8) / CUT_HAND_FADE, 0.0, 1.0)
+		k = clampf((cut_t - CUT_HAND_AT) / CUT_HAND_FADE, 0.0, 1.0)
 	if a and k < 1.0:
 		cv.draw_texture(a, Vector2.ZERO, Color(1, 1, 1, 1.0 - k))
 	if b and k > 0.0:
 		cv.draw_texture(b, Vector2.ZERO, Color(1, 1, 1, k))
+
+## How far the grille has gone up into the lintel in the cut's gateway beat, 0..1 (still: up).
+func grille_rise() -> float:
+	if not motion:
+		return 1.0
+	var k := clampf((cut_t - CUT_GRILLE_RISE[0]) / (CUT_GRILLE_RISE[1] - CUT_GRILLE_RISE[0]), 0.0, 1.0)
+	return k * k * (3.0 - 2.0 * k)
+
+## The P12 cut's second beat: the gateway itself, the bolts drawing (a shake) and the grille
+## going up into the lintel, before the water stands up and her hand goes in.
+func _draw_grille_beat(cv: CanvasItem) -> void:
+	var shake := Vector2.ZERO
+	if motion and cut_t >= CUT_GATE + 0.15 and cut_t < CUT_GATE + 0.45:
+		shake = Vector2(0, 3.0 * sin(cut_t * 80.0))
+	cv.draw_set_transform(CUT_ZOOM_AT + shake, 0.0, Vector2(CUT_ZOOM, CUT_ZOOM))
+	_bg(cv, "L1_base", Color("54646a"))
+	var n := r11.tide_lines()
+	if n > 0 and _tex("L1_tide_%d" % n):
+		cv.draw_texture(_tex("L1_tide_%d" % n), Vector2.ZERO)
+	var g := _tex("L1_grille")
+	var k := grille_rise()
+	if g and k < 1.0:
+		var d := k * 740.0
+		var h := 896.0 - 160.0 - d
+		if h > 0.0:
+			cv.draw_texture_rect_region(g, Rect2(530, 160, 390, h), Rect2(530, 160 + d, 390, h))
+	if k >= 1.0 and _tex("L1_grille_up"):
+		cv.draw_texture(_tex("L1_grille_up"), Vector2.ZERO)
+	# The gate's own marks at room scale, as on the landing.
+	_numerals(cv, L1_DIAL, L1_DIAL_R - 42.0, 17)
+	_needles(cv, L1_DIAL, L1_DIAL_R - 10.0, 0.5)
+	_centered(cv, status_text(), Rect2(264, 334, 72, 22), 11, Ink.INK)
+	for i in 2:
+		var pid: String = r11.state.slots[i]
+		if pid != "":
+			_draw_plate(cv, pid, L1_SLOTS[i].get_center() - PLATE_SIZE * 0.15, 0.3)
+	var wt := _tex("c_wheel")
+	if wt:
+		cv.draw_set_transform(CUT_ZOOM_AT + shake + L1_HUB * CUT_ZOOM, deg_to_rad(60.0 * int(r11.state.pressure)),
+			Vector2.ONE * 0.57 * CUT_ZOOM)
+		cv.draw_texture(wt, -wt.get_size() / 2.0)
+	cv.draw_set_transform_matrix(Transform2D.IDENTITY)
 
 # --- c_chamber_door ----------------------------------------------------------------------
 ## The lower door's close-up. `in_cut`: the P24 hold (lever down, the mounts empty).
@@ -1214,6 +1345,10 @@ func _draw_door(cv: CanvasItem, in_cut: bool) -> void:
 	# The COPY port: its stamp; the shutter snapped over anything in it, the thing peeking out.
 	_centered(cv, "COPY · AUTOMATIC", COPY_STAMP, 16, Ink.INK)
 	var cp := r11.copy_item()
+	if cp == "" and not in_cut:
+		var sm := _tex("c_copy_smear")
+		if sm:
+			cv.draw_texture(sm, Vector2(560, 590))
 	if cp != "":
 		var t := _tex(REC_TEX.get(cp, ""))
 		if t:

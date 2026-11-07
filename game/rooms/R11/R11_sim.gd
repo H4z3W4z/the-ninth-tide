@@ -73,7 +73,7 @@ const GAUGE_REFERENCED := "The brass needle's come up to 2. The laboratory jar's
 const PLACARD_LINE := "The gate placard. Equalise to the reference; choose a landing whose marks correspond across the boundary; pull OPEN. Its example: '[ 7' above the line, '] 7' below."
 const GATE_SHUT := "The gate's down across the stair."
 const BELOW_GATE := "That's below the gate. I can't get down there."
-const GLANCE_BELL := [386, 330, 140, 120]
+const GLANCE_BELL := [366, 334, 220, 170]
 
 # --- P24: the lower door ---------------------------------------------------------------------
 const FRAMES := ["BODY", "PLACE", "NAME"]
@@ -740,10 +740,10 @@ func _open_gate(ev: Array) -> void:
 	_mark_notice("n_bell")
 	_settle(1)
 	_settle(2)
-	_sfx(ev, "r11_bell_up", 6.4)
-	_say(ev, "A bell. The sound is coming up the stair.", 6.6, true)
+	_sfx(ev, "r11_bell_up", 9.4)
+	_say(ev, "A bell. The sound is coming up the stair.", 9.6, true)
 	_observe("bell")
-	_say(ev, "There. It hangs stopped, halfway through a swing. It has no clapper.", 9.0, true)
+	_say(ev, "There. It hangs stopped, halfway through a swing. It has no clapper.", 11.6, true)
 	_fx(ev, "glance", {"rect": GLANCE_BELL.duplicate(), "target": "bell_sound"})
 
 # ---------------------------------------------------------------------------------------------
