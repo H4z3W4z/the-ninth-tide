@@ -12,8 +12,15 @@ const TITLE := "Machine Room"
 const REQUIRES := ["P09"]
 const LOCKED := "The machine room is behind the kitchen's service access. It's sealed."
 const RESUME := "Back in the machine room."
+## The way in, for the core's travel hints.
+const WAY_IN_HINT := "The hatch in the kitchen floor is open: the laboratory and the machine room."
 ## The reveal's first line (s after the commit). The view re-times a late reveal against it.
 const REVEAL_FIRST_SAY := 0.6
+## The reveal's beats the view times its own presentation against (s after the commit).
+const BELT_DROP_AT := 6.6
+const BREATH_ALONE_AT := 8.2
+const DUST_DRAG_AT := 8.5
+const REVEAL_LAST_SAY := "There's a plate where the belt was. REFERENCE RESPIRATION."
 const ARRIVAL := "The machine room. Belts, a flywheel, and a black diaphragm bolted into the wall. It draws in with the cycle."
 ## [to, label, extra flags]: the ways out. The target's REQUIRES also apply.
 const EXITS := [
@@ -28,6 +35,9 @@ const CLOSEUPS := ["c_valves", "c_tags"]
 ## true = OPEN.
 const VALVES := ["SUPPLY", "GATE", "RETURN", "INDEX"]
 const SOLUTION := {"SUPPLY": true, "GATE": true, "RETURN": true, "INDEX": false}
+## The board carries no names: each toggle is stamped with Venn's tag number. The drawing names
+## the lines; his repair tags (c_tags) say which number is which line.
+const VALVE_TAGS := {"SUPPLY": "07", "GATE": "12", "RETURN": "31", "INDEX": "44"}
 ## The circuit codes circuit() can return, in evaluation order.
 const CIRCUITS := ["no_supply", "index", "gate_shut", "dead_gate", "loop"]
 ## Printed on the drawing's fault window (the view draws them).
@@ -56,11 +66,17 @@ const PUMP_REFUSALS := {
 const DRAWING_LINE := "Out through SUPPLY and GATE, back through RETURN. INDEX capped: SEALED. NEVER FEED."
 
 # --- O04: Venn's repair tags -------------------------------------------------------------------
-## Pages 0-7 are handwritten (backward slant); page 8 is new brass, stamped (tag_stamp()).
+## Pages 0-11 are handwritten (backward slant), in the order they hang; the four valve tags
+## ("No. NN: ...") carry the stamped number of their toggle. The last page is new brass,
+## stamped (tag_stamp()).
 const TAGS := [
+	"No. 07: SUPPLY valve reseated, 11 Jan 1926. E.V.",
+	"No. 12: GATE valve repacked, 3 Mar 1926. E.V.",
+	"No. 31: RETURN line flushed, 9 Sep 1927. E.V.",
 	"3 NOV 27. Fitted restraining bolts, twelve. Rim weeps oil. E.V.",
 	"19 FEB 28. Middle belt relaced. Diaphragm kept time 4 sec. without load after stop. Noted. E.V.",
 	"7 AUG 28. Index line capped and sealed per S.R. Lead seal mine. E.V.",
+	"No. 44: INDEX resealed. Wire cut again. Do not open. E.V.",
 	"30 JAN 29. Replaced bolt 5, sheared. Sheared outward. E.V.",
 	"12 OCT 29. Dust swept. Swept again. E.V.",
 	"4 JUN 30. Middle belt relaced. Kept time 40 sec. without load. Did not note this for S.R. E.V.",
@@ -68,14 +84,17 @@ const TAGS := [
 	"14 OCT 31. Rim rebolted. It is not pushing. It is leaning. E.V.",
 	"18 OCT 31",
 ]
-const TAG_LAST := 8
+const TAG_LAST := 12
+## The pages whose reading records o04_keeps_time (4 JUN 30) and o04_leaning (14 OCT 31).
+const TAG_KEEPS_TIME := 9
+const TAG_LEANING := 11
 const TAG_STAMP_DATE := "18 OCT 31"
 const TAG_STAMP_AM := "A.M."
 
 # --- escalation --------------------------------------------------------------------------------
 ## First-time arrival holds, oldest first. Seeing one retires every older one.
 const NOTICES := ["cycle_pause", "breathes_alone", "dust_lines", "bolts_out", "breath_nora",
-	"belts_still", "late_reflection", "end_sever", "end_continue"]
+	"belts_still", "late_reflection", "far_horizon", "end_sever", "end_continue"]
 const NOTICE_LINES := {
 	"cycle_pause": "The cycle has a pause in it.",
 	"breathes_alone": "It breathes without the belt.",
@@ -84,6 +103,7 @@ const NOTICE_LINES := {
 	"breath_nora": "It is breathing like her.",
 	"belts_still": "Every belt has stopped. It hasn't.",
 	"late_reflection": "The room is in its surface. A moment late.",
+	"far_horizon": "Further back than the wall goes. A long way further.",
 	"end_sever": "It's stopped. All of it.",
 	"end_continue": "Still breathing. Evenly now.",
 }
@@ -95,12 +115,16 @@ const OBSERVATIONS := {
 	"flywheel": "A flywheel taller than I am, turning slow.",
 	"bolts": "Twelve restraining bolts round the ring. A white paint stripe runs across each head onto the flange, so you'd see if one turned.",
 	"dust": "Fine grey dust on the floor, swept and settled again. Nobody's walked through it but me.",
-	"valve_board": "Valve board: four toggles, SUPPLY, GATE, RETURN, INDEX, each OPEN or SHUT. A PUMP lever, and a PREVIEW key that lights the active circuit on the drawing.",
+	"valve_board": "Valve board: four toggles with no names, only stamped numbers, No. 07, No. 12, No. 31, No. 44, each OPEN or SHUT. A PUMP lever, and a PREVIEW key that lights the active circuit on the drawing.",
 	"drawing": "Maintenance drawing: from the pump through SUPPLY, out through GATE to the stair gate, and back through RETURN to the pump. INDEX branches off before the gate, drawn capped: 'SEALED. NEVER FEED.'",
-	"index_seal_cut": "INDEX was left OPEN. The lead seal wire on its toggle has been cut, cleanly.",
+	"index_seal_cut": "No. 44 was left OPEN. The lead seal wire on its toggle has been cut, cleanly.",
+	"tag_07": "Repair tag No. 07: 'SUPPLY valve reseated, 11 Jan 1926.' The SUPPLY toggle is No. 07.",
+	"tag_12": "Repair tag No. 12: 'GATE valve repacked, 3 Mar 1926.' The GATE toggle is No. 12.",
+	"tag_31": "Repair tag No. 31: 'RETURN line flushed, 9 Sep 1927.' The RETURN toggle is No. 31.",
+	"tag_44": "Repair tag No. 44: 'INDEX resealed. Wire cut again. Do not open.' The INDEX toggle is No. 44.",
 	"index_hunger": "With SUPPLY and INDEX both open, the whole machine stopped and held, flywheel and all, like something listening. It let go when the line was shut.",
 	"reference_respiration": "With the gate loop running, one belt stopped. The diaphragm kept breathing without it. Under the belt, a nameplate: REFERENCE RESPIRATION.",
-	"o04_tags": "Venn's repair tags, on a ring behind the middle belt: four years of bolts, lacing and seals, all in his left-handed slope.",
+	"o04_tags": "Venn's repair tags, on a ring behind the middle belt: years of valves, bolts, lacing and seals, all in his left-handed slope. The valve tags carry the toggles' numbers.",
 	"o04_keeps_time": "Twice he relaced the middle belt. In 1928 the diaphragm kept time 4 seconds without it. In 1930, 40. He didn't tell Rook.",
 	"o04_leaning": "His last tag, 14 OCT 31: 'Rim rebolted. It is not pushing. It is leaning.'",
 	"o04_new_tag": "The ninth tag is new brass, stamped 18 OCT 31. Tomorrow. Nothing is written on it.",
@@ -109,7 +133,8 @@ const OBSERVATIONS := {
 	"bolts_out": "The bolt paint has cracked. Each bolt shows a finger's width of bright thread under its head. The diaphragm has come further out of the wall.",
 	"breath_nora": "Its breath has changed: two short rises, a pause, one long rise. Nora's breath, from her work card. The dust in front of it is raked in the same shape.",
 	"belts_still": "All three belts have stopped, and the pump. Only the breath goes on.",
-	"late_reflection": "The diaphragm's surface reflects the room, a moment late. In the reflection the belts are still running.",
+	"late_reflection": "The diaphragm's surface doesn't hold the room. It holds a horizon: one long curve with nine pale points along it, moving a moment after the breath.",
+	"far_horizon": "The horizon in its surface is further back than the wall goes. A long way further.",
 	"lens_pores": "Under the lens it isn't rubber. It has pores, and they close when it breathes in.",
 	"lens_index_ink": "On the drawing, INDEX is in a different ink. Added after the rest, then capped.",
 	"end_sever": "It hangs slack in its ring. The dust lies where it fell.",
@@ -121,9 +146,9 @@ const OBJECTIVES := {
 }
 const HINTS := {
 	"p11": [
-		"The machine room's valve board routes pressure. The drawing above shows the loop.",
-		"Pressure has to go out through the gate and come back, without reaching the sealed line.",
-		"SUPPLY open, GATE open, RETURN open, INDEX closed. Then the pump.",
+		"The valve toggles have numbers, not names. Venn tagged everything he repaired: his tags hang behind the middle belt.",
+		"Match each toggle's number to its tag, then route the drawing's loop: out through the gate and back, never into the sealed line.",
+		"No. 07 (SUPPLY), No. 12 (GATE) and No. 31 (RETURN) open, No. 44 (INDEX) shut. Then the pump.",
 	],
 	"done": [
 		"Nothing in the machine room is waiting on me.",
@@ -220,11 +245,11 @@ func dust_mode() -> String:
 func bolts_out_shown() -> bool:
 	return band() >= 4 and ending() != "sever"
 
-## "late" (band 7), "now" (continue), "" otherwise.
+## "late" (band 6+: the far horizon in its surface), "now" (continue), "" otherwise.
 func reflection_mode() -> String:
 	if ending() == "continue":
 		return "now"
-	if ending() == "" and band() >= 7:
+	if ending() == "" and band() >= 6:
 		return "late"
 	return ""
 
@@ -263,9 +288,9 @@ func current_notice() -> String:
 			return "end_continue"
 	var b := band()
 	if b >= 7:
-		return "late_reflection"
+		return "far_horizon"
 	if b == 6:
-		return "belts_still"
+		return "late_reflection"
 	if b == 5:
 		return "breath_nora"
 	if b == 4:
@@ -364,9 +389,8 @@ func use_item(item: String, target: String, ev: Array) -> bool:
 						else "The paint stripe is unbroken on all twelve.")
 					return true
 				"repair_tags", "tag":
-					if p11:
-						_say(ev, "The writing slopes backwards. Left-handed. Venn.")
-						return true
+					_say(ev, "The writing slopes backwards. Left-handed. Venn.")
+					return true
 				"belt":
 					_say(ev, "The lacing is all one hand.")
 					return true
@@ -391,14 +415,14 @@ const DIAPHRAGM_LINES := {
 	"b3": "Every grain of dust on the floor points at it.",
 	"b4": "A finger's width further out than it was. I can see the bolts' threads.",
 	"b5": "Two short. A pause. One long. I know that breath.",
-	"b6": "Everything else in the room has stopped.",
-	"b7": "The room is in it, a little late. The belts are still running in there.",
+	"b6": "Everything else has stopped. In its surface there's a horizon where the room should be.",
+	"b7": "Nine pale points along that horizon. It goes back further than the wall does.",
 	"sever": "Slack. It hangs in its ring like a wet sail.",
 	"continue": "It breathes. Evenly. Not behind any more.",
 }
 ## The notebook entry a diaphragm look at each stage confirms.
-const DIAPHRAGM_OBS := {"b4": "bolts_out", "b5": "breath_nora", "b6": "belts_still",
-	"b7": "late_reflection", "sever": "end_sever", "continue": "end_continue"}
+const DIAPHRAGM_OBS := {"b4": "bolts_out", "b5": "breath_nora", "b6": "late_reflection",
+	"b7": "far_horizon", "sever": "end_sever", "continue": "end_continue"}
 
 func _room(action: String, ev: Array) -> void:
 	var s := _stage()
@@ -420,6 +444,8 @@ func _room(action: String, ev: Array) -> void:
 			_observe("belt")
 			if late:
 				_say(ev, "All three belts, still.")
+				if s in ["b6", "b7"]:
+					_observe("belts_still")
 			elif state.p11_complete:
 				_say(ev, "The middle belt's stopped. Slipped off its drum and hanging.")
 			elif s == "held":
@@ -468,16 +494,18 @@ func _room(action: String, ev: Array) -> void:
 			else:
 				_say(ev, "Something's riveted to the frame behind the belt. I can't read it with the belt running over it.")
 		"repair_tags":
-			if not state.p11_complete:
-				_say(ev, "A ring of brass tags hangs behind the middle belt. Not with the belt running.")
-				return
 			local_view = "c_tags"
 			_sfx(ev, "tag_lift")
+			_read_tag()
 			if not state.tags_opened:
 				state.tags_opened = true
-				game.set_flag("o04_found")
 				_observe("o04_tags")
-				_say(ev, "His repair tags. Four years of them.")
+				if state.p11_complete:
+					_say(ev, "His repair tags. Years of them.")
+				else:
+					_say(ev, "A ring of brass tags behind the belt. I can reach it past the lacing. His repair tags.")
+			if state.p11_complete and not game.flag("o04_found"):
+				game.set_flag("o04_found")
 		"valve_board", "drawing":
 			local_view = "c_valves"
 			trace = ""
@@ -490,7 +518,7 @@ func _room(action: String, ev: Array) -> void:
 			if state.p11_complete:
 				_say(ev, "The board's locked under pressure.")
 			elif first:
-				_say(ev, "Someone left INDEX open. The seal wire on it has been cut.")
+				_say(ev, "No names on the toggles, only stamped numbers. Someone left 44 open. Its seal wire has been cut.")
 
 # ---------------------------------------------------------------------------------------------
 # P11: c_valves
@@ -570,6 +598,8 @@ func _pump(ev: Array) -> void:
 		return
 	# The commit. The view holds the close-up on screen for 1.8 s, then plays the room.
 	_set_p11_done()
+	if state.tags_opened:
+		game.set_flag("o04_found")   # she read his tags before the belt stopped: O04 is in hand
 	_observe("reference_respiration")
 	_mark_notice("breathes_alone")
 	local_view = "room"
@@ -581,12 +611,13 @@ func _pump(ev: Array) -> void:
 	_sfx(ev, "pump_run_up", 1.2)
 	_sfx(ev, "belt_wind_down", 3.4)
 	_say(ev, "One of the belts is stopping.", 3.6, true)
-	_sfx(ev, "belt_drop", 6.6)
-	_sfx(ev, "breath_alone", 7.8)
-	_say(ev, "The diaphragm didn't.", 8.0, true)
-	_sfx(ev, "dust_drag", 8.1)   # with the reveal's one inhalation (the view's RV_DUST)
-	_say(ev, "It breathed in, and the dust came to it. Sideways.", 10.6, true)
-	_say(ev, "There's a plate where the belt was. REFERENCE RESPIRATION.", 12.6, true)
+	# The view ducks every loop at the drop and holds the room silent; the breath comes back alone.
+	_sfx(ev, "belt_drop", BELT_DROP_AT)
+	_sfx(ev, "breath_alone", BREATH_ALONE_AT)
+	_say(ev, "The diaphragm didn't.", 8.4, true)
+	_sfx(ev, "dust_drag", DUST_DRAG_AT)   # with the reveal's one inhalation (the view's RV_DUST)
+	_say(ev, "It breathed in. The dust came to it. Sideways.", 10.8, true)
+	_say(ev, REVEAL_LAST_SAY, 12.8, true)
 
 # ---------------------------------------------------------------------------------------------
 # O04: c_tags
@@ -602,9 +633,10 @@ func _tags(action: String, ev: Array) -> bool:
 	_sfx(ev, "tag_flip")
 	state.tag_max = maxi(int(state.tag_max), int(state.tag))
 	var t: int = state.tag
-	if t >= 5:
+	_read_tag()
+	if t >= TAG_KEEPS_TIME:
 		_observe("o04_keeps_time")
-	if t >= 7:
+	if t >= TAG_LEANING:
 		_observe("o04_leaning")
 	if t == TAG_LAST:
 		var am_delay := 0.6
@@ -617,6 +649,25 @@ func _tags(action: String, ev: Array) -> bool:
 			_observe("o04_am")
 			_say(ev, "Someone has stamped it again. A.M.", am_delay)
 	return true
+
+## The valve number on tag page `i` ("07"), or "" for an ordinary repair tag.
+static func tag_number(i: int) -> String:
+	if i < 0 or i >= TAGS.size() or not str(TAGS[i]).begins_with("No. "):
+		return ""
+	return str(TAGS[i]).substr(4, 2)
+
+## The valve whose toggle carries tag number `num`, or "".
+static func valve_for_tag(num: String) -> String:
+	for v in VALVE_TAGS:
+		if VALVE_TAGS[v] == num:
+			return v
+	return ""
+
+## A valve tag on show goes into the notebook (its number and its line).
+func _read_tag() -> void:
+	var num := tag_number(int(state.tag))
+	if num != "":
+		_observe("tag_" + num)
 
 # ---------------------------------------------------------------------------------------------
 # state
@@ -643,7 +694,7 @@ func _set_p11_done() -> void:
 func _sync() -> void:
 	if game.flag("P11") and not state.p11_complete:
 		_set_p11_done()
-	# O04 hangs behind the stopped belt: found elsewhere means the tags were opened.
+	# O04 is the tags read once the belt has stopped: found elsewhere means they were opened.
 	if game.flag("o04_found") and state.p11_complete and not state.tags_opened:
 		state.tags_opened = true
 
@@ -679,11 +730,9 @@ func load_state(d: Variant) -> void:
 		for n in d.notices:
 			if n is String and n in NOTICES and not n in state.notices:
 				state.notices.append(n)
-	# Derived: the solved board is locked in the loop; the tags hang behind the stopped belt.
+	# Derived: the solved board is locked in the loop.
 	if state.p11_complete:
 		_set_p11_done()
-	else:
-		state.tags_opened = false
 
 ## P11 and o04_found are R08's: a flag set elsewhere (tests, debug) is honoured, then the flags
 ## follow the state.
