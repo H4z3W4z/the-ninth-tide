@@ -410,10 +410,14 @@ func test_determinism() -> void:
 
 func test_service_door() -> void:
 	var g := game_at(3, "R02")
-	var door: bool = "service_door" in g.room("R02").c("HOTSPOTS", [])
+	var r02 = g.room("R02")
+	var door: bool = "service_door" in r02.c("HOTSPOTS", []) or "service_door" in r02.c("HOTSPOTS_B", [])
+	check(door, "19: R02 has a service door")
 	if not door:
-		print("SKIP R01 test 19: R02 service_door not built yet")
 		return
+	# The service door is on wall B: face it first, then use the key on it.
+	g.dispatch("turn")
+	check(r02.get("facing") == "B", "19: facing wall B")
 	g.dispatch("item:service_key")
 	g.dispatch("service_door")
 	check(not g.has_item("service_key"), "19: the key is retired at the service door")
@@ -754,7 +758,7 @@ func test_round_w2_lines() -> void:
 		check(g.tide_done(1), "w2: %s is after Tide I" % s)
 		ev = g.dispatch("pilings")
 		check(says(ev) == R01Sim.PILINGS_TEN and r.has_seen("pilings_ten"), "w2: %s ten pilings (%s)" % [s, says(ev)])
-		check(R01Sim.PILINGS_TEN == "Ten pilings now. I counted nine from the launch.", "w2: the line, exactly")
+		check(R01Sim.PILINGS_TEN == "Ten pilings now. I counted eight from the launch.", "w2: the line, exactly")
 		ev = g.dispatch("stump")
 		check("holds nothing up" in says(ev) and r.has_seen("tenth_piling"), "w2: %s the tenth piling (%s)" % [s, says(ev)])
 	# Arrival state but after Tide I (a revisit before P05): ten as well.
