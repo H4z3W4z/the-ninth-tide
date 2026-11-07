@@ -55,7 +55,7 @@ The manifest is a generated file: if two teams regenerate it, either result is c
 | `OBSERVATIONS` | `{id: notebook text}` — every observation this room can record |
 | `OBJECTIVES` | `{objective_id: one-line goal}` shown in the notebook |
 | `HINTS` | `{objective_id: [location nudge, relationship, explicit solution]}` |
-| `ITEMS` | `{item_id: {"name": ..., "desc": ...}}` — items this room hands out |
+| `ITEMS` | `{item_id: {"name": ..., "desc": ..., "short": ...}}` — items this room hands out. `short` is optional: the inventory slot's label (drawn at 18 px, shrinking to 16 px, then an ellipsis), e.g. `"Tide sheet"` for `"Venn's tide sheet, 17 Oct"`. The full `name` stays in the hover tooltip and the notebook. |
 
 Exits are already wired to the GDD topology and tested in `tests/core_test.gd`; changing a
 room's exits is a design change for the lead, not a room-team edit.
@@ -124,11 +124,17 @@ Select-item-then-target is handled by the core: the player clicks an inventory s
 keeps the item. Prefer a specific, relevant observation for wrong targets in your room (GDD §6):
 handle them and return `true`. Nothing essential may be destroyed by a wrong use.
 
+The bar holds any number of items: up to six show as they are; past six, five show a page with a
+pager (`▸ 2/3`) in the sixth slot. Paging is presentation only (never saved, never sent to the
+sim); selecting an item keeps its page on show.
+
 ### Notebook entries
 
 Every critical clue becomes an `OBSERVATIONS` entry the moment it is seen, worded so it can be
 reopened and reasoned from later. Observations are never removed. The notebook shows a page per
 visited room, the current objective (`objective()` → `OBJECTIVES`), and the station plan after P05.
+A page that outgrows the smallest layout (17 px, two columns) turns into numbered pages
+(`◂ p 2/3 ▸`); the notebook opens on the page holding the newest entry.
 
 ### Hint ladder
 
@@ -136,6 +142,14 @@ visited room, the current objective (`objective()` → `OBJECTIVES`), and the st
 nudge, the relationship to consider, the explicit solution. The core advances the ladder per
 room+objective and restarts it when the objective changes. Override `hint_line(level)` /
 `hint_frozen()` for scripted moments (R02's threshold).
+
+"Now:" and the Hint are never empty. When your room has nothing to do (`objective()` is `""`,
+or it has no `HINTS` ladder), or its objective is idle (an id starting `away`, `done` or `wait`),
+the core points at the open, reachable room that has work: the office first, then the rooms in
+order, a room's opening survey (`explore`) only when nothing else is waiting. "Now:" reads
+`"<TITLE>: <that room's objective>"`; the Hint says `"Something in the <title> has changed."`,
+then climbs that room's own ladder. So: return `""` (or an idle id) when your room is done for
+the tide, and use the `away`/`done`/`wait` prefixes for idle objectives.
 
 ### Debug
 
@@ -160,6 +174,14 @@ start of tide I-IX.
   light). The skeletons put them along `y = 922..986`; keep hotspots out of exit rects.
 - Register rects to the art and never move a hotspot to darken a scene (AGENTS.md).
 - `room_test_base.gd`'s `view_checks()` enforces all of this.
+
+### Unbuilt rooms
+
+A room with no `<rid>_view.tscn`, or a skeleton view that declares no functions of its own
+(`RoomView.is_skeleton()`), shows the placeholder card: storm navy, the room's name, "The
+pressure gate holds. Not yet." in her hand, its hotspots as stencilled plates (still live), and a
+single exit tab back the way she came (`live_exit_rects()`). The sim is unchanged, so the chain
+test walks through. Your view stops being a skeleton the moment it overrides anything.
 
 ### Hooks
 

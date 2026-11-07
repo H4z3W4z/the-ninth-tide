@@ -406,8 +406,15 @@ func dispatch(action: String) -> Array:
 				var to := action.substr(5)
 				if to != state.room and rooms.has(to):
 					var before: String = state.room
+					# The plan travels from a close-up too: put the close-up down first.
+					var tries := 0
+					while room().local_view != "room" and tries < 4:
+						room().back(ev)
+						tries += 1
 					if room().local_view == "room":
 						_travel(to, ev, true)
+					else:
+						ev.append({"type": "say", "text": "Not from here.", "delay": 0.0, "story": false})
 					if state.room != before:
 						view = "room"
 			elif view != "room":
@@ -455,16 +462,99 @@ func _hint(ev: Array) -> void:
 	if r.hint_frozen():
 		ev.append({"type": "say", "text": r.hint_line(0), "delay": 0.0, "story": false})
 		return
-	var key: String = state.room + ":" + r.objective()
+	var away := work_elsewhere()
+	var key: String = state.room + (":" + r.objective() if away == "" else ":->" + away)
 	if state.hint["for"] != key:
 		state.hint["for"] = key
 		state.hint["level"] = 0
-	var level: int = mini(int(state.hint["level"]), 2)
-	ev.append({"type": "say", "text": r.hint_line(level), "delay": 0.0, "story": false})
+	var text: String
+	var level: int
+	if away == "":
+		level = mini(int(state.hint["level"]), 2)
+		text = r.hint_line(level)
+	else:
+		# Nothing to do here: first where, then that room's own ladder.
+		level = mini(int(state.hint["level"]), 3)
+		var there := room(away)
+		if level == 0:
+			text = "Something in the %s has changed." % str(there.c("TITLE", away)).to_lower()
+		else:
+			text = there.hint_line(level - 1)
+	ev.append({"type": "say", "text": text, "delay": 0.0, "story": false})
 	state.hint["level"] = level + 1
 
+## Objective ids that mean "nothing to do here": never offered as the work elsewhere.
+const IDLE_OBJECTIVES := ["away", "done", "wait"]
+## A room's opening survey (skeleton rooms): offered elsewhere only when nothing better is.
+const SURVEY_OBJECTIVE := "explore"
+const NOTHING_HERE := "Nothing here needs me yet."
+
+## True when `r` shows a goal of its own and has a hint ladder for it.
+func _room_has_work(r: RoomSim) -> bool:
+	var o := r.objective()
+	if o == "" or r.objective_text() == "":
+		return false
+	var ladder: Array = r.c("HINTS", {}).get(o, [])
+	if not ladder.is_empty():
+		return true
+	return not r.hint_line(0) in ["", NOTHING_HERE]
+
+static func _idle(objective_id: String) -> bool:
+	for pre in IDLE_OBJECTIVES:
+		if objective_id.begins_with(pre):
+			return true
+	return false
+
+## Where the notebook and the Hint point instead of the current room, or "" to stay here:
+## a room with nothing to do (no objective, or no ladder for it) points at any room with
+## work, its opening survey included; an idle one ("away", "done", "wait...") only at real
+## work elsewhere, else it keeps its own line.
+func work_elsewhere() -> String:
+	var r := room()
+	if r == null:
+		return ""
+	if not _room_has_work(r):
+		return elsewhere(true)
+	if _idle(r.objective()):
+		var e := elsewhere(false)
+		if e == "" and r.objective_text() == NOTHING_HERE:
+			e = elsewhere(true)
+		return e
+	return ""
+
+## The open, reachable room (not this one) where the work is: the office (the hub) first,
+## then the rooms in order; a room's opening survey only if `survey` and nothing else is
+## waiting. "" if there is nowhere.
+func elsewhere(survey := true) -> String:
+	var reach := reachable()
+	var ids: Array = [start_room]
+	for rid in order:
+		if not rid in ids:
+			ids.append(rid)
+	for pass_n in (2 if survey else 1):
+		for rid in ids:
+			if rid == state.room or not rid in reach or not room_open(rid):
+				continue
+			var r: RoomSim = rooms[rid]
+			var o := r.objective()
+			if o == "" or r.objective_text() == "":
+				continue
+			if _idle(o) or (pass_n == 0 and o.begins_with(SURVEY_OBJECTIVE)):
+				continue
+			return rid
+	return ""
+
+## The notebook's "Now:" line. Never empty: when this room has nothing to do it names the
+## room that has ("<TITLE>: <its objective>").
 func objective_text() -> String:
-	return room().objective_text() if room() else ""
+	var r := room()
+	if r == null:
+		return ""
+	var away := work_elsewhere()
+	if away == "":
+		var own := r.objective_text()
+		return own if own != "" else NOTHING_HERE
+	return "%s: %s" % [room(away).c("TITLE", away), room(away).objective_text()]
 
 ## The end card for `ending` ("sever" or "continue"): sets ending_choice. Called by R12.
 func finish(ending: String) -> void:
@@ -561,6 +651,9 @@ func from_dict(d: Variant) -> bool:
 				state.notebook.append(k)
 	for rid in order:
 		rooms[rid].reconcile()
+	# A save can't leave her behind a gate she hasn't opened (a stale or tampered room).
+	if state.room != start_room and not room().can_enter():
+		state.room = start_room
 	if not state.started:
 		state.visited.clear()
 	elif not state.room in state.visited:

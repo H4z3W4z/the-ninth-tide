@@ -43,8 +43,26 @@ func snap(targets: Dictionary) -> void:
 		mix[id] = targets.get(id, 0.0)
 		players[id].volume_db = linear_to_db(maxf(mix[id], 0.0001))
 
+## Moves the mixer under `to` without a cut: the voices carry on from where they were (the
+## core hands a room's loops over to itself when she leaves, to fade them out).
+func carry_to(to: Node) -> void:
+	var at := {}
+	for id in players:
+		if players[id].playing:
+			at[id] = players[id].get_playback_position()
+	keep_on_exit = true
+	reparent(to)
+	keep_on_exit = false
+	for id in at:
+		if not players[id].playing:
+			players[id].play(at[id])
+
+var keep_on_exit := false
+
 ## Stop every voice before the players go, so the audio server lets their playbacks go too.
 func _exit_tree() -> void:
+	if keep_on_exit:
+		return
 	for p in players.values():
 		if is_instance_valid(p):
 			p.stop()

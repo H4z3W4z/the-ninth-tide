@@ -52,7 +52,7 @@ static func button(c: CanvasItem, rect: Rect2, label: String, active := false, s
 	# so they never spill into the next button.
 	var room_x := rect.size.x - 12.0
 	var ts := f.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, size)
-	while ts.x > room_x and size > 13:
+	while ts.x > room_x and size > 16:
 		size -= 1
 		ts = f.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, size)
 	if ts.x > room_x:

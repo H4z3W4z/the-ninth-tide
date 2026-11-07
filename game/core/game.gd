@@ -32,6 +32,8 @@ const INV_ORIGIN := Vector2(20, 22)
 const INV_SLOT := Vector2(140, 50)
 const INV_GAP := 10.0
 const INV_MAX := 6
+## More items than slots: five items a page and a pager in the sixth slot.
+const INV_PER_PAGE := 5
 const END_BUTTONS := [["return_decision", Rect2(364, 880, 340, 70), "Return to final decision"],
 	["new_game", Rect2(744, 880, 340, 70), "New game"]]
 const NOTEBOOK_PAGE := Rect2(164, 90, 1120, 900)
@@ -44,7 +46,16 @@ const VOICE_CAP := 2          # live copies of one one-shot at most
 const RESTART_ARM := 3.0      # seconds the menu's restart stays armed after the first click
 const FEEDBACK_HOLD := 1.2    # a click's line stays up at least this long before the next replaces it
 const BACKLOG_SQUEEZE := 0.6  # read-time factor for older story lines when a new reveal arrives
-const TIDE_CARD_TIME := 4.5
+const TIDE_CARD_TIME := 3.0
+const TIDE_CARD_FADE := 0.5
+const TIDE_CARD_STILL := 2.5  # Motion off: the card is simply there this long
+const TRAVEL_DIP := 0.25      # storm-navy dip between rooms (Motion on)
+const TRAVEL_DIP_COLOR := Color("1b2a36")
+const MIXER_FADE := 0.4       # the old room's loops fade out this long after she leaves
+const MIXER_FADE_RATE := 2.5
+## The notebook's layouts, roomiest first. Past the last, the entries go on more pages.
+const NB_LAYOUTS := [[22, 960, 1], [20, 960, 1], [18, 960, 1], [18, 460, 2], [17, 460, 2]]
+const NB_INTRUSION_ROOM := 40.0
 
 ## Base levels for one-shots (dB) the core plays for itself; rooms add their own SFX_DB.
 const SFX_DB := {"page": -10.0}
@@ -89,6 +100,15 @@ var tide_card_t := 99.0
 var tide_card_n := 0
 var end_t := 0.0
 var last_checkpoint := ""
+var inv_page := 0              # the inventory page on show (presentation only)
+var nb_page := -1              # the notebook page on show; -1 = the page with the newest entry
+var nb_cache := {}             # notebook pagination, keyed by what it depends on
+var came_from := ""            # the room she last travelled from (the placeholder's way back)
+var travel_dip_t := 99.0
+var fading_mixers: Array = []  # [LoopMixer, seconds left] the rooms she just left
+var seen_game_view := ""
+var seen_local_view := ""
+var seen_inv_size := 0
 
 func _ready() -> void:
 	serif = Ink.serif()
@@ -155,11 +175,16 @@ func _build_audio() -> void:
 
 ## Shows the current room's view, replacing any other. A room without a view of its own
 ## gets the placeholder.
-func _mount_room() -> void:
+func _mount_room(travel := false) -> void:
 	var rid: String = sim.state.room
 	if room_view and is_instance_valid(room_view) and room_view.rid == rid:
 		return
 	if room_view and is_instance_valid(room_view):
+		if travel:
+			# The room she leaves keeps sounding for a moment, fading out, instead of cutting.
+			for m in _mixers_in(room_view):
+				m.carry_to(self)
+				fading_mixers.append([m, MIXER_FADE])
 		world.remove_child(room_view)
 		room_view.queue_free()
 	var path := "res://game/rooms/%s/%s_view.tscn" % [rid, rid]
@@ -175,6 +200,33 @@ func _mount_room() -> void:
 	world.add_child(v)
 	room_view = v
 	v.apply_instantly()
+	if travel:
+		# Arriving, the room's loops start from silence; its own tick() brings them up.
+		for m in _mixers_in(v):
+			m.snap({})
+		if sim.settings.motion:
+			travel_dip_t = 0.0
+
+## Every LoopMixer under `n`.
+static func _mixers_in(n: Node) -> Array:
+	var out := []
+	for ch in n.get_children():
+		if ch is LoopMixer:
+			out.append(ch)
+		out.append_array(_mixers_in(ch))
+	return out
+
+func _tick_fading_mixers(dt: float) -> void:
+	for i in range(fading_mixers.size() - 1, -1, -1):
+		var m: LoopMixer = fading_mixers[i][0]
+		fading_mixers[i][1] -= dt
+		if not is_instance_valid(m):
+			fading_mixers.remove_at(i)
+			continue
+		m.tick({}, {}, dt, MIXER_FADE_RATE)
+		if fading_mixers[i][1] <= 0.0:
+			fading_mixers.remove_at(i)
+			m.queue_free()
 
 ## The current room's sim.
 func room_sim() -> RoomSim:
@@ -219,7 +271,7 @@ func _load_progress() -> void:
 		sim.checkpoint = cp
 	if loaded and sim.state.started and sim.view == "room":
 		var r := sim.room()
-		_queue_line(r.c("RESUME", "Back.") + " " + r.objective_text(), 0.3)
+		_queue_line(r.c("RESUME", "Back.") + " " + sim.objective_text(), 0.3)
 
 func _save_progress() -> void:
 	var text := JSON.stringify(sim.to_dict())
@@ -263,11 +315,25 @@ func _process(dt: float) -> void:
 	if sim.view == "end":
 		end_t += dt
 	tide_card_t += dt
-	if not sim.view in ["room"]:
+	_tick_fading_mixers(dt)
+	_refresh_hover_on_view_change()
+	_keep_inv_page()
+	if not sim.view in ["room"] or travel_dip_t < TRAVEL_DIP + dt:
 		over.queue_redraw()
-	if tide_card_t < TIDE_CARD_TIME + 0.5:
+	travel_dip_t += dt
+	if tide_card_t < TIDE_CARD_TIME + dt:
 		card.queue_redraw()
 	hud.queue_redraw()
+
+## A view change (a close-up opening, the notebook) re-reads what is under the pointer, so
+## a label from the view she left never hangs over the new one.
+func _refresh_hover_on_view_change() -> void:
+	var lv: String = room_sim().local_view if room_sim() else ""
+	if sim.view == seen_game_view and lv == seen_local_view:
+		return
+	seen_game_view = sim.view
+	seen_local_view = lv
+	hover_id = _hover_at(get_global_mouse_position())
 
 func _tick_sfx(dt: float) -> void:
 	for i in range(pending_sfx.size() - 1, -1, -1):
@@ -338,11 +404,15 @@ func _tick_lines(dt: float) -> void:
 			cur_text = ""
 			cur_story = false
 			subtitle.text = ""
-	# The slab goes when nothing is being said, and comes straight back for the next line.
-	if cur_text == "" and lines.is_empty():
+	# The slab is up only while something is said (or about to be): an empty slab never waits
+	# for a line that is seconds away.
+	if cur_text == "" and not _line_due_within(0.2):
 		slab_a = maxf(0.0, slab_a - dt / 0.4)
 	else:
 		slab_a = minf(1.0, slab_a + dt / 0.15)
+
+func _line_due_within(s: float) -> bool:
+	return not lines.is_empty() and lines[0].due - time <= s
 
 ## A story chain is playing: a line of it is queued, or one is on screen and still held.
 func chain_active() -> bool:
@@ -392,11 +462,31 @@ func click(p: Vector2) -> void:
 	if a in ["notebook", "hint", "menu"]:
 		dispatch(a)
 		return
+	if _local_action(a):
+		return
 	if _chain_gates() and chain_active():
 		advance()
+		if a == "back":
+			dispatch(a)   # Back is one click: the line finishes and she steps back together
 		return
 	if a != "":
 		dispatch(a)
+
+## Presentation-only controls (inventory and notebook pages): never sent to the sim.
+func _local_action(a: String) -> bool:
+	match a:
+		"inv_page":
+			var pages := _inv_pages()
+			inv_page = (_inv_page_shown() + 1) % pages
+		"nbpage:prev", "nbpage:next":
+			var info := _nb_pagination(_nb_page())
+			var n: int = info.pages.size()
+			var cur: int = info.shown
+			nb_page = clampi(cur + (1 if a == "nbpage:next" else -1), 0, n - 1)
+		_:
+			return false
+	_redraw()
+	return true
 
 ## Views where a playing chain holds clicks. The title, end card and menu show no
 ## subtitles; a room may exempt its own views (the threshold has its own clock).
@@ -461,6 +551,7 @@ func dispatch(action: String) -> void:
 	var before_game := sim.view
 	var before_room := room_sim().view if room_sim() else ""
 	var chain_was := chain_active()
+	var before_tab := sim.nb_tab
 	var ev := sim.dispatch(action)
 	last_events = ev
 	play_events(ev, chain_was)
@@ -468,8 +559,13 @@ func dispatch(action: String) -> void:
 	var after_room := room_sim().view if room_sim() else ""
 	if before_room != after_room or before_game != sim.view:
 		_on_view_changed(before_game, before_room)
+	if sim.nb_tab != before_tab:
+		nb_page = -1
+	if action.begins_with("item:") and sim.selected_item != "":
+		_show_item_page(sim.selected_item)   # the page that holds what's in her hand
 	if sim.view == "title":
 		_reset_presentation()
+	_refresh_hover_on_view_change()
 	_save_progress()
 	_redraw()
 
@@ -507,15 +603,21 @@ func play_events(ev: Array, chain_was := false) -> void:
 func _play_fx(e: Dictionary) -> void:
 	match e.id:
 		"travel":
-			# A new room. The old room's chatter and timed sounds stay behind; anything of the
-			# story still being said finishes.
+			# A new room. The old room's chatter, its feedback line and its timed sounds stay
+			# behind; anything of the story still being said finishes.
 			lines = lines.filter(func(l): return l.story)
+			if not cur_story and cur_text != "":
+				cur_text = ""
+				subtitle.text = ""
 			pending_sfx.clear()
 			hover_id = ""
-			_mount_room()
+			came_from = str(e.get("from", ""))
+			_mount_room(e.get("from", "") != "")
 		"tide":
 			tide_card_n = int(e.get("tide", sim.tide()))
-			tide_card_t = 0.0 if sim.settings.motion else 1.0
+			tide_card_t = 0.0
+		"item_added":
+			_show_item_page(str(e.get("item", "")))
 		_:
 			if room_view:
 				room_view.play_fx(e.id, e)
@@ -528,6 +630,7 @@ func _on_view_changed(before_game: String, before_room: String) -> void:
 		intrusion_written = true
 	if sim.view == "notebook":
 		intrusion_t = 0.0
+		nb_page = -1
 	if sim.view == "end":
 		end_t = 0.0
 	if room_view:
@@ -583,6 +686,9 @@ func _reset_presentation() -> void:
 	intrusion_t = 0.0
 	tide_card_t = 99.0
 	end_t = 0.0
+	travel_dip_t = 99.0
+	inv_page = 0
+	nb_page = -1
 	_mount_room()
 	if room_view:
 		room_view.reset_presentation()
@@ -672,7 +778,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				elif sim.view == "room":
 					var esc := room_view.esc_action() if room_view else "menu"
 					if esc == "back" and _chain_gates() and chain_active():
-						advance()   # back out of a close-up goes through the same gate as a click
+						advance()   # Back is one press: the line finishes and she steps back
+						dispatch(esc)
 					elif esc != "":
 						dispatch(esc)
 				elif sim.view in ["notebook", "menu"]:
@@ -696,16 +803,25 @@ func _unhandled_input(event: InputEvent) -> void:
 func _hover_at(p: Vector2) -> String:
 	if sim.view != "room" or room_view == null:
 		return ""
+	if sim.state.started and _hud_shown():
+		for slot in _inv_layout():
+			if slot[0].has_point(p):
+				return slot[1]
 	var ex := _exit_at(p)
 	if ex != "":
 		return ex
-	return room_view.hover_at(p)
+	var id := room_view.hover_at(p)
+	# In a close-up only its own controls name themselves: a room hotspot's label never
+	# hangs over the close-up.
+	if id != "" and room_sim().is_closeup() and room_view.action_at(p) != id:
+		return ""
+	return id
 
 ## The exit under `p` as "go:<rid>", when the room is showing itself.
 func _exit_at(p: Vector2) -> String:
 	if room_view == null or room_sim().local_view != "room" or not room_view.exits_active():
 		return ""
-	var rects: Dictionary = room_view.exit_rects()
+	var rects: Dictionary = room_view.live_exit_rects()
 	for e in sim.exits():
 		if rects.has(e[0]) and rects[e[0]].has_point(p):
 			return "go:" + e[0]
@@ -734,13 +850,15 @@ func action_at(p: Vector2) -> String:
 			if b[1].has_point(p):
 				return b[0]
 		if sim.view == "room":
-			var inv: Array = sim.state.inventory
-			for i in mini(inv.size(), INV_MAX):
-				if _inv_rect(i).has_point(p):
-					return "item:" + inv[i]
+			for slot in _inv_layout():
+				if slot[0].has_point(p):
+					return slot[1]
 	if sim.view == "notebook":
 		if BACK_RECT.has_point(p):
 			return "back"
+		for b in _nb_page_buttons():
+			if b[0].has_point(p):
+				return b[1]
 		for t in _notebook_tabs():
 			if t[1].has_point(p):
 				return "tab:" + t[0]
@@ -761,8 +879,55 @@ func action_at(p: Vector2) -> String:
 func _hud_shown() -> bool:
 	return sim.view == "notebook" or (sim.view == "room" and (room_view == null or not room_view.hud_hidden()))
 
+## Slot `i` of the bar: the layout's rect when it has one, else where slot i would be.
 func _inv_rect(i: int) -> Rect2:
+	var layout := _inv_layout()
+	return layout[i][0] if i < layout.size() else _slot_rect(i)
+
+static func _slot_rect(i: int) -> Rect2:
 	return Rect2(INV_ORIGIN + Vector2(i * (INV_SLOT.x + INV_GAP), 0), INV_SLOT)
+
+## The inventory bar, shared by hit-testing, hover and drawing: [rect, action] per
+## slot. Up to INV_MAX items show as they are; more go five to a page with a pager in the
+## sixth slot ("inv_page").
+func _inv_layout() -> Array:
+	var inv: Array = sim.state.inventory
+	var out := []
+	if inv.size() <= INV_MAX:
+		for i in inv.size():
+			out.append([_slot_rect(i), "item:" + inv[i]])
+		return out
+	var page := _inv_page_shown()
+	for k in INV_PER_PAGE:
+		var i := page * INV_PER_PAGE + k
+		if i >= inv.size():
+			break
+		out.append([_slot_rect(k), "item:" + inv[i]])
+	out.append([_slot_rect(INV_PER_PAGE), "inv_page"])
+	return out
+
+func _inv_pages() -> int:
+	var n: int = sim.state.inventory.size()
+	return 1 if n <= INV_MAX else ceili(float(n) / INV_PER_PAGE)
+
+## The page on show: inv_page, kept in range as items are used up.
+func _inv_page_shown() -> int:
+	return clampi(inv_page, 0, _inv_pages() - 1)
+
+## The bar changed size (an item used up): stay in range, and on the item in her hand.
+func _keep_inv_page() -> void:
+	var n: int = sim.state.inventory.size()
+	if n == seen_inv_size:
+		return
+	seen_inv_size = n
+	inv_page = _inv_page_shown()
+	if sim.selected_item != "":
+		_show_item_page(sim.selected_item)
+
+func _show_item_page(item: String) -> void:
+	var i: int = sim.state.inventory.find(item)
+	if i >= 0 and _inv_pages() > 1:
+		inv_page = i / INV_PER_PAGE
 
 func _restart_armed() -> bool:
 	return time - restart_armed_at < RESTART_ARM
@@ -784,6 +949,9 @@ func _draw_over() -> void:
 			_draw_notebook(c)
 		"end":
 			_draw_end(c)
+	# Between rooms: a short dip through storm navy (Motion on only).
+	if travel_dip_t < TRAVEL_DIP and sim.settings.motion:
+		c.draw_rect(Rect2(Vector2.ZERO, SIZE), Color(TRAVEL_DIP_COLOR, 1.0 - travel_dip_t / TRAVEL_DIP))
 
 func _draw_title(c: Node2D) -> void:
 	c.draw_rect(Rect2(Vector2.ZERO, SIZE), Ink.BLACK)
@@ -861,44 +1029,125 @@ func _draw_notebook(c: Node2D) -> void:
 		return
 	var r: RoomSim = sim.room(cur)
 	var obs: Dictionary = r.c("OBSERVATIONS", {})
+	var nb := _nb_pagination(cur)
+	var pager := _nb_page_buttons()
+	var noted_right := page.size.x - 50.0
+	if not pager.is_empty():
+		var first: Rect2 = pager[0][0]
+		noted_right = first.position.x - page.position.x - 14.0
+		for b in pager:
+			var off: bool = (b[1] == "nbpage:prev" and nb.shown == 0) or \
+				(b[1] == "nbpage:next" and nb.shown == nb.pages.size() - 1)
+			Ink.button(c, b[0], "◂" if b[1] == "nbpage:prev" else "▸", false, 20, off)
+		var mid := Rect2(first.end.x, first.position.y, pager[1][0].position.x - first.end.x, first.size.y)
+		Ink.text(c, "p %d/%d" % [nb.shown + 1, nb.pages.size()], Vector2(mid.position.x, mid.position.y + 27), 20,
+			Color(Ink.INK, 0.75), serif, mid.size.x)
 	Ink.text(c, "NOTEBOOK — A. MERCER  ·  " + str(r.c("TITLE", cur)).to_upper(), page.position + Vector2(50, 64), 26,
 		Ink.INK, serif, 900, HORIZONTAL_ALIGNMENT_LEFT)
 	Ink.text(c, "Noted %d of %d" % [r.seen().size(), obs.size()],
-		page.position + Vector2(0, 64), 20, Color(Ink.INK, 0.5), serif, page.size.x - 50, HORIZONTAL_ALIGNMENT_RIGHT)
+		page.position + Vector2(0, 64), 20, Color(Ink.INK, 0.5), serif, noted_right, HORIZONTAL_ALIGNMENT_RIGHT)
 	if cur == sim.state.room:
-		Ink.text(c, "Now: " + r.objective_text(), page.position + Vector2(50, 112), 24,
+		Ink.text(c, "Now: " + sim.objective_text(), page.position + Vector2(50, 112), 24,
 			Color("5b3a2e"), hand, 1000, HORIZONTAL_ALIGNMENT_LEFT)
-	var top := page.position.y + 180
-	var bottom := page.end.y - 24
+	if nb.pages.is_empty():
+		Ink.text(c, "Nothing recorded yet. Look around.", Vector2(page.position.x + 80, nb.top), 22,
+			Color(Ink.INK, 0.6), hand, 900, HORIZONTAL_ALIGNMENT_LEFT)
+		return
+	var last: bool = nb.shown == nb.pages.size() - 1
+	var flow := _notebook_flow(c, obs, nb.pages[nb.shown], nb.layout, nb.top,
+		nb.bottom - (nb.room_for if last else 0.0), page.position.x, true)
+	if nb.intrusion == "" or not last:
+		return
+	# A line she did not write, in her hand, straight after her last entry (its room is kept).
+	var intrusion: String = nb.intrusion
+	var n := intrusion.length()
+	if _intrusion_writing():
+		n = mini(n, int(intrusion_t * REVEAL_CPS * 0.45))
+	var size: int = nb.layout[0]
+	var pos: Vector2 = flow.next + Vector2(20, 8 - size * 0.45)
+	var w := hand.get_string_size(intrusion, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
+	pos.x = minf(pos.x, page.end.x - 30 - w)
+	Ink.handwriting(c, intrusion, n, pos, 22, 300, _intrusion_writing())
+
+## How room `rid`'s notebook page lays out: {layout, pages (arrays of observation ids), shown,
+## top, bottom, room_for, intrusion}. The roomiest layout that holds every entry; past the
+## smallest ([17, 460, 2]) the entries run onto more pages, the stranger's line keeping its
+## room on the last. Cached: it measures text.
+func _nb_pagination(rid: String) -> Dictionary:
+	var r: RoomSim = sim.room(rid)
+	var obs: Dictionary = r.c("OBSERVATIONS", {}) if r else {}
 	var ids := []
 	for id in obs:
 		if r.has_seen(id):
 			ids.append(id)
+	var intrusion := r.notebook_intrusion() if r and rid == sim.state.room else ""
+	var key := [rid, ids, intrusion]
+	var info: Dictionary
+	if nb_cache.get("key") == key:
+		info = nb_cache.info
+	else:
+		info = _nb_paginate(obs, ids, intrusion)
+		nb_cache = {"key": key, "info": info}
+	var pages: Array = info.pages
+	var shown := 0
+	if nb_page >= 0:
+		shown = clampi(nb_page, 0, maxi(pages.size() - 1, 0))
+	elif r and not r.seen().is_empty():
+		# The page with the newest entry.
+		var newest: String = r.seen()[-1]
+		for i in pages.size():
+			if newest in pages[i]:
+				shown = i
+	info = info.duplicate()
+	info["shown"] = shown
+	return info
+
+func _nb_paginate(obs: Dictionary, ids: Array, intrusion: String) -> Dictionary:
+	var page := NOTEBOOK_PAGE
+	var top := page.position.y + 180
+	var bottom := page.end.y - 24
+	var room_for := NB_INTRUSION_ROOM if intrusion != "" else 0.0
+	var out := {"top": top, "bottom": bottom, "room_for": room_for, "intrusion": intrusion,
+		"layout": NB_LAYOUTS[0], "pages": []}
 	if ids.is_empty():
-		Ink.text(c, "Nothing recorded yet. Look around.", Vector2(page.position.x + 80, top), 22,
-			Color(Ink.INK, 0.6), hand, 900, HORIZONTAL_ALIGNMENT_LEFT)
-		return
-	var intrusion := r.notebook_intrusion() if cur == sim.state.room else ""
-	var room_for := 40.0 if intrusion != "" else 0.0
-	# A lot to keep: shrink, then split into columns, so every entry stays on the page.
-	var layout := [22, 960, 1]
-	for opt in [[22, 960, 1], [20, 960, 1], [18, 960, 1], [18, 460, 2], [17, 460, 2], [17, 300, 3],
-			[16, 300, 3], [15, 300, 3], [14, 300, 3]]:
-		layout = opt
-		if _notebook_flow(c, obs, ids, opt, top, bottom - room_for, page.position.x, false).fits:
-			break
-	var flow := _notebook_flow(c, obs, ids, layout, top, bottom - room_for, page.position.x, true)
-	if intrusion == "":
-		return
-	# A line she did not write, in her hand, after her last entry.
-	var n := intrusion.length()
-	if _intrusion_writing():
-		n = mini(n, int(intrusion_t * REVEAL_CPS * 0.45))
-	var pos: Vector2 = flow.next + Vector2(20, 14)
-	var w := hand.get_string_size(intrusion, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
-	if pos.y > bottom or pos.x + w > page.end.x - 30:
-		pos = Vector2(page.end.x - w - 60, page.end.y - 28)
-	Ink.handwriting(c, intrusion, n, pos, 22, 300, _intrusion_writing())
+		return out
+	for opt in NB_LAYOUTS:
+		out.layout = opt
+		if _notebook_flow(over, obs, ids, opt, top, bottom - room_for, page.position.x, false).fits:
+			out.pages = [ids.duplicate()]
+			return out
+	# Too many for one page: fill each page as far as it goes.
+	var pages := []
+	var cur := []
+	for id in ids:
+		var trial := cur.duplicate()
+		trial.append(id)
+		if cur.is_empty() or _notebook_flow(over, obs, trial, out.layout, top, bottom, page.position.x, false).fits:
+			cur = trial
+		else:
+			pages.append(cur)
+			cur = [id]
+	pages.append(cur)
+	# The last page keeps the stranger's line its room.
+	var spill := []
+	while pages[-1].size() > 1 and not _notebook_flow(over, obs, pages[-1], out.layout, top, bottom - room_for,
+			page.position.x, false).fits:
+		spill.push_front(pages[-1].pop_back())
+	if not spill.is_empty():
+		pages.append(spill)
+	out.pages = pages
+	return out
+
+## The notebook's page turners, [rect, action], when a room's entries need more than one page.
+func _nb_page_buttons() -> Array:
+	if sim.view != "notebook":
+		return []
+	var cur := _nb_page()
+	if cur == "plan" or _nb_pagination(cur).pages.size() < 2:
+		return []
+	var y := NOTEBOOK_PAGE.position.y + 38
+	var right := NOTEBOOK_PAGE.end.x - 50
+	return [[Rect2(right - 44 - 84 - 44, y, 44, 40), "nbpage:prev"], [Rect2(right - 44, y, 44, 40), "nbpage:next"]]
 
 func _draw_plan(c: Node2D, page: Rect2) -> void:
 	Ink.text(c, "STATION PLAN", page.position + Vector2(50, 64), 26, Ink.INK, serif, 900, HORIZONTAL_ALIGNMENT_LEFT)
@@ -919,7 +1168,8 @@ func _intrusion_writing() -> bool:
 	var s := r.notebook_intrusion()
 	return s != "" and intrusion_t * REVEAL_CPS * 0.45 < s.length()
 
-## Lays out notebook entries in columns. Returns {fits, next}.
+## Lays out notebook entries in columns. Returns {fits, next, rects}: rects is [id, Rect2]
+## per entry (bullet to the end of its last line), for tests and drivers.
 func _notebook_flow(c: CanvasItem, obs: Dictionary, ids: Array, layout: Array, top: float, bottom: float,
 		left: float, draw: bool) -> Dictionary:
 	var size: int = layout[0]
@@ -928,6 +1178,7 @@ func _notebook_flow(c: CanvasItem, obs: Dictionary, ids: Array, layout: Array, t
 	var col := 0
 	var y := top
 	var x := left + 60
+	var rects := []
 	for id in ids:
 		var h := Ink.wrapped(c, obs[id], Vector2(0, 0), size, Ink.INK, width, false)
 		if y + h - size > bottom and col + 1 < columns:
@@ -937,8 +1188,9 @@ func _notebook_flow(c: CanvasItem, obs: Dictionary, ids: Array, layout: Array, t
 		if draw:
 			c.draw_circle(Vector2(x, y - size * 0.36), 4, Color(Ink.INK, 0.6))
 			Ink.wrapped(c, obs[id], Vector2(x + 20, y), size, Ink.INK, width)
+		rects.append([id, Rect2(x - 6, y - size, width + 26, h)])
 		y += h + size * 0.45
-	return {"fits": y - size * 1.9 <= bottom, "next": Vector2(x, y)}
+	return {"fits": y - size * 1.9 <= bottom, "next": Vector2(x, y), "rects": rects}
 
 func _draw_end(c: Node2D) -> void:
 	c.draw_rect(Rect2(Vector2.ZERO, SIZE), Ink.BLACK)
@@ -955,16 +1207,29 @@ func _draw_end(c: Node2D) -> void:
 				continue
 			Ink.button(c, b[1], b[2])
 
+## The tide card: high on the screen, clear of the room's reveal below it. Fades in and out
+## over TIDE_CARD_TIME; Motion off, it is simply there for TIDE_CARD_STILL.
+func tide_card_alpha() -> float:
+	if tide_card_n <= 0:
+		return 0.0
+	if not sim.settings.motion:
+		return 1.0 if tide_card_t < TIDE_CARD_STILL else 0.0
+	if tide_card_t >= TIDE_CARD_TIME:
+		return 0.0
+	return clampf(minf(tide_card_t, TIDE_CARD_TIME - tide_card_t) / TIDE_CARD_FADE, 0.0, 1.0)
+
+const TIDE_CARD_RECT := Rect2(324, 120, 800, 110)
+
 func _draw_card() -> void:
-	if tide_card_t >= TIDE_CARD_TIME or tide_card_n <= 0:
+	var a := tide_card_alpha()
+	if a <= 0.0:
 		return
-	var a := clampf(minf(tide_card_t / 0.8, (TIDE_CARD_TIME - tide_card_t) / 0.8), 0.0, 1.0)
-	var r := Rect2(324, 430, 800, 150)
+	var r := TIDE_CARD_RECT
 	card.draw_rect(r, Color(Ink.INK, 0.88 * a))
 	card.draw_rect(r, Color(Ink.BRASS, 0.8 * a), false, 2)
-	Ink.text(card, "TIDE " + GameSim.NUMERALS[tide_card_n - 1], r.position + Vector2(0, 62), 40,
+	Ink.text(card, "TIDE " + GameSim.NUMERALS[tide_card_n - 1], r.position + Vector2(0, 48), 36,
 		Color(Ink.PAPER, a), serif, r.size.x)
-	Ink.text(card, GameSim.TIDE_TITLES[tide_card_n - 1], r.position + Vector2(0, 112), 28,
+	Ink.text(card, GameSim.TIDE_TITLES[tide_card_n - 1], r.position + Vector2(0, 90), 26,
 		Color(Ink.PAPER, 0.8 * a), hand, r.size.x)
 
 # ---------------------------------------------------------------------------
@@ -1013,23 +1278,32 @@ func _hover_label(id: String) -> String:
 			if e[0] == to:
 				return ("%s ▸" % e[1]) if sim.exit_open(sim.state.room, to) else "%s (locked)" % e[1]
 		return ""
+	if id.begins_with("item:"):
+		var item := id.substr(5)
+		return sim.item_defs().get(item, {}).get("name", item)   # the full name; the slot shows the short one
+	if id == "inv_page":
+		return "More of what I'm carrying"
 	return room_view.label_for(id) if room_view else ""
 
 func _draw_inventory(c: Node2D) -> void:
 	if sim.view != "room":
 		return
 	var defs := sim.item_defs()
-	var inv: Array = sim.state.inventory
-	for i in mini(inv.size(), INV_MAX):
-		var id: String = inv[i]
-		Ink.button(c, _inv_rect(i), defs.get(id, {}).get("name", id), id == sim.selected_item, 18)
+	for slot in _inv_layout():
+		var a: String = slot[1]
+		if a == "inv_page":
+			Ink.button(c, slot[0], "▸ %d/%d" % [_inv_page_shown() + 1, _inv_pages()], false, 18)
+			continue
+		var id := a.substr(5)
+		var d: Dictionary = defs.get(id, {})
+		Ink.button(c, slot[0], d.get("short", d.get("name", id)), id == sim.selected_item, 18)
 
 ## Exit tabs: a plaque per way out, arrowed toward the side it leaves by, dimmed while
 ## locked. On the HUD layer, so no room lighting can hide them.
 func _draw_exits(c: Node2D) -> void:
 	if sim.view != "room" or room_view == null or room_sim().local_view != "room" or not room_view.exits_active():
 		return
-	var rects: Dictionary = room_view.exit_rects()
+	var rects: Dictionary = room_view.live_exit_rects()
 	for e in sim.exits():
 		if not rects.has(e[0]):
 			continue
@@ -1051,5 +1325,5 @@ func _draw_dev(c: Node2D) -> void:
 	if room_view:
 		for r in room_view.dev_rects():
 			c.draw_rect(r, Color(1, 0, 1, 0.6), false, 2)
-		for r in room_view.exit_rects().values():
+		for r in room_view.live_exit_rects().values():
 			c.draw_rect(r, Color(0, 1, 1, 0.6), false, 2)
