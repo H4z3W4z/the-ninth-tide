@@ -150,6 +150,8 @@ func run_tests() -> void:
 	await test_qa_nits()
 	await view_checks("R02")
 	await test_view_b()
+	await test_view_escalation()
+	await test_view_notice_and_board()
 
 func test_full_playthrough() -> void:
 	var s := new_sim()
@@ -2853,4 +2855,117 @@ func test_view_b() -> void:
 	for id in R02Sim.HOTSPOTS_B:
 		if rects.has(id):
 			check(scene.action_at(rects[id].get_center()) == id, "facing B, the centre of %s is %s" % [id, id])
+	await free_scene(scene)
+
+# ---------------------------------------------------------------------------
+# View: escalation by band, light floors, the mix, the arrival hold, the board
+# ---------------------------------------------------------------------------
+func test_view_escalation() -> void:
+	var scene = new_scene("user://office_view_bands.json")
+	await process_frame
+	var plates := {2: "office_arrival", 3: "office_rain", 4: "office_rain", 5: "office_s2", 6: "office_s3",
+		7: "office_s3", 8: "office_s3", 9: "office_ominous"}
+	var entry := {2: "R02/entry_wall", 4: "R02/entry_wall", 5: "R02/entry_wall_damp", 8: "R02/entry_wall_damp",
+		9: "R02/entry_wall_ominous"}
+	var floors := {0: Color(0.46, 0.44, 0.50), 1: Color(0.58, 0.60, 0.68), 2: Color(0.56, 0.58, 0.66),
+		3: Color(0.55, 0.56, 0.65), 4: Color(0.54, 0.56, 0.66), 5: Color(0.54, 0.55, 0.64),
+		6: Color(0.54, 0.54, 0.62), 7: Color(0.56, 0.55, 0.62)}
+	var rain := [0.0, 0.30, 0.40, 0.34, 0.30, 0.0, 0.0, 0.0]
+	for t in range(2, 10):
+		scene.tide_jump(t, "R02")
+		await process_frame
+		var v = scene.room_view
+		var s: R02Sim = scene.room_sim()
+		var b := s.band()
+		check(b == t - 2, "tide %d is band %d" % [t, t - 2])
+		check(v._base_plate() == plates[t], "tide %d desk plate %s (got %s)" % [t, plates[t], v._base_plate()])
+		if entry.has(t):
+			check(v._entry_plate() == entry[t], "tide %d entry plate %s" % [t, entry[t]])
+		var m: Color = v.shade.color
+		var f: Color = floors[b]
+		check(m.r >= f.r - 0.001 and m.g >= f.g - 0.001 and m.b >= f.b - 0.001, "band %d light is at least its floor" % b)
+		check(is_equal_approx(v.lamp_glow.texture_scale, 1.6), "band %d lamp pool 1.6" % b)
+		check(v._tilted() == (b >= 3), "band %d horizon tilt" % b)
+		v._tick_audio(1.0 / 60.0)
+		var tg: Dictionary = v.last_targets
+		check(is_equal_approx(tg.rain_glass, rain[b]), "band %d rain on glass %.2f" % [b, rain[b]])
+		check(is_equal_approx(tg.late_wave, 0.28 if b == 3 else 0.0), "band %d late wave" % b)
+		check(is_equal_approx(tg.pressure, 0.35 if b == 7 else 0.0), "band %d pressure" % b)
+		check(is_equal_approx(tg.clock, 0.0 if b >= 6 else 0.16), "band %d clock facing A" % b)
+		check(is_equal_approx(tg.drone, 0.30 if b >= 2 else 0.0), "band %d drone" % b)
+		check(tg.wind == 0.0 or b < 5, "band %d wind gone from 5" % b)
+		check(is_equal_approx(tg.hum, 0.18), "band %d hum" % b)
+		s.facing = "B"
+		v._tick_audio(1.0 / 60.0)
+		check(is_equal_approx(v.last_targets.clock, 0.0 if b >= 6 else 0.26), "band %d clock facing B" % b)
+		check(is_equal_approx(v.last_targets.kitchen_air, 0.08 if b >= 1 and b <= 6 else 0.0),
+			"band %d kitchen air through the open service door" % b)
+		check(v.hover_at(R02View_TURN) == "turn" and v.label_for("turn") == "Desk wall", "facing B the tab says Desk wall")
+		s.facing = "A"
+		check(v.label_for("turn") == "Entry wall", "facing A the tab says Entry wall")
+	# Tide I: the arrival plate throughout, the slice's light, plus the clock.
+	scene.room_jump("R02", 3)
+	await process_frame
+	var v3 = scene.room_view
+	check(v3._base_plate() == "office_arrival" and not v3._tilted(), "T1X stays on the arrival plate, level")
+	check(v3.shade.color.is_equal_approx(Color(0.40, 0.39, 0.48)), "T1X light")
+	v3._tick_audio(1.0 / 60.0)
+	# The drone breathes with the room at T1X (0.5 at the top of the breath).
+	check(v3.last_targets.drone > 0.27 and v3.last_targets.drone <= 0.5 and is_equal_approx(v3.last_targets.clock, 0.16),
+		"T1X drone 0.5 swelling, clock 0.16")
+	# Endings.
+	for e in [["sever", "office_rain", "R02/entry_wall_day", Color(0.95, 0.95, 0.93)],
+			["continue", "office_ominous", "R02/entry_wall_ominous", Color(0.56, 0.55, 0.62)]]:
+		scene.tide_jump(9, "R02")
+		scene.sim.state.ending = e[0]
+		scene._reset_presentation()
+		await process_frame
+		var ve = scene.room_view
+		check(ve._base_plate() == e[1] and ve._entry_plate() == e[2], "%s ending plates" % e[0])
+		check(ve.shade.color.is_equal_approx(e[3]), "%s ending light" % e[0])
+		ve._tick_audio(1.0 / 60.0)
+		var tg: Dictionary = ve.last_targets
+		check(is_equal_approx(tg.clock, 0.2), "%s ending: the clock runs" % e[0])
+		check(is_equal_approx(tg.gulls, 0.35 if e[0] == "sever" else 0.0), "%s ending gulls" % e[0])
+		check(is_equal_approx(tg.sea, 0.5 if e[0] == "sever" else 0.0), "%s ending sea" % e[0])
+		check(is_equal_approx(tg.pressure, 0.12 if e[0] == "continue" else 0.0), "%s ending pressure" % e[0])
+	check("lock_turn" in scene.room_view.SFX_SOFT and "seal" in scene.room_view.SFX_SOFT, "lock_turn and seal are sudden")
+	check(is_equal_approx(scene.sfx_db("stamp"), -6.0) and is_equal_approx(scene.sfx_db("turn"), -14.0), "board and turn levels")
+	await free_scene(scene)
+
+const R02View_TURN := Vector2(784, 954)
+
+func test_view_notice_and_board() -> void:
+	var scene = new_scene("user://office_view_notice.json")
+	await process_frame
+	# The arrival hold: entering from the jetty after band 2 arrives holds on the mug; a click ends it.
+	scene.tide_jump(4, "R01")
+	scene.sim.room("R02").state.notices_seen.erase("b2")
+	scene.dispatch("go:R02")
+	await process_frame
+	var v = scene.room_view
+	check(v._notice_active() and v.notice_rect == Rect2(915, 662, 82, 62), "band 2 arrival holds on the mug")
+	var mug: Vector2 = Rect2(915, 662, 82, 64).get_center()
+	check(scene.action_at(mug) == "" and not v._notice_active(), "a click ends the hold and does nothing else")
+	check(scene.action_at(mug) == "mug", "the next click is a click")
+	v.play_fx("notice", {"key": "b6"})
+	for i in 100:
+		v._tick_stage(1.0 / 60.0)
+	check(not v._notice_active(), "the hold lets go by itself after 1.5 s")
+	check(v.away_alpha.is_empty() or v.away_alpha.values().max() >= 1.0, "the look-away fade is done")
+	# The board: the photograph waits for its pin.
+	scene.room_jump("R02", 6)
+	await process_frame
+	scene.dispatch("board")
+	v = scene.room_view
+	var s: R02Sim = scene.room_sim()
+	for a in ["m_addressee", "m_mercer", "m_sentence", "stamp_venn", "provenance"]:
+		scene.dispatch(a)
+	check(s.board_solved() and v.photo_armed, "P20 solved: the photograph is not on the board yet")
+	check(scene.action_at(Vector2(1240, 160)) != "photo", "no photograph to click before the pin")
+	v.on_sfx("pin")
+	check(not v.photo_armed and scene.action_at(Vector2(1240, 160)) == "photo", "the pin lands: the photograph is there")
+	scene.dispatch("photo")
+	check(s.local_view == "photo", "the photograph opens c_photo")
+	check(scene.action_at(Vector2(724, 838)) == "turn_over", "Turn it over")
 	await free_scene(scene)

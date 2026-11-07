@@ -227,7 +227,7 @@
       "path": "assets/rooms/R02/c_board.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "66645fd9cd36950fadfd36f196b7557e2a26cfaed642199404ee5c51291b9efc",
+      "sha256": "29f42945b43cd749c029e2fa700ed4e950bbb284c06d0ab43a22873758976887",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -236,7 +236,7 @@
       "path": "assets/rooms/R02/c_duty_contract.png",
       "width": 500,
       "height": 760,
-      "sha256": "0422ee9dc0b7f3334c24f1db8d0d66232998c26a53fe686c2310c1c21e1f6b55",
+      "sha256": "a0188ac0d51ee9184490e52133fa00581e0804b8d424bbc72eedb658a7ae7630",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },

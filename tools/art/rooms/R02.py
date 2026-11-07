@@ -1227,26 +1227,18 @@ def c_board(k: int) -> Image.Image:
     c.box(x, y, w, h, PAPER, INK, 2.6, 0.7)
     c.line([(x + 24, y + 40), (x + w - 24, y + 40)], INK, 3.0, 0.4)
     c.line([(x + 24, y + 48), (x + w - 24, y + 48)], INK, 1.4, 0.4)
-    c.box(x + 24, y + 58, 130, 34, None, mix(PAPER, INK, 0.4), 1.4, 0.4)
-    c.box(x + w - 154, y + 58, 130, 34, None, mix(PAPER, INK, 0.4), 1.4, 0.4)
+    # (no header boxes: the game sets the title in the band under the rule)
     ruled(c, x, y + 100, w, 220, 22, mix(PAPER, INK, 0.2), 1.2, 26)
     c.line([(x + w - 170, y + 352), (x + w - 26, y + 352)], INK, 1.6, 0.4)
     c.line([(x + 26, y + 352), (x + 150, y + 352)], INK, 1.6, 0.4)
     x, y, w, h = 560, 130, 330, 500
     c.box(x, y, w, h, NEWS, INK, 2.6, 0.7)
     c.line([(x + 22, y + 74), (x + w - 22, y + 74)], mix(NEWS, INK, 0.45), 1.6, 0.4)
-    c.line([(x + w / 2, y + 86), (x + w / 2, y + h - 22)], mix(NEWS, INK, 0.25), 1.2, 0.4)
-    for col in (0, 1):
-        x0 = x + 22 + col * (w / 2)
-        yy = y + 92
-        while yy < y + h - 24:
-            c.line([(x0, yy), (x0 + w / 2 - 34, yy)], mix(NEWS, INK, 0.07), 3.0, 0.3)
-            yy += 14
+    # (one column, no ghost type: the game sets the inquiry text full width)
     x, y, w, h = 950, 130, 330, 470
     note = mix(PAPER, (238, 234, 222), 0.5)
     c.box(x, y, w, h, note, INK, 2.6, 0.7)
     c.line([(x + 26, y + 56), (x + w - 26, y + 56)], mix(TEAL, PAPER, 0.2), 2.2, 0.4)
-    c.line([(x + 50, y + 70), (x + 50, y + h - 18)], mix(RED, PAPER, 0.75), 1.0, 0.4)
     ruled(c, x, y + 70, w, h - 90, 24, mix(note, TEAL, 0.22), 1.1, 20)
     for px in (335, 725, 1115):
         brass_head(c, px, 146, 9)
@@ -1283,8 +1275,7 @@ def c_duty_contract(k: int) -> Image.Image:
     c.box(4, 4, w - 8, h - 8, PAPER, INK, 2.8, 0.7)
     c.line([(36, 44), (w - 36, 44)], INK, 3.4, 0.4)
     c.line([(36, 53), (w - 36, 53)], INK, 1.4, 0.4)
-    c.box(36, 66, 196, 40, None, mix(PAPER, INK, 0.45), 1.4, 0.4)
-    c.box(w - 232, 66, 196, 40, None, mix(PAPER, INK, 0.45), 1.4, 0.4)
+    # (the title band under the double rule is left clear: the game sets the title there)
     c.line([(36, 120), (w - 36, 120)], INK, 2.0, 0.4)
     ruled(c, 0, 120, w, 310, 24, mix(PAPER, INK, 0.2), 1.2, 40)
     # countersignature: two rules, a flourish rising off the right one (no letters)
