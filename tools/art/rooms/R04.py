@@ -1177,7 +1177,7 @@ def paint_c_band(rng):
     for x0, x1 in ((2, 30), (290, 318)):
         p.rect(x0, 4, x1, 216, BRASS, INK, 3, r=6)
         p.line([(x0 + 6, 12), (x0 + 6, 208)], BRASS_HI, 2.5)
-        for ty in (60, 110, 160):  # three blank engraving ticks per edge
+        for ty in (50, 110, 170):  # three engraving ticks per edge, at snap heights 420/480/540 when seated at y370
             p.line([(x0 + 9, ty), (x1 - 9, ty)], BRASS_DK, 2.5)
     return p
 

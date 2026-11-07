@@ -79,6 +79,9 @@ const MIX_LINES := {
 }
 const MIX_OVERLAP := ["VENN: Leave the wit… line o…", "NORA: …ell them I wa… here"]
 const MIX_COMBINED := "VENN / NORA: Leave the witness line... I was here."
+## The pencil margin note on the session log, found after the separation (the view writes it).
+const MARGIN_NOTE := ["An automatic countersign closes a record. A human correction keeps it open.",
+	"Channel C is my station now. E.V."]
 
 # --- P19: the dead channel --------------------------------------------------------------------
 const QUESTIONS := ["q_where", "q_whole", "q_need"]
@@ -688,8 +691,8 @@ func _play_mix(ev: Array) -> void:
 		_fx(ev, "c_presence")
 		_say(ev, "Two people. One sentence between them.", 2.4, true)
 		_say(ev, "Pencil in the margin of the session log.", 4.6, true)
-		_say(ev, "'An automatic countersign closes a record. A human correction keeps it open.'", 6.8, true)
-		_say(ev, "And under it, in his hand: 'Channel C is my station now. E.V.'", 9.6, true)
+		_say(ev, "'%s'" % MARGIN_NOTE[0], 6.8, true)
+		_say(ev, "And under it, in his hand: '%s'" % MARGIN_NOTE[1], 9.6, true)
 
 # ---------------------------------------------------------------------------------------------
 # P19: c_channels
@@ -946,6 +949,8 @@ func debug_jump(n: int) -> void:
 	elif n <= 6:
 		game.debug_tide(6, ID)
 		game.set_flag("P16")
+		if not game.has_item("contact_sheet"):
+			game.give("contact_sheet", [])
 		if n >= 3:
 			_set_p17_done()
 			for o in ["mixer", "session_spool", "bell_peaks", "witness_procedure", "c_presence"]:

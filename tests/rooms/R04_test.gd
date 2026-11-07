@@ -48,6 +48,7 @@ func run_tests() -> void:
 		await view_checks(ROOM)
 	else:
 		print("SKIP: R04 view_checks: the R04 view does not yet declare rects for every sim hotspot (view team)")
+	await test_view_scene()
 
 # ---------------------------------------------------------------------------------------------
 # helpers
@@ -818,3 +819,116 @@ func test_debug_jumps() -> void:
 		var b := GameSim.new()
 		b.from_dict(JSON.parse_string(JSON.stringify(a.to_dict())))
 		check(JSON.stringify(r04(b).state) == JSON.stringify(r04(a).state), "tide %d: R04 state survives a load" % t)
+
+# ---------------------------------------------------------------------------------------------
+# the view: routing, close-up controls, holds, lamps, loops, still poses
+# ---------------------------------------------------------------------------------------------
+func _view_at(scene) -> RoomView:
+	return scene.room_view
+
+func test_view_scene() -> void:
+	var scene = new_scene("user://room_test_R04_view.json")
+	await process_frame
+	scene.room_jump(ROOM, 0)
+	await process_frame
+	var v = scene.room_view
+	var r := scene.room_sim() as R04Sim
+	check(v != null and v.rid == ROOM, "view: mounts")
+	if v == null:
+		await free_scene(scene)
+		return
+	# view A, then view B: the board's hotspots answer only on the board
+	check(v.exits_active() and not v.back_visible() and v.esc_action() == "menu", "view: room shows exits, no Back")
+	scene.dispatch("to_board")
+	check(r.local_view == "board" and not v.exits_active() and v.back_visible() and v.esc_action() == "back",
+		"view: the board has Back, no exits")
+	for h in v.BOARD_HOTSPOTS:
+		check(scene.action_at(h[1].get_center()) == h[0], "view: board click reaches %s" % h[0])
+		check(v.label_for(h[0]) == h[2], "view: board label %s" % h[0])
+	scene.dispatch("back")
+	check(r.local_view == "room", "view: Back from the board")
+	# c_spindle: every control is reachable, and real clicks solve P02
+	scene.dispatch("spindle")
+	check(r.local_view == "c_spindle" and v.back_visible() and v.esc_action() == "back", "view: c_spindle is a close-up")
+	for h in v.spindle_controls():
+		check(scene.action_at(h[1].get_center()) == h[0], "view: c_spindle click reaches %s" % h[0])
+	for id in ["tray_C", "tray_A", "tray_B", "rot_down_0", "rot_down_1", "rot_down_2"]:
+		scene.click(_rect_of(v.spindle_controls(), id).get_center())
+		scene.advance()
+	check(r.state.spindle == ["C", "A", "B"] and r.evaluate() == "", "view: the bands set by clicks")
+	scene.lines.clear()
+	scene.cur_text = ""
+	scene.dispatch("play")
+	check(scene.room_sim().state.p02_complete and v.arm_target == 1.0, "view: PLAY lowers the arm")
+	v.on_sfx("recording_p02")
+	check(v._recording(), "view: the recording plays from its sound")
+	v.on_sfx("cylinder_coast")
+	check(v.arm_target == 0.0 and v.coast_t == 0.0, "view: the coast starts with its sound and lifts the arm")
+	scene.dispatch("back")
+	# notice hold: input-free, a click skips it
+	v.play_fx("notice_leak_wind", {})
+	check(v.hold_active() and v.hover_at(Vector2(260, 760)) == "", "view: a notice holds input")
+	check(scene.action_at(Vector2(260, 760)) == "" and not v.hold_active(), "view: a click skips the hold")
+	check(scene.action_at(Vector2(260, 760)) == "stool", "view: then the room answers again")
+	# lamps: C lit at band 0, A/B with the motor
+	check(v.lamp_lit("C") and v.lamp_lit("A") and v.lamp_lit("B"), "view: band 0, every lamp lit")
+	# loops at band 0
+	var t: Dictionary = v.loop_targets()
+	check(t.r04_room > 0.0 and t.r04_motor > 0.0 and t.r04_leak_wind == 0.0 and t.r04_pressure == 0.0,
+		"view: band 0 loops")
+	# P19's last answer: C holds lit until the relay drops, then silence round the funnel voice
+	scene.room_jump(ROOM, 5)
+	await process_frame
+	v = scene.room_view
+	r = scene.room_sim() as R04Sim
+	scene.dispatch("to_board")
+	scene.dispatch("motor")
+	check(r.local_view == "c_channels", "view: c_channels")
+	for h in v.CHANNEL_CONTROLS:
+		check(scene.action_at(h[1].get_center()) == h[0], "view: c_channels click reaches %s (line open)" % h[0])
+	for q in ["q_where", "q_whole", "q_need"]:
+		scene.dispatch(q)
+	check(r.state.p19_complete and v.lamp_lit("C"), "view: C stays lit through the last answer")
+	v.on_sfx("relay_off")
+	check(not v.lamp_lit("C") and v.dark_t > 0.0, "view: the relay drops C at once")
+	t = v.loop_targets()
+	var others := 0.0
+	for id in t:
+		if id != "r04_room":
+			others += t[id]
+	check(others == 0.0 and t.r04_room > 0.0, "view: only the room tone under the funnel voice")
+	# endings: every indicator off, only the room tone
+	for e in ["continue", "sever"]:
+		scene.tide_jump(9, ROOM)
+		await process_frame
+		v = scene.room_view
+		scene.sim.state.ending = e
+		t = v.loop_targets()
+		var rest := 0.0
+		for id in t:
+			if id != "r04_room":
+				rest += t[id]
+		check(rest == 0.0 and t.r04_room > 0.0, "view: %s keeps only the room tone" % e)
+		check(not v.lamp_lit("A") and not v.lamp_lit("B") and not v.lamp_lit("C"), "view: %s, lamps off" % e)
+		scene.sim.state.ending = ""
+	# Motion & flicker off: still poses, no timed motion
+	scene.room_jump(ROOM, 0)
+	await process_frame
+	v = scene.room_view
+	scene.sim.settings.motion = false
+	v.play_fx("needle_down", {})
+	check(v.arm_k == 1.0, "view: still arm drops without animating")
+	v.on_sfx("cylinder_coast")
+	check(v.arm_k == 0.0 and v.coasted and v.coast_t < 0.0, "view: still coast holds the moved seam mark")
+	v.on_sfx("needle_skip")
+	check(v.jolt_t == 0.0, "view: no jolt without motion")
+	v.reset_presentation()
+	check(not v.coasted and v.rec_start < 0.0 and not v.hold_active(), "view: reset clears the timed presentation")
+	scene.sim.settings.motion = true
+	await free_scene(scene)
+
+func _rect_of(table: Array, id: String) -> Rect2:
+	for h in table:
+		if h[0] == id:
+			return h[1]
+	return Rect2()
