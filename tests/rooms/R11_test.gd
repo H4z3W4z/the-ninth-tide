@@ -63,6 +63,12 @@ func run_tests() -> void:
 	test_debug()
 	if _view_ready():
 		await view_checks(ROOM)
+		await test_view_rects()
+		await test_view_hits()
+		await test_view_exits()
+		await test_view_p12_clicks()
+		await test_view_p24_clicks()
+		await test_view_presentation()
 	else:
 		print("SKIP: R11 view_checks: the R11 view does not yet declare rects for every sim hotspot (view team)")
 
@@ -75,7 +81,7 @@ func r11(g: GameSim) -> R11Sim:
 func _view_ready() -> bool:
 	var m: Dictionary = load("res://game/rooms/R11/R11_view.gd").get_script_constant_map()
 	var ids := []
-	for h in m.get("HOTSPOTS", []):
+	for h in m.get("HOTSPOTS", []) + m.get("L2_HOTSPOTS", []):
 		ids.append(h[0])
 	for id in R11Sim.HOTSPOTS + R11Sim.L2_HOTSPOTS:
 		if not id in ids:
@@ -1057,3 +1063,275 @@ func test_debug() -> void:
 			check(rh.has_seen("gate") and rh.has_seen("plates"), "tide %d: survey done" % t)
 		if t >= 9:
 			check(h.has_item("witness_bridge") and rh.has_seen("finger_marks"), "tide IX: bridge and finger marks")
+
+# ---------------------------------------------------------------------------------------------
+# the view: rects per landing, hit tests, exits per landing, P12 and P24 as real clicks, cuts,
+# holds, loops and the still alternatives
+# ---------------------------------------------------------------------------------------------
+func view_scene(stage: int) -> Node:
+	var scene = new_scene("user://room_test_R11_view.json")
+	await process_frame
+	scene.room_jump(ROOM, stage)
+	await process_frame
+	return scene
+
+func rect_ok(name: String, r: Rect2) -> void:
+	check(CANVAS.encloses(r), "R11 %s is on the canvas" % name)
+	check(r.size.x >= MIN_TARGET and r.size.y >= MIN_TARGET, "R11 %s is at least 64x64" % name)
+	check(not r.intersects(HUD_ZONE) and not r.intersects(SUBTITLE_ZONE) and not r.intersects(INVENTORY_ZONE),
+		"R11 %s keeps clear of the HUD, inventory and subtitles" % name)
+
+func test_view_rects() -> void:
+	var m: Dictionary = load("res://game/rooms/R11/R11_view.gd").get_script_constant_map()
+	var l2_ids := []
+	for h in m.L2_HOTSPOTS:
+		l2_ids.append(h[0])
+		rect_ok(h[0], h[1])
+	for id in R11Sim.L2_HOTSPOTS:
+		check(id in l2_ids, "R11 view has a lower-landing rect for %s" % id)
+	for k in m.NAV_RECTS:
+		rect_ok(k, m.NAV_RECTS[k])
+	var gate_ids := []
+	for h in m.GATE_CONTROLS:
+		gate_ids.append(h[0])
+		rect_ok(h[0], h[1])
+	for id in R11Sim.GATE_CONTROLS:
+		check(id in gate_ids, "c_gate has a control for %s" % id)
+	var door_ids := []
+	for h in m.DOOR_CONTROLS:
+		door_ids.append(h[0])
+		rect_ok(h[0], h[1])
+	for id in R11Sim.DOOR_CONTROLS:
+		check(id in door_ids, "c_chamber_door has a control for %s" % id)
+	# Each landing's live exits and plaque keep off its own hotspots.
+	for k in ["R07", "R09", "R12"]:
+		for h in m.L2_HOTSPOTS:
+			check(not m.EXIT_RECTS[k].intersects(h[1]), "lower landing: exit %s does not overlap %s" % [k, h[0]])
+		check(not m.EXIT_RECTS[k].intersects(m.NAV_RECTS.ascend), "lower landing: exit %s clear of the plaque" % k)
+	for h in m.L2_HOTSPOTS:
+		check(not m.NAV_RECTS.ascend.intersects(h[1]), "ascend plaque clear of %s" % h[0])
+	for h in m.HOTSPOTS:
+		check(not m.NAV_RECTS.descend.intersects(h[1]), "descend plaque clear of %s" % h[0])
+	check(not m.EXIT_RECTS.R03.intersects(m.NAV_RECTS.descend), "gate landing: exit clear of the plaque")
+	# Close-up controls never overlap one another (a click means one thing).
+	for list in [m.GATE_CONTROLS, m.DOOR_CONTROLS]:
+		for i in list.size():
+			for j in range(i + 1, list.size()):
+				check(not list[i][1].intersects(list[j][1]), "controls %s and %s do not overlap" % [list[i][0], list[j][0]])
+
+func first_of(list: Array, p: Vector2) -> String:
+	for h in list:
+		if h[1].has_point(p):
+			return h[0]
+	return ""
+
+func test_view_hits() -> void:
+	var scene = await view_scene(5)   # tide IV, ready to OPEN, gate landing
+	var v = scene.room_view
+	var r := scene.room_sim() as R11Sim
+	check(v != null and r != null and r.landing == 1, "R11 view mounts at stage 5 on the gate landing")
+	if v == null:
+		await free_scene(scene)
+		return
+	for h in v.HOTSPOTS:
+		var c: Vector2 = h[1].get_center()
+		check(v.action_at(c) == first_of(v.HOTSPOTS, c), "gate landing: %s hits %s" % [h[0], first_of(v.HOTSPOTS, c)])
+		check(v.hover_at(c) == v.action_at(c), "gate landing: hover mirrors %s" % h[0])
+		check(v.label_for(h[0]) == h[2] and v.hotspot_rect(h[0]) == h[1], "gate landing: %s labelled and found" % h[0])
+	check(v.action_at(v.NAV_RECTS.descend.get_center()) != "descend", "no way down before P12")
+	check(v.action_at(v.NAV_RECTS.ascend.get_center()) != "ascend", "no ascend plaque on the gate landing")
+	check(v.label_for("descend") == "Lower landing ▾" and v.label_for("ascend") == "◂ Gate landing", "plaque labels")
+	# c_gate: every control at its centre.
+	r.local_view = "c_gate"
+	for h in v.GATE_CONTROLS:
+		check(v.action_at(h[1].get_center()) == h[0], "c_gate: %s is clickable" % h[0])
+		check(v.control_rect(h[0]) == h[1] and v.label_for(h[0]) == h[2], "c_gate: %s rect and label" % h[0])
+	check(v.action_at(v.HOTSPOTS[0][1].get_center()) != "gauge", "c_gate: room hotspots are not live")
+	check(v.back_visible() and v.esc_action() == "back" and not v.exits_active(), "c_gate: Back on, exits off")
+	r.local_view = "room"
+	check(v.exits_active() and not v.back_visible() and v.esc_action() == "menu", "room: exits on, Esc is the menu")
+	# After P12: the plaque goes down; below, the lower landing's list and the way up.
+	scene.room_jump(ROOM, 6)
+	await process_frame
+	v = scene.room_view
+	r = scene.room_sim() as R11Sim
+	check(r.landing == 2, "stage 6 stands on the lower landing")
+	for h in v.L2_HOTSPOTS:
+		var c: Vector2 = h[1].get_center()
+		check(v.action_at(c) == first_of(v.L2_HOTSPOTS, c), "lower landing: %s hits %s" % [h[0], first_of(v.L2_HOTSPOTS, c)])
+		check(v.label_for(h[0]) == h[2] and v.hotspot_rect(h[0]) == h[1], "lower landing: %s labelled and found" % h[0])
+	check(v.action_at(v.NAV_RECTS.ascend.get_center()) == "ascend", "lower landing: the way up is clickable")
+	check(v.action_at(v.NAV_RECTS.descend.get_center()) == "", "lower landing: no way further down")
+	var dr: Array = v.dev_rects()
+	check(v.NAV_RECTS.ascend in dr and v.L2_HOTSPOTS[0][1] in dr, "dev rects show the landing in view")
+	scene.dispatch("ascend")
+	check(r.landing == 1 and v.action_at(v.NAV_RECTS.descend.get_center()) == "descend", "after P12 the gate landing has the way down")
+	r.local_view = "c_chamber_door"
+	for h in v.DOOR_CONTROLS:
+		check(v.action_at(h[1].get_center()) == h[0], "c_chamber_door: %s is clickable" % h[0])
+	r.local_view = "room"
+	await free_scene(scene)
+
+func test_view_exits() -> void:
+	var scene = await view_scene(5)
+	var v = scene.room_view
+	check(v.exit_rects().size() == 4, "exit_rects keeps all four")
+	check(v.live_exit_rects().keys() == ["R03"], "gate landing: only the chart room (%s)" % [v.live_exit_rects().keys()])
+	check(v.exit_arrow("R07") == "left" and v.exit_arrow("R09") == "right" and v.exit_arrow("R12") == "down"
+		and v.exit_arrow("R03") == "", "exit arrows")
+	scene.room_jump(ROOM, 6)
+	await process_frame
+	v = scene.room_view
+	var live: Dictionary = v.live_exit_rects()
+	check(live.has("R07") and live.has("R09") and not live.has("R12") and not live.has("R03"),
+		"lower landing before P24: laboratory and gallery, no lower door tab (%s)" % [live.keys()])
+	check(scene.action_at(live.R07.get_center()) == "go:R07" and scene.action_at(live.R09.get_center()) == "go:R09",
+		"lower landing: both exits click")
+	scene.room_jump(ROOM, 9)
+	await process_frame
+	v = scene.room_view
+	live = v.live_exit_rects()
+	check(live.has("R12") and scene.action_at(live.R12.get_center()) == "go:R12", "after P24 the lower door's tab is live")
+	await free_scene(scene)
+
+## A click on `action` as a player would make it: wait out holds, cuts and chains (clicking
+## through them) until action_at says it and the click lands.
+func click_on(scene, action: String) -> bool:
+	var v = scene.room_view
+	var p: Vector2 = v.control_rect(action).get_center()
+	for i in 300:
+		var a: String = scene.action_at(p)
+		if a == action:
+			var id0: int = scene.click_id
+			scene.click(p)
+			if scene.click_id != id0:
+				scene._process(0.05)
+				return true
+		elif a == "":
+			scene.click(p)
+		scene._process(0.1)
+	check(false, "'%s' never landed (view %s)" % [action, scene.room_sim().local_view])
+	return false
+
+func test_view_p12_clicks() -> void:
+	var scene = await view_scene(4)   # P10 + P11, pressure 2, '[ 2' in UPPER: the false landing
+	var v = scene.room_view
+	var r := scene.room_sim() as R11Sim
+	click_on(scene, "gate")
+	check(r.local_view == "c_gate", "the gate opens its close-up")
+	click_on(scene, "lever_open")
+	check(not scene.sim.flag("P12") and v.port_t >= 0.0, "'[ 2' set: refused, the port opens on the false landing")
+	check(R11Sim.flag_text(r.flags_shown()).contains("NO CORRESPONDING LANDING"), "the flags say so")
+	for i in 32:
+		scene._process(0.1)
+	check(v.port_t < 0.0, "the port closes again after 3 s")
+	click_on(scene, "plate_o1")
+	check(r.held_plate == "o1", "the '[ 1' plate comes off its hook")
+	click_on(scene, "slot_upper")
+	check(r.state.slots == ["o1", "c1"] and "o2" in r.rack_plates(), "'[ 1' in UPPER, '[ 2' back on the rack")
+	click_on(scene, "lever_open")
+	check(scene.sim.flag("P12"), "P12 by clicks on c_gate")
+	check(v.cut_playing() and v.cut == "p12", "the P12 cut plays")
+	check(v.action_at(Vector2(700, 500)) == "" and not v.exits_active() and v.esc_action() == "",
+		"nothing answers during the cut")
+	var t: Dictionary = v.audio_targets()
+	check(t.r11_air == 0.0 and t.r11_glass > 0.0, "only the glass sounds in the cut")
+	for i in 20:
+		scene._process(0.1)
+	check(v.cut_playing() and v.cut_t >= 1.8, "the cut is on the glass at 2 s")
+	check(v.consume_click(Vector2(700, 500)) and not v.cut_playing(), "a click skips the rest of the cut")
+	check(r.landing == 2 and r.local_view == "room", "the lower landing after the cut")
+	check(not v.live_exit_rects().has("R12"), "no lower door tab yet")
+	await free_scene(scene)
+	# The cut runs out on its own.
+	scene = await view_scene(5)
+	v = scene.room_view
+	click_on(scene, "gate")
+	click_on(scene, "lever_open")
+	check(v.cut_playing(), "stage 5: the cut plays")
+	for i in 70:
+		scene._process(0.1)
+	check(not v.cut_playing() and v.close.modulate.a == 1.0, "the cut ends by itself at 6.6 s")
+	await free_scene(scene)
+
+func test_view_p24_clicks() -> void:
+	var scene = await view_scene(8)   # tide VIII, the door ready
+	var v = scene.room_view
+	var r := scene.room_sim() as R11Sim
+	click_on(scene, "lower_door")
+	check(r.local_view == "c_chamber_door", "the lower door opens its close-up")
+	# A frame unmounted and mounted again, by clicks.
+	click_on(scene, "frame_body")
+	check(r.frame_item("BODY") == "" and scene.sim.has_item("nora_frame"), "the frame comes out")
+	scene.dispatch("item:nora_frame")
+	click_on(scene, "frame_body")
+	check(r.frame_item("BODY") == "nora_frame", "and goes back into BODY")
+	click_on(scene, "lever_access")
+	check(scene.sim.flag("P24"), "P24 by clicks on c_chamber_door")
+	check(v.cut == "door" and v.finger_k == 0.0, "the door cut plays; the finger marks wait for the glance")
+	for i in 30:
+		scene._process(0.1)
+	check(v.cut == "door" and v.close.modulate.a == 1.0, "the door close-up holds to 4.4 s")
+	for i in 20:
+		scene._process(0.1)
+	check(v.close.modulate.a < 1.0, "then dissolves")
+	for i in 20:
+		scene._process(0.1)
+	check(not v.cut_playing() and r.landing == 2, "the lower landing, the door open")
+	check(v.live_exit_rects().has("R12"), "the lower door's tab after P24")
+	check(not v.start_glance("lower_door", Rect2(320, 450, 280, 430)) == false, "the view shows the finger marks itself")
+	check(v.start_glance("bell_sound", Rect2(386, 330, 140, 120)) == false, "the bell lets the core bracket it")
+	await free_scene(scene)
+
+func test_view_presentation() -> void:
+	var m: Dictionary = load("res://game/rooms/R11/R11_view.gd").get_script_constant_map()
+	for b in 8:
+		check(m.MODULATE_L1[b] >= 0.78 and m.MODULATE_L2[b] >= 0.78, "band %d: never darker than 0.78" % b)
+	var scene = await view_scene(3)   # powered, no reference
+	var v = scene.room_view
+	var r := scene.room_sim() as R11Sim
+	var t: Dictionary = v.audio_targets()
+	check(t.r11_air == 0.55 and t.r11_line_pulse == 0.35 and t.r11_glass == 0.0, "gate landing, powered: the line pulses")
+	check(v.status_text() == "NO REFERENCE" and v.ref_deg() == -140.0, "no reference: the brass needle at rest")
+	scene.room_jump(ROOM, 2)
+	check(v.status_text() == "NO PRESSURE", "unpowered: NO PRESSURE")
+	scene.room_jump(ROOM, 5)
+	v = scene.room_view
+	check(v.status_text() == "REFERENCE 2" and is_equal_approx(v.ref_deg(), -24.0), "referenced: the brass needle on 2")
+	# Holds: a notice holds the room; a click skips it.
+	v.play_fx("notice", {"notice": "n_tide1"})
+	check(v.holding() and v.action_at(v.HOTSPOTS[0][1].get_center()) == "" and not v.exits_active(), "a notice holds the room")
+	check(v.consume_click(Vector2(10, 500)) and not v.holding(), "a click skips the hold")
+	v.play_fx("notice", {"notice": "n_tide1"})
+	for i in 20:
+		scene._process(0.1)
+	check(not v.holding(), "the hold ends by itself after 1.5 s")
+	v.play_fx("notice", {"notice": "n_unknown"})
+	check(not v.holding(), "an unknown notice holds nothing")
+	# Still alternatives.
+	scene.sim.settings.motion = false
+	check(v.glint_x() == 700.0, "still: the water's glint is fixed")
+	v.play_fx("false_landing", {})
+	check(v.port_t == 0.0, "the port opens on a false landing")
+	v.reset_presentation()
+	check(v.port_t < 0.0 and not v.cut_playing() and not v.holding(), "reset clears port, cut and hold")
+	scene.sim.settings.motion = true
+	# Bands: bells and pressure.
+	scene.room_jump(ROOM, 6)   # tide V
+	v = scene.room_view
+	r = scene.room_sim() as R11Sim
+	scene.tide_jump(5, ROOM)
+	v = scene.room_view
+	r = scene.room_sim() as R11Sim
+	var band: int = scene.sim.weather_band()
+	t = v.audio_targets()
+	if band >= 3 and band <= 5:
+		check(t.r11_bell_above == (0.55 if r.landing == 2 else 0.25) and t.r11_bell_below == 0.0, "bands 3-5: the bell above")
+	scene.tide_jump(9, ROOM)
+	v = scene.room_view
+	r = scene.room_sim() as R11Sim
+	r.landing = 2
+	t = v.audio_targets()
+	check(t.r11_bell_below == 0.6 and t.r11_bell_above == 0.0 and t.r11_pressure == 0.4, "band 7 below: the bell below, pressure")
+	check(is_equal_approx(v.shade_value(), 0.78), "band 7 lower landing at 0.78")
+	await free_scene(scene)

@@ -974,6 +974,10 @@ func _set_p24_done(give_back := true) -> void:
 func _sync() -> void:
 	if game.flag("P12") and not state.p12_complete:
 		_set_p12_done()
+		# Real play opens the gate from the gate landing and leaves her below it.
+		local_view = "room"
+		landing = 2
+		_clear_transient()
 	if game.flag("P24") and not state.p24_complete:
 		_set_p24_done()
 
