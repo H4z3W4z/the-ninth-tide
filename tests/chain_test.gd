@@ -440,7 +440,7 @@ func play_p14() -> void:
 # Tide VIII
 # ---------------------------------------------------------------------------
 ## R06 P22: her card on the record rest, her sketch beside it, NO SURVIVING EFFECTS amended
-## to REPAIRED CUP, NORA BELL; APPEND.
+## to REPAIRED CUP, NORA BELL; APPEND with her pencil; the amended card comes off the rest on Back.
 func play_p22() -> void:
 	_qd("slope")
 	_qd("item:nora_register_card")
@@ -453,11 +453,13 @@ func play_p22() -> void:
 		while int(bunks.state.wheels[i]) != int(R06Sim.WHEEL_SOLUTION[i]) and guard < 8:
 			_qd(names[i])
 			guard += 1
+	_qd("item:pencil")
 	var ev := _qd("append")
-	check(g.flag("P22") and g.has_item("amended_nora_card") and not g.has_item("nora_register_card"),
-		"P22: the record amended; the card swapped")
+	check(g.flag("P22") and bunks.state.card_on_rest and not g.has_item("nora_register_card"),
+		"P22: the record amended, the card still on the rest")
 	check(not has_ev(ev, "fx", "tide"), "P22: Tide VIII waits for the witness bridge")
 	_qd("back")
+	check(g.has_item("amended_nora_card") and g.has_item("pencil"), "P22: Back takes the amended card; the pencil stays")
 
 # ---------------------------------------------------------------------------
 # Tides VI-VII

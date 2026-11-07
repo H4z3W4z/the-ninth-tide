@@ -15,26 +15,45 @@ const OWNER := {"cup": "bell", "calipers": "rook", "pencils": "venn", "glove": "
 const LOCKERS := ["bell", "rook", "venn", "ives"]
 const TRAY := ["pencils", "glove", "cup", "calipers"]
 const WRONG := {
-	"cup>rook": "The cup's been riveted. Rook doesn't mend things; he files them.",
-	"cup>venn": "A mended cup. Venn's card is his left hand and four pencils, not mending.",
-	"cup>ives": "Ives restitches gloves. This is a cup with a staple through the handle: someone who mends rather than replaces.",
-	"calipers>bell": "One jaw's been filed by hand. Bell mends things; she doesn't file them.",
-	"calipers>venn": "Filed calipers. Venn's card says left hand and four pencils. These belong to someone who files his own instruments.",
-	"calipers>ives": "Ives can't feel two fingertips. These want a fine hand, and someone who files his own tools.",
-	"pencils>bell": "Four slots, worn bright on the left. Bell's card is about tea and mending.",
-	"pencils>rook": "Worn on the left side. This was held in a left hand, four pencils at a time.",
-	"pencils>ives": "Four pencil slots, worn on the left. Ives's card is about his right glove.",
-	"glove>bell": "Red thread at two fingertips. Someone who lost the feeling there. Bell's card says nothing about her hands.",
-	"glove>rook": "Restitched at two fingertips. Rook files instruments; this is about a hand the winch took.",
-	"glove>venn": "This glove is a right hand, restitched. Venn's is the left side that wears.",
+	"cup>rook": "A brass staple through a broken handle. Rook alters instruments. A cup isn't one.",
+	"cup>venn": "A stapled cup. Venn's card is the left of the page and two pencils, then two more.",
+	"cup>ives": "Ives sews what he won't have reissued. A brass staple isn't sewing. This is someone given three new cups who kept none of them.",
+	"calipers>bell": "One jaw filed down by hand. Bell's card is cups she wouldn't take. This is an instrument someone altered.",
+	"calipers>venn": "A filed jaw. Venn's card is pencils and the left of the page. These belong to someone who trusts no instrument he hasn't altered.",
+	"calipers>ives": "A jaw filed fine. Ives can't feel two fingertips, and he sews; he doesn't file.",
+	"pencils>bell": "Four slots, worn bright on the left. Bell's card is tea and cups.",
+	"pencils>rook": "Four slots, worn on the left side. Two issued, two requisitioned, written from the left of the page. Not Rook.",
+	"pencils>ives": "Four pencil slots, left side worn bright. Ives's card is what he can sew.",
+	"glove>bell": "Red thread at two fingertips. Bell's card is cups. This was sewn by someone who won't take a new issue.",
+	"glove>rook": "Restitched in red thread. Rook alters instruments; this is a hand the winch took two fingertips from.",
+	"glove>venn": "A right glove, red thread at two fingertips. Venn's card is pencils and the left of the page.",
 }
+## Each refusal names what distinguishes the object in hand (any one of these words).
+const FEATURE := {"cup": ["staple"], "calipers": ["filed", "jaw"], "pencils": ["left", "slots"], "glove": ["red thread"]}
 const RIGHT := {
-	"cup": "Tea without sugar, and a cup she wouldn't throw away. Bell's.",
-	"calipers": "Filed by his own hand. Rook's.",
-	"pencils": "Worn on the left, four slots. Venn's.",
-	"glove": "Red thread at two fingertips. Ives's.",
+	"cup": "Three new cups, and she kept none of them. She kept this one. Bell's.",
+	"calipers": "Altered by his own hand. Rook's.",
+	"pencils": "Two issued, two more requisitioned, worn from the left. Venn's.",
+	"glove": "Red thread at two fingertips. Sewn, not reissued. Ives's.",
 }
-const PERSONAL_CARDS := "Bell: tea without sugar; mends things. Rook: measures twice. Venn: left-handed, four pencils. Ives: restitches his right glove."
+const CARDS := {
+	"bell": "N. Bell. Takes her tea without sugar. Was given three new cups. Kept none of them.",
+	"rook": "Dr S. Rook. Measures everything twice. Trusts no instrument he has not altered.",
+	"venn": "E. Venn. Writes from the left of the page. Was issued two pencils. Requisitioned two more.",
+	"ives": "T. Ives. Lost the feeling in two fingertips to the winch. Will not take a new issue of anything he can sew.",
+}
+const LIFT := {"cup": "The cup. Brass glints at the handle.", "calipers": "The calipers. One jaw looks wrong.",
+	"pencils": "The pencil holder. Tin.", "glove": "The glove. A right glove."}
+const WEAR := {
+	"cup": "A cup with a brass staple through the handle where it broke. Mended, not replaced. N.B. scratched small under the foot.",
+	"calipers": "Calipers. One jaw has been filed down by hand, carefully.",
+	"pencils": "A tin pencil holder, four slots, worn bright on the left side only.",
+	"glove": "A right glove, restitched in red thread at two fingertips.",
+}
+const PERSONAL_CARDS := "Bell: tea without sugar; given three new cups, kept none of them. Rook: measures twice; trusts no instrument he has not altered. Venn: writes from the left of the page; two pencils issued, two more requisitioned. Ives: two fingertips lost to the winch; won't take a new issue of anything he can sew."
+const NO_PENCIL := "Corrections are in the amending officer's hand. Mine."
+const WRITE_LINE := "I write it under the printed line, and leave the printed line alone."
+const CURTAIN_T3 := "A curtain partition on a ceiling rail. It sways a little when I breathe out. Then once more, when I don't."
 const VENN_SEAL := "Venn's personal seal: three cuts."
 const NORA_AMENDMENT := "'No surviving personal effects.' Amended, in my hand: personal effect identified, repaired cup, Nora Bell."
 const ERASE := "No. Corrections append. The original stands, and so does this."
@@ -61,6 +80,7 @@ func run_tests() -> void:
 	test_notices()
 	test_p22_refusals()
 	test_p22_commit()
+	test_p22_card_on_rest_saves()
 	test_card_never_lost()
 	test_p22_p23_order()
 	test_cup_reveal()
@@ -70,6 +90,7 @@ func run_tests() -> void:
 	test_hotspots_everywhere()
 	test_wrong_item_uses()
 	test_debug()
+	test_w2_details()
 	if _view_ready():
 		await view_checks(ROOM)
 		test_view_rects()
@@ -161,6 +182,17 @@ func lay_all(g: GameSim, w: Array) -> void:
 	use(g, "nora_register_card", "rest_record")
 	g.dispatch("rest_evidence")
 	set_wheels(g, w)
+
+## APPEND in her own hand: the pencil on the APPEND control.
+func amend(g: GameSim) -> Array:
+	return use(g, "pencil", "append")
+
+func glances(ev: Array, id: String) -> Array:
+	var out := []
+	for e in ev:
+		if e.type == "glance" and e.get("id", "") == id:
+			out.append(e)
+	return out
 
 func permutations(a: Array) -> Array:
 	if a.size() <= 1:
@@ -256,6 +288,10 @@ func test_wrong_lines_distinct() -> void:
 			var line: String = R06Sim.WRONG[o][l]
 			check(not seen.has(line), "P08: wrong line %s>%s is distinct" % [o, l])
 			check(line == WRONG.get(o + ">" + l, "?"), "P08: wrong line %s>%s matches the card" % [o, l])
+			var named := false
+			for f in FEATURE[o]:
+				named = named or line.to_lower().contains(f)
+			check(named, "P08: wrong line %s>%s names the %s's distinguishing feature" % [o, l, o])
 			seen[line] = true
 	check(n == 12, "P08: twelve wrong lines (got %d)" % n)
 	check(R06Sim.TRAY_ORDER == TRAY, "P08: the tray order")
@@ -268,23 +304,28 @@ func test_p08_controls() -> void:
 	var ev := g.dispatch("belongings_shelf")
 	check(r.local_view == "c_lockers" and r.has_seen("belongings"), "P08: belongings shelf opens c_lockers")
 	check(says(ev) == "A pencil holder, a glove, a cup, calipers. Four things on top of the locked lockers, and four open lockers with nothing in them.", "P08: belongings line")
-	ev = g.dispatch("card_bell")
-	check(says(ev) == "N. Bell. Takes her tea without sugar. Mends rather than replaces.", "P08: Bell's card")
-	check(r.has_seen("card_bell"), "P08: card_bell noted")
-	for l in ["rook", "venn", "ives"]:
-		g.dispatch("card_" + l)
-		check(r.has_seen("card_" + l), "P08: card_%s noted" % l)
+	for l in LOCKERS:
+		ev = g.dispatch("card_" + l)
+		check(says(ev) == CARDS[l], "P08: %s's card is exact (got '%s')" % [l, says(ev)])
+		check(r.has_seen("card_" + l) and obs_text("card_" + l).contains(CARDS[l].split(". ", true, 1)[1]),
+			"P08: card_%s noted, quoting the card" % l)
 	check(says(g.dispatch("shelf_rook")) == "An empty shelf. A clean square in the dust where something stood.", "P08: empty shelf")
-	ev = g.dispatch("obj_cup")
-	check(says(ev) == "A cup with a brass staple through the handle where it broke. Mended, not replaced. N.B. scratched small under the foot.", "P08: cup wear line")
-	check(has_ev(ev, "sfx", "belonging_lift") and r.has_seen("wear_cup"), "P08: lift sound, wear noted")
-	ev = g.dispatch("obj_cup")
-	check(r.lifted == "" and has_ev(ev, "sfx", "belonging_set_down") and says(ev) == "", "P08: clicking it again puts it down")
-	check(says(g.dispatch("obj_cup")) == "The cup.", "P08: a later lift says the short name")
+	# Each object: the first click lifts it and says only its short name and one neutral clause;
+	# the second turns it over in the hand (the wear, noted); the third puts it down.
+	for o in TRAY:
+		ev = g.dispatch("obj_" + o)
+		check(says(ev) == LIFT[o] and says(ev).begins_with(R06Sim.SHORT_NAMES[o]), "P08: lifting the %s (got '%s')" % [o, says(ev)])
+		check(r.lifted == o and has_ev(ev, "sfx", "belonging_lift") and not r.has_seen("wear_" + o), "P08: %s lifted, wear unseen" % o)
+		ev = g.dispatch("obj_" + o)
+		check(says(ev) == WEAR[o] and r.has_seen("wear_" + o) and r.lifted == o, "P08: the %s turned over shows its wear" % o)
+		ev = g.dispatch("obj_" + o)
+		check(r.lifted == "" and has_ev(ev, "sfx", "belonging_set_down") and says(ev) == "", "P08: the third click puts the %s down" % o)
+	check(says(g.dispatch("obj_cup")) == LIFT.cup, "P08: a later lift says the lift line again")
+	check(says(g.dispatch("obj_cup")) == WEAR.cup, "P08: and turning it over the wear again")
 	g.give("inspection_lens")
 	check(says(use(g, "inspection_lens", "obj_cup")) == "Under the lens: N.B., scratched under the foot. Small and neat.", "P08: lens on the cup")
 	check(says(use(g, "inspection_lens", "obj_glove")) == "A right glove, restitched in red thread at two fingertips.", "P08: lens on the glove repeats its wear")
-	check(says(g.dispatch("obj_calipers")) == "Calipers. One jaw has been filed down by hand, carefully.", "P08: lifting another swaps")
+	check(says(g.dispatch("obj_calipers")) == LIFT.calipers, "P08: lifting another swaps")
 	check(r.lifted == "calipers", "P08: calipers in hand")
 	g.dispatch("shelf_rook")
 	check(says(g.dispatch("shelf_rook")) == "His calipers, on Rook's shelf.", "P08: placed shelf line")
@@ -317,6 +358,17 @@ func test_p08_commit() -> void:
 	check(r.has_seen("personal_cards") and obs_text("personal_cards") == PERSONAL_CARDS, "P08 commit: personal_cards exact")
 	check(r.has_seen("venn_seal") and obs_text("venn_seal") == VENN_SEAL, "P08 commit: venn_seal exact")
 	check(r.has_seen("compartment"), "P08 commit: compartment noted")
+	var gl := glances(ev, "p08_latch")
+	check(gl.size() == 1 and gl[0].rect == Rect2(706, 524, 96, 84) and gl[0].view == "curtain",
+		"P08 commit: one p08_latch glance at the pigeonhole (got %s)" % [gl])
+	var gi := -1
+	var li := -1
+	for i in ev.size():
+		if ev[i].type == "glance":
+			gi = i
+		if ev[i].type == "say" and ev[i].text == "Across the room, something small unlatched.":
+			li = i
+	check(gi > li and li >= 0, "P08 commit: the glance comes with the last line of the commit")
 	for it in before:
 		check(g.has_item(it), "P08 commit: %s still held" % it)
 	check(not g.flag("P09") and g.tide() == tide and g.weather_band() == band, "P08 commit: no P09, the tide holds")
@@ -544,6 +596,21 @@ func test_p22_refusals() -> void:
 		ev = g.dispatch("append")
 		check(says(ev) == cse[1], "P22 wheels %s: exact refusal (got '%s')" % [cse[0], says(ev)])
 		check(snapshot(g) == before, "P22 wheels %s: nothing changes" % [cse[0]])
+	# Everything right but her hand: APPEND alone refuses, and changes nothing.
+	r.state.wheels = [0, 0, 0]
+	set_wheels(g, [1, 3, 3])
+	before = snapshot(g)
+	ev = g.dispatch("append")
+	check(says(ev) == NO_PENCIL and has_ev(ev, "sfx", "append_refuse"), "P22: APPEND without the pencil refuses (got '%s')" % says(ev))
+	check(snapshot(g) == before and not g.flag("P22"), "P22: without the pencil nothing changes")
+	check(r.append_refusal(false) == "no_pencil" and r.append_refusal(true) == "", "P22: the pencil is the last check")
+	ev = g.dispatch("amend_line")
+	check(says(ev).begins_with("The amendment line") and snapshot(g) == before, "P22: the amendment line alone only describes itself")
+	# The pencil on the wrong wheels refuses the same way the wheels do; it is never taken.
+	r.state.wheels = [0, 3, 3]
+	ev = use(g, "pencil", "amend_line")
+	check(says(ev) == "That's what the card already says. A correction has to add something." and g.has_item("pencil"),
+		"P22: the pencil on the wrong finding refuses, the pencil kept")
 	# Wheels wrap both ways and say nothing.
 	r.state.wheels = [0, 0, 0]
 	ev = g.dispatch("fin_prev")
@@ -573,24 +640,63 @@ func test_p22_refusals() -> void:
 	check(says(u.dispatch("rest_evidence")) == "I take the sketch back." and not r06(u).state.sketch_on_rest, "P22: sketch lifts back")
 
 func test_p22_commit() -> void:
-	var g := p22_ready()
-	var r := r06(g)
-	check(r.objective() == "p22", "P22: the objective")
-	check(not r.state.letter_read, "P22: solvable without the letter")
-	lay_all(g, [1, 3, 3])
-	var ev := g.dispatch("append")
-	check(g.flag("P22") and r.state.p22_complete, "P22 commit: P22 set")
-	check(not g.has_item("nora_register_card") and g.has_item("amended_nora_card"), "P22 commit: the card is swapped")
-	check(gives(ev, "amended_nora_card") == 1, "P22 commit: given once")
-	check(r.has_seen("nora_amendment") and obs_text("nora_amendment") == NORA_AMENDMENT, "P22 commit: nora_amendment exact")
-	check(r.has_seen("register_card"), "P22 commit: the original text stays in the notebook")
-	check(has_ev(ev, "fx", "cup_warm") and has_ev(ev, "sfx", "pencil_scratch") and has_ev(ev, "sfx", "cup_warm"), "P22 commit: cup_warm fx and sounds")
-	check(story_count(ev) == 2, "P22 commit: two story lines")
-	check(not r.state.card_on_rest and not r.state.sketch_on_rest, "P22 commit: the rest is clear")
-	check(r.amendment_written() and r.dry_ring() and r.cup_steam(), "P22 commit: amendment, ring, steam")
-	check(not g.flag("P24"), "P22 commit: P24 not set")
-	ev = g.dispatch("append")
-	check(says(ev) == "It's already amended." and gives(ev, "amended_nora_card") == 0, "P22 repeat: already amended")
+	# Each of her three ways of writing it: the pencil on APPEND, on the amendment line, or selected
+	# then APPEND (the core turns that into use_item("pencil", "append")).
+	for how in ["append", "amend_line", "selected"]:
+		var g := p22_ready()
+		var r := r06(g)
+		check(r.objective() == "p22", "P22 %s: the objective" % how)
+		check(not r.state.letter_read, "P22 %s: solvable without the letter" % how)
+		check(g.has_item("pencil"), "P22 %s: her pencil from Tide I" % how)
+		lay_all(g, [1, 3, 3])
+		var ev: Array
+		if how == "selected":
+			g.dispatch("item:pencil")
+			check(g.selected_item == "pencil", "P22 selected: the pencil is in hand")
+			ev = g.dispatch("append")
+		else:
+			ev = use(g, "pencil", how)
+		check(g.flag("P22") and r.state.p22_complete, "P22 %s: P22 set" % how)
+		check(g.has_item("pencil"), "P22 %s: the pencil is not consumed" % how)
+		check(says(ev).begins_with(WRITE_LINE), "P22 %s: the line is kept (got '%s')" % [how, says(ev)])
+		# The amended card stays in view on the RECORD rest; it is not in her bag yet.
+		check(r.state.card_on_rest and r.local_view == "c_slope", "P22 %s: the amended card stays on the rest" % how)
+		check(not g.has_item("nora_register_card") and not g.has_item("amended_nora_card"), "P22 %s: neither card in the bag yet" % how)
+		check(gives(ev, "amended_nora_card") == 0, "P22 %s: nothing given at APPEND" % how)
+		check(r.objective() == "take_card", "P22 %s: the objective is to take the card" % how)
+		check(r.has_seen("nora_amendment") and obs_text("nora_amendment") == NORA_AMENDMENT, "P22 %s: nora_amendment exact" % how)
+		check(r.has_seen("register_card") and r.has_seen("card_ring"), "P22 %s: the original text and the ring in the notebook" % how)
+		check(has_ev(ev, "fx", "cup_warm") and has_ev(ev, "sfx", "pencil_scratch") and has_ev(ev, "sfx", "cup_warm"), "P22 %s: cup_warm fx and sounds" % how)
+		check(story_count(ev) == 2, "P22 %s: two story lines" % how)
+		check(r.amendment_written() and r.dry_ring() and r.cup_steam(), "P22 %s: amendment, ring, steam" % how)
+		check(R06Sim.AMEND_LINE == "REPAIRED CUP, NORA BELL", "P22: the pencil line")
+		check(not g.flag("P24"), "P22 %s: P24 not set" % how)
+		# Repeats and the locked wheels change nothing.
+		var snap := snapshot(g)
+		ev = amend(g)
+		check(says(ev) == "It's already amended." and gives(ev, "amended_nora_card") == 0, "P22 %s repeat: already amended" % how)
+		g.dispatch("fin_next")
+		g.dispatch("erase")
+		check(snapshot(g) == snap, "P22 %s after: wheels locked, nothing erased" % how)
+		# Back takes the card off the rest: given once, the cup glance and its lines.
+		ev = g.dispatch("back")
+		check(gives(ev, "amended_nora_card") == 1 and g.has_item("amended_nora_card") and not g.has_item("nora_register_card"),
+			"P22 %s: Back gives the amended card, once" % how)
+		check(not r.state.card_on_rest and not r.state.sketch_on_rest and r.objective() == "done", "P22 %s: the rest is clear, done" % how)
+		var gl := glances(ev, "p22_cup")
+		check(gl.size() == 1 and gl[0].rect == R06Sim.GLANCES.p22_cup.rect and gl[0].view == "room", "P22 %s: the p22_cup glance on Back" % how)
+		ev = g.dispatch("back")
+		check(gives(ev, "amended_nora_card") == 0 and glances(ev, "p22_cup").is_empty(), "P22 %s: a second Back gives nothing" % how)
+	# Taking it off the rest by hand, instead of Back.
+	var h := p22_ready()
+	lay_all(h, [1, 3, 3])
+	amend(h)
+	var ev := h.dispatch("rest_record")
+	check(says(ev) == "I take her card, amended." and gives(ev, "amended_nora_card") == 1 and not r06(h).state.card_on_rest,
+		"P22: the amended card lifts off the rest by hand")
+	check(says(h.dispatch("rest_record")) == "The rest is clear.", "P22 after: rest clear")
+	ev = h.dispatch("back")
+	check(gives(ev, "amended_nora_card") == 0 and glances(ev, "p22_cup").size() == 1, "P22: Back then gives nothing more; the glance still plays")
 	# A P22 flag set elsewhere swaps the card as soon as the room hears of it.
 	var f := p22_ready()
 	f.set_flag("P22")
@@ -598,12 +704,36 @@ func test_p22_commit() -> void:
 	check(f.has_item("amended_nora_card") and not f.has_item("nora_register_card"), "P22 by flag: the card is swapped")
 	var inv_f := inv(f)
 	check(f.from_dict(JSON.parse_string(JSON.stringify(f.to_dict()))) and inv(f) == inv_f, "P22 by flag: round-trips")
-	var w: Array = r.state.wheels.duplicate()
-	g.dispatch("fin_next")
-	check(r.state.wheels == w, "P22 after: the wheels are locked")
-	check(says(g.dispatch("rest_record")) == "The rest is clear.", "P22 after: rest clear")
-	g.take("amended_nora_card")
-	check(g.from_dict(g.to_dict()) and g.has_item("amended_nora_card"), "P22 after: the amended card always exists after P22")
+	h.take("amended_nora_card")
+	check(h.from_dict(h.to_dict()) and h.has_item("amended_nora_card"), "P22 after: the amended card always exists after P22")
+
+## Save and load while the amended card lies on the rest: it stays there, and is given once.
+func test_p22_card_on_rest_saves() -> void:
+	var g := p22_ready()
+	var r := r06(g)
+	lay_all(g, [1, 3, 3])
+	amend(g)
+	check(g.from_dict(JSON.parse_string(JSON.stringify(g.to_dict()))), "P22 on rest: loads")
+	r = r06(g)
+	check(r.state.p22_complete and r.state.card_on_rest and not r.state.sketch_on_rest, "P22 on rest: the card stays on the rest, the sketch does not")
+	check(not g.has_item("amended_nora_card") and not g.has_item("nora_register_card"), "P22 on rest: not given by the load")
+	check(r.local_view == "room" and r.objective() == "take_card", "P22 on rest: back in the room, the card to take")
+	check(r.hint_line(2) == R06Sim.HINTS.take_card[2], "P22 on rest: the hint points at the slope")
+	# A second load changes nothing.
+	check(g.from_dict(g.to_dict()) and r06(g).state.card_on_rest and not g.has_item("amended_nora_card"), "P22 on rest: a second load")
+	r = r06(g)
+	r.local_view = "curtain"
+	var ev := g.dispatch("slope")
+	check(says(ev) == "Her card is still on the rest, amended in pencil under the printed line.", "P22 on rest: the slope says so")
+	ev = g.dispatch("back")
+	check(gives(ev, "amended_nora_card") == 1 and g.has_item("amended_nora_card") and not r.state.card_on_rest, "P22 on rest: Back gives it once")
+	check(has_ev(ev, "fx", "notice_cup") and glances(ev, "p22_cup").size() == 1, "P22 on rest: the cup beat and its glance after the load")
+	check(g.from_dict(g.to_dict()) and g.has_item("amended_nora_card") and g.state.inventory.count("amended_nora_card") == 1,
+		"P22 on rest: exactly one card after another load")
+	# A malformed save: card on the rest before P22 goes back to her bag.
+	var m := p22_ready()
+	lay_all(m, [1, 3, 3])
+	check(m.from_dict(m.to_dict()) and m.has_item("nora_register_card") and not r06(m).state.card_on_rest, "pre-P22: a load returns the card")
 
 func test_card_never_lost() -> void:
 	var g := p22_ready()
@@ -630,10 +760,10 @@ func test_p22_p23_order() -> void:
 	var a := p22_ready()
 	a.set_flag("P23")
 	lay_all(a, [1, 3, 3])
-	a.dispatch("append")
+	amend(a)
 	var b := p22_ready()
 	lay_all(b, [1, 3, 3])
-	b.dispatch("append")
+	amend(b)
 	b.set_flag("P23")
 	check(JSON.stringify(r06(a).state) == JSON.stringify(r06(b).state), "P22/P23 order: same R06 state")
 	check(JSON.stringify(a.state.flags) == JSON.stringify(b.state.flags), "P22/P23 order: same flags")
@@ -643,7 +773,7 @@ func test_cup_reveal() -> void:
 	var g := p22_ready()
 	var r := r06(g)
 	lay_all(g, [1, 3, 3])
-	g.dispatch("append")
+	amend(g)
 	var ev := g.dispatch("back")
 	check(r.local_view == "room" and has_ev(ev, "fx", "notice_cup"), "cup: Back after P22 lands in the room")
 	check(says(ev) == CUP_LINES and story_count(ev) == 2, "cup: the two lines (got '%s')" % says(ev))
@@ -689,7 +819,9 @@ func test_malformed_saves() -> void:
 	r = load_r({"p08_complete": true})
 	check(r.placed_in("venn") == "pencils", "load: P08 fills the shelves")
 	r = load_r({"p22_complete": true, "card_on_rest": true, "sketch_on_rest": true})
-	check(not r.state.card_on_rest and not r.state.sketch_on_rest, "load: nothing on the rest after P22")
+	check(r.state.card_on_rest and not r.state.sketch_on_rest, "load: after P22 the amended card may stay on the rest; never the sketch")
+	r = load_r({"p22_complete": true, "card_on_rest": "yes"})
+	check(not r.state.card_on_rest, "load: card_on_rest by type")
 	r = load_r({"p08_complete": "yes", "rise_seen": 1})
 	check(not r.state.p08_complete and not r.state.rise_seen, "load: bools by type")
 	# Transients reset.
@@ -726,7 +858,8 @@ func test_save_mid_puzzle() -> void:
 	# R05 owns nora_ledger; until its sim declares it, a load drops it from the notebook.
 	p.observe("R05", "nora_ledger")
 	lay_all(p, [1, 3, 3])
-	p.dispatch("append")
+	amend(p)
+	p.dispatch("back")
 	check(p.flag("P22"), "mid P22: finishes after a load")
 	check(p.from_dict(p.to_dict()) and p.flag("P22") and p.has_item("amended_nora_card") and not p.has_item("nora_register_card"),
 		"P22: the swap persists")
@@ -737,11 +870,14 @@ func test_save_mid_puzzle() -> void:
 func test_objectives_hints() -> void:
 	var ladders := {
 		"p08": ["Four belongings, four open lockers, and a card on each door.",
-			"Each card names a habit. Each object shows the wear that habit leaves.",
+			"Each card names a habit. Lift each object and turn it over: it shows the wear that habit leaves.",
 			"Cup to Bell, calipers to Rook, pencil holder to Venn, glove to Ives."],
 		"p22": ["Nora's register card says something the bunk room can contradict.",
 			"Her cup is a personal effect. Corrections are added, never written over.",
-			"Put her card and the cup sketch on the slope and APPEND 'personal effect identified / repaired cup / Nora Bell'."],
+			"Put her card and the cup sketch on the slope, set the wheels to 'personal effect identified / repaired cup / Nora Bell', and APPEND with my pencil."],
+		"take_card": ["Her card is still on the writing slope.",
+			"The amendment is written. The card goes with me, not on the rest.",
+			"Open the writing slope and step back from it: I take her amended card with me."],
 		"away": ["Nothing in the bunk room is waiting on me.",
 			"The beds keep what they keep. Something elsewhere comes first.",
 			"Come back when I have a record of Nora's that needs correcting."],
@@ -751,7 +887,8 @@ func test_objectives_hints() -> void:
 	var texts := {"p08": "Put the four belongings back in their owners' lockers.",
 		"p22": "Correct Nora's register card without erasing it.",
 		"away": "Nothing here needs me yet. The beds keep what they keep.",
-		"done": "Her card is amended. The bunk room is finished with me."}
+		"done": "Her card is amended. The bunk room is finished with me.",
+		"take_card": "Take Nora's amended card off the writing slope."}
 	var g := fresh()
 	var r := r06(g)
 	var path := []
@@ -759,13 +896,16 @@ func test_objectives_hints() -> void:
 	solve_p08(g)
 	path.append(r.objective())
 	g.set_flag("P21")
+	g.give("pencil")
 	g.give("nora_register_card")
 	g.observe("R05", "nora_ledger")
 	path.append(r.objective())
 	lay_all(g, [1, 3, 3])
-	g.dispatch("append")
+	amend(g)
 	path.append(r.objective())
-	check(path == ["p08", "away", "p22", "done"], "objectives: p08 -> away -> p22 -> done (got %s)" % [path])
+	g.dispatch("back")
+	path.append(r.objective())
+	check(path == ["p08", "away", "p22", "take_card", "done"], "objectives: p08 -> away -> p22 -> take_card -> done (got %s)" % [path])
 	for o in ladders:
 		check(R06Sim.OBJECTIVES.get(o, "") == texts[o], "objective %s text exact" % o)
 		for i in 3:
@@ -896,10 +1036,42 @@ func test_debug() -> void:
 	check(r.objective() == "p22" and g.has_item("nora_register_card") and r.local_view == "curtain", "jump 6: P22 ready")
 	r.debug_jump(7)
 	check(r.local_view == "c_slope" and r.state.card_on_rest and r.state.sketch_on_rest and r.append_refusal() == "", "jump 7: commit ready")
-	g.dispatch("append")
-	check(g.flag("P22") and g.has_item("amended_nora_card"), "jump 7: commits")
+	amend(g)
+	check(g.flag("P22") and r.state.card_on_rest, "jump 7: commits, the card on the rest")
+	g.dispatch("back")
+	check(g.has_item("amended_nora_card"), "jump 7: Back gives the amended card")
 	r.debug_jump(8)
 	check(g.weather_band() == 7 and r.state.p22_complete and r.state.cup_warm_seen, "jump 8: tide IX")
+
+# ---------------------------------------------------------------------------------------------
+# round w2: the curtain line, item labels, glances only where carded
+# ---------------------------------------------------------------------------------------------
+func test_w2_details() -> void:
+	var g := game_at(3, ROOM)
+	var r := r06(g)
+	r.local_view = "curtain"
+	check(says(g.dispatch("curtain")) == CURTAIN_T3, "curtain: the Tide III line")
+	check(obs_text("curtain").ends_with("Then once more, when I don't."), "curtain: the notebook keeps it")
+	check(R06Sim.ITEMS.token_bunk_half.short == "Bunk half" and R06Sim.ITEMS.amended_nora_card.short == "Nora (amended)",
+		"items: short names")
+	# The P08 glance plays once: a re-placed shelf after P08 never re-emits it.
+	var f := fresh()
+	var ev := solve_p08(f)
+	check(glances(ev, "p08_latch").size() == 1, "glance: p08_latch at the commit")
+	for o in TRAY:
+		ev = f.dispatch("shelf_" + OWNER[o])
+		check(glances(ev, "p08_latch").is_empty(), "glance: never again (%s)" % o)
+	# Every glance names a known id with a rect inside the canvas.
+	for id in R06Sim.GLANCES:
+		var gr: Rect2 = R06Sim.GLANCES[id].rect
+		check(CANVAS.encloses(gr) and gr.size.x >= 64 and gr.size.y >= 64, "glance %s: a sane rect" % id)
+	# The pencil never leaves her.
+	var p := p22_ready()
+	lay_all(p, [1, 3, 3])
+	p.dispatch("append")
+	use(p, "pencil", "printed_line")
+	amend(p)
+	check(p.has_item("pencil") and p.flag("P22"), "pencil: durable through refusal, erase and the amendment")
 
 # ---------------------------------------------------------------------------------------------
 # (19) the view's rects and sounds
@@ -951,6 +1123,11 @@ func test_view_staged_art() -> void:
 			check(ResourceLoader.exists("res://assets/rooms/R06/%s.png" % id), "R06 art: %s painted" % id)
 	for st in ["s3", "s4"]:
 		check(ResourceLoader.exists("res://assets/rooms/R06/b_curtain_shape_%s.png" % st), "R06 art: the figure at %s" % st)
+		for bed in R06Sim.BEDS:
+			var side := "a" if bed in ["venn", "rook", "hart", "ives"] else "b"
+			check(ResourceLoader.exists("res://assets/rooms/R06/%s_dent_%s_%sv2.png" % [side, bed, st]), "R06 art: %s's body at %s" % [bed, st])
+	for v in ["a", "b"]:
+		check(ResourceLoader.exists("res://assets/rooms/R06/view_%s_s4v2.png" % v), "R06 art: view_%s_s4v2 painted" % v)
 	for id in ["c_erase_down", "c_append_down", "c_slope_clips", "c_slope_drums", "c_cup_halo", "c_calipers_halo",
 			"c_pencils_halo", "c_glove_halo"]:
 		check(ResourceLoader.exists("res://assets/rooms/R06/%s.png" % id), "R06 art: %s painted" % id)
@@ -1003,13 +1180,16 @@ func test_view_presentation() -> void:
 	scene.dispatch("go:R06")
 	v = scene.room_view
 	check(v.hold_active() and v.shown_wall() == "room" and v.dent_alpha("venn") == 1.0, "view: the pillow is dented at full alpha at the hold's start")
-	check(v.action_at(Vector2(900, 700)) == "" and not v.hold_active(), "view: a click during the hold only skips it")
+	check(v.action_at(Vector2(900, 700)) == "" and v.hover_at(Vector2(900, 700)) == "" and v.hold_active(),
+		"view: action_at and hover_at answer nothing during the hold, and do not end it")
+	check(v.consume_click(Vector2(900, 700)) and not v.hold_active(), "view: consume_click skips the hold")
+	check(not v.consume_click(Vector2(900, 700)), "view: consume_click lets later clicks through")
 	check(v.action_at(Vector2(900, 700)) == "venn_bunk", "view: then the bunk answers")
 	# Tide IV: the calendar notice shows the curtain wall; exits hide for that moment.
 	v = _view_at(scene, 4)
 	v.play_fx("notice_names_moved", {"id": "notice_names_moved", "view": "curtain"})
 	check(v.hold_active() and v.shown_wall() == "curtain" and not v.exits_active(), "view: the names hold shows B")
-	v.action_at(Vector2(10, 500))
+	v.consume_click(Vector2(10, 500))
 	check(v.shown_wall() == "room" and v.exits_active(), "view: after the hold, A again")
 	# every_bed: the A hollows not yet seen wait for their spring, in DENT_ORDER.
 	scene.tide_jump(8, ROOM)
@@ -1020,7 +1200,7 @@ func test_view_presentation() -> void:
 		v.on_sfx("springs_eight")
 		v.tick(0.7 * 4 + 0.01)
 		check(v.dent_alpha("rook") == 1.0 and v.dent_alpha("hart") == 0.0, "view: Rook's hollow with the fifth spring, Hart's later")
-		v.action_at(Vector2(10, 500))
+		v.consume_click(Vector2(10, 500))
 		check(v.dent_alpha("hart") == 1.0, "view: a click lands every hollow")
 	# Loops by band.
 	var t: Dictionary = v.loop_targets()
@@ -1050,19 +1230,48 @@ func test_view_presentation() -> void:
 	v.on_sfx("append_refuse")
 	check(v.key_t["append"] > 0.0 and v.key_t["erase"] == 0.0, "view: APPEND shows pressed")
 	scene.dispatch("append")
+	check(v.key_t["append"] > 0.0 and not scene.sim.flag("P22"), "view: APPEND alone refuses (her pencil)")
+	scene.dispatch("item:pencil")
+	scene.dispatch("append")
+	check(scene.sim.flag("P22"), "view: APPEND with the pencil selected writes it")
 	sl = []
 	for h in v._controls():
 		sl.append(h[0])
-	check(not "printed_line" in sl, "view: the rests are empty after P22")
-	# P22's reward: the card stays on the RECORD rest, the amendment writing itself in under the
-	# printed line, until the chain ends or she turns away.
+	check("printed_line" in sl and v.r.state.card_on_rest, "view: after P22 the amended card stays on the RECORD rest")
+	check(v.label_for("amend_line") == "Amendment line" and v.action_at(Vector2(340, 720)) == "amend_line", "view: the amendment line answers")
+	# The amendment writes itself in; the condensation ring comes up with the cup_warm sound.
 	v.on_sfx("pencil_scratch")
-	check(v.commit_t >= 0.0, "view: after APPEND the amended card stays on its rest while she writes")
+	check(v.commit_t >= 0.0 and v.ring_k == 0.0, "view: the pencil writes; no ring yet")
 	v.tick(0.3)
-	check(v.commit_t > 0.0, "view: still on the rest a moment later")
+	check(v.commit_t > 0.0 and v.ring_k == 0.0, "view: still writing a moment later")
+	v.on_sfx("cup_warm")
+	if v.motion:
+		v.tick(0.75)
+		check(v.ring_k > 0.3 and v.ring_k < 0.7, "view: the ring fades in over 1.5 s (got %f)" % v.ring_k)
+		v.tick(0.8)
+	check(v.ring_k == 1.0, "view: the ring is formed")
+	var motion_was: bool = scene.sim.settings.motion
+	scene.sim.settings.motion = false
+	v.on_sfx("pencil_scratch")
+	check(v.ring_k == 0.0, "view: Motion off: no ring before the cup warms")
+	v.on_sfx("cup_warm")
+	check(v.ring_k == 1.0, "view: with Motion off the ring is there, still")
+	scene.sim.settings.motion = motion_was
 	scene.dispatch("back")
 	scene.room_view.tick(0.01)
-	check(scene.room_view.commit_t < 0.0, "view: turning away puts the card in her bag")
+	check(scene.sim.has_item("amended_nora_card") and not scene.room_view.r.state.card_on_rest, "view: Back puts the card in her bag")
+	check(scene.room_view.commit_t < 0.0, "view: turning away ends the writing")
 	check(scene.room_view.hold_active() and scene.room_view.hold_rect == Rect2(48, 250, 100, 640),
 		"view: the cup notice focuses Bell's locker")
+	# Bodies in the beds: the v2 shapes from s3, the v2 plate at s4.
+	scene.tide_jump(6, ROOM)
+	v = scene.room_view
+	check(v.r.plate_stage() == "s3" and v.dent_id("ives") == "a_dent_ives_s3v2" and v.dent_id("bell") == "b_dent_bell_s3v2",
+		"view: s3 hollows are the v2 bodies")
+	scene.tide_jump(8, ROOM)
+	v = scene.room_view
+	check(v.r.plate_stage() == "s4" and v.dent_id("venn") == "a_dent_venn_s4v2" and v.plate_id("room") == "view_a_s4v2"
+		and v.plate_id("curtain") == "view_b_s4v2", "view: s4 uses the v2 bodies and plates")
+	scene.tide_jump(4, ROOM)
+	check(scene.room_view.dent_id("doane") == "b_dent_doane_s2", "view: s2 hollows unchanged")
 	await free_scene(scene)

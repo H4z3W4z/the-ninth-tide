@@ -20,6 +20,7 @@ const BRASS := Color("9c7e46")
 const FELT_HI := Color("8fa69a")
 const GRAPHITE := Color("3a3e44")
 const SHADOW_NAVY := Color("0e1a24")
+const STORM_INK := Color("22384a")
 
 ## [id, rect, label]; first match wins, so small objects come first. View A.
 const HOTSPOTS := [
@@ -83,6 +84,7 @@ const CUP_MARK_AT := Vector2(150, 556)
 const VENN_FADE := 0.4
 ## The card's text column: 240 px less the cream card's painted edge, so no line touches it.
 const CARD_WRAP := 226.0
+const CARD_TEXT_H := 144.0
 
 # c_slope ---------------------------------------------------------------------------------
 const SLOPE_CONTROLS := [
@@ -95,6 +97,10 @@ const SLOPE_CONTROLS := [
 	["obj_next", Rect2(840, 680, 64, 80), "Object ▷"],
 	["own_prev", Rect2(928, 680, 64, 80), "Owner ◁"],
 	["own_next", Rect2(1224, 680, 64, 80), "Owner ▷"],
+	# the drums' windows between the studs: where the pencil writes (item:pencil on it)
+	["amend_line", Rect2(224, 680, 232, 80), "Amendment line"],
+	["amend_line", Rect2(608, 680, 232, 80), "Amendment line"],
+	["amend_line", Rect2(992, 680, 232, 80), "Amendment line"],
 	["erase", Rect2(160, 820, 280, 120), "ERASE"],
 	["append", Rect2(1008, 820, 280, 120), "APPEND"],
 ]
@@ -143,6 +149,12 @@ const FAN_GLASS := Rect2(747, 154, 566, 128)
 const NOTICE_DIM := 0.2
 ## How long Ada's amendment takes to write itself under the printed line.
 const AMEND_WRITE := 1.6
+## The pencil line under the printed line (baseline) and the condensation ring on the card's
+## lower-right corner, which comes up with the cup_warm sound over RING_FADE.
+const AMEND_AT := Vector2(236, 517)
+const RING_AT := Vector2(546, 516)
+const RING_R := 22.0
+const RING_FADE := 1.5
 const CURTAIN_BOX := Rect2(26, 126, 482, 770)
 
 # sound -----------------------------------------------------------------------------------
@@ -194,7 +206,9 @@ var token_on := false         # the rubbing shows through the P08 reveal chain
 var key_t := {"erase": 0.0, "append": 0.0}
 var refuse_t := 0.0
 var refuse_shelf := ""
-var commit_t := -1.0          # P22: seconds since the amendment began; the card stays on its rest
+var commit_t := -1.0          # P22: seconds since the amendment began (the pencil line writes in)
+var ring_k := 1.0             # P22: the condensation ring on the amended card (0..1)
+var ring_run := false
 
 func _ready() -> void:
 	narrow = SystemFont.new()
@@ -274,9 +288,21 @@ func staged(id: String) -> String:
 	var st := r.plate_stage()
 	return id if st == "s1" else id + "_" + st
 
+## A bed's hollow on screen. From s3 on it is a body: one flat storm-navy shape (a head in the
+## pillow, a long torso-and-hip trough), damp-ringed at s4 (tools/art/rooms/R06.py: body_dent).
+func dent_id(bed: String) -> String:
+	var side := "a" if bed in A_BEDS else "b"
+	var st := r.plate_stage()
+	if st == "s3" or st == "s4":
+		return "%s_dent_%s_%sv2" % [side, bed, st]
+	return staged("%s_dent_%s" % [side, bed])
+
+## The s4 plates are the v2 set: the same plates without the row of damp patches between the bunks.
 func plate_id(wall: String) -> String:
 	var st := r.plate_stage()
 	var base := "view_a" if wall == "room" else "view_b"
+	if st == "s4":
+		return base + "_s4v2"
 	return base if st == "s1" else base + "_" + st
 
 ## The hollows on screen for `bed` (0..1), with every_bed's reveal and the sever rise.
@@ -340,6 +366,9 @@ func tick(dt: float) -> void:
 	for k in key_t:
 		key_t[k] = maxf(0.0, key_t[k] - dt)
 	refuse_t = maxf(0.0, refuse_t - dt)
+	if ring_run:
+		ring_k = minf(1.0, ring_k + dt / RING_FADE) if motion else 1.0
+		ring_run = ring_k < 1.0
 	if commit_t >= 0.0:
 		commit_t += dt
 		if _view() != "c_slope" or (commit_t > 0.5 and (game == null or not game.chain_active())):
@@ -439,6 +468,14 @@ func on_sfx(id: String) -> void:
 			key_t["append"] = KEY_TIME
 			if _view() == "c_slope" and r.amendment_written():
 				commit_t = 0.0
+				ring_k = 0.0
+				ring_run = false
+		"cup_warm":
+			# the cup warms across the room; on the rest, its ring comes up on her card
+			if ring_k < 1.0:
+				ring_run = motion
+				if not motion:
+					ring_k = 1.0
 		"reject_set":
 			var lr := r.last_refusal
 			if lr.contains(">"):
@@ -486,6 +523,8 @@ func apply_instantly() -> void:
 	venn_k = 1.0
 	venn_pending = false
 	commit_t = -1.0
+	ring_k = 1.0
+	ring_run = false
 	room.scale = Vector2.ONE
 	room.position = Vector2.ZERO
 	if mixer:
@@ -503,6 +542,8 @@ func reset_presentation() -> void:
 	refuse_t = 0.0
 	refuse_shelf = ""
 	commit_t = -1.0
+	ring_k = 1.0
+	ring_run = false
 
 func on_view_changed(before: String) -> void:
 	if _view() == "c_lockers" and before != "c_lockers" and game:
@@ -554,9 +595,16 @@ func _controls() -> Array:
 			return out
 	return []
 
+## Core hook: a click during a notice hold skips it, and does nothing else.
+func consume_click(_p: Vector2) -> bool:
+	if hold_t > 0.0:
+		_end_hold()
+		return true
+	return false
+
+## Side-effect free: nothing answers while a hold plays (consume_click skips it).
 func action_at(p: Vector2) -> String:
 	if hold_t > 0.0:
-		_end_hold()   # a click skips the hold, and does nothing else
 		return ""
 	for h in _controls():
 		if h[1].has_point(p):
@@ -720,7 +768,7 @@ func _draw_view_a(c: CanvasItem) -> void:
 	for bed in A_BEDS:
 		var a := dent_alpha(bed)
 		if a > 0.0:
-			_full(c, staged("a_dent_" + bed), Color(1, 1, 1, a))
+			_full(c, dent_id(bed), Color(1, 1, 1, a))
 	if r.cup_steam():
 		var st := _tex("a_steam")
 		if st:
@@ -759,7 +807,7 @@ func _draw_view_b(c: CanvasItem) -> void:
 	for bed in B_BEDS:
 		var a := dent_alpha(bed)
 		if a > 0.0:
-			_full(c, staged("b_dent_" + bed), Color(1, 1, 1, a))
+			_full(c, dent_id(bed), Color(1, 1, 1, a))
 	if r.curtain_shape():
 		_full(c, staged("b_curtain_shape"))
 	for t in TAGS_B:
@@ -811,14 +859,16 @@ func _draw_lockers(c: CanvasItem) -> void:
 	for l in R06Sim.LOCKERS:
 		var x: float = LOCKER_X[l]
 		_ctext(c, l.to_upper(), x + 150, 162, 30, INK, serif)
-		# the card: each sentence wrapped to the holder, centred in it
-		var lines := []
-		for s in R06Sim.CARD_TEXT[l]:
-			lines.append_array(_wrap(s, serif, 19, CARD_WRAP))
-		var lh := 19 * 1.25
-		var y0 := 202.0 + (148.0 - lh * lines.size()) / 2.0 + 17.0
+		# the card: each sentence wrapped to the holder, centred in it, at the largest size that fits
+		var fs := 19
+		var lines := _card_lines(l, serif, fs)
+		while fs > 14 and fs * 1.2 * lines.size() > CARD_TEXT_H:
+			fs -= 1
+			lines = _card_lines(l, serif, fs)
+		var lh := fs * 1.2
+		var y0 := 202.0 + (148.0 - lh * lines.size()) / 2.0 + fs * 0.9
 		for i in lines.size():
-			_text(c, lines[i], Vector2(x + 150 - CARD_WRAP / 2.0, y0 + lh * i), 19, INK, serif)
+			_text(c, lines[i], Vector2(x + 150 - CARD_WRAP / 2.0, y0 + lh * i), fs, INK, serif)
 		var o := r.placed_in(l)
 		if o != "":
 			_sprite(c, SPRITE[o], Vector2(SHELF_CX[l], SHELF_Y))
@@ -867,10 +917,8 @@ func _draw_slope(c: CanvasItem) -> void:
 	_ctext(c, "RECORD", 400, 184, 22, INK, narrow)
 	_ctext(c, "EVIDENCE", 1048, 184, 22, INK, narrow)
 	var st: Dictionary = r.state
-	# P22: after APPEND the card stays on its rest while Ada writes under the printed line, until
-	# the chain ends (commit_t); then it is in her bag
-	var committing := commit_t >= 0.0
-	if st.card_on_rest or committing:
+	# P22: after APPEND the card stays on its rest, amended, until she steps back (Back gives it)
+	if st.card_on_rest:
 		var card := _tex("c_card")
 		if card:
 			c.draw_texture(card, Vector2(200, 260))
@@ -882,9 +930,10 @@ func _draw_slope(c: CanvasItem) -> void:
 		c.draw_rect(box, INK, false, 2.0)
 		c.draw_rect(box.grow(-3), Color(INK, 0.6), false, 1.0)
 		_ctext(c, R06Sim.REGISTER_STAMP, box.get_center().x, box.get_center().y + 6, 16, INK, narrow)
-		if committing:
+		if r.amendment_written():
 			_draw_amendment(c)
-	if st.sketch_on_rest or committing:
+			_draw_card_ring(c)
+	if st.sketch_on_rest:
 		var sk := _tex("c_sketch")
 		if sk:
 			c.draw_texture(sk, Vector2(848, 260))
@@ -921,18 +970,31 @@ func _draw_slope(c: CanvasItem) -> void:
 		_ctext(c, k[2], lp.x + 1, lp.y + 1, 18, Color(PAPER_HI, 0.5), serif_bold)
 		_ctext(c, k[2], lp.x, lp.y, 18, INK, serif_bold)
 
-## Ada's amendment, in her blue hand, written in under the printed line (the P22 reward).
+## Ada's amendment, in pencil under the printed line (the P22 reward): it writes itself in while
+## the pencil scratches, and stays.
 func _draw_amendment(c: CanvasItem) -> void:
-	var parts := R06Sim.AMEND_TEXT.split(" / ")
-	var lines: Array[String] = [parts[0] + " /", " / ".join(parts.slice(1)) + "  A.M."]
-	var total: int = lines[0].length() + lines[1].length()
-	var shown: int = total
-	if motion:
-		shown = int(clampf(commit_t / AMEND_WRITE, 0.0, 1.0) * total)
-	var y := 514.0
-	for ln in lines:
-		var n: int = mini(shown, ln.length())
-		if n > 0:
-			Ink.handwriting(c, ln, n, Vector2(232, y), 17, 61 + int(y), false, Ink.BLUE_INK)
-		shown -= ln.length()
-		y += 28.0
+	var ln := R06Sim.AMEND_LINE
+	var shown := ln.length()
+	if motion and commit_t >= 0.0:
+		shown = int(clampf(commit_t / AMEND_WRITE, 0.0, 1.0) * ln.length())
+	if shown > 0:
+		Ink.handwriting(c, ln, shown, AMEND_AT, 19, 61, false, GRAPHITE)
+
+## A faint ring of condensation on the card's lower-right corner, as if the cup had stood there:
+## a broken damp ring, darker paper with a pale inner lip. Fades in with the cup_warm sound.
+func _draw_card_ring(c: CanvasItem) -> void:
+	if ring_k <= 0.0:
+		return
+	var a := ring_k
+	# fixed gaps where the ring didn't quite close
+	for seg in [[0.10, 1.55], [1.75, 3.90], [4.10, 6.05]]:
+		c.draw_arc(RING_AT, RING_R, seg[0], seg[1], 28, Color(STORM_INK, 0.26 * a), 3.0, true)
+		c.draw_arc(RING_AT, RING_R - 2.5, seg[0] + 0.05, seg[1] - 0.05, 28, Color(PAPER_HI, 0.35 * a), 1.2, true)
+	c.draw_circle(RING_AT, RING_R - 1.0, Color(STORM_INK, 0.05 * a))
+
+## A card's sentences wrapped to its holder at size `fs`.
+func _card_lines(l: String, font: Font, fs: int) -> Array:
+	var out := []
+	for s in R06Sim.CARD_TEXT[l]:
+		out.append_array(_wrap(s, font, fs, CARD_WRAP))
+	return out

@@ -285,10 +285,27 @@ def soft_limit(xs: list[float], knee: float = 0.6, ceil: float = 0.97) -> list[f
     return out
 
 
+def match_wrap(xs: list[float], seconds: float = 0.002) -> list[float]:
+    """A raised-cosine match at the loop's wrap: over the last `seconds`, the tail is eased onto
+    the sample that would come just before sample 0 (2*x[0] - x[1]), so the final sample blends
+    into sample 0 with no step and no kink, whatever the crossfade left there."""
+    m = max(2, int(seconds * SR))
+    if len(xs) < m + 2:
+        return xs
+    out = list(xs)
+    delta = (2.0 * out[0] - out[1]) - out[-1]
+    n = len(out)
+    for k in range(m):
+        w = 0.5 - 0.5 * math.cos(math.pi * (k + 1) / m)
+        out[n - m + k] += w * delta
+    return out
+
+
 def write_loop(name: str, xs: list[float]) -> None:
     """Masters to about -18 dBFS RMS. Peaky textures (raindrops, ring ticks) would hit full scale
-    first, so they are rounded off by soft_limit and the level re-measured."""
-    xs = seamless(xs, 1.0)
+    first, so they are rounded off by soft_limit and the level re-measured. Every loop's wrap
+    gets a 2 ms raised-cosine match after seamless() (match_wrap)."""
+    xs = match_wrap(seamless(xs, 1.0), 0.002)
     for _ in range(3):
         g = LOOP_RMS / max(1e-9, rms(xs))
         xs = soft_limit([x * g for x in xs])

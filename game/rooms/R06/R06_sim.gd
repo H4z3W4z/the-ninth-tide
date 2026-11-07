@@ -33,12 +33,15 @@ const LOCKERS := ["bell", "rook", "venn", "ives"]
 const OWNER := {"cup": "bell", "calipers": "rook", "pencils": "venn", "glove": "ives"}
 ## The order on top of the locked lockers: a derangement of the locker order, never positional.
 const TRAY_ORDER := ["pencils", "glove", "cup", "calipers"]
+## The cards give habits; the objects must be handled (lifted, then turned over) to show the
+## wear those habits leave. No card names its object.
 const CARD_TEXT := {
-	"bell": ["N. Bell.", "Takes her tea without sugar.", "Mends rather than replaces."],
-	"rook": ["Dr S. Rook.", "Measures everything twice.", "Filed his own instruments."],
-	"venn": ["E. Venn.", "Left-handed.", "Keeps four pencils."],
-	"ives": ["T. Ives.", "Lost the feeling in two fingertips to the winch.", "Restitches his right glove."],
+	"bell": ["N. Bell.", "Takes her tea without sugar.", "Was given three new cups. Kept none of them."],
+	"rook": ["Dr S. Rook.", "Measures everything twice.", "Trusts no instrument he has not altered."],
+	"venn": ["E. Venn.", "Writes from the left of the page.", "Was issued two pencils. Requisitioned two more."],
+	"ives": ["T. Ives.", "Lost the feeling in two fingertips to the winch.", "Will not take a new issue of anything he can sew."],
 }
+## The second click on a lifted belonging: turned over in the hand.
 const WEAR_LINES := {
 	"cup": "A cup with a brass staple through the handle where it broke. Mended, not replaced. N.B. scratched small under the foot.",
 	"calipers": "Calipers. One jaw has been filed down by hand, carefully.",
@@ -47,34 +50,37 @@ const WEAR_LINES := {
 }
 const SHORT_NAMES := {"cup": "The cup.", "calipers": "The calipers.", "pencils": "The pencil holder.",
 	"glove": "The glove."}
+## The first click: lifted, seen from one side. Only the short name and one neutral clause.
+const LIFT_LINES := {"cup": "The cup. Brass glints at the handle.", "calipers": "The calipers. One jaw looks wrong.",
+	"pencils": "The pencil holder. Tin.", "glove": "The glove. A right glove."}
 const PLACED_LINES := {"bell": "Her cup, on Bell's shelf.", "rook": "His calipers, on Rook's shelf.",
 	"venn": "His pencils, on Venn's shelf.", "ives": "His glove, on Ives's shelf."}
 const RIGHT_LINES := {
-	"cup": "Tea without sugar, and a cup she wouldn't throw away. Bell's.",
-	"calipers": "Filed by his own hand. Rook's.",
-	"pencils": "Worn on the left, four slots. Venn's.",
-	"glove": "Red thread at two fingertips. Ives's.",
+	"cup": "Three new cups, and she kept none of them. She kept this one. Bell's.",
+	"calipers": "Altered by his own hand. Rook's.",
+	"pencils": "Two issued, two more requisitioned, worn from the left. Venn's.",
+	"glove": "Red thread at two fingertips. Sewn, not reissued. Ives's.",
 }
 const WRONG := {
 	"cup": {
-		"rook": "The cup's been riveted. Rook doesn't mend things; he files them.",
-		"venn": "A mended cup. Venn's card is his left hand and four pencils, not mending.",
-		"ives": "Ives restitches gloves. This is a cup with a staple through the handle: someone who mends rather than replaces.",
+		"rook": "A brass staple through a broken handle. Rook alters instruments. A cup isn't one.",
+		"venn": "A stapled cup. Venn's card is the left of the page and two pencils, then two more.",
+		"ives": "Ives sews what he won't have reissued. A brass staple isn't sewing. This is someone given three new cups who kept none of them.",
 	},
 	"calipers": {
-		"bell": "One jaw's been filed by hand. Bell mends things; she doesn't file them.",
-		"venn": "Filed calipers. Venn's card says left hand and four pencils. These belong to someone who files his own instruments.",
-		"ives": "Ives can't feel two fingertips. These want a fine hand, and someone who files his own tools.",
+		"bell": "One jaw filed down by hand. Bell's card is cups she wouldn't take. This is an instrument someone altered.",
+		"venn": "A filed jaw. Venn's card is pencils and the left of the page. These belong to someone who trusts no instrument he hasn't altered.",
+		"ives": "A jaw filed fine. Ives can't feel two fingertips, and he sews; he doesn't file.",
 	},
 	"pencils": {
-		"bell": "Four slots, worn bright on the left. Bell's card is about tea and mending.",
-		"rook": "Worn on the left side. This was held in a left hand, four pencils at a time.",
-		"ives": "Four pencil slots, worn on the left. Ives's card is about his right glove.",
+		"bell": "Four slots, worn bright on the left. Bell's card is tea and cups.",
+		"rook": "Four slots, worn on the left side. Two issued, two requisitioned, written from the left of the page. Not Rook.",
+		"ives": "Four pencil slots, left side worn bright. Ives's card is what he can sew.",
 	},
 	"glove": {
-		"bell": "Red thread at two fingertips. Someone who lost the feeling there. Bell's card says nothing about her hands.",
-		"rook": "Restitched at two fingertips. Rook files instruments; this is about a hand the winch took.",
-		"venn": "This glove is a right hand, restitched. Venn's is the left side that wears.",
+		"bell": "Red thread at two fingertips. Bell's card is cups. This was sewn by someone who won't take a new issue.",
+		"rook": "Restitched in red thread. Rook alters instruments; this is a hand the winch took two fingertips from.",
+		"venn": "A right glove, red thread at two fingertips. Venn's card is pencils and the left of the page.",
 	},
 }
 const ALREADY_HOME := "Something's already home there."
@@ -108,6 +114,17 @@ const APPEND_REFUSALS := {
 	"finding_unverified": "'Not verified.' I have verified it. The sketch and the cup agree.",
 	"object": "The evidence on the rest is a cup. The correction has to say what the evidence shows.",
 	"owner": "This is Nora's record. The correction names her.",
+}
+## Ada's pencil: corrections are written in the amending officer's own hand (flags.md section 4,
+## a durable Tide I item from the office, never taken).
+const PENCIL := "pencil"
+const NO_PENCIL := "Corrections are in the amending officer's hand. Mine."
+const AMEND_LINE := "REPAIRED CUP, NORA BELL"
+## Glances: a look across the room at something that just changed, as {id, rect, view}. Rects are
+## in the room view's native canvas; view is the wall they are on ("room" A, "curtain" B).
+const GLANCES := {
+	"p08_latch": {"rect": Rect2(706, 524, 96, 84), "view": "curtain"},   # the pigeonhole
+	"p22_cup": {"rect": Rect2(52, 420, 92, 150), "view": "room"},        # Bell's cup, steaming
 }
 const WHEEL_CONTROLS := {"fin_prev": [0, -1], "fin_next": [0, 1], "obj_prev": [1, -1],
 	"obj_next": [1, 1], "own_prev": [2, -1], "own_next": [2, 1]}
@@ -151,15 +168,15 @@ const OBSERVATIONS := {
 	"lockers": "Four open lockers: BELL, ROOK, VENN, IVES. A personal card in a brass holder on each, and a bare shelf inside.",
 	"closed_lockers": "Four more lockers, shut and labelled: LUSK, DOANE, HART, TULL. No locker or bed for Pryce.",
 	"belongings": "Four things on top of the locked lockers, in this order: a pencil holder, a glove, a cup, a pair of calipers. No names on them.",
-	"card_bell": "Card, BELL: 'N. Bell. Takes her tea without sugar. Mends rather than replaces.'",
-	"card_rook": "Card, ROOK: 'Dr S. Rook. Measures everything twice. Filed his own instruments.'",
-	"card_venn": "Card, VENN: 'E. Venn. Left-handed. Keeps four pencils.'",
-	"card_ives": "Card, IVES: 'T. Ives. Lost the feeling in two fingertips to the winch. Restitches his right glove.'",
+	"card_bell": "Card, BELL: 'N. Bell. Takes her tea without sugar. Was given three new cups. Kept none of them.'",
+	"card_rook": "Card, ROOK: 'Dr S. Rook. Measures everything twice. Trusts no instrument he has not altered.'",
+	"card_venn": "Card, VENN: 'E. Venn. Writes from the left of the page. Was issued two pencils. Requisitioned two more.'",
+	"card_ives": "Card, IVES: 'T. Ives. Lost the feeling in two fingertips to the winch. Will not take a new issue of anything he can sew.'",
 	"wear_cup": "The cup: a brass staple through the broken handle. N.B. under the foot.",
 	"wear_calipers": "The calipers: one jaw filed down by hand.",
 	"wear_pencils": "The pencil holder: four slots, worn bright on the left side.",
 	"wear_glove": "The glove: a right glove, restitched in red thread at two fingertips.",
-	"personal_cards": "Bell: tea without sugar; mends things. Rook: measures twice. Venn: left-handed, four pencils. Ives: restitches his right glove.",
+	"personal_cards": "Bell: tea without sugar; given three new cups, kept none of them. Rook: measures twice; trusts no instrument he has not altered. Venn: writes from the left of the page; two pencils issued, two more requisitioned. Ives: two fingertips lost to the winch; won't take a new issue of anything he can sew.",
 	"venn_seal": "Venn's personal seal: three cuts.",
 	"compartment": "The back of Venn's locker dropped away. Behind it, the locker goes on further than the wall it stands against.",
 	"venn_bunk": "Venn's bunk, the lower one, ROOK above. The blanket folded square at the foot.",
@@ -167,7 +184,7 @@ const OBSERVATIONS := {
 	"bunks_a": "This side: ROOK over VENN, HART over IVES.",
 	"bunks_b": "Behind the curtain: LUSK over DOANE, TULL over BELL. Eight beds, eight lockers.",
 	"luggage": "Suitcases under the bunks. No labels, no tags, no initials. Never collected.",
-	"curtain": "A curtain partition on a ceiling rail. It sways when I breathe out.",
+	"curtain": "A curtain partition on a ceiling rail. It sways when I breathe out. Then once more, when I don't.",
 	"curtain_shape": "The curtain hangs as if someone stood behind it, close, taller than me. Pulled aside: nobody. It has stopped swaying.",
 	"calendar_rota": "Night-watch calendar, October 11-18: Hart, Ives, Venn, Doane, Pryce, Lusk, Tull, Venn. Printed dates, names in different hands. Venn took the 18th.",
 	"calendar_index": "The calendar's names changed. Same dates, one hand: Rook, Bell, Ives, Lusk, Pryce, Doane, Hart, Tull. The eight. Venn isn't on it.",
@@ -182,6 +199,7 @@ const OBSERVATIONS := {
 	"sketch_laid": "I laid my copy of Nora's sketch on the evidence rest: 'Cup, mine, mended 3 Feb.' The same staple.",
 	"card_vs_cup": "Her card says no surviving personal effects. Her cup is in her locker.",
 	"nora_amendment": "'No surviving personal effects.' Amended, in my hand: personal effect identified, repaired cup, Nora Bell.",
+	"card_ring": "A ring of condensation came up on the corner of her amended card while it lay on the rest, the size of her cup's foot.",
 	"cup_warm": "After the amendment Nora's cup was warm, a dry ring under it, as if it had just been put down. Tea without sugar.",
 	"dent_doane": "A second hollow, in Doane's bunk, under the pencil shelf.",
 	"dents_four": "Four hollows now: Venn, Doane, Bell, Ives.",
@@ -192,22 +210,28 @@ const OBJECTIVES := {
 	"p22": "Correct Nora's register card without erasing it.",
 	"away": "Nothing here needs me yet. The beds keep what they keep.",
 	"done": "Her card is amended. The bunk room is finished with me.",
+	"take_card": "Take Nora's amended card off the writing slope.",
 }
 const HINTS := {
 	"p08": [
 		"Four belongings, four open lockers, and a card on each door.",
-		"Each card names a habit. Each object shows the wear that habit leaves.",
+		"Each card names a habit. Lift each object and turn it over: it shows the wear that habit leaves.",
 		"Cup to Bell, calipers to Rook, pencil holder to Venn, glove to Ives.",
 	],
 	"p22": [
 		"Nora's register card says something the bunk room can contradict.",
 		"Her cup is a personal effect. Corrections are added, never written over.",
-		"Put her card and the cup sketch on the slope and APPEND 'personal effect identified / repaired cup / Nora Bell'.",
+		"Put her card and the cup sketch on the slope, set the wheels to 'personal effect identified / repaired cup / Nora Bell', and APPEND with my pencil.",
 	],
 	"away": [
 		"Nothing in the bunk room is waiting on me.",
 		"The beds keep what they keep. Something elsewhere comes first.",
 		"Come back when I have a record of Nora's that needs correcting.",
+	],
+	"take_card": [
+		"Her card is still on the writing slope.",
+		"The amendment is written. The card goes with me, not on the rest.",
+		"Open the writing slope and step back from it: I take her amended card with me.",
 	],
 	"done": [
 		"The bunk room has given what it had.",
@@ -218,9 +242,9 @@ const HINTS := {
 ## Items this room hands out (docs/design/puzzle-cards/flags.md section 4).
 const ITEMS := {
 	"token_bunk_half": {"name": "Service token, bunk half", "desc": "Half of a split brass service token.",
-		"short": "Token, bunk half"},
+		"short": "Bunk half"},
 	"amended_nora_card": {"name": "Register card: Nora Bell (amended)", "desc": "Nora's register card, with the amendment in Ada's hand.",
-		"short": "Nora's card (amended)"},
+		"short": "Nora (amended)"},
 }
 
 const SAVED_BOOLS := ["p08_complete", "pillow_dented", "letter_read", "card_on_rest", "sketch_on_rest",
@@ -230,6 +254,8 @@ const SAVED_BOOLS := ["p08_complete", "pillow_dented", "letter_read", "card_on_r
 ## ("cup>rook") for the view's highlight.
 var lifted := ""
 var last_refusal := ""
+## Transient: the lifted belonging has been turned over in the hand (its wear seen).
+var turned := ""
 
 func initial_state() -> Dictionary:
 	return {
@@ -247,7 +273,7 @@ func objective() -> String:
 	if not state.p08_complete:
 		return "p08"
 	if state.p22_complete:
-		return "done"
+		return "take_card" if state.card_on_rest else "done"
 	if game.flag("P21"):
 		return "p22"
 	return "away"
@@ -395,6 +421,7 @@ func current_notice() -> String:
 func arrive(ev: Array, first: bool) -> void:
 	_sync()
 	lifted = ""
+	turned = ""
 	last_refusal = ""
 	if first:
 		_say(ev, ARRIVAL)
@@ -434,16 +461,16 @@ func back(ev: Array) -> void:
 	match local_view:
 		"c_lockers":
 			lifted = ""
+			turned = ""
 			local_view = "room"
 		"c_slope":
-			if state.card_on_rest:
-				state.card_on_rest = false
-				game.give("nora_register_card", ev)
+			_lift_card(ev)
 			state.sketch_on_rest = false
 			if state.p22_complete and not state.cup_warm_seen:
 				state.cup_warm_seen = true
 				local_view = "room"
 				_fx(ev, "notice_cup")
+				_glance(ev, "p22_cup")
 				_say(ev, "Her cup is warm. There's a dry ring under it, as if it had just been put down.", 0.6, true)
 				_say(ev, "Tea without sugar. I'd have guessed sugar.", 3.0, true)
 				_observe("cup_warm")
@@ -460,10 +487,12 @@ func act(action: String, ev: Array) -> void:
 		return
 	if action in HOTSPOTS:
 		lifted = ""
+		turned = ""
 		local_view = "room"
 		_room(action, ev)
 	elif action in CURTAIN_HOTSPOTS:
 		lifted = ""
+		turned = ""
 		local_view = "curtain"
 		_curtain(action, ev)
 
@@ -506,6 +535,9 @@ func use_item(item: String, target: String, ev: Array) -> bool:
 			if target == "printed_line":
 				_erase(ev)
 				return true
+			if target in ["append", "amend_line"] and local_view == "c_slope":
+				_append(ev, true)
+				return true
 			if target == "calendar":
 				_say(ev, "I'm not writing on that. Something else does.")
 				return true
@@ -515,6 +547,7 @@ func use_item(item: String, target: String, ev: Array) -> bool:
 				return true
 			if target.begins_with("obj_") and target.substr(4) in OBJECTS:
 				_say(ev, WEAR_LINES[target.substr(4)])
+				_observe("wear_" + target.substr(4))
 				return true
 			if target == "venn_bunk" and "venn" in dents():
 				_say(ev, "Under the lens the dent has the weave of a pillowcase pressed into it. Recent.")
@@ -605,7 +638,7 @@ func _curtain(action: String, ev: Array) -> void:
 				_say(ev, "It hangs as if someone were standing behind it. Close. Taller than me. I pull it aside: nobody. I let it fall, and the shape is back.")
 				_observe("curtain_shape")
 			else:
-				_say(ev, "A curtain partition on a ceiling rail. It sways a little when I breathe out.")
+				_say(ev, "A curtain partition on a ceiling rail. It sways a little when I breathe out. Then once more, when I don't.")
 				_observe("curtain")
 		"calendar":
 			_sfx(ev, "calendar_page")
@@ -640,7 +673,9 @@ func _curtain(action: String, ev: Array) -> void:
 		"slope":
 			local_view = "c_slope"
 			_sfx(ev, "slope_lid")
-			if state.p22_complete:
+			if state.p22_complete and state.card_on_rest:
+				_say(ev, "Her card is still on the rest, amended in pencil under the printed line.")
+			elif state.p22_complete:
 				_say(ev, "The slope is clear. Her card, amended, is with me.")
 			else:
 				_say(ev, "A writing slope with two baize rests, RECORD and EVIDENCE, and a ruled amendment line beneath.")
@@ -705,17 +740,22 @@ func _lift(o: String, ev: Array) -> void:
 	if _locker_of(o) != "":
 		_say(ev, ITS_HOME)
 		return
+	if lifted == o and turned != o:
+		# the second click: turned over in the hand
+		turned = o
+		_sfx(ev, "belonging_lift")
+		_say(ev, WEAR_LINES[o])
+		_observe("wear_" + o)
+		return
 	if lifted == o:
 		lifted = ""
+		turned = ""
 		_sfx(ev, "belonging_set_down")
 		return
 	lifted = o
+	turned = ""
 	_sfx(ev, "belonging_lift")
-	if not has_seen("wear_" + o):
-		_say(ev, WEAR_LINES[o])
-		_observe("wear_" + o)
-	else:
-		_say(ev, SHORT_NAMES[o])
+	_say(ev, LIFT_LINES[o])
 
 func _shelf(l: String, ev: Array) -> void:
 	if lifted == "":
@@ -728,6 +768,7 @@ func _shelf(l: String, ev: Array) -> void:
 		return
 	if OWNER[o] != l:
 		lifted = ""
+		turned = ""
 		last_refusal = o + ">" + l
 		_sfx(ev, "reject_set")
 		_say(ev, WRONG[o][l])
@@ -736,6 +777,7 @@ func _shelf(l: String, ev: Array) -> void:
 		return
 	state.placed[l] = o
 	lifted = ""
+	turned = ""
 	last_refusal = ""
 	_sfx(ev, o + "_set")
 	_sfx(ev, "plate_click", 0.25)
@@ -757,6 +799,7 @@ func _commit_p08(ev: Array) -> void:
 	_sfx(ev, "latch_small", 8.6)
 	_fx(ev, "pigeonhole_open")
 	_say(ev, "Across the room, something small unlatched.", 8.8, true)
+	_glance(ev, "p08_latch")
 	_observe("personal_cards")
 	_observe("venn_seal")
 	_observe("compartment")
@@ -779,10 +822,9 @@ func _slope(action: String, ev: Array) -> bool:
 			_erase(ev)
 		"rest_record":
 			if state.card_on_rest:
-				state.card_on_rest = false
-				game.give("nora_register_card", ev)
+				_lift_card(ev)
 				_sfx(ev, "card_lay")
-				_say(ev, "I take her card back.")
+				_say(ev, "I take her card, amended." if state.p22_complete else "I take her card back.")
 			elif state.p22_complete:
 				_say(ev, "The rest is clear.")
 			elif game.has_item("nora_register_card"):
@@ -803,7 +845,12 @@ func _slope(action: String, ev: Array) -> bool:
 			else:
 				_say(ev, "I've nothing to lay beside it. The kitchen has a book with her handwriting in it.")
 		"append":
-			_append(ev)
+			_append(ev, false)
+		"amend_line":
+			if state.p22_complete:
+				_say(ev, "Written. It reads under the printed line, in pencil.")
+			else:
+				_say(ev, "The amendment line: finding, object, owner. It writes under the printed line, not over it.")
 		_:
 			return false
 	return true
@@ -812,8 +859,9 @@ func _erase(ev: Array) -> void:
 	_sfx(ev, "erase_refuse")
 	_say(ev, ERASE_REFUSAL if state.card_on_rest else ERASE_NOTHING)
 
-## The first failing check for APPEND, or "" when the amendment can be written.
-func append_refusal() -> String:
+## The first failing check for APPEND, or "" when the amendment can be written. The pencil is
+## the last check: the wheels and the rests guide first; only then does her hand matter.
+func append_refusal(with_pencil := true) -> String:
 	if state.p22_complete:
 		return "done"
 	if not state.card_on_rest:
@@ -831,19 +879,19 @@ func append_refusal() -> String:
 		return "object"
 	if int(w[2]) != WHEEL_SOLUTION[2]:
 		return "owner"
+	if not with_pencil or not game.has_item(PENCIL):
+		return "no_pencil"
 	return ""
 
-func _append(ev: Array) -> void:
-	var why := append_refusal()
+## APPEND, with the pencil (item:pencil on the amendment line or APPEND, or the pencil selected)
+## or without it. The card stays on the rest, amended, until she steps back from the slope.
+func _append(ev: Array, with_pencil: bool) -> void:
+	var why := append_refusal(with_pencil)
 	if why != "":
 		_sfx(ev, "append_refuse")
-		_say(ev, APPEND_REFUSALS[why])
+		_say(ev, NO_PENCIL if why == "no_pencil" else APPEND_REFUSALS[why])
 		return
-	state.card_on_rest = false
-	state.sketch_on_rest = false
 	state.p22_complete = true
-	game.take("nora_register_card")
-	game.give("amended_nora_card", ev)
 	game.solve("P22", ev)
 	_sfx(ev, "pencil_scratch", 0.0)
 	_say(ev, "I write it under the printed line, and leave the printed line alone.", 0.2, true)
@@ -851,6 +899,21 @@ func _append(ev: Array) -> void:
 	_sfx(ev, "cup_warm", 3.2)
 	_fx(ev, "cup_warm")
 	_say(ev, "Across the room, in Bell's locker, something ticks. China, warming.", 3.4, true)
+	_observe("card_ring")
+
+## The card comes off the RECORD rest into her bag: the original before P22, amended after.
+func _lift_card(ev: Array) -> void:
+	if not state.card_on_rest:
+		return
+	state.card_on_rest = false
+	if state.p22_complete:
+		_swap_card(ev)
+	else:
+		game.give("nora_register_card", ev)
+
+func _glance(ev: Array, id: String) -> void:
+	var g: Dictionary = GLANCES[id]
+	ev.append({"type": "glance", "id": id, "rect": g.rect, "view": g.view})
 
 # ---------------------------------------------------------------------------------------------
 # state
@@ -893,16 +956,18 @@ func _sync() -> void:
 		_set_p22_done()
 		_swap_card()
 
-## After P22 the register card is the amended card (the same physical card).
-func _swap_card() -> void:
+## After P22 the register card is the amended card (the same physical card). While it lies on
+## the rest it is in neither hand nor bag; it is given when she takes it off.
+func _swap_card(ev: Array = []) -> void:
 	if game.has_item("nora_register_card"):
 		game.take("nora_register_card")
-	if not game.has_item("amended_nora_card"):
-		game.give("amended_nora_card")
+	if not state.card_on_rest and not game.has_item("amended_nora_card"):
+		game.give("amended_nora_card", ev)
 
 func load_state(d: Variant) -> void:
 	state = initial_state()
 	lifted = ""
+	turned = ""
 	last_refusal = ""
 	if not d is Dictionary:
 		return
@@ -934,7 +999,10 @@ func load_state(d: Variant) -> void:
 		state.pillow_dented = false
 		state.letter_read = false
 	if state.p22_complete:
+		# the amended card may still be on the rest; the sketch never outlives a load
+		var on_rest: bool = state.card_on_rest
 		_set_p22_done()
+		state.card_on_rest = on_rest
 	else:
 		state.cup_warm_seen = false
 
@@ -944,7 +1012,7 @@ func reconcile() -> void:
 	game.set_flag("P22", state.p22_complete)
 	if state.card_on_rest and not state.p22_complete:
 		game.give("nora_register_card")
-	state.card_on_rest = false
+		state.card_on_rest = false
 	state.sketch_on_rest = false
 	if state.p22_complete:
 		_swap_card()
@@ -1010,11 +1078,13 @@ func debug_jump(n: int) -> void:
 	elif n <= 7:
 		game.debug_tide(8, ID)
 		game.give("nora_register_card")
+		game.give(PENCIL)
 		game.observe("R05", "nora_ledger")
 		dest = "curtain"
 	else:
 		game.debug_tide(9, ID)
 	lifted = ""
+	turned = ""
 	last_refusal = ""
 	reconcile()
 	if n == 7:
