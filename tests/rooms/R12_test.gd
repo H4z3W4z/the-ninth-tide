@@ -116,6 +116,10 @@ func run_tests() -> void:
 	test_chain_actions()
 	if _view_ready():
 		await view_checks(ROOM)
+		await test_view_tables()
+		await test_view_hooks()
+		await test_view_arrival()
+		await test_view_endings()
 	else:
 		print("SKIP: R12 view_checks: the R12 view does not yet declare rects for every sim hotspot (view team)")
 
@@ -1127,3 +1131,142 @@ func test_chain_actions() -> void:
 	check(r12(h).local_view == "room", "after the glance the room is up")
 	play(h, P27_SEVER)
 	check(h.flag("P27") and r12(h).chosen() == "sever", "P27 from the room after the glance")
+
+# ---------------------------------------------------------------------------------------------
+# the view (game/rooms/R12/R12_view.gd) on the real game scene
+# ---------------------------------------------------------------------------------------------
+const VIEW_TABLES := {
+	"room": "HOTSPOTS", "frames": "FRAMES_HOTSPOTS", "routing": "ROUTING_HOTSPOTS",
+	"c_frames": "FRAMES_CONTROLS", "c_routing": "ROUTING_CONTROLS", "c_final": "FINAL_CONTROLS",
+}
+## How to stand in each view from a debug jump.
+const VIEW_PATHS := {
+	"room": [0, []], "frames": [0, ["to_frames"]], "routing": [1, ["to_routing"]],
+	"c_frames": [0, ["to_frames", "frame_body"]], "c_routing": [1, ["to_routing", "plate_sever"]],
+	"c_final": [2, ["to_routing", "contacts"]],
+}
+
+func _scene_at(n: int, actions: Array) -> Node:
+	var scene = new_scene("user://r12_view_test.json")
+	await process_frame
+	scene.room_jump(ROOM, n)
+	for a in actions:
+		scene.dispatch(a)
+	return scene
+
+func _state_key(scene: Node) -> String:
+	var r: R12Sim = scene.sim.room(ROOM)
+	return JSON.stringify(scene.sim.to_dict()) + r.local_view + r.held_card() + r.held_cc() + str(r.held_yoke())
+
+## Every view's table: the sim's ids in order, at least 64x64, on the canvas, clear of the HUD,
+## inventory and subtitles; each control answers at its centre (or a smaller one listed first does);
+## the hit-tests change nothing.
+func test_view_tables() -> void:
+	var sim_ids := {"room": R12Sim.HOTSPOTS, "frames": R12Sim.FRAMES_HOTSPOTS, "routing": R12Sim.ROUTING_HOTSPOTS,
+		"c_frames": R12Sim.FRAMES_CONTROLS, "c_routing": R12Sim.ROUTING_CONTROLS, "c_final": R12Sim.FINAL_CONTROLS}
+	for v in VIEW_PATHS:
+		var scene = await _scene_at(VIEW_PATHS[v][0], VIEW_PATHS[v][1])
+		var r: R12Sim = scene.sim.room(ROOM)
+		var view = scene.room_view
+		check(r.local_view == v, "view test: standing in %s (got %s)" % [v, r.local_view])
+		var rows: Array = view.closeup_controls(v)
+		var ids := []
+		for h in rows:
+			ids.append(h[0])
+		check(ids == sim_ids[v], "view %s: the controls are the sim's, in order (%s)" % [v, ids])
+		var before := _state_key(scene)
+		for h in rows:
+			var rect: Rect2 = h[1]
+			check(rect.size.x >= MIN_TARGET and rect.size.y >= MIN_TARGET, "view %s: %s is at least 64x64" % [v, h[0]])
+			check(CANVAS.encloses(rect), "view %s: %s is on the canvas" % [v, h[0]])
+			check(not rect.intersects(HUD_ZONE) and not rect.intersects(SUBTITLE_ZONE)
+				and not rect.intersects(INVENTORY_ZONE), "view %s: %s keeps clear of the HUD and subtitles" % [v, h[0]])
+			var hit: String = view.action_at(rect.get_center())
+			check(hit == h[0] or _first_hit(rows, rect.get_center()) != h[0], "view %s: a click on %s reaches it (%s)" % [v, h[0], hit])
+			check(view.hover_at(rect.get_center()) == hit, "view %s: hover names what a click would do on %s" % [v, h[0]])
+			check(view.label_for(h[0]) != "", "view %s: %s has a hover label" % [v, h[0]])
+			check(scene.action_at(rect.get_center()) == hit, "view %s: the scene routes %s to the room" % [v, h[0]])
+		check(_state_key(scene) == before, "view %s: hit-tests change nothing" % v)
+		check(view.dev_rects().size() == rows.size(), "view %s: F1 shows this view's rects" % v)
+		await free_scene(scene)
+	# a consequence card's rect follows it into its slot
+	var sc = await _scene_at(1, ["to_routing", "plate_sever", "cc_ends", "slot_sever"])
+	var cr: Rect2 = sc.room_view.control_rect("cc_ends")
+	check(cr == Rect2(140, 590, 420, 150), "view: a placed card's rect is its slot (%s)" % [cr])
+	check(sc.room_view.control_rect("cc_remains") == Rect2(394, 790, 310, 160), "view: a tray card's rect is its well")
+	await free_scene(sc)
+
+## The core hooks per view.
+func test_view_hooks() -> void:
+	var expect := {
+		"room": [false, "Back", "menu", true], "frames": [true, "◂ Chair", "back", false],
+		"routing": [true, "◂ Chair", "back", false], "c_frames": [true, "Back", "back", false],
+		"c_routing": [true, "Back", "back", false], "c_final": [true, "Back", "back", false],
+	}
+	for v in VIEW_PATHS:
+		var scene = await _scene_at(VIEW_PATHS[v][0], VIEW_PATHS[v][1])
+		var view = scene.room_view
+		var e: Array = expect[v]
+		check(view.back_visible() == e[0], "view %s: Back shown %s" % [v, e[0]])
+		if e[0]:
+			check(view.back_label() == e[1], "view %s: Back reads %s (got %s)" % [v, e[1], view.back_label()])
+		check(view.esc_action() == e[2], "view %s: Esc does %s" % [v, e[2]])
+		check(view.exits_active() == e[3], "view %s: exits active %s" % [v, e[3]])
+		check(not view.hud_hidden() and view.chain_gates(), "view %s: HUD shown, chains gate clicks" % v)
+		check(view.start_glance("window", Rect2(474, 96, 500, 290)) == (v == "room"),
+			"view %s: the window glance is the room's own only in the room" % v)
+		await free_scene(scene)
+	check(load("res://game/rooms/R12/R12_view.gd").new().exit_arrow("R11") == "left", "view: the stair tab points left")
+	# loops follow the stage
+	var lt := {}
+	for n in 3:
+		var scene = await _scene_at(n, [])
+		lt[n] = scene.room_view.loop_targets()
+		await free_scene(scene)
+	check(lt[0].r12_pressure > 0.0 and lt[0].r12_pressure_low == 0.0 and lt[0].r12_terminal == 0.0,
+		"loops s0: pressure, no terminal")
+	check(lt[1].r12_terminal > 0.0 and lt[1].r12_hum > lt[0].r12_hum, "loops s1: the terminal hums, the hum lifts")
+	check(lt[2].r12_pressure == 0.0 and lt[2].r12_pressure_low > 0.0, "loops s2: the low pressure replaces the pressure")
+	for id in R12_view_sfx():
+		check(ResourceLoader.exists("res://assets/audio/R12/%s.wav" % id), "sound %s exists" % id)
+
+func R12_view_sfx() -> Array:
+	return load("res://game/rooms/R12/R12_view.gd").get_script_constant_map()["SFX_DB"].keys()
+
+## The first arrival holds on the name frame; a click skips it; exits wait for it.
+func test_view_arrival() -> void:
+	var scene = new_scene("user://r12_view_test.json")
+	await process_frame
+	scene.tide_jump(9, "R11")
+	scene.sim.state.visited.erase(ROOM)
+	scene.dispatch("go:R12")
+	var view = scene.room_view
+	check(scene.sim.state.room == ROOM and view.hold_active(), "arrival: the name frame holds")
+	check(not view.exits_active(), "arrival: no exits during the hold")
+	check(view.consume_click(Vector2(700, 500)) and not view.hold_active(), "arrival: a click skips the hold")
+	check(not view.consume_click(Vector2(700, 500)), "arrival: the next click is not eaten")
+	check(view.exits_active(), "arrival: exits back after the hold")
+	scene.dispatch("go:R11")
+	scene.dispatch("go:R12")
+	check(not scene.room_view.hold_active(), "arrival: the hold plays once")
+	await free_scene(scene)
+
+## The ending: a full-screen tableau, ending_next anywhere, no labels, HUD hidden.
+func test_view_endings() -> void:
+	for n in [5, 6, 7, 8]:
+		var scene = await _scene_at(n, [])
+		var view = scene.room_view
+		var r: R12Sim = scene.sim.room(ROOM)
+		check(r.local_view == "ending", "ending %d: in the ending" % n)
+		for p in [Vector2(10, 10), Vector2(724, 543), Vector2(1440, 1080), Vector2(1200, 40)]:
+			check(view.action_at(p) == "ending_next" and view.hover_at(p) == "", "ending %d: next anywhere, no label" % n)
+		check(view.hud_hidden() and not view.back_visible() and view.esc_action() == "menu" and not view.exits_active(),
+			"ending %d: HUD hidden, no Back, Esc is the menu" % n)
+		var lt: Dictionary = view.loop_targets()
+		if n == 7:
+			check(lt.end_sea_day > 0.0 and lt.r12_hum == 0.0 and lt.r12_surface == 0.0, "ending sever, last step: the sea")
+		if n == 8:
+			check(lt.end_wide > 0.0 and lt.r12_hum == 0.0, "ending continue, last step: the wide dark")
+		if n == 6:
+			check(lt.r12_hum > 0.0 and lt.r12_terminal > 0.0 and lt.end_wide == 0.0, "ending continue, first step: the chamber hums")
+		await free_scene(scene)
