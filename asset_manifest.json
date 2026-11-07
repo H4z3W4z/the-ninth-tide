@@ -2621,7 +2621,7 @@
       "path": "assets/rooms/R08/c_tag.png",
       "width": 600,
       "height": 340,
-      "sha256": "c2475b8b9920486863b452cb6a7c43ac8bb73fdcb9eb6b4971af1cfb7e45f64c",
+      "sha256": "938c36da32af3690947fefaeaaf68838bc824a79262c3834008e6771a428fb8b",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2792,7 +2792,7 @@
       "path": "assets/rooms/R08/room.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "a674fbe7b7ed1a7575ceda5b092d4b092e378def5ce8e73f41ae62a8b1cb9556",
+      "sha256": "c5812601ffcec8ed2a4b850d3da34fabc0ba21f45508d86ac5de1bce162d9049",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2801,7 +2801,7 @@
       "path": "assets/rooms/R08/room_s3.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "627c471bb79401c0d31548e5a127631b6db8927284cd8b0549dc760516283781",
+      "sha256": "128e4ea03f84fb8a2f98698bf05e428f9f0f64da946a382b1aac6a597a80696d",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2810,7 +2810,7 @@
       "path": "assets/rooms/R08/room_s4.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "4ac42ec71ee4eb4df26a55666b56d48d3cd01ac9bb12b5484428e15bba981805",
+      "sha256": "9747ae27cd9592cead3efa45a571849b5a03422903437920f4d3a1250c262485",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2819,7 +2819,7 @@
       "path": "assets/rooms/R08/room_sever.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "969d1d490faee4e73c2b435e0a3456c681383bacff65f243f58edb1524049dc8",
+      "sha256": "14c388343c35c45d426e860edbd71b22206013ae6bb5d2cbe798d7cb09d46b19",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },

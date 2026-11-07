@@ -561,8 +561,9 @@ def column(p, rng):
         rivet(p, x + w - 15, yy, 2.4, IRON_HI)
     # blank brass nameplate, four rivets
     nx, ny, nw, nh = NAMEPLATE
-    p.rect(nx, ny, nx + nw, ny + nh, BRASS, INK, 2.5, r=3)
-    p.rect(nx + 7, ny + 7, nx + nw - 7, ny + nh - 7, None, BRASS_HI, 1.4, r=2)
+    # a polished face (not tarnished like the frame): the view's INK letters keep >= 4.5:1 at band 7
+    p.rect(nx, ny, nx + nw, ny + nh, mix(BRASS_HI, ENAMEL, 0.2), INK, 2.5, r=3)
+    p.rect(nx + 7, ny + 7, nx + nw - 7, ny + nh - 7, None, BRASS, 1.4, r=2)
     for q in ((nx + 9, ny + 9), (nx + nw - 9, ny + 9), (nx + 9, ny + nh - 9), (nx + nw - 9, ny + nh - 9)):
         rivet(p, q[0], q[1], 3, BRASS_HI)
     # the nail and its ring of nine tarnished tags
@@ -1347,7 +1348,8 @@ def paint_tag(rng, new):
     if new:
         base, edge, hi = (214, 182, 112), (180, 146, 80), (240, 218, 160)
     else:
-        base, edge, hi = mix(BRASS, BRASS_LO, 0.35), BRASS_DK, mix(BRASS, BRASS_HI, 0.35)
+        # worn but light enough that the view's INK hand reads at >= 4.5:1
+        base, edge, hi = mix(BRASS, BRASS_HI, 0.55), BRASS_DK, mix(BRASS_HI, ENAMEL, 0.3)
     p.poly(pts, base, INK, 4)
     clip = Image.new("L", p.im.size, 0)
     ImageDraw.Draw(clip).polygon([(x * SS, y * SS) for x, y in pts], fill=255)

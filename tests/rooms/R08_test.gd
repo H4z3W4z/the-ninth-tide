@@ -68,8 +68,10 @@ func run_tests() -> void:
 	test_room_lines()
 	test_debug()
 	test_p01_untouched()
+	test_view_static()
 	if _view_ready():
 		await view_checks(ROOM)
+		await test_view_live()
 	else:
 		print("SKIP: R08 view_checks: the R08 view does not yet declare rects for every sim hotspot (view team)")
 
@@ -703,3 +705,129 @@ func test_p01_untouched() -> void:
 	check(g.flag("P01") and g.room("R02") != null, "P01 belongs to R02 and is still set by the office")
 	var f := with_flags(["P01", "P02", "P03", "P06"], "R05")
 	check(not f.room(ROOM).can_enter() and says(f.dispatch("go:R08")) == R08Sim.LOCKED, "sealed without P09")
+
+# ---------------------------------------------------------------------------------------------
+# the view (presentation only)
+# ---------------------------------------------------------------------------------------------
+const VIEW := preload("res://game/rooms/R08/R08_view.gd")
+
+## The view's breath envelopes are the audio contract's keyframes, eased the same way.
+func test_view_static() -> void:
+	check(is_equal_approx(VIEW.envelope(VIEW.BREATH_CYCLE, 0.0), 0.0), "cycle breath starts empty")
+	check(is_equal_approx(VIEW.envelope(VIEW.BREATH_CYCLE, 3.6), 1.0), "cycle breath is full at 3.6 s")
+	check(is_equal_approx(VIEW.envelope(VIEW.BREATH_CYCLE, 3.8), 1.0), "cycle breath holds full to 4.0 s")
+	check(is_equal_approx(VIEW.envelope(VIEW.BREATH_CYCLE, 6.4), 0.15), "cycle breath at the hitch is 0.15")
+	check(is_equal_approx(VIEW.envelope(VIEW.BREATH_CYCLE, 1.8), 0.5), "cosine easing: half way is half")
+	check(is_equal_approx(VIEW.envelope(VIEW.BREATH_NORA, 0.7), 0.45), "Nora's first short rise")
+	check(is_equal_approx(VIEW.envelope(VIEW.BREATH_NORA, 6.6), 1.0), "Nora's long rise")
+	check(is_equal_approx(VIEW.envelope(VIEW.BREATH_EVEN, 4.0), 0.8), "the even breath peaks at 0.8")
+	check(is_equal_approx(VIEW.envelope(VIEW.BREATH_EVEN, 12.0), 0.8), "envelopes repeat every 8 s")
+	# the hitch: the machine runs x0.2 from 6.4 to 7.6 s, and the crank still turns once per cycle
+	check(is_equal_approx(VIEW.machine_units(6.4), 6.4), "machine time is real time before the hitch")
+	check(is_equal_approx(VIEW.machine_units(7.6), 6.64), "machine time crawls through the hitch")
+	check(is_equal_approx(VIEW.machine_units(8.0), VIEW.CYCLE_UNITS), "one cycle is CYCLE_UNITS of machine time")
+	# every audio id the view levels is a file the audio team built
+	for id in VIEW.SFX_DB:
+		check(ResourceLoader.exists("res://assets/audio/R08/%s.wav" % id), "R08 one-shot %s exists" % id)
+	for id in VIEW.LOOPS:
+		check(ResourceLoader.exists("res://assets/audio/R08/%s.wav" % id), "R08 loop %s exists" % id)
+	for id in VIEW.SFX_SOFT:
+		check(VIEW.SFX_DB.has(id), "soft sound %s has a level" % id)
+	# hotspots and close-up controls stay on the canvas, at least 64 px, and the order puts the
+	# small objects on the column before the belt that covers them
+	var ids := []
+	for h in VIEW.HOTSPOTS:
+		ids.append(h[0])
+	check(ids.find("repair_tags") < ids.find("belt") and ids.find("nameplate") < ids.find("belt"),
+		"tags and nameplate are matched before the belt")
+	for table in [VIEW.VALVE_CONTROLS, VIEW.TAG_CONTROLS]:
+		for h in table:
+			var r: Rect2 = h[1]
+			check(CANVAS.encloses(r) and r.size.x >= 64 and r.size.y >= 64, "control %s is on canvas and >= 64 px" % h[0])
+
+func _scene_at(n: int) -> Node:
+	var scene = new_scene("user://room_test_R08_view.json")
+	await process_frame
+	scene.room_jump(ROOM, n)
+	await process_frame
+	return scene
+
+func test_view_live() -> void:
+	# arrival: driven, labels hidden behind the belt, the driven loops up
+	var scene = await _scene_at(0)
+	var v = scene.room_view
+	check(v.label_for("nameplate") == "Behind the belt", "before P11 the nameplate is 'Behind the belt'")
+	check(v.label_for("repair_tags") == "Tags behind the belt", "before P11 the tags are behind the belt")
+	var t: Dictionary = v.loop_targets()
+	check(t["r08_cycle"] > 0.0 and t["r08_breath"] > 0.0 and t["r08_hold"] == 0.0, "arrival: cycle and breath loops")
+	check(v.belts() == [true, true, true], "arrival: every belt runs")
+	check(v.exits_active(), "arrival: exits live")
+	# the valve board: controls, Back, Esc
+	scene.dispatch("valve_board")
+	await process_frame
+	check(v.back_visible() and v.esc_action() == "back", "c_valves: Back and Esc go back")
+	check(not v.exits_active(), "c_valves: no exits")
+	check(v.action_at(Vector2(305, 750)) == "tog_supply", "c_valves: SUPPLY toggle answers")
+	check(v.action_at(Vector2(1200, 800)) == "pump", "c_valves: PUMP answers")
+	check(v.action_at(Vector2(1060, 830)) == "preview", "c_valves: PREVIEW answers")
+	check(v.action_at(Vector2(700, 300)) == "look_drawing", "c_valves: the drawing answers")
+	check(v.hover_at(Vector2(875, 750)) == "tog_index", "c_valves: hover mirrors the click")
+	check(v.label_for("tog_gate") == "GATE toggle", "c_valves: hover label")
+	# SUPPLY open with INDEX open: the hold
+	scene.dispatch("tog_supply")
+	await process_frame
+	t = v.loop_targets()
+	check(t["r08_hold"] > 0.0 and t["r08_cycle"] == 0.0 and t["r08_breath"] == 0.0, "held: only the hold loop breathes")
+	await create_timer(0.8).timeout
+	check(v.hold_k > 0.9 and v.v > 0.9, "held: the membrane eases full and stays")
+	var fly: float = v.fly_a
+	for i in 10:
+		await process_frame
+	check(is_equal_approx(v.fly_a, fly), "held: the flywheel is frozen")
+	# the trace is cleared by a toggle and drawn by PREVIEW
+	scene.dispatch("tog_index")
+	scene.dispatch("preview")
+	await process_frame
+	check(v._shown_trace() == "gate_shut", "PREVIEW traces the current circuit")
+	scene.dispatch("tog_gate")
+	await process_frame
+	check(v._shown_trace() == "", "a toggle clears the trace")
+	# the commit: the close-up stays on screen, exits wait for the belt, then the room settles
+	scene.dispatch("tog_return")
+	scene.dispatch("pump")
+	await process_frame
+	check(v.reveal_t >= 0.0, "P11 starts the reveal")
+	check(not v.exits_active(), "no exits while the belt is still stopping")
+	check(v.action_at(Vector2(700, 300)) == "", "the room isn't clickable under the fading close-up")
+	check(v.belts() == [true, true, true], "the room is drawn driven before the drop")
+	v.apply_instantly()
+	check(v.reveal_t < 0.0 and v.belts() == [true, false, true], "apply_instantly ends the reveal at the stopped belt")
+	check(v.exits_active(), "exits back once the reveal is done")
+	check(v.label_for("nameplate") == "Nameplate", "after P11 the nameplate is named")
+	t = v.loop_targets()
+	check(t["r08_cycle"] == 0.0 and t["r08_cycle_two"] > 0.0 and is_equal_approx(t["r08_breath"], 0.75),
+		"after P11: the pump cycle and the breath alone")
+	await free_scene(scene)
+	# the tags: arrows hidden at the ends
+	scene = await _scene_at(2)
+	v = scene.room_view
+	scene.dispatch("repair_tags")
+	await process_frame
+	check(v.action_at(Vector2(240, 500)) == "", "c_tags: no Previous on the first tag")
+	check(v.action_at(Vector2(1200, 500)) == "tag_next", "c_tags: Next answers")
+	for i in 8:
+		scene.dispatch("tag_next")
+	await process_frame
+	check(v.action_at(Vector2(1200, 500)) == "", "c_tags: no Next on the last tag")
+	check(v.action_at(Vector2(240, 500)) == "tag_prev", "c_tags: Previous answers")
+	await free_scene(scene)
+	# escalation loops and hotspots that never move
+	var expect := {5: "r08_breath_nora", 7: "r08_late", 8: "r08_drip", 9: "r08_breath_even"}
+	for n in expect:
+		scene = await _scene_at(n)
+		v = scene.room_view
+		t = v.loop_targets()
+		check(t[expect[n]] > 0.0, "stage %d plays %s" % [n, expect[n]])
+		check(t["r08_cycle"] == 0.0, "stage %d: no driven cycle" % n)
+		check(v.dev_rects().size() == VIEW.HOTSPOTS.size(), "stage %d: every hotspot rect is live" % n)
+		await free_scene(scene)
