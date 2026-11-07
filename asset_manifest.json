@@ -2513,7 +2513,7 @@
       "path": "assets/rooms/R08/belt1_slack.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "5a74c8727c06472eeddeb4a834ef18b2d29b796e80a8efd82880e79c99ae704d",
+      "sha256": "15c6f0d4cdbef1d33b61ad2ca277339b5851937ca586a265465003864cb7ef9b",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2522,7 +2522,7 @@
       "path": "assets/rooms/R08/belt1_taut.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "1530b42d45560905be6101644fe2f79767c0fae85d6a487543dff0854f1dadd0",
+      "sha256": "165aaa321dc8054360329e79018608788ee6260f9b5666c07f44b6435e3f99bd",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2540,7 +2540,7 @@
       "path": "assets/rooms/R08/belt2_taut.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "97ea5beec7138e9c110c09fe9375d5e6167d65dadcd47103fb927860fcfe2580",
+      "sha256": "f4f8ceb53937078926626f552cc19d8143cddf756bdcfe574eacce3b0eae1a64",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2549,7 +2549,7 @@
       "path": "assets/rooms/R08/belt3_slack.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "b23d7732d0e918652a5dbf515f4288743559b071d844994c3776e889026e2079",
+      "sha256": "428f5c6480c8803a7423e0497ef1a46148a70b78512c3057656679808deb8836",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2594,7 +2594,7 @@
       "path": "assets/rooms/R08/c_pump_down.png",
       "width": 120,
       "height": 330,
-      "sha256": "c90a18abac618d63289f711688805a47534ca35d675830cae8043631dd9379b7",
+      "sha256": "19e1bb30430c46e31d994e49590aa5d64c42c04b9101818493c86f674ba3f44d",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2603,16 +2603,16 @@
       "path": "assets/rooms/R08/c_pump_up.png",
       "width": 120,
       "height": 330,
-      "sha256": "c6eea618743a4d1bc15708398bb2941c9057a8a037598d942f17e895dc93d9f4",
+      "sha256": "7b2169b41082dd81c5cbd3556d9b427329c2c9640beb1b7e0ecbfc0d0792fbdc",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
     {
       "id": "R08/c_seal_cut",
       "path": "assets/rooms/R08/c_seal_cut.png",
-      "width": 90,
-      "height": 70,
-      "sha256": "1b9e3e8807dbfbaf52b79e611bec3faa4e39e8b9f41a17ef65e0693b97614ce9",
+      "width": 110,
+      "height": 130,
+      "sha256": "034927af6c98506158732b6e3fa928b49d79a0cd23a9cddbb81ff71df25a2e98",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2621,7 +2621,7 @@
       "path": "assets/rooms/R08/c_tag.png",
       "width": 600,
       "height": 340,
-      "sha256": "938c36da32af3690947fefaeaaf68838bc824a79262c3834008e6771a428fb8b",
+      "sha256": "8deae2191973ad50043a12f17adae249e473a37a24b7de3b3106211042fd45e8",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2630,7 +2630,7 @@
       "path": "assets/rooms/R08/c_tag_new.png",
       "width": 600,
       "height": 340,
-      "sha256": "0e21d895bd3f11c57dbdd442bcc5fe9d10467aebe111fdb640bd550b190d2e9f",
+      "sha256": "3e6bd8be1c641ac1eb8542ee3b7239b8450ff6951c1f110df6fd56f3a5cd5861",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2639,7 +2639,7 @@
       "path": "assets/rooms/R08/c_tags.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "27bd872b55cc44813106bc34f37e4e06474dcfac00cd1ca2ae77ce4a83776f14",
+      "sha256": "5bd0dc3722ea026f0342e3f24e6bb569677a410b39ce4148eff947d859909900",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2666,7 +2666,7 @@
       "path": "assets/rooms/R08/c_valves.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "bb41d50e4b972f74156e283031c81d2ff9f1e20284ec1446581186288f83f32d",
+      "sha256": "32ede416795b29caf74a6b77021f15dce62ebda53abccc1cfa43e23fbf5c3152",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2684,7 +2684,16 @@
       "path": "assets/rooms/R08/diaphragm.png",
       "width": 400,
       "height": 400,
-      "sha256": "6890bba177f949da73566fb5a33a684dc39d0aed30ec6778511a8023043c16c3",
+      "sha256": "3b297c0d68cf49c4101f0acbf5d5574808aaca87dfa00c1cee7805dbd0e04c64",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R08/diaphragm_gap",
+      "path": "assets/rooms/R08/diaphragm_gap.png",
+      "width": 400,
+      "height": 400,
+      "sha256": "6884803287d14b349f80e4e68c75fb600671c408ffa91e24a3edeee1524f4ec3",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2698,11 +2707,29 @@
       "source_svg": null
     },
     {
+      "id": "R08/diaphragm_in",
+      "path": "assets/rooms/R08/diaphragm_in.png",
+      "width": 400,
+      "height": 400,
+      "sha256": "f1f171b80aba8a18713d3ec9eba3fcdd345a555c3ad9eb0ebb8e9e779dd4780c",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R08/diaphragm_out",
+      "path": "assets/rooms/R08/diaphragm_out.png",
+      "width": 400,
+      "height": 400,
+      "sha256": "0010d4c828a30b7dc70f851e98469140db1a1448c6a33bad60b009619c6c18b3",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R08/diaphragm_reflect",
       "path": "assets/rooms/R08/diaphragm_reflect.png",
       "width": 400,
       "height": 400,
-      "sha256": "a0dab1915b1038930d287c0b5145165ae4fd4bbe178187c6db9d6fac2e570f46",
+      "sha256": "fa7253c7f8b43045defe9e4f6b84bfcd29ef8e6cacbdeeb2133064f9301ecb39",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2711,7 +2738,16 @@
       "path": "assets/rooms/R08/diaphragm_reflect_now.png",
       "width": 400,
       "height": 400,
-      "sha256": "99590e204982dd0e9fb5f9139cb39027c1283b8802a57798d6ed29255fb285ae",
+      "sha256": "8e4e74200bcdca3a57e58e0cb15f8b8767f1f44094e4555c4ccfcc3463391ce6",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R08/diaphragm_rim",
+      "path": "assets/rooms/R08/diaphragm_rim.png",
+      "width": 400,
+      "height": 400,
+      "sha256": "ab5bd4ef2ea209ee3df12f8f9a1b5c237dbce6f434f54c80eeb1c3f2b839e4f2",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2734,11 +2770,20 @@
       "source_svg": null
     },
     {
+      "id": "R08/dust_lines",
+      "path": "assets/rooms/R08/dust_lines.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "0630a21e40943169e85b71ef93ef53edd4cfa8e172ffec6e8e715671767035b6",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R08/dust_raked",
       "path": "assets/rooms/R08/dust_raked.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "71bfa34fd03d35871fb5e331cfc502d2eaaa9ab8e5af0255f8f4b52d6e6318de",
+      "sha256": "704db97695483425150f5d5ce832915f004849810d7f1690977f655ee139c4fa",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2747,7 +2792,16 @@
       "path": "assets/rooms/R08/dust_streaks.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "b3223ae051eab2df84b2a9d47d88cb230e36ee1794dddc8096097b9bee4fd3d9",
+      "sha256": "b49f96ae634f15f403eb2119a54138dbb81278bb9326a3791abe00caf3f49429",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R08/floor_front",
+      "path": "assets/rooms/R08/floor_front.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "3ad67a358f4b0744945d1dac48ecc6cf8dcc3e38966b33ee504936eabc186072",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2756,7 +2810,16 @@
       "path": "assets/rooms/R08/flywheel.png",
       "width": 380,
       "height": 380,
-      "sha256": "aa456b21d9dfbcb51725306c23b4d2954543302cb635cb3db783f3cf399bf82c",
+      "sha256": "0813ba838b57e1a7e5957781ef0dc3e13ef5ef8c50634f7dfbf491128dea4d5c",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R08/lamp_ember",
+      "path": "assets/rooms/R08/lamp_ember.png",
+      "width": 80,
+      "height": 80,
+      "sha256": "108a3176a94a21d74e8b6cbcb556ae8aaa3ae986877e5c1e2609c7b9702d3daa",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2765,7 +2828,7 @@
       "path": "assets/rooms/R08/light_add.png",
       "width": 362,
       "height": 272,
-      "sha256": "0b811c504c8fb1c1d11c95ddac8452af9bf7636f69bba03a5b24d5db7d163fc2",
+      "sha256": "55039024439b5c84b13beea78ffa284c77dae9df266a694084d3b24d9175929b",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2783,7 +2846,7 @@
       "path": "assets/rooms/R08/pulley.png",
       "width": 100,
       "height": 100,
-      "sha256": "36b1337fc67eee5c32d7ad51375be46d0ec07f92ab5c62fbfd0098dee3ea3ad5",
+      "sha256": "b756bdea15fa9507878f3b2f9eb5691b047f2360fd1f8a2ee515cc7c54b59ff0",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2792,7 +2855,7 @@
       "path": "assets/rooms/R08/room.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "c5812601ffcec8ed2a4b850d3da34fabc0ba21f45508d86ac5de1bce162d9049",
+      "sha256": "dd1e7706d20abd8e834559ce6566f310b6d47fd50d71d2d27e773cd2da4eeb14",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2801,7 +2864,7 @@
       "path": "assets/rooms/R08/room_s3.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "128e4ea03f84fb8a2f98698bf05e428f9f0f64da946a382b1aac6a597a80696d",
+      "sha256": "8e95664fbedc28af19657a8890031e82177ee30e0826f4feb26b7f5856e822c4",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2810,7 +2873,7 @@
       "path": "assets/rooms/R08/room_s4.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "9747ae27cd9592cead3efa45a571849b5a03422903437920f4d3a1250c262485",
+      "sha256": "e9da1daa77cbc1f078ef8af3ce77c8fa23b8db6c799b890f25af721acb582275",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2819,7 +2882,7 @@
       "path": "assets/rooms/R08/room_sever.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "14c388343c35c45d426e860edbd71b22206013ae6bb5d2cbe798d7cb09d46b19",
+      "sha256": "fad72d7fe6d8e74f0bdcc2d981e7607137e5e970f117d69f265957a3f4d3c0c8",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },

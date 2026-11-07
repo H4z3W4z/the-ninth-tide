@@ -31,6 +31,10 @@ const LEATHER_DK := Color("4e3828")
 const SEAGLASS := Color("a9c8b8")
 const SEAGLASS_DK := Color("3f6a5c")   # the loop trace on paper: sea-glass, deep enough to read
 const STORM := Color("22384a")
+## INDEX's later ink on the drawing: a brown-violet, subtle at a glance, plain once told.
+const INDEX_INK := Color("5a4256")
+const ENGRAVE := Color("2a1e10")
+const EMBER := Color(0.32, 0.3, 0.28)
 const DUST_HI := Color("bab8ac")
 
 ## [id, rect, label]; first match wins, so small objects come first. Never moved by state.
@@ -105,20 +109,24 @@ const FLY := Vector2(860, 560)
 const FLY_R := 187.0          # the belt's pitch radius on the flywheel (FLY_R + 7)
 const FLY_SPEED := 0.9        # rad/s
 const TOP_PULLEY := Vector2(860, 128)
-const PUMP_PULLEY := Vector2(1180, 880)
+const PUMP_PULLEY := Vector2(1024, 884)
 const PULLEY_R := 51.0
 const CRANK := Vector2(528, 663)
 const CRANK_R := 18.0
-const BELT2_X := Vector2(556, 684)
-const BELT2_Y := Vector2(140, 652)
-const STITCH_STEP := 90.0
+const BELT2_X := Vector2(582, 658)
+const BELT2_Y := Vector2(154, 636)
+const STITCH_STEP := 260.0
 const STITCH_SPEED := 120.0
 const TICK_STEP := 60.0
 const TICK_SPEED := 90.0
 ## The reflected belt-2 band in diaphragm_reflect (sprite px), and the sprite's origin.
-const REFLECT_BAND := Rect2(82, 103, 38, 161)
+const REFLECT_BAND := Rect2(212, 116, 14, 188)
 const MEM_ORIGIN := Vector2(90, 250)
-const NAMEPLATE := Rect2(566, 520, 108, 84)
+const NAMEPLATE := Rect2(554, 514, 132, 90)
+const LAMP_AT := Vector2(440, 140)
+## The breath, seen: the sheen's travel (px) and where the rim gap starts to open.
+const SHEEN_TRAVEL := 28.0
+const GAP_FROM := 0.78
 ## Mini valve board on the room plate.
 const MINI_SOCKETS := [1135.0, 1195.0, 1255.0, 1315.0]
 const MINI_SOCKET_Y := 560.0
@@ -141,6 +149,8 @@ const LAMP := Vector2(1060, 770)
 const PUMP_TOP := Vector2(1140, 600)
 const PUMP_TRAVEL := 190.0    # px from the up pose to the down pose (sprite y 72 -> 262)
 const FAULT_RECT := Rect2(890, 140, 360, 60)
+## c_seal_cut's top-left: its lug sits on INDEX's socket ring (tools/art/rooms/R08.py SEAL_AT).
+const SEAL_AT := Vector2(880, 800)
 ## A pen lift inside a trace route (the gate box's label is never drawn over).
 const BREAK := Vector2(-1, -1)
 const PAPER_CLIP := Rect2(174, 104, 1100, 442)
@@ -168,6 +178,11 @@ const TAG_HOLE := Vector2(724, 334)
 const TAG_TEXT := Rect2(474, 370, 500, 240)
 const TAG_SWAY := 3.0
 const TAG_SETTLE := 1.6
+## Venn's left-handed backward slope: the glyphs' upright sheared 12 degrees back (tan 12).
+const HAND_SHEAR := 0.2126
+## The A.M. line: struck from the same die, crooked and doubled.
+const AM_TILT := -0.044
+const AM_GHOST := Vector2(2.6, -1.8)
 
 # --- the P11 reveal (s after the commit) -------------------------------------------------------
 const RV_CLOSE_OUT := 1.8
@@ -180,8 +195,9 @@ const RV_PLATE := 6.8
 const RV_PLATE_IN := 0.8
 const RV_INHALE := 7.8
 const RV_INHALE_TIME := 2.6
-const RV_DUST := 9.2
-const RV_DUST_TIME := 2.4
+## The dust moves with the reveal's inhale, not after it.
+const RV_DUST := 8.1
+const RV_DUST_TIME := 2.3
 const RV_END := 12.0
 const GAUGE_SWEEP := 1.2
 
@@ -210,6 +226,7 @@ var close: Node2D
 var shade: CanvasModulate
 var light_mul: Node2D
 var light_add: Node2D
+var light_rim: Node2D
 var mixer: LoopMixer
 var grains := []               # [y, delay, size, alpha] for the reveal's dust
 
@@ -234,8 +251,11 @@ var hold_t := 0.0
 var hold_rect := Rect2()
 var zoom_k := 0.0
 var pucker_t := 0.0
+var hand_font: FontVariation
+var clock0 := 0.0              # scene time the loops started at
 
 func _ready() -> void:
+	clock0 = time
 	narrow = SystemFont.new()
 	narrow.font_names = PackedStringArray(["Liberation Sans Narrow", "Nimbus Sans Narrow", "DejaVu Sans Condensed", "sans-serif"])
 	narrow.font_weight = 700
@@ -264,6 +284,7 @@ func _build_nodes() -> void:
 	add_child(shade)
 	light_mul = _light_layer(CanvasItemMaterial.BLEND_MODE_MUL, "mul")
 	light_add = _light_layer(CanvasItemMaterial.BLEND_MODE_ADD, "add")
+	light_rim = _light_layer(CanvasItemMaterial.BLEND_MODE_ADD, "rim")
 	var layer := CanvasLayer.new()
 	layer.layer = 5
 	add_child(layer)
@@ -284,9 +305,29 @@ func _light_layer(mode: int, kind: String) -> Node2D:
 	return n
 
 func _draw_light(n: Node2D, kind: String) -> void:
+	if kind == "rim":
+		_draw_rim(n)
+		return
 	var t := _tex("light_" + kind)
 	if t:
-		n.draw_texture_rect(t, Rect2(Vector2.ZERO, SIZE), false)
+		n.draw_texture_rect(t, Rect2(Vector2.ZERO, SIZE), false, _lamp_mod() if kind == "add" else Color(1, 1, 1))
+
+## The sconce: full until band 6, then a dull ember, so the membrane's wet rim becomes the key light.
+func _lamp_mod() -> Color:
+	if r.ending() == "sever":
+		return Color(0.25, 0.25, 0.25)
+	return EMBER if _band() >= 6 else Color(1, 1, 1)
+
+## From band 5 a cold wet rim light rings the membrane (additive); from band 6 it is the key light.
+func _draw_rim(n: Node2D) -> void:
+	if r.ending() == "sever" or _band() < 5:
+		return
+	var t := _tex("diaphragm_rim")
+	if t == null:
+		return
+	var a := 0.6 if _band() == 5 else 1.0
+	a *= 0.8 + 0.2 * v
+	n.draw_texture(t, MEM_ORIGIN, Color(1, 1, 1, a))
 
 func _build_audio() -> void:
 	mixer = LoopMixer.new()
@@ -330,10 +371,16 @@ func _breath_knots() -> Array:
 			return BREATH_EVEN
 	return BREATH_CYCLE
 
+## The breath's phase: the r08_breath loop's playback position, so the image breathes with the
+## sound. If the audio clock has parted from the scene clock (a --fixed-fps capture renders
+## scene time faster than the audio plays; a stalled device), the scene clock leads.
 func phase() -> float:
+	var scene := fposmod(time - clock0, PERIOD)
 	if mixer and mixer.players.has("r08_breath") and mixer.players["r08_breath"].playing:
-		return fposmod(mixer.players["r08_breath"].get_playback_position(), PERIOD)
-	return fposmod(time, PERIOD)
+		var a := fposmod(mixer.players["r08_breath"].get_playback_position(), PERIOD)
+		if absf(wrapf(a - scene, -PERIOD / 2.0, PERIOD / 2.0)) < 0.5:
+			return a
+	return scene
 
 static func envelope(knots: Array, t: float) -> float:
 	t = fposmod(t, PERIOD)
@@ -516,6 +563,8 @@ func play_fx(id: String, _e: Dictionary) -> void:
 		"p11_reveal":
 			reveal_t = 0.0
 			trace_t = TRACE_TIME
+			if game != null:
+				_flush_for_reveal.call_deferred(game.click_id)
 		"hold":
 			pucker_t = 0.0
 			if not motion:
@@ -528,6 +577,32 @@ func play_fx(id: String, _e: Dictionary) -> void:
 			if r.trace_kind == "pump" and r.trace != "loop":
 				pump_fail_t = 0.4 if r.trace == "index" else 0.25
 				pump_fail_k = 0.4 if r.trace == "index" else 1.0
+
+## The commit can land while the hold's story lines are still queued (a fast hand, a driver):
+## the core then times the reveal's lines and sounds after that backlog, and the narration
+## trails the image by seconds. The reveal owns the screen: drop every older line, release the
+## one on screen, and pull this click's lines and sounds back to the times the sim gave them.
+## (Deferred: it runs once the core has queued the click's events.)
+func _flush_for_reveal(click: int) -> void:
+	if game == null:
+		return
+	var first := INF
+	for l in game.lines:
+		if int(l.click) == click:
+			first = minf(first, float(l.due))
+	if first == INF:
+		return
+	game.lines = game.lines.filter(func(l): return int(l.click) == click)
+	if game.cur_text != "" and int(game.cur_click) != click:
+		game.cur_hold = minf(game.cur_hold, maxf(0.0, game.time - game.cur_since))
+	var late: float = first - (game.time + R08Sim.REVEAL_FIRST_SAY)
+	if late <= 0.001:
+		return
+	for l in game.lines:
+		l.due -= late
+	for p in game.pending_sfx:
+		if int(p[2]) == click:
+			p[1] -= late
 
 func on_sfx(id: String) -> void:
 	match id:
@@ -574,6 +649,7 @@ func redraw() -> void:
 	close.queue_redraw()
 	light_mul.queue_redraw()
 	light_add.queue_redraw()
+	light_rim.queue_redraw()
 
 func back_visible() -> bool:
 	return _view() in ["c_valves", "c_tags"]
@@ -690,15 +766,23 @@ func _draw_room() -> void:
 	var run := belts()
 	var t := reveal_t
 	_full(c, r.stage_plate())
-	# dust: the evidence of each state (lines are painted in s3/s4)
+	if not sever and _band() >= 6:
+		_full_at(c, "lamp_ember", LAMP_AT - Vector2(40, 40))
+	# dust: the evidence of each state, one overlay each (the plate's plinth is even dust)
 	match r.dust_mode():
 		"streaks":
 			if _revealing():
-				_full(c, "dust_streaks", Color(1, 1, 1, _k(t, RV_DUST, RV_DUST_TIME)))
+				# dragged in by the reveal's one inhalation, eased exactly as the membrane fills
+				var k := _k(t, RV_DUST, RV_DUST_TIME)
+				_full(c, "dust_streaks", Color(1, 1, 1, 0.5 - 0.5 * cos(PI * k)))
 			else:
 				_full(c, "dust_streaks")
+		"lines":
+			_full(c, "dust_lines")
 		"raked":
 			_full(c, "dust_raked")
+	if r.dust_mode() in ["streaks", "lines", "raked"]:
+		_full(c, "floor_front")   # the pedestal and pump stand in the dust, not under it
 	if _revealing() and t >= RV_DUST:
 		_draw_grains(c, t - RV_DUST)
 	# flywheel, pulleys, belts 1 and 3
@@ -739,39 +823,60 @@ func _draw_room() -> void:
 		var a := 1.0 if not motion else smoothstep(0.0, 0.3, HOLD_TIME - hold_t)
 		_draw_focus(c, hold_rect, a)
 
+## The breath reads in silhouette: two fold plates crossfade (relaxed, bowed ribs at exhale; a
+## hard pucker at the boss at inhale), the sheen slides across the skin, and at the top of the
+## inhale a thin bright gap opens between membrane and ring on the side away from the light.
 func _draw_membrane(c: CanvasItem, sever: bool) -> void:
 	if sever:
 		_full_at(c, "diaphragm_slack", MEM_ORIGIN)
 		return
 	_full_at(c, "diaphragm", MEM_ORIGIN)
+	_full_at(c, "diaphragm_out", MEM_ORIGIN, 1.0 - smoothstep(0.1, 0.55, v))
+	_full_at(c, "diaphragm_in", MEM_ORIGIN, smoothstep(0.25, 0.85, v))
 	var hollow := _tex("diaphragm_hollow")
 	if hollow:
 		var s := 0.35 + 0.65 * v
 		c.draw_set_transform(RING_C, 0.0, Vector2(s, s))
-		c.draw_texture(hollow, -hollow.get_size() / 2.0, Color(1, 1, 1, 0.35 + 0.6 * v))
+		c.draw_texture(hollow, -hollow.get_size() / 2.0, Color(1, 1, 1, 0.2 + 0.45 * v))
 		c.draw_set_transform_matrix(Transform2D.IDENTITY)
 	var sheen := _tex("diaphragm_sheen")
 	if sheen:
-		c.draw_texture(sheen, MEM_ORIGIN + Vector2(1, 1).normalized() * v * 10.0)
+		c.draw_texture(sheen, MEM_ORIGIN + Vector2(1, 1).normalized() * v * SHEEN_TRAVEL)
+	var gap := smoothstep(GAP_FROM, 1.0, v)
+	if gap > 0.0:
+		_full_at(c, "diaphragm_gap", MEM_ORIGIN, gap)
 	match r.reflection_mode():
 		"late":
-			_full_at(c, "diaphragm_reflect", MEM_ORIGIN, 0.55)
+			_full_at(c, "diaphragm_reflect", MEM_ORIGIN, 0.5)
 			_ghost_stitches(c)
 		"now":
-			_full_at(c, "diaphragm_reflect_now", MEM_ORIGIN)
+			_full_at(c, "diaphragm_reflect_now", MEM_ORIGIN, 0.5)
 
 func _full_at(c: CanvasItem, id: String, at: Vector2, alpha := 1.0) -> void:
 	var t := _tex(id)
 	if t:
 		c.draw_texture(t, at, Color(1, 1, 1, alpha))
 
-## Belt 2's lacing rows, scrolling down with the belt.
+## Belt 2's laced splices, scrolling down with the belt: two rows of rawhide X-stitches each.
 func _belt2_stitches(c: CanvasItem) -> void:
-	var y := BELT2_Y.x + stitch_off
+	var lace := Color("b89a6c")
+	var x0 := BELT2_X.x + 9.0
+	var x1 := BELT2_X.y - 9.0
+	var n := 4
+	var w := (x1 - x0) / n
+	var y := BELT2_Y.x + stitch_off - STITCH_STEP
 	while y < BELT2_Y.y:
-		c.draw_line(Vector2(BELT2_X.x + 10, y), Vector2(BELT2_X.y - 10, y), Color(LEATHER_DK, 0.9), 3.0)
-		for k in 8:
-			c.draw_circle(Vector2(BELT2_X.x + 20 + k * 12.5, y + 5), 1.8, INK)
+		for row in 2:
+			var y0 := y + row * 14.0
+			if y0 < BELT2_Y.x or y0 + 11.0 > BELT2_Y.y:
+				continue
+			c.draw_line(Vector2(x0, y0 + 5.5), Vector2(x1, y0 + 5.5), Color(INK, 0.45), 1.5)
+			for k in n:
+				var a := Vector2(x0 + k * w, y0)
+				c.draw_line(a + Vector2(0, 1), a + Vector2(w, 12), Color(INK, 0.6), 3.5, true)
+				c.draw_line(a + Vector2(0, 12), a + Vector2(w, 1), Color(INK, 0.6), 3.5, true)
+				c.draw_line(a, a + Vector2(w, 11), lace, 2.2, true)
+				c.draw_line(a + Vector2(0, 11), a + Vector2(w, 0), lace, 2.2, true)
 		y += STITCH_STEP
 
 ## The reflected belt is still running, stitches and all, though the real one has stopped.
@@ -836,9 +941,14 @@ func _draw_room_labels(c: CanvasItem) -> void:
 		if _revealing():
 			plate_a = _k(reveal_t, RV_PLATE, RV_PLATE_IN)
 	if plate_a > 0.0:
+		# engraved: a dark cut fill, with the brass catching light on each letter's lower lip
 		var cx := NAMEPLATE.get_center().x
-		_ctext(c, "REFERENCE", cx, 552 + 6, 17, Color(INK, plate_a))
-		_ctext(c, "RESPIRATION", cx, 578 + 6, 17, Color(INK, plate_a))
+		var size := 20
+		while size > 16 and _tw("RESPIRATION", size) > NAMEPLATE.size.x - 22.0:
+			size -= 1
+		for pair in [["REFERENCE", 551.0], ["RESPIRATION", 579.0]]:
+			_ctext(c, pair[0], cx, pair[1] + 1.2, size, Color(BRASS_HI.lightened(0.25), 0.8 * plate_a))
+			_ctext(c, pair[0], cx, pair[1], size, Color(ENGRAVE, plate_a))
 	# the mini valve board
 	var tog: Dictionary = r.state.toggles
 	for i in 4:
@@ -850,8 +960,8 @@ func _draw_room_labels(c: CanvasItem) -> void:
 		c.draw_line(Vector2(x, MINI_SOCKET_Y), tip, BRASS_HI, 5.0, true)
 		c.draw_circle(tip, 4.5, BRASS_HI)
 		c.draw_arc(tip, 4.5, 0, TAU, 12, INK, 1.5)
-		_ctext(c, valve.substr(0, 1), x, 612, 12, PAPER_HI)
-		_ctext(c, "OPEN" if open else "SHUT", x, 626, 11, PAPER_HI)
+		# the lever's throw is the signifier here; the close-up carries the words
+		_ctext(c, valve.substr(0, 1), x, 616, 13, PAPER_HI)
 	# the mini PUMP lever: up idle, down once the gate line holds
 	var down := r.pump_on() or r.gauge_powered()
 	if _revealing():
@@ -938,7 +1048,9 @@ func _draw_circuit(c: CanvasItem, words: bool) -> void:
 	var ink := INK
 	# lines first, then the symbols over them
 	c.draw_polyline(PackedVector2Array(ROUTE_LOOP), ink, w, true)
-	c.draw_line(D_J, Vector2(D_J.x, D_CAP_Y), ink, w, true)
+	# INDEX was added later, in another ink (lens_index_ink): its branch, valve, cap and words
+	var later := INDEX_INK
+	c.draw_line(D_J, Vector2(D_J.x, D_CAP_Y), later, w, true)
 	if words:
 		for a in _along(ROUTE_LOOP, 160.0, 80.0):
 			var p: Vector2 = a[0]
@@ -953,15 +1065,15 @@ func _draw_circuit(c: CanvasItem, words: bool) -> void:
 	_bowtie(c, D_SUPPLY, false, ink, w)
 	_bowtie(c, D_GATE, false, ink, w)
 	_bowtie(c, D_RETURN, false, ink, w)
-	_bowtie(c, D_INDEX, true, ink, w)
+	_bowtie(c, D_INDEX, true, later, w)
 	c.draw_circle(D_J, 7.0, ink)
-	c.draw_line(Vector2(D_J.x - 30, D_CAP_Y), Vector2(D_J.x + 30, D_CAP_Y), ink, w + 2.0)
+	c.draw_line(Vector2(D_J.x - 30, D_CAP_Y), Vector2(D_J.x + 30, D_CAP_Y), later, w + 2.0)
 	c.draw_rect(D_CAP_BLOCK, Color(BRASS_LO, 0.25))
-	c.draw_rect(D_CAP_BLOCK, ink, false, w * 0.75)
+	c.draw_rect(D_CAP_BLOCK, later, false, w * 0.75)
 	for k in 6:
 		var x0 := D_CAP_BLOCK.position.x + k * 12.0
 		c.draw_line(Vector2(x0, D_CAP_BLOCK.end.y), Vector2(minf(x0 + 24.0, D_CAP_BLOCK.end.x),
-			D_CAP_BLOCK.end.y - minf(24.0, D_CAP_BLOCK.end.x - x0)), ink, 2.0)
+			D_CAP_BLOCK.end.y - minf(24.0, D_CAP_BLOCK.end.x - x0)), later, 2.0)
 	c.draw_rect(D_GATE_BOX, PAPER_HI)
 	c.draw_rect(D_GATE_BOX, ink, false, w)
 	if not words:
@@ -971,8 +1083,8 @@ func _draw_circuit(c: CanvasItem, words: bool) -> void:
 	_mtext(c, "SUPPLY", D_SUPPLY.x, 392, 18, ink)
 	_mtext(c, "GATE", D_GATE.x, 392, 18, ink)
 	_mtext(c, "RETURN", D_RETURN.x, 534, 18, ink)
-	_text(c, "INDEX", Vector2(642, D_INDEX.y + 7), 18, ink)
-	_text(c, "SEALED. NEVER FEED.", Vector2(660, 196), 20, ink)
+	_text(c, "INDEX", Vector2(642, D_INDEX.y + 7), 18, later)
+	_text(c, "SEALED. NEVER FEED.", Vector2(660, 196), 20, later)
 	_mtext(c, "STAIR GATE", D_GATE_BOX.get_center().x, D_GATE_BOX.get_center().y, 18, ink)
 
 ## The route a circuit code traces, the X stop mark (or none) and whether the cap is ringed.
@@ -1111,9 +1223,6 @@ func _draw_valves(c: CanvasItem) -> void:
 	_draw_fault(c, code if trace_k >= 1.0 else "")
 	# toggles
 	var tog: Dictionary = r.state.toggles
-	var seal := _tex("c_seal_cut")
-	if seal:
-		c.draw_texture(seal, Vector2(830, 740))
 	for valve in R08Sim.VALVES:
 		var cx: float = C_SOCKETS[valve]
 		var open: bool = tog[valve]
@@ -1123,6 +1232,10 @@ func _draw_valves(c: CanvasItem) -> void:
 			c.draw_texture(t, Vector2(cx, C_SOCKET_Y) - t.get_size() / 2.0)
 		_pill(c, "OPEN", cx, OPEN_Y, open)
 		_pill(c, "SHUT", cx, SHUT_Y, not open)
+	# INDEX's cut lead seal, dangling off its socket lug (over the lever, never under it)
+	var seal := _tex("c_seal_cut")
+	if seal:
+		c.draw_texture(seal, SEAL_AT)
 	# gauge
 	var sweep := 1.0
 	if _revealing() and motion:
@@ -1197,20 +1310,29 @@ func _draw_tags(c: CanvasItem) -> void:
 		var lines := r.tag_stamp()
 		_stamp(c, lines[0], TAG_RECT.get_center().x - TAG_HOLE.x, 470 - TAG_HOLE.y)
 		if lines.size() > 1:
-			_stamp(c, lines[1], TAG_RECT.get_center().x - TAG_HOLE.x, 530 - TAG_HOLE.y)
+			_stamp(c, lines[1], TAG_RECT.get_center().x - TAG_HOLE.x, 530 - TAG_HOLE.y, true)
 	else:
 		_tag_hand(c, R08Sim.TAGS[page], o + (TAG_TEXT.position - TAG_RECT.position))
 	c.draw_set_transform_matrix(Transform2D.IDENTITY)
 	# counter and the arrows
-	_ctext(c, "%d / %d" % [page + 1, R08Sim.TAGS.size()], 724, 707, 20, INK, Ink.serif())
+	_ctext(c, "%d / %d" % [page + 1, R08Sim.TAGS.size()], 724, 707, 20, PAPER_HI, Ink.serif())
 	for h in _controls():
 		if h[0] == "tag_prev" or h[0] == "tag_next":
 			_arrow_button(c, h[1], h[0] == "tag_prev")
 
 ## Venn's left-handed slope: upright letters leaning back. The date line first, then the note.
+## Venn's hand: the serif, sheared back through the font itself (a canvas skew doesn't reach
+## the glyphs).
+func _hand_font() -> Font:
+	if hand_font == null:
+		hand_font = FontVariation.new()
+		hand_font.base_font = Ink.serif()
+		hand_font.variation_transform = Transform2D(Vector2(1, 0), Vector2(HAND_SHEAR, 1), Vector2.ZERO)
+	return hand_font
+
 func _tag_hand(c: CanvasItem, s: String, at: Vector2) -> void:
 	var size := 26
-	var font := Ink.serif()
+	var font := _hand_font()
 	var cut := s.find(". ")
 	var lines := []
 	if cut > 0:
@@ -1241,7 +1363,7 @@ func _hand_line(c: CanvasItem, s: String, pos: Vector2, size: int, row: int, fon
 		g.seed = 8_11 + row * 97 + i
 		var dy := g.randf_range(-1.6, 1.6)
 		var rot := g.randf_range(-0.05, 0.05)
-		c.draw_set_transform_matrix(sway_xf * Transform2D(rot, Vector2.ONE, -Ink.HAND_SKEW, Vector2(x, pos.y + dy)))
+		c.draw_set_transform_matrix(sway_xf * Transform2D(rot, Vector2(x, pos.y + dy)))
 		c.draw_char(font, Vector2.ZERO, s[i], size, INK)
 		x += font.get_char_size(s.unicode_at(i), size).x
 	c.draw_set_transform_matrix(sway_xf)
@@ -1253,19 +1375,35 @@ func _tag_xf() -> Transform2D:
 		sway = deg_to_rad(TAG_SWAY) * exp(-3.0 * tag_t) * sin(tag_t * 9.0) * (1.0 - tag_t / TAG_SETTLE)
 	return Transform2D(sway, TAG_HOLE)
 
-## Stamped letters: narrow caps, letter-spaced, dark ink with a 1 px offset shadow.
-func _stamp(c: CanvasItem, s: String, cx: float, y: float) -> void:
+## Stamped letters, debossed into the new brass: a dark cut fill with the light catching each
+## letter's lower lip. `crooked`: the same die struck again, 2.5 degrees off and doubled.
+func _stamp(c: CanvasItem, s: String, cx: float, y: float, crooked := false) -> void:
 	var size := 34
 	var spacing := 6.0
 	var w := 0.0
 	for i in s.length():
 		w += narrow.get_char_size(s.unicode_at(i), size).x + spacing
 	w -= spacing
-	var x := cx - w / 2.0
-	for i in s.length():
-		c.draw_char(narrow, Vector2(x + 1, y + 1), s[i], size, Color(1, 0.95, 0.8, 0.35))
-		c.draw_char(narrow, Vector2(x, y), s[i], size, Color(INK, 0.85))
-		x += narrow.get_char_size(s.unicode_at(i), size).x + spacing
+	var base := _tag_xf()
+	var xf := base * Transform2D(AM_TILT if crooked else 0.0, Vector2(cx, y))
+	c.draw_set_transform_matrix(xf)
+	var cut := Color(0.24, 0.17, 0.07, 0.95)
+	var lip := Color(1.0, 0.95, 0.8, 0.85)
+	var strikes := [Vector2.ZERO]
+	if crooked:
+		strikes = [AM_GHOST, Vector2.ZERO]
+	for k in strikes.size():
+		var off: Vector2 = strikes[k]
+		var x := -w / 2.0
+		for i in s.length():
+			var ch := s[i]
+			if k == strikes.size() - 1:
+				c.draw_char(narrow, Vector2(x, 1.6) + off, ch, size, lip)
+				c.draw_char(narrow, Vector2(x, 0) + off, ch, size, cut)
+			else:
+				c.draw_char(narrow, Vector2(x, 0) + off, ch, size, Color(cut, 0.55))
+			x += narrow.get_char_size(s.unicode_at(i), size).x + spacing
+	c.draw_set_transform_matrix(base)
 
 func _arrow_button(c: CanvasItem, rect: Rect2, left: bool) -> void:
 	var inner := Rect2(rect.position.x + 24, 517, rect.size.x - 48, 60)

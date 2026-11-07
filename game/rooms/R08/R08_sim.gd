@@ -12,6 +12,8 @@ const TITLE := "Machine Room"
 const REQUIRES := ["P09"]
 const LOCKED := "The machine room is behind the kitchen's service access. It's sealed."
 const RESUME := "Back in the machine room."
+## The reveal's first line (s after the commit). The view re-times a late reveal against it.
+const REVEAL_FIRST_SAY := 0.6
 const ARRIVAL := "The machine room. Belts, a flywheel, and a black diaphragm bolted into the wall. It draws in with the cycle."
 ## [to, label, extra flags]: the ways out. The target's REQUIRES also apply.
 const EXITS := [
@@ -575,14 +577,14 @@ func _pump(ev: Array) -> void:
 	game.solve("P11", ev)
 	_sfx(ev, "pump_engage", 0.0)
 	_sfx(ev, "gauge_rise", 0.2)
-	_say(ev, "It takes. The gate line's holding pressure.", 0.6, true)
+	_say(ev, "It takes. The gate line's holding pressure.", REVEAL_FIRST_SAY, true)
 	_sfx(ev, "pump_run_up", 1.2)
 	_sfx(ev, "belt_wind_down", 3.4)
 	_say(ev, "One of the belts is stopping.", 3.6, true)
 	_sfx(ev, "belt_drop", 6.6)
 	_sfx(ev, "breath_alone", 7.8)
 	_say(ev, "The diaphragm didn't.", 8.0, true)
-	_sfx(ev, "dust_drag", 9.2)
+	_sfx(ev, "dust_drag", 8.1)   # with the reveal's one inhalation (the view's RV_DUST)
 	_say(ev, "It breathed in, and the dust came to it. Sideways.", 10.6, true)
 	_say(ev, "There's a plate where the belt was. REFERENCE RESPIRATION.", 12.6, true)
 

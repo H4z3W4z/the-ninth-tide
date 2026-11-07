@@ -797,6 +797,19 @@ func test_view_live() -> void:
 	scene.dispatch("pump")
 	await process_frame
 	check(v.reveal_t >= 0.0, "P11 starts the reveal")
+	# the hold's story lines were still queued: the reveal flushes them and keeps its own times
+	var held_left := false
+	var first_due := INF
+	for l in scene.lines:
+		if l.text in ["It's holding its breath. Like it's listening.", "Everything stopped. Behind me, the flywheel too."]:
+			held_left = true
+		if l.text == "It takes. The gate line's holding pressure.":
+			first_due = l.due
+	check(not held_left, "the reveal flushes the hold's pending lines")
+	check(absf(first_due - (scene.time + R08Sim.REVEAL_FIRST_SAY)) < 0.1, "the reveal's first line keeps its own time")
+	for l in scene.lines:
+		if l.text == "One of the belts is stopping.":
+			check(absf(l.due - first_due - 3.0) < 0.05, "the belt line lands with the belt")
 	check(not v.exits_active(), "no exits while the belt is still stopping")
 	check(v.action_at(Vector2(700, 300)) == "", "the room isn't clickable under the fading close-up")
 	check(v.belts() == [true, true, true], "the room is drawn driven before the drop")

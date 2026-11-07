@@ -8,9 +8,15 @@ Writes, and only writes, assets/rooms/R08/*.png:
   belt{1,2,3}_{taut,slack}               full-frame registered belt sprites (RGBA)
   flywheel, pulley, crank_disc           rotating sprites (the view turns them)
   diaphragm, diaphragm_hollow, diaphragm_sheen, diaphragm_slack,
+  diaphragm_in, diaphragm_out, diaphragm_gap, diaphragm_rim,
   diaphragm_reflect, diaphragm_reflect_now
-                                         the breathing membrane and its layers (400x400, centre 200,200)
-  dust_streaks, dust_raked               floor overlays (RGBA)
+                                         the breathing membrane and its layers (400x400, centre 200,200):
+                                         fold plates the view crossfades with the breath (in: a pucker at
+                                         the boss; out: a slack dome), the peak-inhale rim gap, the band 5+
+                                         wet rim light (additive)
+  lamp_ember                             the sconce burned down (band 6+)
+  dust_lines, dust_streaks, dust_raked   floor overlays (RGBA): band 3-4 wedges, P11 drifts, band 5+ rake
+  floor_front                            the pedestal and pump again, laid over the dust overlays
   light_mul, light_add                   quarter-size light maps (362x272) the view stretches x4
   c_valves (+ c_toggle_open/shut, c_seal_cut, c_pump_up/down, c_preview_up/down, c_preview_lamp)
   c_tags (+ c_tag, c_tag_new)            close-up plates and their sprites
@@ -62,9 +68,9 @@ STORM_HI = (52, 80, 100)
 STORM_DK = (26, 43, 57)
 VIOLET = (116, 101, 119)    # #746577
 
-WALL = (134, 162, 148)      # riveted iron plates, painted sea-glass
-WALL_HI = (156, 182, 168)
-WALL_DK = (108, 134, 122)
+WALL = (120, 140, 131)      # riveted iron plates, a desaturated sea-glass a step below the office plaster
+WALL_HI = (140, 160, 151)
+WALL_DK = (97, 116, 108)
 IRON = (40, 48, 56)         # machinery iron
 IRON_HI = (66, 78, 88)
 IRON_LO = (30, 36, 43)
@@ -93,15 +99,16 @@ HANGERS = (520, 880)
 DRUM_TOP = (540, 104, 160, 46)
 DRUM_LOW = (540, 640, 160, 46)
 CRANK = (528, 663)
-COLUMN = (560, 140, 120, 520)
-NAMEPLATE = (566, 520, 108, 84)
-NAIL = (620, 300)
+COLUMN = (548, 140, 144, 520)
+NAMEPLATE = (554, 514, 132, 90)
+NAIL = (652, 298)
+BELT2 = (582, 658)          # belt 2's taut run: narrower than the column, so the plate ends and tags peek out
 FLY = (860, 560)
 FLY_R = 180
 TOP_PULLEY = (860, 128)
-PUMP_PULLEY = (1180, 880)
+PUMP_PULLEY = (1024, 884)   # left of the board: belt 1 never crosses a puzzle object
 PULLEY_R = 44
-PUMP = (1110, 790, 260, 120)
+PUMP = (1110, 812, 260, 120)
 BOARD = (1090, 420, 300, 330)
 SOCKETS = (1135, 1195, 1255, 1315)
 SOCKET_Y = 560
@@ -110,7 +117,11 @@ FRAME = (1090, 150, 300, 230)
 FRAME_PAPER = (1100, 160, 280, 210)
 INDEX_X = 1372
 LAMP = (440, 140)
-DADO_Y, FLOOR_Y, DUST_Y1 = 640, 800, 910
+DADO_Y, FLOOR_Y = 640, 800
+DUST_Y1 = H                 # one floor material: a dusty concrete plinth all the way down
+VP = (290, 806)             # band 3's dust wedges converge here, under the ring at the wall base
+BARE = (238, 236, 226)      # bright unweathered metal
+BRUISE = (90, 66, 86)       # brown-violet: INDEX's later ink
 
 
 # ----------------------------------------------------------------------------- helpers
@@ -182,6 +193,39 @@ class Pen:
     def arc(self, cx, cy, rx, ry, a0, a1, col, w=3.0):
         box = ((cx - rx) * SS, (cy - ry) * SS, (cx + rx) * SS, (cy + ry) * SS)
         self.d.arc(box, a0, a1, fill=rgba(col), width=self.iw(w))
+
+    def wob_ell(self, cx, cy, rx, ry=None, col=INK, w=5.0, amp=0.9, n=144):
+        """A hand-inked ellipse contour: the office's ~3 px line with a slight, slow wobble."""
+        ry = rx if ry is None else ry
+        ph = [self.rng.uniform(0, math.tau) for _ in range(3)]
+        pts = []
+        for i in range(n + 1):
+            t = math.tau * i / n
+            k = amp * (0.55 * math.sin(3 * t + ph[0]) + 0.3 * math.sin(7 * t + ph[1]) + 0.15 * math.sin(13 * t + ph[2]))
+            pts.append((cx + (rx + k) * math.cos(t), cy + (ry + k) * math.sin(t)))
+        self.line(pts, col, w)
+
+    def wob_poly(self, pts, col=INK, w=5.0, amp=0.8, step=14.0):
+        """A closed hand-inked contour along `pts`: subdivided, nudged along the normal."""
+        ring = list(pts) + [pts[0]]
+        out = []
+        ph = self.rng.uniform(0, math.tau)
+        acc = 0.0
+        for a, b in zip(ring, ring[1:]):
+            L = math.hypot(b[0] - a[0], b[1] - a[1]) or 1.0
+            nx, ny = -(b[1] - a[1]) / L, (b[0] - a[0]) / L
+            k = max(1, int(L / step))
+            for i in range(k):
+                t = i / k
+                d = acc + L * t
+                o = amp * (0.6 * math.sin(d / 37.0 + ph) + 0.4 * math.sin(d / 13.0 + 2 * ph))
+                out.append((lerp(a[0], b[0], t) + nx * o, lerp(a[1], b[1], t) + ny * o))
+            acc += L
+        out.append(out[0])
+        self.line(out, col, w)
+
+    def wob_rect(self, x0, y0, x1, y1, col=INK, w=5.0, amp=0.8):
+        self.wob_poly([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], col, w, amp)
 
     def layer(self):
         return Pen(self.w, self.h, self.rng)
@@ -376,23 +420,8 @@ def shell(p, rng, stage):
     p.line([(-4, DADO_Y - 1), (W + 4, DADO_Y - 1)], mix(STORM_HI, WALL_HI, 0.5), 1.6)
     # skirting angle iron
     p.rect(-4, FLOOR_Y - 10, W + 4, FLOOR_Y + 4, IRON_HI, INK, 3)
-    # floor: iron deck (the dust layer) then timber
-    p.rect(-4, FLOOR_Y + 4, W + 4, DUST_Y1, DECK, None)
-    p.rect(-4, DUST_Y1, W + 4, H + 4, TIMBER, None)
-    p.line([(-4, DUST_Y1), (W + 4, DUST_Y1)], INK, 3)
-    y, k = DUST_Y1, 0
-    while y < H:
-        hgt = 44 + k * 7
-        p.line([(-4, y + 3), (W + 4, y + 3)], TIMBER_HI, 1.2)
-        p.line([(-4, y + hgt), (W + 4, y + hgt)], TIMBER_DK, 2.5)
-        x = rng.uniform(0, 300)
-        while x < W:
-            in_tabs = x < 545 and y + hgt > 915 and y < 992
-            if not in_tabs:
-                p.line([(x, y + 4), (x, y + hgt - 3)], TIMBER_DK, 2)
-            x += rng.uniform(300, 520)
-        y += hgt
-        k += 1
+    # floor: one material, a dusty concrete plinth from the skirting to the bottom edge
+    p.rect(-4, FLOOR_Y + 4, W + 4, H + 4, DECK, None)
     dust(p, rng, stage)
 
 
@@ -418,29 +447,33 @@ def damp(p, rng, wet):
 
 
 def dust(p, rng, stage):
-    y0, y1 = FLOOR_Y + 4, DUST_Y1
+    """The plinth under its even grey dust: cast slab joints showing through, a soft mottle,
+    a darker toe where the plinth meets the screen edge. Every dust state is an overlay."""
+    y0, y1 = FLOOR_Y + 4, H + 4
     p.rect(-4, y0, W + 4, y1, DUST, None)
-    # even dust: faint plate seams showing through, soft mottle
-    for x in range(140, W, 280):
-        p.line([(x, y0), (x, y1)], DUST_LO, 2)
+    # slab joints: one long horizontal pour line and staggered verticals, all softened by dust
+    for y in (938,):
+        p.line([(-4, y), (W + 4, y)], DUST_LO, 2.4)
+        p.line([(-4, y + 3), (W + 4, y + 3)], mix(DUST, DUST_HI, 0.5), 1.2)
+    for x in range(150, W, 300):
+        p.line([(x, y0 + 4), (x, 936)], DUST_LO, 2.2)
+    for x in range(300, W, 300):
+        p.line([(x, 942), (x, y1)], DUST_LO, 2.2)
     lay = p.layer()
-    for _ in range(140):
-        x, y = rng.uniform(0, W), rng.uniform(y0, y1)
-        lay.ell(x, y, rng.uniform(16, 60), rng.uniform(2, 5), DUST_HI if rng.random() < 0.5 else DUST_LO, None)
-    p.put_soft(lay, 3, 0.18)
-    if stage in ("s3", "s4"):
-        # combed into straight lines that all point at the diaphragm
-        clip = rect_mask((W, H), [(-4, y0, W + 4, y1)])
-        lay = p.layer()
-        n = 28
-        for i in range(n):
-            xb = -60 + (W + 120) * (i + 0.5) / n          # where the line meets the bottom of the band
-            dx, dy = xb - RING_C[0], y1 - RING_C[1]
-            t0 = (y0 - RING_C[1]) / dy
-            xt = RING_C[0] + dx * t0
-            lay.line([(xt, y0), (xb, y1)], DUST_LO, 7)
-            lay.line([(xt + 3, y0), (xb + 4, y1)], DUST_HI, 4)
-        p.put(lay, 1.0, clip)
+    for _ in range(220):
+        x, y = rng.uniform(-40, W + 40), rng.uniform(y0, y1)
+        lay.ell(x, y, rng.uniform(20, 90), rng.uniform(3, 9), DUST_HI if rng.random() < 0.5 else DUST_LO, None)
+    p.put_soft(lay, 4, 0.2)
+    # a little scatter of grit, matte, never sparkling
+    lay = p.layer()
+    for _ in range(260):
+        x, y = rng.uniform(0, W), rng.uniform(y0 + 6, y1)
+        lay.ell(x, y, rng.uniform(0.8, 1.8), rng.uniform(0.6, 1.2), DUST_LO if rng.random() < 0.6 else DUST_HI, None)
+    p.put(lay, 0.6)
+    # the toe of the plinth: a gentle darkening toward the bottom edge, so the floor sits down
+    lay = p.layer()
+    lay.rect(-4, 1040, W + 4, y1, mix(DUST_LO, STORM, 0.35), None)
+    p.put_soft(lay, 26, 0.45)
     p.line([(-4, y0), (W + 4, y0)], INK, 2.5)
 
 
@@ -448,56 +481,76 @@ def dust(p, rng, stage):
 
 def ring(p, rng, stage):
     cx, cy = RING_C
+    pushed = stage in ("s4", "sever")
+    if pushed:
+        # where the ring used to sit: a crescent of bright, never-painted metal on its lower left
+        bare = p.layer()
+        bare.ell(cx - 9, cy + 9, RING_R + 4, RING_R + 4, BARE, None)
+        cut = p.layer()
+        cut.ell(cx, cy, RING_R, RING_R, (255, 255, 255, 255), None)
+        bare.im.putalpha(ImageChops.subtract(bare.im.getchannel("A"), cut.im.getchannel("A")))
+        p.put(bare)
+        p.wob_ell(cx - 9, cy + 9, RING_R + 4, None, mix(BARE, INK, 0.55), 2.0, 0.6)
+        # paint flakes peeled off round the flange: bold flat chips, bare metal under navy-edged paint
+    # drop shadow: larger once the ring stands proud of the wall
     sh = p.layer()
-    sh.ell(cx + 10, cy + 14, RING_R + 4, RING_R + 4, (10, 16, 22, 255), None)
-    p.put_soft(sh, 12, 0.45)
-    p.ell(cx, cy, RING_R, RING_R, IRON, INK, 4)
+    if pushed:
+        sh.ell(cx + 16, cy + 22, RING_R + 10, RING_R + 10, (10, 16, 22, 255), None)
+        p.put_soft(sh, 14, 0.6)
+    else:
+        sh.ell(cx + 10, cy + 14, RING_R + 4, RING_R + 4, (10, 16, 22, 255), None)
+        p.put_soft(sh, 12, 0.45)
+    p.ell(cx, cy, RING_R, RING_R, IRON, None)
     p.ell(cx, cy, RING_R - 7, RING_R - 7, None, IRON_HI, 2)
-    p.arc(cx, cy, RING_R - 4, RING_R - 4, 190, 290, mix(IRON_HI, WALL_HI, 0.45), 3)
+    p.arc(cx, cy, RING_R - 4, RING_R - 4, 190, 290, mix(IRON_HI, WALL_HI, 0.55), 3.5)
+    p.arc(cx, cy, RING_R - 4, RING_R - 4, 20, 110, IRON_LO, 3)
     p.ell(cx, cy, MEM_R + 6, MEM_R + 6, None, IRON_LO, 3)
+    if pushed:
+        # the flange's paint has burst off in flat flakes between the bolts: dull steel under a
+        # dark edge, one curl of paint still lifting from each
+        for k in range(8):
+            a = 15 + k * 45 + rng.uniform(-6, 6)
+            c0 = polar(RING_C, (MEM_R + 8 + RING_R) / 2 + rng.uniform(-2, 2), a)
+            n = rng.randint(5, 7)
+            pts = []
+            for j in range(n):
+                t = math.tau * j / n
+                rr = rng.uniform(5, 9)
+                pts.append((c0[0] + rr * 1.5 * math.cos(t + math.radians(a + 90)),
+                            c0[1] + rr * 1.5 * math.sin(t + math.radians(a + 90)) * 0.7))
+            p.poly(pts, mix(BARE, IRON_HI, 0.55), INK, 2)
+            q = pts[0]
+            p.poly([q, pts[1], polar(q, 7, a + 200)], mix(IRON_HI, WALL_HI, 0.3), INK, 1.4)
+    p.wob_ell(cx, cy, RING_R, None, INK, 5.5, 1.0)
     # the recess the membrane sits in (the sprite covers it)
     p.ell(cx, cy, MEM_R, MEM_R, MEMBRANE, INK, 3.5)
-    # cracks first, so the bolts sit on top
-    if stage in ("s4", "sever"):
-        for k in range(14):
-            a = k * 360 / 14 + rng.uniform(-9, 9)
-            r = RING_R + 2
-            pts = [polar(RING_C, r, a)]
-            L = rng.uniform(30, 60)
-            aa = a
-            while r < RING_R + L:
-                r += rng.uniform(7, 12)
-                aa += rng.uniform(-5, 5)
-                pts.append(polar(RING_C, r, aa))
-            p.line(pts, INK, 1.6)
-            if rng.random() < 0.6:
-                q = pts[len(pts) // 2]
-                b = aa + rng.choice((-1, 1)) * rng.uniform(20, 35)
-                p.line([q, polar(q, rng.uniform(10, 18), b)], INK, 1.2)
     for i in range(12):
         a = i * 30
-        hp = polar(RING_C, BOLT_R, a)
-        if stage == "s4":
-            # bright threaded shank between head and flange: the bolt is backing out
-            s0, s1 = polar(RING_C, BOLT_R + BOLT_HEAD - 2, a), polar(RING_C, BOLT_R + BOLT_HEAD + 12, a)
-            strap(p, [s0, s1], 11, BRASS, INK, 1.6)
-            for t in range(4):
-                q = polar(RING_C, BOLT_R + BOLT_HEAD + 1 + t * 3, a)
-                p.line([polar(q, 5, a + 90), polar(q, 5, a - 90)], BRASS_HI, 1.4)
+        seat = polar(RING_C, BOLT_R, a)
+        hp = seat
+        if pushed:
+            # the witness stripe stays where it was painted, on the flange both sides of the seat
+            p.line([polar(RING_C, BOLT_R - BOLT_HEAD - 3, a), polar(RING_C, BOLT_R + BOLT_HEAD + 4, a)], PAINT, 4)
+            # backed out a finger's width: the head stands off its seat toward us (up-left in the
+            # oblique), and a bright threaded shank shows between head and flange
+            hp = (seat[0] - 7, seat[1] - 8)
+            p.ell(seat[0] + 2, seat[1] + 3, 10, 10, (14, 20, 26), None)
+            strap(p, [seat, hp], 17, BRASS_HI, INK, 1.8)
+            p.ell(seat[0], seat[1], 8.5, 8.5, BRASS_HI, INK, 1.8)
+            for t in (0.25, 0.5, 0.75):
+                q = (lerp(seat[0], hp[0], t), lerp(seat[1], hp[1], t))
+                p.line([polar(q, 8, -48 + 90), polar(q, 8, -48 - 90)], BRASS_LO, 1.6)
         hexa = [polar(hp, BOLT_HEAD, a + 30 + 60 * k) for k in range(6)]
         p.poly([(x + 2, y + 3) for x, y in hexa], (14, 20, 26), None)
-        p.poly(hexa, IRON_HI, INK, 2.2)
+        p.poly(hexa, IRON_HI, INK, 2.4)
         p.ell(hp[0], hp[1], 6.5, 6.5, None, IRON, 1.6)
         # one white radial paint stripe across head and flange
         inner = (BOLT_R - BOLT_HEAD - 3, BOLT_R)
         outer = (BOLT_R, BOLT_R + BOLT_HEAD + 4)
-        if stage in ("s4", "sever"):
-            p.line([polar(RING_C, inner[0], a), polar(RING_C, inner[1] - 1, a)], PAINT, 4)
-            o0, o1 = polar(RING_C, outer[0] + 1, a), polar(RING_C, outer[1], a)
-            sx, sy = 4 * math.cos(math.radians(a + 90)), 4 * math.sin(math.radians(a + 90))
-            p.line([(o0[0] + sx, o0[1] + sy), (o1[0] + sx, o1[1] + sy)], PAINT, 4)
-            m = polar(RING_C, BOLT_R, a)
-            p.line([polar(m, 4, a + 90), polar(m, 4, a - 90)], INK, 1.2)
+        if pushed:
+            # the head's half of the stripe has moved with the head
+            h0, h1 = polar(hp, -BOLT_HEAD + 1, a), polar(hp, BOLT_HEAD - 1, a)
+            p.line([h0, h1], PAINT, 4)
         else:
             p.line([polar(RING_C, inner[0], a), polar(RING_C, outer[1], a)], PAINT, 4)
 
@@ -542,11 +595,13 @@ def shaft(p):
 
 def drum(p, box):
     x, y, w, h = box
-    p.rect(x + 6, y, x + w - 6, y + h, IRON_HI, INK, 2.5)
-    p.line([(x + 8, y + 9), (x + w - 8, y + 9)], mix(IRON_HI, WALL_HI, 0.5), 2)
-    p.line([(x + 8, y + h - 9), (x + w - 8, y + h - 9)], IRON_LO, 2)
-    p.ell(x + 6, y + h / 2, 9, h / 2, IRON, INK, 2.5)
-    p.ell(x + w - 6, y + h / 2, 9, h / 2, IRON, INK, 2.5)
+    p.rect(x + 6, y, x + w - 6, y + h, IRON_HI, None)
+    # a cylinder seen side-on: a lit band across its upper middle, darker toward both edges
+    p.rect(x + 8, y + 6, x + w - 8, y + 14, mix(IRON_HI, WALL_HI, 0.45), None)
+    p.rect(x + 8, y + h - 12, x + w - 8, y + h - 2, IRON_LO, None)
+    p.wob_rect(x + 6, y, x + w - 6, y + h, INK, 3.5, 0.6)
+    p.ell(x + 6, y + h / 2, 9, h / 2, IRON, INK, 3)
+    p.ell(x + w - 6, y + h / 2, 9, h / 2, IRON, INK, 3)
 
 
 def column(p, rng):
@@ -554,32 +609,39 @@ def column(p, rng):
     sh = p.layer()
     sh.rect(x + 8, y + 10, x + w + 10, y + h + 6, (10, 16, 22, 255), None)
     p.put_soft(sh, 8, 0.4)
-    p.rect(x, y, x + w, y + h, IRON, INK, 3)
+    p.rect(x, y, x + w, y + h, IRON, None)
     p.rect(x + 8, y + 8, x + w - 8, y + h - 8, None, IRON_HI, 2)
+    p.wob_rect(x, y, x + w, y + h, INK, 4.5, 0.7)
     for yy in range(y + 18, y + h - 10, 34):
         rivet(p, x + 15, yy, 2.4, IRON_HI)
         rivet(p, x + w - 15, yy, 2.4, IRON_HI)
-    # blank brass nameplate, four rivets
+    # the brass nameplate: plain tarnished brass, four rivets; the view engraves the words
     nx, ny, nw, nh = NAMEPLATE
-    # a polished face (not tarnished like the frame): the view's INK letters keep >= 4.5:1 at band 7
-    p.rect(nx, ny, nx + nw, ny + nh, mix(BRASS_HI, ENAMEL, 0.2), INK, 2.5, r=3)
-    p.rect(nx + 7, ny + 7, nx + nw - 7, ny + nh - 7, None, BRASS, 1.4, r=2)
-    for q in ((nx + 9, ny + 9), (nx + nw - 9, ny + 9), (nx + 9, ny + nh - 9), (nx + nw - 9, ny + nh - 9)):
+    p.rect(nx + 3, ny + 4, nx + nw + 3, ny + nh + 4, (12, 18, 24), None, r=3)
+    p.rect(nx, ny, nx + nw, ny + nh, mix(BRASS, BRASS_HI, 0.5), INK, 3, r=3)
+    p.rect(nx + 6, ny + 6, nx + nw - 6, ny + nh - 6, None, BRASS_LO, 1.6, r=2)
+    p.line([(nx + 5, ny + 3), (nx + nw - 5, ny + 3)], BRASS_HI, 1.4)
+    for q in ((nx + 10, ny + 10), (nx + nw - 10, ny + 10), (nx + 10, ny + nh - 10), (nx + nw - 10, ny + nh - 10)):
         rivet(p, q[0], q[1], 3, BRASS_HI)
-    # the nail and its ring of nine tarnished tags
+    # the nail and its ring of nine tarnished tags, fanned to the right: before P11 their edges
+    # and the ring show past belt 2's right edge
     tx, ty = NAIL
     p.ell(tx, ty + 14, 12, 12, None, BRASS_LO, 3)
-    tags = list(range(9))
-    for i in tags:
-        ang = -24 + 48 * i / 8 + rng.uniform(-2, 2)
+    for i in range(9):
+        ang = -36 + 34 * i / 8 + rng.uniform(-1.5, 1.5)
         top = (tx, ty + 24)
         pts = rotated_rect(top[0], top[1], 22, 82, ang, r=4)
-        col = mix(BRASS_LO, BRASS_DK, rng.uniform(0.0, 0.5))
-        p.poly(pts, col, INK, 2)
+        tone = rng.uniform(0.0, 1.0)
+        col = mix(mix((150, 132, 78), BRASS_DK, 0.5 * tone), SEAGLASS, 0.15 * (1 - tone))
+        p.poly([(q[0] + 2, q[1] + 3) for q in pts], (12, 18, 24), None)
+        p.poly(pts, col, INK, 2.2)
+        edge = rotated_rect(top[0], top[1] + 3, 16, 76, ang, r=3)
+        p.poly(edge, None, mix(col, BRASS_HI, 0.35), 1.2)
         hole = rot((top[0], top[1] + 8), top, ang)
-        p.ell(hole[0], hole[1], 2.6, 2.6, IRON_LO, None)
-    p.ell(tx, ty + 14, 12, 12, None, INK, 4.2)
-    p.ell(tx, ty + 14, 12, 12, None, BRASS, 2.2)
+        p.ell(hole[0], hole[1], 4.2, 4.2, mix(SEAGLASS_HI, SEAGLASS, 0.4), None)
+        p.ell(hole[0], hole[1], 2.4, 2.4, IRON_LO, None)
+    p.ell(tx, ty + 14, 12, 12, None, INK, 4.6)
+    p.ell(tx, ty + 14, 12, 12, None, BRASS_HI, 2.4)
     p.ell(tx, ty, 5, 5, IRON_HI, INK, 2)
 
 
@@ -625,7 +687,8 @@ def board(p, rng):
     p.put_soft(sh, 8, 0.38)
     # maintenance drawing frame: brass, blank cream paper (the view draws the circuit)
     fx, fy, fw, fh = FRAME
-    p.rect(fx, fy, fx + fw, fy + fh, BRASS, INK, 3, r=3)
+    p.rect(fx, fy, fx + fw, fy + fh, BRASS, None, r=3)
+    p.wob_rect(fx, fy, fx + fw, fy + fh, INK, 4.5, 0.6)
     p.rect(fx + 4, fy + 4, fx + fw - 4, fy + fh - 4, None, BRASS_HI, 1.4)
     px, py, pw, ph = FRAME_PAPER
     p.rect(px, py, px + pw, py + ph, PAPER_HI, INK, 2)
@@ -639,7 +702,8 @@ def board(p, rng):
     p.ell(ix + 24, 404, 7, 7, LEAD, INK, 2)
     p.ell(ix + 22, 402, 2.5, 2.5, LEAD_HI, None)
     # the enamel valve board
-    p.rect(x - 6, y - 6, x + w + 6, y + h + 6, BRASS_HI, INK, 3, r=7)
+    p.rect(x - 6, y - 6, x + w + 6, y + h + 6, BRASS_HI, None, r=7)
+    p.wob_rect(x - 6, y - 6, x + w + 6, y + h + 6, INK, 5.0, 0.7)
     p.rect(x, y, x + w, y + h, STORM, INK, 2.5, r=4)
     p.rect(x + 10, y + 10, x + w - 10, y + h - 10, None, STORM_HI, 1.4, r=3)
     for q in ((x + 14, y + 14), (x + w - 14, y + 14), (x + 14, y + h - 14), (x + w - 14, y + h - 14)):
@@ -678,9 +742,18 @@ def pump(p):
     for k in range(5):
         rivet(p, x + 128 + k * 28, y + 5, 2.6, IRON)
     p.line([(x + 132, y + 22), (x + 132, y + h - 24)], mix(IRON_HI, WALL_HI, 0.35), 2)
-    # pulley pedestal with the axle boss at (1180,880)
+    # gearbox on the bed, and the drive shaft out to the pulley stand on the left
     ax, ay = PUMP_PULLEY
-    p.poly([(x + 18, y + h - 16), (x + 120, y + h - 16), (ax + 18, ay - 10), (ax - 18, ay - 10)], IRON, INK, 3)
+    p.rect(x + 10, y + 30, x + 112, y + h - 16, IRON_HI, INK, 3, r=6)
+    p.rect(ax, ay - 7, x + 12, ay + 7, IRON_HI, INK, 2.5)
+    p.line([(ax + 4, ay - 3), (x + 8, ay - 3)], mix(IRON_HI, WALL_HI, 0.45), 1.4)
+    # the pulley stand: a cast A-frame on its own foot
+    foot_y = ay + 66
+    p.poly([(ax - 40, foot_y), (ax - 24, foot_y), (ax + 6, ay + 6), (ax - 6, ay + 6)], IRON, INK, 3)
+    p.poly([(ax + 24, foot_y), (ax + 40, foot_y), (ax + 6, ay + 6), (ax - 6, ay + 6)], IRON, INK, 3)
+    p.rect(ax - 52, foot_y, ax + 52, foot_y + 14, IRON_HI, INK, 3)
+    rivet(p, ax - 42, foot_y + 7, 2.6, IRON)
+    rivet(p, ax + 42, foot_y + 7, 2.6, IRON)
     p.ell(ax, ay, 22, 22, IRON_HI, INK, 3)
     p.ell(ax, ay, 9, 9, IRON, INK, 2)
 
@@ -735,19 +808,21 @@ def paint_belt1(rng, slack):
         belt_strand(p, a1, a2)
         belt_strand(p, b1, b2)
     else:
-        # slipped off the pump: hanging from the flywheel's rim, the loop lying on the deck
+        # slipped off the pump pulley: still round the flywheel's lower rim, the slack lying in
+        # a loop on the plinth beside the pulley stand
         s1 = polar(FLY, FLY_R + 7, 22)
         s2 = polar(FLY, FLY_R + 7, 112)
-        loop_c, rx, ry = (1090, 895), 150, 9
+        loop_c, rx, ry = (1000, 1004), 128, 10
         right = (loop_c[0] + rx, loop_c[1] - 2)
-        left = (loop_c[0] - rx + 30, loop_c[1] - 6)
+        left = (loop_c[0] - rx + 26, loop_c[1] - 6)
         lay = p.layer()
         pts = [(loop_c[0] + rx * math.cos(t * 2 * math.pi / 60), loop_c[1] + ry * math.sin(t * 2 * math.pi / 60))
                for t in range(61)]
         strap(lay, pts, 12, LEATHER_DK, INK, 2.2, hi=LEATHER)
         p.put(lay)
-        belt_strand_curve(p, bezier([s1, (s1[0] + 40, s1[1] + 160), (right[0], right[1] - 80), right]))
-        belt_strand_curve(p, bezier([s2, (s2[0] + 10, s2[1] + 110), (left[0] - 30, left[1] - 40), left]))
+        wrap(p, FLY, FLY_R + 7, math.radians(22), math.radians(112))
+        belt_strand_curve(p, bezier([s1, (s1[0] + 50, s1[1] + 150), (right[0] + 10, right[1] - 90), right]))
+        belt_strand_curve(p, bezier([s2, (s2[0] + 10, s2[1] + 120), (left[0] - 30, left[1] - 50), left]))
     return p
 
 
@@ -765,42 +840,68 @@ def paint_belt3(rng, slack):
         belt_strand(p, a1, a2)
         belt_strand(p, b1, b2)
     else:
+        # gone slack: it still hangs from the top pulley, but its loop has slumped onto the
+        # flywheel and lies over the top of the rim, the strands bowing out under their own weight
         cx, cy = TOP_PULLEY
         r = PULLEY_R + 7
         wrap(p, TOP_PULLEY, r, math.pi, 2 * math.pi)
         lft, rgt = (cx - r, cy), (cx + r, cy)
-        u = bezier([lft, (cx - r - 14, 330), (cx - 46, 470), (cx, 470)], 40) + \
-            bezier([(cx, 470), (cx + 46, 470), (cx + r + 14, 330), rgt], 40)[1:]
-        belt_strand_curve(p, u)
+        rr = FLY_R + 9
+        on_l, on_r = polar(FLY, rr, -128), polar(FLY, rr, -52)
+        belt_strand_curve(p, bezier([lft, (cx - r - 30, 220), (on_l[0] - 26, on_l[1] - 70), on_l], 30))
+        belt_strand_curve(p, bezier([rgt, (cx + r + 34, 230), (on_r[0] + 22, on_r[1] - 64), on_r], 30))
+        belt_strand_curve(p, [polar(FLY, rr, a) for a in range(-128, -51, 3)])
+        # the slack's spare length slumped down over the rim's left shoulder, a short fold
+        fold = bezier([on_l, polar(FLY, rr + 16, -140), polar(FLY, rr + 10, -152), polar(FLY, rr - 6, -146)], 16)
+        belt_strand_curve(p, fold)
     return p
 
 
 def paint_belt2(rng, slack):
     p = Pen(W, H, rng)
-    x0, x1 = 556, 684
+    x0, x1 = 556, 684        # the slack fold keeps its own (approved) registration
     if not slack:
+        bx0, bx1 = BELT2
+        cxm = (bx0 + bx1) / 2
+        t_top, t_bot = DRUM_TOP[1] - 4, DRUM_LOW[1] + DRUM_LOW[3] + 4
         sh = p.layer()
-        sh.rect(x0 + 6, 132, x1 + 6, 664, (10, 16, 22, 255), None)
-        p.put_soft(sh, 6, 0.35)
-        p.rect(x0, 128, x1, 664, LEATHER, INK, 3)
-        p.line([(x0 + 6, 132), (x0 + 6, 660)], LEATHER_HI, 2)
-        p.line([(x1 - 6, 132), (x1 - 6, 660)], LEATHER_DK, 2)
-        # a laced splice, plain stitch holes only
-        for y in (380, 396):
-            p.line([(x0 + 2, y), (x1 - 2, y)], LEATHER_DK, 2.5)
-        for k in range(9):
-            xx = x0 + 14 + k * 12.5
-            p.ell(xx, 388, 2.2, 2.2, INK, None)
-        # scuffed wear along the band
+        sh.rect(bx0 + 6, t_top + 6, bx1 + 6, t_bot + 4, (10, 16, 22, 255), None)
+        p.put_soft(sh, 6, 0.45)
+        # the run: dark leather with a convex crown down its centre
+        p.rect(bx0, t_top, bx1, t_bot, LEATHER_DK, None)
+        crown = p.layer()
+        crown.rect(cxm - 11, t_top, cxm + 11, t_bot, mix(LEATHER_DK, LEATHER, 0.6), None)
+        p.put_soft(crown, 6, 0.9)
+        crown = p.layer()
+        crown.rect(cxm - 2, t_top, cxm + 2, t_bot, LEATHER_HI, None)
+        p.put_soft(crown, 2, 0.6)
+        for xe in (bx0 + 3, bx1 - 3):
+            p.line([(xe, t_top), (xe, t_bot)], mix(LEATHER_DK, INK, 0.45), 3)
+        # long wear streaks along the direction of travel
         lay = p.layer()
-        for _ in range(16):
-            yy = rng.uniform(150, 640)
-            lay.line([(rng.uniform(x0 + 12, x0 + 50), yy), (rng.uniform(x1 - 50, x1 - 12), yy + rng.uniform(-2, 2))],
-                     LEATHER_HI, 1.4)
-        p.put(lay, 0.45)
-        # band over the drum faces at the top and bottom
-        p.rect(x0, 128, x1, 140, LEATHER_DK, INK, 2)
-        p.rect(x0, 652, x1, 664, LEATHER_DK, INK, 2)
+        for _ in range(9):
+            xx = rng.uniform(bx0 + 10, bx1 - 10)
+            yy = rng.uniform(t_top + 60, t_bot - 160)
+            lay.line([(xx, yy), (xx + rng.uniform(-1, 1), yy + rng.uniform(60, 150))], LEATHER_HI, 1.2)
+        p.put(lay, 0.3)
+        # wrapped over the top drum and round the crank pulley at the bottom: where it lies on the
+        # drum it takes the cylinder's light, and its ends roll away out of sight
+        for (dy0, dy1, top) in ((DRUM_TOP[1], DRUM_TOP[1] + DRUM_TOP[3], True),
+                                (DRUM_LOW[1], DRUM_LOW[1] + DRUM_LOW[3], False)):
+            yy0, yy1 = (dy0 - 4, dy1) if top else (dy0, dy1 + 4)
+            band = p.layer()
+            band.rect(bx0, yy0, bx1, yy1, LEATHER, None)
+            p.put(band, 1.0)
+            # lit across the drum's lit band, darkening as it turns away
+            p.rect(bx0 + 2, dy0 + 6, bx1 - 2, dy0 + 14, LEATHER_HI, None)
+            p.rect(bx0 + 2, dy1 - 12, bx1 - 2, dy1 + (0 if top else 4), mix(LEATHER_DK, INK, 0.4), None)
+            edge_y = yy0 if top else yy1
+            p.line([(bx0, edge_y), (cxm, edge_y + (-3 if top else 3)), (bx1, edge_y)], INK, 3)
+            p.line([(bx0, yy1 if top else yy0), (bx1, yy1 if top else yy0)], mix(LEATHER_DK, INK, 0.6), 2.2)
+            p.line([(bx0, yy0), (bx0, yy1)], INK, 3)
+            p.line([(bx1, yy0), (bx1, yy1)], INK, 3)
+        p.line([(bx0, t_top), (bx0, t_bot)], INK, 3)
+        p.line([(bx1, t_top), (bx1, t_bot)], INK, 3)
     else:
         # slipped off the lower drum: over the top drum, folded down the left of the column
         p.poly([(x0 + 40, 100), (x1, 104), (x1 - 4, 116), (x0 + 30, 114)], LEATHER, INK, 2.5)
@@ -840,7 +941,8 @@ def paint_flywheel(rng):
     mask = hole.im.getchannel("A")
     a = ImageChops.subtract(p.im.getchannel("A"), mask)
     p.im.putalpha(a)
-    p.ell(c[0], c[1], 156, 156, None, INK, 3)
+    p.ell(c[0], c[1], 156, 156, None, INK, 3.5)
+    p.wob_ell(c[0], c[1], 180, None, INK, 5.5, 1.0)
     for k in range(6):
         ang = k * 60
         a0 = polar(c, 30, ang)
@@ -862,7 +964,8 @@ def paint_pulley(rng):
     hole = p.layer()
     hole.ell(50, 50, 33, 33, (255, 255, 255, 255), None)
     p.im.putalpha(ImageChops.subtract(p.im.getchannel("A"), hole.im.getchannel("A")))
-    p.ell(50, 50, 34, 34, None, INK, 2.2)
+    p.ell(50, 50, 34, 34, None, INK, 2.6)
+    p.wob_ell(50, 50, 44, None, INK, 4.5, 0.6, 72)
     p.arc(50, 50, 39, 39, 200, 290, mix(IRON_HI, WALL_HI, 0.35), 2)
     for k in range(3):
         ang = -90 + k * 120
@@ -893,21 +996,127 @@ def paint_diaphragm(rng):
     p = Pen(400, 400, rng)
     c = (200, 200)
     p.ell(200, 200, 192, 192, MEMBRANE, None)
-    lay = p.layer()
-    for k in range(18):  # very subtle radial creases
-        a = k * 20 + rng.uniform(-6, 6)
-        r0, r1 = rng.uniform(34, 60), rng.uniform(150, 186)
-        lay.line([polar(c, r0, a), polar(c, (r0 + r1) / 2, a + rng.uniform(-3, 3)), polar(c, r1, a)], MEMBRANE_HI, 2.2)
-    p.put_soft(lay, 1.2, 0.5)
     p.ell(200, 200, 192, 192, None, INK, 3)
-    # brass hub boss
-    p.ell(201, 203, 25, 25, (8, 10, 14), None)
-    p.ell(200, 200, 24, 24, BRASS, INK, 2.5)
-    p.ell(200, 200, 15, 15, None, BRASS_LO, 2)
-    p.ell(195, 195, 6, 6, BRASS_HI, None)
+    _boss(p, c)
+    return p
+
+
+def _boss(p, c, col=BRASS, hi=BRASS_HI):
+    p.ell(c[0] + 1, c[1] + 3, 25, 25, (8, 10, 14), None)
+    p.ell(c[0], c[1], 24, 24, col, INK, 2.5)
+    p.ell(c[0], c[1], 15, 15, None, BRASS_LO, 2)
+    p.ell(c[0] - 5, c[1] - 5, 6, 6, hi, None)
     for k in range(4):
         q = polar(c, 19, 45 + 90 * k)
         p.ell(q[0], q[1], 2.2, 2.2, BRASS_DK, None)
+
+
+FOLD_HI = (58, 70, 86)      # a fold's lit ridge: the light comes from the sconce, upper right
+FOLD_LO = (5, 7, 11)         # its crease
+
+
+def paint_ribs(rng, mode):
+    """The membrane's surface as flat fold plates the view crossfades with the breath.
+
+    "in": full inhale. The skin is drawn into the ring: its ribs converge and tighten into a
+    dark pucker of short hard folds round the boss (the sever sack's fold language, pulled taut).
+    "out": exhale. The ribs relax and bow outward in long slack curves, a broad dull dome."""
+    p = Pen(400, 400, rng)
+    c = (200, 200)
+    clip = circle_mask((400, 400), c, 189)
+    lay = p.layer()
+    n = 16
+    if mode == "in":
+        # drawn in: the skin pulled taut toward the boss. Long straight tension lines run in from
+        # the rim and bunch into a dark star of hard gathers round the boss (the sever sack's
+        # folds, pulled tight from the middle)
+        well = p.layer()
+        well.ell(200, 200, 84, 84, (0, 0, 0, 255), None)
+        lay.put_soft(well, 12, 0.85)
+        for k in range(n):
+            a0 = k * 360 / n + rng.uniform(-5, 5)
+            r_out = rng.uniform(150, 186)
+            pts = [polar(c, r, a0) for r in (r_out, 100, 34)]
+            lay.line(pts, FOLD_LO, 2.6)
+            lay.line([polar(q, 2.4, a0 + 90) for q in pts], mix(FOLD_HI, MEMBRANE, 0.25), 1.4)
+        # the star: fat, short, lit gathers, each a wedge from the boss out to r ~ 70-100
+        for k in range(14):
+            a0 = k * 360 / 14 + rng.uniform(-5, 5)
+            r1 = rng.uniform(64, 98)
+            tip = polar(c, r1, a0)
+            b0, b1 = polar(c, 27, a0 - 12), polar(c, 27, a0 + 12)
+            lay.poly([b0, tip, b1], FOLD_HI, None)
+            lay.line([b1, tip], mix(FOLD_HI, PAPER, 0.2), 1.6)
+            lay.line([b0, tip], FOLD_LO, 3)
+    else:
+        # let go: a slack dome. A broad dull highlight where it bulges at the light, and the
+        # skin's weight sagging into three soft catenaries across its lower half
+        dome = p.layer()
+        dome.ell(232, 166, 132, 112, (44, 56, 70, 255), None)
+        lay.put_soft(dome, 34, 0.9)
+        for f in range(3):
+            y = 262 + f * 30
+            sag = 12 + f * 5
+            pts = bezier([(14, y - 18), (200, y + sag), (386, y - 18)], 40)
+            lay.line(pts, FOLD_LO, 3.2)
+            lay.line(offset_line(pts, 3.2), mix(FOLD_HI, MEMBRANE, 0.15), 2)
+    p.put(lay, 1.0, clip)
+    # leave the brass boss clear: the view lays these over the base sprite's boss
+    boss = p.layer()
+    boss.ell(200, 200, 25.5, 25.5, (255, 255, 255, 255), None)
+    p.im.putalpha(ImageChops.subtract(p.im.getchannel("A"), boss.im.getchannel("A")))
+    return p
+
+
+def paint_gap(rng):
+    """Peak inhale: the membrane pulls off the ring on the side away from the light and a thin
+    bright crescent of the wall-light behind opens between them."""
+    p = Pen(400, 400, rng)
+    lay = p.layer()
+    lay.ell(200, 200, 192, 192, rgba(mix(PAPER_HI, SEAGLASS_HI, 0.35)), None)
+    cut = p.layer()
+    cut.ell(205, 195, 187, 187, (255, 255, 255, 255), None)
+    lay.im.putalpha(ImageChops.subtract(lay.im.getchannel("A"), cut.im.getchannel("A")))
+    fade = Image.new("L", lay.im.size, 0)
+    ImageDraw.Draw(fade).pieslice((0, 0, 400 * SS, 400 * SS), 75, 215, fill=255)
+    fade = fade.filter(ImageFilter.GaussianBlur(18 * SS))
+    lay.im.putalpha(ImageChops.multiply(lay.im.getchannel("A"), fade))
+    p.put(lay)
+    # the membrane's own lip, inked, standing off the ring
+    p.arc(205, 195, 187, 187, 95, 195, INK, 2.4)
+    return p
+
+
+def paint_rim(rng):
+    """Band 5+: a cold wet rim light round the membrane's edge (drawn additively)."""
+    im = Image.new("RGBA", (400, 400))
+    px = []
+    col = (70, 128, 112)
+    for j in range(400):
+        for i in range(400):
+            dx, dy = i + 0.5 - 200, j + 0.5 - 200
+            r = math.hypot(dx, dy)
+            ang = math.atan2(dy, dx)
+            ring_k = math.exp(-((r - 184) / 5.5) ** 2) if r < 192 else math.exp(-((r - 184) / 2.2) ** 2)
+            # wettest along the upper left and lower right, a cold glint not a halo
+            lobe = 0.55 + 0.45 * abs(math.cos(ang - math.radians(-135)))
+            k = ring_k * lobe
+            px.append((col[0], col[1], col[2], int(min(255, 255 * k))))
+    im.putdata(px)
+    return im
+
+
+def paint_lamp_ember(rng):
+    """Band 6+: the sconce burned down to a dull ember (laid over the plate's lit glass)."""
+    p = Pen(80, 80, rng)
+    x, y = 40, 40
+    p.ell(x, y, 18, 22, (92, 52, 34), INK, 2)
+    p.ell(x + 2, y + 5, 9, 11, (150, 76, 40), None)
+    for dx in (-9, 0, 9):
+        hgt = 22 * math.sqrt(max(0, 1 - (dx / 18) ** 2))
+        p.line([(x + dx, y - hgt), (x + dx, y + hgt)], INK, 2.4)
+    p.line([(x - 18, y), (x + 18, y)], INK, 2.4)
+    p.ell(x, y, 24, 28, None, INK, 3)
     return p
 
 
@@ -973,117 +1182,232 @@ def paint_slack(rng):
     return p
 
 
-def reflect_xy(x, y):
-    """Room point -> diaphragm sprite point: mirrored left-right, scaled 0.3 about the ring centre."""
-    return (200 - 0.3 * (x - RING_C[0]), 200 + 0.3 * (y - RING_C[1]))
+REFLECT_BAND = (210, 112, 18, 196)   # belt 2 in the reflection (sprite px): the view's ghost stripes
+
+
+def dome(q, k=0.16):
+    """Bend a sprite point as the membrane's dome would: pulled in toward the rim."""
+    dx, dy = q[0] - 200, q[1] - 200
+    f = 1 - k * (dx * dx + dy * dy) / (186.0 * 186.0)
+    return (200 + dx * f, 200 + dy * f)
+
+
+def _bent(pts, step=6.0):
+    out = []
+    ring = list(pts)
+    for a, b in zip(ring, ring[1:]):
+        n = max(1, int(math.hypot(b[0] - a[0], b[1] - a[1]) / step))
+        for i in range(n):
+            out.append(dome((lerp(a[0], b[0], i / n), lerp(a[1], b[1], i / n))))
+    out.append(dome(ring[-1]))
+    return out
+
+
+def _bent_rect(x0, y0, x1, y1):
+    return _bent([(x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)])
+
+
+def _bent_circle(cx, cy, r, n=72):
+    return [dome((cx + r * math.cos(math.tau * i / n), cy + r * math.sin(math.tau * i / n))) for i in range(n)]
 
 
 def paint_reflect(rng, slack):
+    """The room caught in the membrane: flat pale sea-glass shapes in the right half of the disc,
+    facing the real flywheel and board, bent by the dome. The view lays it at ~50 %.
+
+    `slack` False (band 7, late): belt 2 still taut in the reflection, though the real one hangs.
+    `slack` True (continue): the same image, caught up: every belt slack."""
     p = Pen(400, 400, rng)
     lay = p.layer()
-    col = SEAGLASS_HI
-    R = lambda pts: [reflect_xy(*q) for q in pts]
-    # the line shaft, drums, column and flywheel pedestal: faint context
-    x0, y0, x1, y1 = SHAFT
-    lay.poly(R([(x0, y0), (x1, y0), (x1, y1), (x0, y1)]), None, col, 1.6)
-    for bx in (DRUM_TOP, DRUM_LOW):
-        lay.poly(R([(bx[0], bx[1]), (bx[0] + bx[2], bx[1]), (bx[0] + bx[2], bx[1] + bx[3]), (bx[0], bx[1] + bx[3])]),
-                 None, col, 1.6)
-    lay.line(R([(760, 740), (860, 560), (960, 740)]), col, 1.6)
-    lay.line(R([(-10, FLOOR_Y), (W, FLOOR_Y)]), col, 1.4)
-    lay.line(R([(-10, DADO_Y), (W, DADO_Y)]), col, 1.0)
-    # the flywheel
-    fc = reflect_xy(*FLY)
-    lay.ell(fc[0], fc[1], 54, 54, None, col, 2.6)
-    lay.ell(fc[0], fc[1], 47, 47, None, col, 1.4)
+    col = rgba(mix(SEAGLASS_HI, PAPER_HI, 0.35))
+    dim = rgba(mix(SEAGLASS_HI, MEMBRANE, 0.35))
+    dark = rgba(MEMBRANE)
+    # the wall's dado line and the floor edge, as two faint bands
+    lay.poly(_bent_rect(150, 300, 400, 306), dim, None)
+    lay.poly(_bent_rect(150, 344, 400, 350), dim, None)
+    # the valve board, and the drawing frame above it
+    lay.poly(_bent_rect(318, 124, 368, 166), col, None)
+    lay.poly(_bent_rect(323, 129, 363, 161), dark, None)
+    lay.line(_bent([(328, 152), (342, 152), (342, 138), (356, 138)], 3), col, 2)
+    lay.poly(_bent_rect(314, 176, 372, 252), col, None)
+    for k in range(4):
+        q = dome((326 + k * 12, 202))
+        lay.ell(q[0], q[1], 4, 4, dark, None)
+        lay.line([q, dome((326 + k * 12, 192 if k != 3 else 212))], dark, 2.4)
+    q = dome((334, 232))
+    lay.ell(q[0], q[1], 8, 8, dark, None)
+    # the flywheel: rim, six spokes, hub; turning or not, it reads by its silhouette
+    fc = (262, 250)
+    rim = _bent_circle(fc[0], fc[1], 58)
+    inner = _bent_circle(fc[0], fc[1], 49)
+    lay.poly(rim, col, None)
+    lay.poly(inner, dark, None)
     for k in range(6):
-        lay.line([polar(fc, 9, k * 60 + 15), polar(fc, 47, k * 60 + 15)], col, 1.6)
-    tp = reflect_xy(*TOP_PULLEY)
-    lay.ell(tp[0], tp[1], 13, 13, None, col, 1.8)
-    # the belts
+        a = k * 60 + 10
+        a0, a1 = polar(fc, 10, a), polar(fc, 50, a)
+        lay.poly([dome(polar(a0, 4, a + 90)), dome(polar(a1, 2.6, a + 90)), dome(polar(a1, 2.6, a - 90)),
+                  dome(polar(a0, 4, a - 90))], col, None)
+    h = dome(fc)
+    lay.ell(h[0], h[1], 11, 11, col, None)
+    lay.ell(h[0], h[1], 4, 4, dark, None)
+    lay.poly(_bent([(238, 300), (262, 252), (286, 300)]), col, None)
+    # the top pulley above it
+    tp = (262, 150)
+    lay.poly(_bent_circle(tp[0], tp[1], 14), col, None)
+    lay.poly(_bent_circle(tp[0], tp[1], 8), dark, None)
+    bx, by, bw, bh = REFLECT_BAND
     if not slack:
-        lay.rect(82, 103, 120, 264, rgba(col, 120), col, 1.8)
-        for (a1, a2, _) in tangents(FLY, FLY_R + 7, TOP_PULLEY, PULLEY_R + 7) + \
-                tangents(FLY, FLY_R + 7, PUMP_PULLEY, PULLEY_R + 7):
-            lay.line(R([a1, a2]), col, 4)
+        # belts 1 and 3 taut: straight strands
+        for a, b in (((222, 236), (254, 156)), ((302, 236), (270, 156)), ((310, 262), (352, 302)),
+                     ((276, 306), (346, 312))):
+            lay.line(_bent([a, b], 4), col, 5)
+        # belt 2 taut, running, wrapped top and bottom
+        lay.poly(_bent_rect(bx, by, bx + bw, by + bh), col, None)
+        lay.poly(_bent_rect(bx + 4, by + 4, bx + bw - 4, by + bh - 4), rgba(mix(col[:3], MEMBRANE, 0.25)), None)
     else:
-        b2 = p.layer()
-        paint_room_lines_belt2_slack(b2, R, col)
-        lay.put(b2)
-        cx, cy = TOP_PULLEY
-        lay.line(R(bezier([(cx - 51, cy), (cx - 65, 330), (cx - 46, 470), (cx, 470), (cx + 46, 470),
-                           (cx + 65, 330), (cx + 51, cy)], 50)), col, 4)
-        s1, s2 = polar(FLY, FLY_R + 7, 22), polar(FLY, FLY_R + 7, 112)
-        lay.line(R(bezier([s1, (s1[0] + 40, s1[1] + 160), (1240, 813), (1240, 893)], 30)), col, 4)
-        lay.line(R(bezier([s2, (s2[0] + 10, s2[1] + 110), (940, 849), (970, 889)], 30)), col, 4)
-    # the lamp, a spot of light
-    lp = reflect_xy(*LAMP)
+        # caught up: belt 3 slumped over the rim's top, belt 1 lying in a loop, belt 2 a folded fall
+        lay.line(_bent([(250, 150)] + [polar(fc, 62, a) for a in range(-128, -51, 6)] + [(274, 150)], 4), col, 5)
+        lay.line(_bent(bezier([polar(fc, 62, 30), (330, 330), (300, 336), (262, 330)], 16), 4), col, 5)
+        fold = [(bx, by), (bx + bw, by + 18), (bx, by + 40), (bx + bw, by + 62), (bx, by + 86), (bx + bw, by + 104),
+                (bx + 2, by + 124)]
+        lay.line(_bent(fold, 4), col, 7)
+        q = dome((bx + 6, by + 136))
+        lay.ell(q[0], q[1], 14, 9, col, None)
+    # the sconce, a warm point
+    lp = dome((236, 92))
     glow = p.layer()
-    glow.ell(lp[0], lp[1], 14, 14, rgba(PAPER_HI), None)
+    glow.ell(lp[0], lp[1], 12, 12, rgba(PAPER_HI), None)
     lay.put_soft(glow, 4, 0.8)
-    lay.ell(lp[0], lp[1], 6, 6, rgba(PAPER_HI), None)
-    p.put(lay, 0.62, circle_mask((400, 400), (200, 200), 186))
+    lay.ell(lp[0], lp[1], 5, 5, rgba(PAPER_HI), None)
+    p.put(lay, 1.0, circle_mask((400, 400), (200, 200), 186))
     return p
-
-
-def paint_room_lines_belt2_slack(lay, R, col):
-    pts = [(526, 128), (520, 196), (556, 236), (520, 318), (556, 352), (520, 430), (556, 466), (520, 540),
-           (556, 576), (520, 640), (486, 590)]
-    lay.line(R(pts), col, 4)
-    lay.line(R([(556, 106), (684, 106)]), col, 3)
 
 
 # ----------------------------------------------------------------------------- dust overlays
 
-def paint_dust_streaks(rng):
+def floor_mask():
+    return rect_mask((W, H), [(-4, FLOOR_Y + 5, W + 4, H + 4)])
+
+
+def paint_floor_front(rng):
+    """What stands on the plinth (the flywheel pedestal, the pump and its pulley stand), painted
+    again as one sprite the view lays over the dust overlays, so dust lies behind their feet."""
     p = Pen(W, H, rng)
-    lay = p.layer()
-    focus_y = 856
-    for i in range(40):
-        y = 802 + (903 - 802) * (i + 0.5) / 40 + rng.uniform(-1.5, 1.5)
-        xs = rng.uniform(940, 1100)
-        xe = rng.uniform(80, 500)
-        ye = lerp(y, focus_y, 0.55)
-        pts = bezier([(xs, y), (lerp(xs, xe, 0.5), y + (ye - y) * 0.2), (xe, ye)], 30)
-        w0 = rng.uniform(2.2, 4.4)
-        # taper: draw in segments, thinning toward the ring
-        for k in range(len(pts) - 1):
-            t = k / (len(pts) - 1)
-            lay.line([pts[k], pts[k + 1]], rgba(DUST_HI), max(0.8, w0 * (1 - 0.7 * t)))
-        lay.ell(xs, y, w0 * 1.6, w0 * 0.9, rgba(DUST_HI), None)
-    sh = p.layer()
-    sh.im = lay.im.copy()
-    sh.im = Image.merge("RGBA", [Image.new("L", sh.im.size, v) for v in DUST_LO] + [sh.im.getchannel("A")])
-    sh.im = ImageChops.offset(sh.im, 0, 3 * SS)
-    p.put(sh, 0.6)
-    p.put(lay, 0.95)
+    pedestal(p)
+    pump(p)
     return p
 
 
-def rake_wave(x):
-    """The breath as a profile across x 600-1060: two short humps, a flat pause, one long hump."""
-    base, peak = 870.0, 830.0
-    for x0, x1 in ((602, 666), (674, 738), (860, 1060)):   # 70, 70, then 200 px, each smooth at its feet
-        if x0 <= x <= x1:
-            t = (x - x0) / (x1 - x0)
-            return base - (base - peak) * math.sin(math.pi * t) ** 2
-    return base
+def paint_dust_lines(rng):
+    """Band 3-4: the dust swept into stark wedges that all point at the diaphragm. Each is fat at
+    its far end and tapers to a vanishing point on the wall base under the ring; the plinth
+    between them is swept clean and shows darker."""
+    p = Pen(W, H, rng)
+    clean = p.layer()
+    clean.rect(-4, FLOOR_Y + 5, W + 4, H + 4, mix(DECK, INK, 0.12), None)
+    p.put(clean, 0.55)
+    ends = [(-300, 1060), (-60, 1066), (150, 1070), (380, 1066), (620, 1050), (860, 1010), (1080, 960),
+            (1260, 912), (1400, 868), (1440, 834)]
+    wedges = p.layer()
+    for i, (ex, ey) in enumerate(ends):
+        dx, dy = ex - VP[0], ey - VP[1]
+        L = math.hypot(dx, dy)
+        nx, ny = -dy / L, dx / L
+        half = 16 + 0.035 * L + rng.uniform(-3, 4)
+        tip = (VP[0] + dx * 0.03, VP[1] + dy * 0.03)
+        # a drift: fat and rounded at the far end, drawn out to a point toward the ring
+        wedges.poly([tip, (ex + nx * half, ey + ny * half), (ex - nx * half, ey - ny * half)],
+                    rgba(mix(DUST, DUST_HI, 0.5)), None)
+        wedges.ell(ex, ey, half, half * 0.8, rgba(mix(DUST, DUST_HI, 0.5)), None)
+    p.put_soft(wedges, 1.2, 1.0)
+    # a darker lip along each wedge's lower side, so the heaps read as heaps, not paint
+    lips = p.layer()
+    for i, (ex, ey) in enumerate(ends):
+        dx, dy = ex - VP[0], ey - VP[1]
+        L = math.hypot(dx, dy)
+        nx, ny = -dy / L, dx / L
+        half = 16 + 0.035 * L
+        s_ = 1 if ny > 0 else -1
+        lips.line([(VP[0] + dx * 0.06, VP[1] + dy * 0.06), (ex + s_ * nx * half * 0.9, ey + s_ * ny * half * 0.9)],
+                  rgba(DUST_LO), 3)
+    p.put_soft(lips, 1.0, 0.7)
+    out = p.done()
+    out.putalpha(ImageChops.multiply(out.getchannel("A"), floor_mask().resize((W, H), Image.LANCZOS)))
+    return out
+
+
+def paint_dust_streaks(rng):
+    """After P11: one inhalation dragged the dust sideways into broad matte drifts toward the
+    ring, fat where it piled up; the plinth it was pulled from lies dark and clean."""
+    p = Pen(W, H, rng)
+    clean = p.layer()
+    clean.ell(980, 880, 300, 64, mix(DECK, INK, 0.15), None)
+    p.put_soft(clean, 24, 0.75)
+    drifts = p.layer()
+    under = p.layer()
+    for i in range(16):
+        y = 818 + (944 - 818) * (i + 0.5) / 16 + rng.uniform(-3, 3)
+        xs = rng.uniform(900, 1140)
+        xe = rng.uniform(300, 470)
+        wmax = rng.uniform(8, 14)
+        n = 40
+        top, bot = [], []
+        for k in range(n + 1):
+            t = k / n
+            x = lerp(xs, xe, t)
+            yy = y + 4 * math.sin(t * math.pi) * (1 if i % 2 else -1)
+            wd = wmax * (0.25 + 0.75 * t ** 0.7)
+            top.append((x, yy - wd / 2))
+            bot.append((x, yy + wd / 2))
+        drifts.poly(top + bot[::-1], rgba(mix(DUST, DUST_HI, 0.45)), None)
+        drifts.ell(xe, y, wmax * 0.9, wmax * 0.6, rgba(mix(DUST, DUST_HI, 0.45)), None)
+        under.line([(q[0], q[1] + 1.5) for q in bot], rgba(DUST_LO), 2.4)
+    p.put_soft(under, 0.8, 0.8)
+    p.put_soft(drifts, 1.0, 1.0)
+    out = p.done()
+    out.putalpha(ImageChops.multiply(out.getchannel("A"), floor_mask().resize((W, H), Image.LANCZOS)))
+    return out
+
+
+RAKE_FROM, RAKE_TO = (930, 1046), (468, 812)   # clear of the exit buttons
+
+
+def rake_profile(t):
+    """The breath as a profile along the rake (0..1): two short peaks, a pause, one long."""
+    for t0, t1 in ((0.02, 0.17), (0.2, 0.35), (0.46, 0.96)):
+        if t0 <= t <= t1:
+            return math.sin(math.pi * (t - t0) / (t1 - t0)) ** 2
+    return 0.0
 
 
 def paint_dust_raked(rng):
+    """Band 5+: Nora's breath raked into the dust: five tines of dark furrow, each with a pale
+    ridge thrown up on one side, running from the floor's centre to the base of the ring wall."""
     p = Pen(W, H, rng)
-    xs = [600 + i * 2 for i in range(231)]
-    # a broad scuffed track first, dark, then the tines in pale
-    track = [(x, rake_wave(x)) for x in xs]
-    strap(p, track, 34, rgba(mix(DUST_LO, INK, 0.35), 235), None, 0)
-    for k, off in enumerate((-12, -6, 0, 6, 12)):
-        pts = offset_line(track, off)
-        p.line([(x, y + 2) for x, y in pts], rgba(mix(DUST_LO, INK, 0.6), 240), 2.4)
-        p.line(pts, rgba((236, 234, 222), 255), 3.2)
-    # the rake's ends: a lifted dot at the start and the end, like a pen put down
-    p.ell(600, 870, 6, 6, rgba((226, 224, 212)), rgba(mix(DUST_LO, INK, 0.45)), 1.6)
-    p.ell(1060, 870, 6, 6, rgba((226, 224, 212)), rgba(mix(DUST_LO, INK, 0.45)), 1.6)
-    return p
+    (x0, y0), (x1, y1) = RAKE_FROM, RAKE_TO
+    L = math.hypot(x1 - x0, y1 - y0)
+    ux, uy = (x1 - x0) / L, (y1 - y0) / L
+    nx, ny = -uy, ux
+    amp = 40.0
+    path = []
+    for i in range(241):
+        t = i / 240
+        d = amp * rake_profile(t)
+        path.append((x0 + ux * L * t + nx * d * -1, y0 + uy * L * t + ny * d * -1))
+    # the scraped bed: the rake bit through the dust to the darker plinth
+    bed = p.layer()
+    strap(bed, path, 40, rgba(mix(DECK, INK, 0.2)), None, 0)
+    p.put_soft(bed, 2.0, 0.85)
+    for off in (-14, -7, 0, 7, 14):
+        pts = offset_line(path, off)
+        p.line(offset_line(pts, -2.6), rgba(mix(DUST_HI, PAPER_HI, 0.3)), 2.4)    # ridge, toward the light
+        p.line(pts, rgba(mix(DUST_LO, INK, 0.55)), 3.4)                            # furrow
+    # the dust shoved aside along both edges of the bed
+    for side in (-1, 1):
+        p.line(offset_line(path, side * 22), rgba(mix(DUST, DUST_HI, 0.6)), 5)
+    out = p.done()
+    out.putalpha(ImageChops.multiply(out.getchannel("A"), floor_mask().resize((W, H), Image.LANCZOS)))
+    return out
 
 
 # ----------------------------------------------------------------------------- light maps
@@ -1116,17 +1440,19 @@ def paint_light_mul(rng):
 
 
 def paint_light_add(rng):
+    """The sconce's warm pool: a tight core at the lamp and a broad wash thrown across the ring's
+    upper-right quadrant and the column. Kept off the membrane, so the black skin stays the
+    darkest, largest shape on screen. (The view dims it to an ember from band 6.)"""
     im = Image.new("RGBA", (LW, LH))
     px = []
     for j in range(LH):
         for i in range(LW):
             x, y = (i + 0.5) * 4, (j + 0.5) * 4
-            k = _gauss(x, y, LAMP[0], LAMP[1], 46, 46) * 0.9 + _gauss(x, y, 430, 290, 150, 150) * 0.55
-            c = _gauss(x, y, 1240, 560, 110, 90) * 0.5
-            r = 74 * k + 6 * c
-            g = 50 * k + 20 * c
-            b = 20 * k + 26 * c
-            px.append((int(min(255, r)), int(min(255, g)), int(min(255, b)), 255))
+            k = _gauss(x, y, LAMP[0], LAMP[1], 50, 50) * 0.95 + _gauss(x, y, 470, 300, 250, 190) * 0.85
+            d = math.hypot(x - RING_C[0], y - RING_C[1])
+            if d < MEM_R + 4:
+                k *= 0.08 + 0.92 * max(0.0, (d - MEM_R + 30) / 34) ** 2 if d > MEM_R - 30 else 0.08
+            px.append((int(min(255, 86 * k)), int(min(255, 58 * k)), int(min(255, 22 * k)), 255))
     im.putdata(px)
     return im
 
@@ -1199,7 +1525,42 @@ def paint_c_valves(rng):
     p.rect(1140, 606, 1260, 640, ENAMEL, INK, 2, r=3)
     p.rect(1179, 646, 1221, 904, BRASS, INK, 3, r=10)
     p.rect(1185, 650, 1215, 900, GLASS_DK, INK, 2.5, r=8)
+    grime(p, rng)
     return p
+
+
+OIL = (10, 14, 18)
+OIL_HI = (92, 104, 110)
+
+
+def grime(p, rng):
+    """The board is used: oil weeping from every toggle boss, a black thumb-worn patch where the
+    PUMP handle is taken, and old grime gathered along the brass frame's lower lip."""
+    for cx in C_SOCKETS:
+        lay = p.layer()
+        for k in range(rng.randint(2, 3)):
+            x = cx + rng.uniform(-18, 18)
+            y0 = C_SOCKET_Y + 24 + abs(x - cx) * 0.3
+            L = rng.uniform(26, 64)
+            w = rng.uniform(3.5, 6)
+            lay.line([(x, y0), (x + rng.uniform(-1.5, 1.5), y0 + L)], rgba(OIL), w)
+            lay.ell(x, y0 + L, w * 0.8, w * 1.05, rgba(OIL), None)
+        lay.ell(cx + 2, C_SOCKET_Y + 6, 36, 34, rgba(OIL), None)
+        p.put_soft(lay, 1.0, 0.55)
+        hi = p.layer()
+        for k in range(2):
+            x = cx + rng.uniform(-14, 14)
+            hi.line([(x - 1.5, C_SOCKET_Y + 34), (x - 1.5, C_SOCKET_Y + 34 + rng.uniform(10, 26))], rgba(OIL_HI), 1.4)
+        p.put(hi, 0.6)
+    # a dark worn patch beside the PUMP slot, where the hand braces
+    lay = p.layer()
+    lay.ell(1240, 700, 16, 22, rgba(OIL), None)
+    lay.ell(1158, 690, 14, 20, rgba(OIL), None)
+    p.put_soft(lay, 6, 0.4)
+    # grime along the board's bottom rail
+    lay = p.layer()
+    lay.rect(176, 940, 1272, 966, rgba(OIL), None)
+    p.put_soft(lay, 8, 0.35)
 
 
 def paint_toggle(rng, up):
@@ -1219,18 +1580,37 @@ def paint_toggle(rng, up):
     return p
 
 
+SEAL_AT = (880, 800)    # c_seal_cut's top-left in the close-up: it hangs off INDEX's socket lug
+
+
 def paint_seal_cut(rng):
-    p = Pen(90, 70, rng)
-    # the lead disc, a nick from the cutters, two wire ends
-    p.line(bezier([(45, 20), (30, 10), (14, 6), (6, 2)], 16), INK, 3.4)
-    p.line(bezier([(45, 20), (30, 10), (14, 6), (6, 2)], 16), LEAD_HI, 1.6)
-    p.line(bezier([(47, 40), (58, 54), (64, 62), (74, 66)], 16), INK, 3.4)
-    p.line(bezier([(47, 40), (58, 54), (64, 62), (74, 66)], 16), LEAD_HI, 1.6)
-    p.ell(6, 2, 3, 3, LEAD_HI, INK, 1.2)
-    p.ell(74, 66, 3, 3, LEAD_HI, INK, 1.2)
-    p.ell(46, 30, 15, 15, LEAD, INK, 2.5)
-    p.ell(42, 26, 5, 5, LEAD_HI, None)
-    p.poly([(56, 22), (62, 30), (55, 33)], (40, 42, 46), INK, 1.4)
+    """INDEX's lead seal, cut: a grey lead disc dangling from a snipped twist of wire, the
+    cutters' bright bite on both ends. The room's first tactile clue: big enough to see."""
+    p = Pen(110, 130, rng)
+    lug = (30, 8)           # the socket ring's lug (close-up 910, 808)
+    disc = (52, 78)
+    # the lug
+    p.ell(lug[0], lug[1], 7, 7, BRASS, INK, 2)
+    p.ell(lug[0], lug[1], 3, 3, GLASS_DK, None)
+    # the twisted wire down to the seal
+    wire = bezier([lug, (22, 30), (44, 46), (disc[0] - 4, disc[1] - 18)], 24)
+    p.line(wire, INK, 4)
+    p.line(wire, LEAD_HI, 2)
+    for t in range(3, len(wire) - 2, 3):
+        q = wire[t]
+        p.line([(q[0] - 2.5, q[1] - 1), (q[0] + 2.5, q[1] + 1)], INK, 1.2)
+    # the snipped end: a short stub kinked away from the disc, its cut bright
+    stub = bezier([(disc[0] + 8, disc[1] - 16), (78, 50), (92, 44)], 12)
+    p.line(stub, INK, 4)
+    p.line(stub, LEAD_HI, 2)
+    p.ell(92, 44, 3.4, 3.4, (236, 236, 228), INK, 1.4)
+    # the lead disc, pressed: a raised rim and a crushed face with the die's ring in it
+    p.ell(disc[0] + 2, disc[1] + 3, 14, 14, (12, 20, 28), None)
+    p.ell(disc[0], disc[1], 14, 14, LEAD, INK, 2.5)
+    p.ell(disc[0], disc[1], 9, 9, None, mix(LEAD, INK, 0.35), 1.6)
+    p.arc(disc[0], disc[1], 12, 12, 200, 300, LEAD_HI, 2)
+    p.ell(disc[0] - 4, disc[1] - 4, 2.6, 2.6, (200, 204, 206), None)
+    p.poly([(disc[0] + 9, disc[1] - 6), (disc[0] + 15, disc[1] - 1), (disc[0] + 10, disc[1] + 3)], (40, 42, 46), INK, 1.2)
     return p
 
 
@@ -1245,6 +1625,12 @@ def paint_pump_lever(rng, up):
     p.ell(106, y, 13, 13, BRASS_HI, INK, 2.5)
     p.ell(102, y - 4, 4, 4, (240, 222, 172), None)
     p.ell(10, y - 4, 4, 4, (240, 222, 172), None)
+    # a grease thumb-smudge on the grip: a dull oval with the ghost of a whorl
+    lay = p.layer()
+    lay.ell(64, y - 1, 11, 8, rgba((40, 34, 24)), None)
+    p.put_soft(lay, 1.6, 0.55)
+    for k in range(3):
+        p.arc(65, y, 8 - k * 2.4, 5.5 - k * 1.6, 200, 340, rgba((60, 50, 34, 150)), 1)
     return p
 
 
@@ -1288,28 +1674,51 @@ def tag_outline(ox, oy, ang=0.0, pivot=None, scale=1.0):
 
 
 def paint_c_tags(rng):
+    """In close on the column behind the dropped belt: its dark iron face, the riveted edge of
+    the frame on the right with the wall beyond, and the slack belt's folds entering from the
+    left. The ring of tags hangs on its nail in the middle."""
     p = Pen(W, H, rng)
-    # sea-glass belt-guard panel: one big riveted iron plate
-    p.rect(-4, -4, W + 4, H + 4, mix(WALL, IRON, 0.18), None)
-    p.rect(60, 40, W - 60, H - 40, WALL, INK, 4, r=10)
-    p.rect(76, 56, W - 76, H - 56, None, WALL_HI, 2, r=8)
-    for x in range(100, W - 80, 48):
-        rivet(p, x, 76, 5)
-        rivet(p, x, H - 76, 5)
-    for y in range(124, H - 100, 48):
-        rivet(p, 96, y, 5)
-        rivet(p, W - 96, y, 5)
-    # louvres in the guard: dark slots right and left, clear of the tag
-    for k in range(7):
-        y = 200 + k * 96
-        for x0 in (140, 1160):
-            p.rect(x0, y, x0 + 150, y + 22, IRON_LO, INK, 3, r=11)
-            p.line([(x0 + 10, y + 5), (x0 + 140, y + 5)], IRON_HI, 1.6)
+    # the wall beyond the column's right edge
+    p.rect(-4, -4, W + 4, H + 4, WALL, None)
+    for y in range(40, H, 52):
+        rivet(p, 1400, y, 5)
+    # the column face: dark iron, a raised inner border, rivets down both margins
+    p.rect(-4, -4, 1340, H + 4, IRON, None)
+    p.line([(1340, -4), (1340, H + 4)], INK, 6)
+    p.rect(250, -10, 1300, H + 10, None, IRON_HI, 3)
+    p.line([(1306, -4), (1306, H + 4)], mix(IRON_HI, WALL_HI, 0.4), 2)
+    for y in range(36, H, 64):
+        rivet(p, 1318, y, 5.5, IRON_HI)
     lay = p.layer()
-    for _ in range(20):
-        lay.ell(rng.uniform(100, W - 100), rng.uniform(100, H - 100), rng.uniform(80, 200), rng.uniform(40, 100),
-                WALL_DK, None)
-    p.put_soft(lay, 40, 0.14)
+    for _ in range(26):
+        lay.ell(rng.uniform(260, 1300), rng.uniform(0, H), rng.uniform(60, 180), rng.uniform(30, 90),
+                IRON_HI if rng.random() < 0.5 else IRON_LO, None)
+    p.put_soft(lay, 40, 0.35)
+    # oil and rust weep from the nail down the iron
+    lay = p.layer()
+    lay.line([(724, 186), (726, 620)], (60, 44, 30, 255), 10)
+    p.put_soft(lay, 8, 0.35)
+    # the slack belt entering from the left: the dropped strap folded on itself in flat panels,
+    # each fold's crease a dark diagonal, the far edge stepping in and out as it zig-zags
+    ys = [-20, 96, 178, 300, 384, 508, 590, 716, 800, 924, 1010, 1110]
+    for i in range(len(ys) - 1):
+        ya, yb = ys[i], ys[i + 1]
+        out_a = 176 if i % 2 == 0 else 156
+        out_b = 156 if i % 2 == 0 else 176
+        col = LEATHER if i % 2 == 0 else LEATHER_DK
+        pts = [(-10, ya + 14), (out_a, ya), (out_b, yb), (-10, yb + 14)]
+        p.poly([(x + 10, y + 12) for x, y in pts], (10, 14, 18), None)
+        p.poly(pts, col, INK, 4)
+        if i % 2 == 0:
+            p.line([(-10, ya + 26), (out_a - 10, ya + 12)], LEATHER_HI, 3)
+        else:
+            p.line([(-10, yb + 4), (out_b - 8, yb - 10)], mix(LEATHER_DK, INK, 0.5), 4)
+    # its lacing: one old splice, a row of rawhide X-stitches across the strap
+    for k in range(4):
+        x0 = 10 + k * 38
+        for y0 in (430, 446):
+            p.line([(x0, y0), (x0 + 38, y0 + 12)], (184, 160, 116), 3)
+            p.line([(x0, y0 + 12), (x0 + 38, y0)], (184, 160, 116), 3)
     # the brass ring from the nail
     nx, ny = 724, 170
     rc, rr = (724, 216), 44
@@ -1323,10 +1732,10 @@ def paint_c_tags(rng):
         sh = [(x + 6, y + 8) for x, y in pts]
         p.poly(sh, mix(WALL_DK, INK, 0.5), None)
         tone = rng.uniform(0.0, 1.0)
-        col = mix(mix(BRASS_LO, BRASS_DK, tone), SEAGLASS, 0.18 * (1 - tone))
+        col = mix(mix(OLIVE_BRASS, BRASS_DK, 0.5 * tone), SEAGLASS, 0.12 * (1 - tone))
         p.poly(pts, col, INK, 3)
         inner = tag_outline(724 - TAG_W * 0.48 + 10, 300 + 2 + abs(angs[i]) * 0.6, a, pivot, 0.96 - 20 / TAG_W)
-        p.poly(inner, None, mix(col, BRASS_HI, 0.25), 1.6)
+        p.poly(inner, None, mix(col, BRASS_HI, 0.35), 1.8)
     # a twisted wire link from the ring's foot down into the hole of the front tag
     p.line([(724, 254), (724, 336)], INK, 7)
     p.line([(724, 254), (724, 336)], BRASS_LO, 3.5)
@@ -1342,45 +1751,71 @@ def paint_c_tags(rng):
     return p
 
 
+OLIVE_BRASS = (170, 156, 98)     # tarnished brass: brown-olive, light enough for INK at >= 4.5:1
+VERDIGRIS = (104, 150, 128)
+
+
 def paint_tag(rng, new):
     p = Pen(TAG_W, TAG_H, rng)
     pts = rotated_rect(300, 2, 596, 336, 0, r=34, n=10)
-    if new:
-        base, edge, hi = (214, 182, 112), (180, 146, 80), (240, 218, 160)
-    else:
-        # worn but light enough that the view's INK hand reads at >= 4.5:1
-        base, edge, hi = mix(BRASS, BRASS_HI, 0.55), BRASS_DK, mix(BRASS_HI, ENAMEL, 0.3)
-    p.poly(pts, base, INK, 4)
     clip = Image.new("L", p.im.size, 0)
     ImageDraw.Draw(clip).polygon([(x * SS, y * SS) for x, y in pts], fill=255)
-    if new:
-        # a crisp fresh-cut bright edge and fine straight file marks
-        p.poly(rotated_rect(300, 8, 584, 324, 0, r=28, n=10), None, hi, 3)
-        lay = p.layer()
-        for k in range(40):
-            y = 20 + k * 7.6
-            lay.line([(14, y), (586, y + rng.uniform(-1, 1))], hi, 1)
-        p.put(lay, 0.25, clip)
-        p.line([(30, 330), (570, 330)], (250, 236, 196), 2)
-    else:
-        # worn dark edges and broad tarnish blooms
-        rim = p.layer()
-        rim.poly(pts, None, edge, 26)
-        p.put_soft(rim, 8, 0.85, clip)
-        lay = p.layer()
-        for _ in range(22):
-            lay.ell(rng.uniform(30, 570), rng.uniform(30, 310), rng.uniform(14, 44), rng.uniform(8, 24),
-                    mix(BRASS_DK, SEAGLASS, 0.45) if rng.random() < 0.4 else BRASS_DK, None)
-        p.put_soft(lay, 6, 0.22, clip)
-        lay = p.layer()
-        for _ in range(26):
-            x, y = rng.uniform(30, 570), rng.uniform(70, 310)
-            lay.line([(x, y), (x + rng.uniform(20, 70), y + rng.uniform(-6, 6))], hi, 1.2)
-        p.put(lay, 0.35, clip)
-        p.poly(pts, None, INK, 4)
-    # the hole, with a worn ring around it
     hx, hy = TAG_HOLE
-    p.ell(hx, hy, 18, 18, None, edge if not new else hi, 4)
+    if new:
+        # fresh brass: a warm face with a cross-grain of file marks, a bright machined chamfer
+        base = (206, 172, 104)
+        p.poly(pts, base, None)
+        lay = p.layer()
+        for k in range(44):
+            y = 14 + k * 7.2
+            lay.line([(14, y), (586, y + rng.uniform(-1, 1))], (232, 206, 146), 1)
+        p.put(lay, 0.35, clip)
+        sheen = p.layer()
+        sheen.poly([(120, 0), (260, 0), (160, TAG_H), (20, TAG_H)], (246, 230, 186), None)
+        p.put_soft(sheen, 30, 0.35, clip)
+        # the chamfer: a bright machined band inside a crisp dark edge
+        p.poly(rotated_rect(300, 7, 586, 326, 0, r=29, n=10), None, (250, 238, 204), 7)
+        p.poly(rotated_rect(300, 12, 576, 316, 0, r=25, n=10), None, mix(base, BRASS_LO, 0.5), 1.6)
+        p.poly(pts, None, INK, 4)
+        p.ell(hx, hy, 19, 19, None, (250, 238, 204), 5)
+        p.ell(hx, hy, 23, 23, None, mix(base, BRASS_LO, 0.5), 1.4)
+    else:
+        # tarnished brass: brown-olive, a darker oxidised edge, verdigris blooming at the hole,
+        # a few bright rubs where fingers turned it; a stamped border still shows
+        p.poly(pts, OLIVE_BRASS, None)
+        rim = p.layer()
+        rim.poly(pts, None, mix(BRASS_DK, (60, 56, 30), 0.5), 30)
+        p.put_soft(rim, 9, 0.9, clip)
+        lay = p.layer()
+        for _ in range(18):
+            lay.ell(rng.uniform(40, 560), rng.uniform(40, 300), rng.uniform(16, 46), rng.uniform(8, 22),
+                    mix(BRASS_DK, (90, 84, 44), 0.5), None)
+        p.put_soft(lay, 7, 0.2, clip)
+        verd = p.layer()
+        verd.ell(hx, hy + 6, 58, 40, VERDIGRIS, None)
+        for _ in range(6):
+            verd.ell(hx + rng.uniform(-70, 70), hy + rng.uniform(0, 44), rng.uniform(8, 18), rng.uniform(6, 12), VERDIGRIS, None)
+        verd.ell(18, 306, 18, 18, VERDIGRIS, None)
+        p.put_soft(verd, 9, 0.6, clip)
+        rub = p.layer()
+        rub.ell(300, 190, 230, 70, (206, 186, 120), None)
+        p.put_soft(rub, 40, 0.3, clip)
+        # metal, not card: a dull diagonal sheen across the face and fine brushing along it
+        sheen = p.layer()
+        sheen.poly([(150, 0), (250, 0), (150, TAG_H), (50, TAG_H)], (214, 200, 140), None)
+        p.put_soft(sheen, 26, 0.35, clip)
+        lay = p.layer()
+        for k in range(30):
+            y = 20 + k * 10
+            lay.line([(20, y), (580, y + rng.uniform(-1.5, 1.5))], (196, 182, 120), 1)
+        p.put(lay, 0.18, clip)
+        # a metal tag's bevel: light along the top edge, dark along the bottom
+        p.line([(40, 6), (560, 6)], (214, 196, 136), 2.4)
+        p.line([(40, 330), (560, 330)], mix(BRASS_DK, INK, 0.4), 2.4)
+        p.poly(rotated_rect(300, 16, 568, 308, 0, r=24, n=10), None, mix(OLIVE_BRASS, BRASS_DK, 0.45), 1.6)
+        p.poly(pts, None, INK, 4)
+        p.ell(hx, hy, 18, 18, None, mix(VERDIGRIS, BRASS_DK, 0.3), 4)
+    # the punched hole
     p.ell(hx, hy, 12, 12, (0, 0, 0, 0), INK, 2.5)
     hole = p.layer()
     hole.ell(hx, hy, 11, 11, (255, 255, 255, 255), None)
@@ -1410,6 +1845,13 @@ ASSETS = [  # name, seed index, painter, opaque, grain
     ("diaphragm_slack", 33, paint_slack, False, False),
     ("diaphragm_reflect", 34, lambda r: paint_reflect(r, False), False, False),
     ("diaphragm_reflect_now", 34, lambda r: paint_reflect(r, True), False, False),
+    ("diaphragm_in", 35, lambda r: paint_ribs(r, "in"), False, False),
+    ("diaphragm_out", 36, lambda r: paint_ribs(r, "out"), False, False),
+    ("diaphragm_gap", 37, paint_gap, False, False),
+    ("diaphragm_rim", 38, paint_rim, False, False),
+    ("lamp_ember", 39, paint_lamp_ember, False, False),
+    ("dust_lines", 42, paint_dust_lines, False, False),
+    ("floor_front", 43, paint_floor_front, False, False),
     ("dust_streaks", 40, paint_dust_streaks, False, False),
     ("dust_raked", 41, paint_dust_raked, False, False),
     ("light_mul", 50, paint_light_mul, False, False),
