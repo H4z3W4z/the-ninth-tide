@@ -1,13 +1,13 @@
 class_name R02Sim
 extends RoomSim
-## R02, the Intake Office: Tide I content migrated from the one-room slice (rounds 1-3).
+## R02, the Intake Office: the slice's Tide I chain (P01, the drawer, the self-writing log,
+## the closure report and the threshold, T1X) plus the entry wall (view B: outer door,
+## service door, comparison board, barometer, receipt), P20 and the office's escalation
+## through every later tide.
 ##
 ## No nodes, no clocks, no randomness: every change is caused by a player action. act()
 ## mutates state and appends presentation events for the view to play. Title, menu,
-## notebook, settings and hints-ladder bookkeeping live in the core (GameSim); this room
-## owns P01, the drawer, the self-writing log, the closure report and the threshold, whose
-## end card is now the Tide I transition: "Go on" returns her to the office with the
-## corridor open (flag t1x_threshold_crossed), and the instrument rooms beyond it.
+## notebook, settings and hints-ladder bookkeeping live in the core (GameSim).
 ##
 ## Every "delay" in an event is seconds after the click that caused it.
 ## "story" lines are part of a reveal: the view never drops them for a
@@ -15,6 +15,9 @@ extends RoomSim
 ##
 ## P01 rule (AGENTS.md): supply OFF, straight bridge B installed, supply ON.
 ## Curved C is rejected without consuming anything.
+##
+## Weather is the core's weather_band(), which only moves with puzzle flags. The office
+## reads it only once she is past the threshold (band() is 0 before): Tide I is one night.
 
 const ID := "R02"
 const TITLE := "Intake Office"
@@ -22,7 +25,8 @@ const REQUIRES := []
 const LOCKED := ""
 const ARRIVAL := ""
 const RESUME := "Back in the office."
-## [to, label, extra flags]. R03/R04 also need P01 and the threshold (their own REQUIRES).
+## [to, label, extra flags]. R03/R04 need P01, R05/R06 need P06 (their own REQUIRES); the
+## service door also needs the capsule's key turned once (exit_block).
 const EXITS := [
 	["R01", "Jetty", []],
 	["R03", "Chart room", []],
@@ -30,8 +34,11 @@ const EXITS := [
 	["R05", "Kitchen", []],
 	["R06", "Bunks", []],
 ]
+## View A, the desk wall (the approved plate).
 const HOTSPOTS := ["mug", "tray", "lamp", "logbook", "papers", "chair", "drawer", "puddle",
 	"hooks", "coat", "map", "stove", "window", "door"]
+## View B, the entry wall.
+const HOTSPOTS_B := ["outer_door", "service_door", "board", "barometer", "receipt"]
 ## Items this room hands out (docs/design/puzzle-cards/flags.md section 4).
 const ITEMS := {
 	"pencil": {"name": "Pencil", "desc": "Ada's own pencil. Short, and sharpened with a knife."},
@@ -63,17 +70,46 @@ const REPORT_TIME_MISSES := {
 ## The miss rows the log writes for her, in order.
 const MISS_IDS := ["miss0", "miss1", "miss2"]
 
+## P20, the comparison board: three pins, a thread, a stamp on the provenance field.
+const MARKS := {
+	"m_addressee": "Contract: Miss Ada Mercer",
+	"m_countersign": "Contract: countersigned E. Venn",
+	"m_callis": "Inquiry: J. Callis",
+	"m_orme": "Inquiry: R. Orme",
+	"m_mercer": "Inquiry: A. Mercer, dissenting",
+	"m_sentence": "Letter: 'unverified does not mean absent'",
+}
+const STAMPS := {
+	"stamp_venn": "REQUESTED BY VENN",
+	"stamp_board": "ASSIGNED BY BOARD",
+	"stamp_unknown": "UNKNOWN",
+}
+const BOARD_ANSWER := ["m_addressee", "m_mercer", "m_sentence"]
+const BOARD_STAMP := "stamp_venn"
+const BOARD_SLOTS := 3
+const BOARD_DONE := "It's done. The thread runs from my name to my name to my sentence."
+
 const OBJECTIVES := {
 	"lamp": "Get the desk lamp working.",
 	"log": "Read what Venn left on the desk.",
 	"changed": "Something in the room changed while I was reading.",
 	"drawer": "The footprints stop at a locked desk drawer.",
-	"reread": "Read the tide log again.",
+	"instruments": "Venn's note names two jobs down the corridor: the chart sheets and the recording.",
+	"reread": "Something on the desk has changed.",
 	"chair": "The log has written what I do next.",
 	"report": "Reconcile the records. The closure report is under the duty card.",
 	"filed": "The report is signed.",
 	"leave": "The door has unlatched itself.",
-	"done": "The corridor goes on to the instrument rooms.",
+	"board": "Venn's letters belong on the comparison board.",
+	"service": "The kitchen key from the capsule fits the service door on the entry wall.",
+	"away_t2": "The chart room's recorder, and whatever comes to the jetty.",
+	"away_t3": "The kitchen and the bunk room, through the service door.",
+	"away_t4": "The laboratory and the machine room, below the kitchen.",
+	"away_t5": "The laboratory, the stair, and the lantern above it.",
+	"away_t6": "The records vault, and the listening room again.",
+	"away_t7": "The empty channel, and the station plan in the chart room.",
+	"away_t8": "The bunk room, the vault and the stair: three frames, one witness.",
+	"away_t9": "The chamber at the foot of the stair.",
 }
 
 const HINTS := {
@@ -97,10 +133,15 @@ const HINTS := {
 		"The time she mends the lamp is stained. The tide before it isn't, and Venn wrote down the rhythm in the margin.",
 		"Set the drawer dials to 1-8-5-2, the hour the log says she mends the lamp, then try the drawer.",
 	],
+	"instruments": [
+		"Venn's note names two jobs: the chart sheets and the recording.",
+		"The chart room wants both sheets registered at the lighthouse cross. The listening room has the recording he said to preserve.",
+		"Take the corridor to the chart room and the listening room. His tide sheet from the drawer goes in the chart room.",
+	],
 	"reread": [
-		"Something on the desk has changed since you last read it.",
+		"Something in the office has changed.",
 		"Venn's log is not finished with you.",
-		"Open the tide log again.",
+		"Go back to the Intake Office and open the tide log.",
 	],
 	"chair": [
 		"The log has told you what you do next.",
@@ -118,8 +159,56 @@ const HINTS := {
 		"The corridor door is on the right.",
 		"Use the door.",
 	],
-	"done": ["The corridor is open now.", "The chart room and the listening room are down the corridor.",
-		"Take the corridor to the chart room or the listening room."],
+	"board": [
+		"Venn's letters belong on the comparison board in the office.",
+		"Follow the name on the contract to the inquiry clipping, and the sentence his letter quotes.",
+		"Thread contract addressee to dissent signatory to the quoted sentence, then stamp REQUESTED BY VENN.",
+	],
+	"service": [
+		"The service door is on the entry wall, behind you.",
+		"The key from the mooring capsule is a kitchen key.",
+		"Select the kitchen service key, then the service door.",
+	],
+	"away_t2": [
+		"The office has given what it can for now. The corridor goes on.",
+		"The chart room has the recorder; the duty card puts the records before the signal.",
+		"Go to the chart room.",
+	],
+	"away_t3": [
+		"The service door on the entry wall is open now.",
+		"The kitchen and the bunk room were kept by people who lived here.",
+		"Go through the service door to the kitchen or the bunk room.",
+	],
+	"away_t4": [
+		"The kitchen's hatch opened onto a lower passage.",
+		"Something in the laboratory and something in the machine room have to agree before the stair will.",
+		"Go to the wet laboratory and the machine room, through the kitchen.",
+	],
+	"away_t5": [
+		"The stair is open. So is the laboratory's return door.",
+		"The laboratory is not finished with Nora Bell. Neither is the lantern.",
+		"Go to the wet laboratory, then up the stair to the lantern gallery.",
+	],
+	"away_t6": [
+		"The vault door in the laboratory has let go.",
+		"The vault holds the 1927 session. The listening room can hear it.",
+		"Go to the records vault, then the listening room.",
+	],
+	"away_t7": [
+		"The listening room and the chart room.",
+		"The empty channel answers to a seal. The plan wants everything you've been told.",
+		"Go to the listening room's empty channel, then the chart room's plan.",
+	],
+	"away_t8": [
+		"Three frames, one witness.",
+		"The bunk room, the vault and the stair each hold part of a person.",
+		"Go to the bunk room, the records vault, then the stair.",
+	],
+	"away_t9": [
+		"The lower door on the stair is open.",
+		"The chamber is waiting for an observer.",
+		"Go down the stair to the observation chamber.",
+	],
 }
 ## At the threshold the hint ladder steps aside: there is only one thing to do.
 const THRESHOLD_HINT := "Hold still. Listen to it."
@@ -127,6 +216,7 @@ const THRESHOLD_HINT := "Hold still. Listen to it."
 ## Notebook text for each observation, in the order they read best.
 const OBSERVATIONS := {
 	"duty": "Closure duty: inventory the instruments, reconcile the records, restore the departure signal.",
+	"contract": "Closure contract, addressed to Miss Ada Mercer, cataloguer. Inventory instruments. Reconcile outstanding records. Restore departure signal. Do not certify an observation you have not made. The collection launch (pennant, two stripes) answers the departure signal; due 18 Oct, morning high water. Signed for the Board; countersigned E. Venn.",
 	"coat": "Venn's oilskin is soaked through. It has not rained today.",
 	"hooks": "Nine hooks. His coat is on the seventh. The ninth is wet, with nothing on it.",
 	"map": "The 1889 survey shows nine jetty pilings. I counted eight from the launch.",
@@ -145,8 +235,8 @@ const OBSERVATIONS := {
 	"prints": "Bare, narrow footprints from the puddle to the desk drawer. None come back.",
 	"watch": "Venn's watch, locked in the drawer, stopped at 18:52: the minute the log says I mend the lamp.",
 	"photo": "A photograph of this window from outside, at night, dated 18 Oct: me at the desk. There is nothing outside the window to stand on.",
-	"behind": "In the photograph, something pale and too tall stands behind my chair.",
-	"rewritten": "New lines in the tide log, in my hand: \"She reads this line.\" \"She looks at the chair.\" \"HW 9.9\u00a0m. Observer located.\"",
+	"behind": "Through his lens: in the photograph, something pale and too tall stands behind my chair.",
+	"rewritten": "New lines in the tide log, in my hand: \"She reads this line.\" \"She looks at the chair.\" \"HW 9.9 m. Observer located.\"",
 	"seat": "The chair seat is wet, and still warm underneath.",
 	"knock": "Three taps on the window glass, from outside. This room is on the second floor.",
 	"palms": "Three wet palm marks on the outside of the window, below the sill line. The wall below goes straight into the sea.",
@@ -154,14 +244,23 @@ const OBSERVATIONS := {
 	"eye": "A ring on the water past the pilings. It keeps its place against me.",
 	"through": "It is not looking at the room. The room is what it looks through.",
 	"tag": "A brass tag on the ninth hook, stamped A.M. It hangs at the height of my collar.",
+	"hook_measures": "Brass tags on hooks one to eight, stamped with my numbers: ZERO 4, INT 3, PRESS 2, BEARING 3, HEIGHT 5 ft 6, REACH 5 ft 7, HAND R, STRIDE 2 ft 4. Every setting I entered, and some I never told anyone.",
 	"away_mug": "Venn's mug is full to the brim with seawater. Nobody filled it.",
 	"away_stove": "The stove is full of seawater, up into the flue. Its door was shut.",
 	"away_coat": "The oilskin's hood is up, turned toward the desk.",
 	"away_door": "Seawater seeps under the corridor door, from the corridor side.",
 	"away_puddle": "Wet footprints go up the wall beside the door. None come down.",
 	"away_window": "A fourth wet hand on the window, at the top of the glass, as if it had stood up.",
-	"report": "Closure report, filed in my hand: pilings 10; observers on station 2; high water 18 Oct 19:34, 9.9\u00a0m.",
+	"report": "Closure report, filed in my hand: pilings 10; observers on station 2; high water 18 Oct 19:34, 9.9 m.",
+	"why_ada": "Venn asked for me because I wouldn't certify that Daniel Roe never existed. 'You have already refused to make a person disappear for the convenience of a form.' The photograph pinned itself to the board. On its back, in his hand: 'Not mine. It was in the developing tray on the 15th. She will need to see herself from outside. — E.V.'",
+	"coat_collapsed": "Venn's oilskin has gone slack on its hook. An ordinary wet coat. Nobody is in it.",
 }
+
+## The observations Tide I can show her, all of them inside the office. The end card says
+## nothing went unrecorded only when every one is in the notebook.
+const REACHABLE_BY_T1X := ["duty", "contract", "coat", "hooks", "map", "chart", "chart_tenth",
+	"soundings", "mug", "stove", "lamp", "note", "shadow", "handwriting", "silent", "piling",
+	"prints", "watch", "photo", "behind", "rewritten", "seat", "knock", "palms", "report"]
 
 ## Venn's tide log. [date, time, tide, note, in_adas_hand]
 ## Strictly periodic: high water to high water is 12 h 21 m, low water falls 6 h 19 m
@@ -181,7 +280,7 @@ const LOG_ENTRIES := [
 const BLOTTED_ROW := 7
 const LOG_MARGIN := "HW to HW, 12 h 21 m. It never varies. — E.V."
 
-## Lines the log writes for itself once she has opened the drawer.
+## Lines the log writes for itself once Tide I's instruments are done.
 const LOG_LATER := [
 	["18 Oct", "07:13", "HW 4.4 m", "She reads this line.", true],
 	["18 Oct", "—", "—", "She looks at the chair.", true],
@@ -193,7 +292,7 @@ const LOG_FINAL := ["—", "—", "—", "She opens the door. It is already open
 const HISTORY_TEXT := {
 	"coat": "She looks at the coat. It is fuller.",
 	"window": "She looks at the window. It looks back.",
-	"hooks": "She reads her name on the ninth hook.",
+	"hooks": "She counts the hooks. There are nine. One is wet.",
 	"map": "She counts the pilings. She gets ten.",
 	"chair": "She looks at the chair again. It is not empty.",
 	"puddle": "She follows her own feet.",
@@ -202,6 +301,11 @@ const HISTORY_TEXT := {
 	"lamp": "She checks the lamp. It is still mended.",
 	"tray": "She checks the lamp. It is still mended.",
 	"drawer": "She looks at the photograph again.",
+	"outer_door": "She tries the outer door. It is latched.",
+	"service_door": "She tries the service door.",
+	"barometer": "She taps the barometer. Nothing moves.",
+	"receipt": "She reads a receipt for a mug.",
+	"turn": "She turns her back on the desk.",
 	"miss0": "She gets it wrong.",
 	"miss1": "She gets it wrong again. The room is patient.",
 	"miss2": "She guesses.",
@@ -221,35 +325,58 @@ const THRESHOLD_STILL_LINE := "I hold my breath. So does the sea."
 const THRESHOLD_STILL_AFTER := 8.0
 const THRESHOLD_FALLBACK := 18.0
 
-## The end card. Two rows write themselves in the log; which two depends on whether she turned.
+## The Tide I card. Two rows write themselves in the log; which two depends on whether she
+## turned. The core's tide card (Tide II) follows end_continue.
 const END_LOG_ROW := "18 Oct  —  19:34  —  HW 9.9 m  —  Observer located."
 const END_TURN_ROW := "18 Oct  —  19:34  —  She turns round."
 const END_NEXT_ROW := "19 Oct  —  07:55  —  HW 4.4 m  —  Observer: E. Venn."
 const END_NEXT_TURNED := "19 Oct  —  07:55  —  HW 4.4 m  —  Observer: A. Mercer."
 const END_ON_STATION := "Observers on station: 1."
 const END_ALL_SEEN := "Nothing in the room went unrecorded."
-const END_CONTINUES := "Tide I continues."
 const NOTEBOOK_INTRUSION := "She will not finish this page."
 
-const ROOM_IDS := ["lamp", "tray", "logbook", "papers", "mug", "chair", "map",
-	"stove", "window", "hooks", "coat", "drawer", "puddle", "door"]
+const ROOM_IDS := HOTSPOTS
 
-## What changes while she looks away at stage 3, in the order it happens: the n-th
-## return from a close-up (or the notebook) to the room applies the n-th change.
-const LOOK_AWAY := ["mug", "stove", "coat", "door", "puddle", "window"]
-const RETURNS_MAX := 6
+## What changes while she looks away, re-timed to the weather bands: [change, band]. Each
+## applies on the first return to view A (from a close-up, the notebook, or another room)
+## once its band is reached, one per return, in this order. Once applied it stays.
+const LOOK_AWAY := [["mug", 2], ["door", 3], ["stove", 4], ["window", 5], ["puddle", 6], ["coat", 7]]
+## The arrival notices the view holds for: the Tide I call-back and one per band.
+const NOTICE_KEYS := ["callback", "b1", "b2", "b3", "b4", "b5", "b6", "b7"]
+
+const LATCHED_LINE := "Latched. His rule's on the duty card: nobody leaves until the records reconcile."
+const LATCHED_AGAIN := "Latched."
+const SERVICE_NO_KEY := "The service door. Brass lock, keyhole on the kitchen side. Nothing on this side to turn."
+
+## Barometer needle per band (degrees, 0 = up, clockwise; STORMY -120, RAIN -60, CHANGE 0,
+## FAIR 60, VERY DRY 120).
+const NEEDLE := [0, -55, -80, -118, -150, -168, 180, 180]
+## The office clock per band after the threshold: [h, m, running].
+const CLOCK_BANDS := [[7, 34, true], [9, 10, true], [11, 25, true], [1, 50, true],
+	[3, 15, true], [5, 40, true], [7, 13, false], [7, 13, false]]
 
 const SAVED_BOOLS := ["supply_on", "bridge_installed", "p01_complete", "log_read",
 	"prints_seen", "drawer_open", "log_rewritten", "seat_wet", "foretold_door", "initialled",
 	"finished", "report_filed", "history_seen", "soundings_heard",
-	"heard_silence", "heard_unlatch", "contours_seen", "turned"]
+	"heard_silence", "heard_unlatch", "contours_seen", "turned",
+	"board_loaded", "board_stamped", "hook_tags_seen", "service_unlocked", "callback_heard",
+	"latch_announced", "photo_changed_seen", "b_seen"]
 
-var selected := ""          # transient: spare selected in the repair close-up
-var drawer_miss_n := 0      # transient: rotates the drawer's generic refusal
+# Transient presentation-adjacent state: never saved, reset in initial_state().
+var facing := "A"           # "A" desk wall, "B" entry wall
+var selected := ""          # spare selected in the repair close-up
+var drawer_miss_n := 0      # rotates the drawer's generic refusal
+var held_stamp := ""        # the stamp in her hand at the board
+var photo_from := "drawer"  # where Back from the photograph goes
+var photo_back := false     # the photograph turned over (after P20)
 
 func initial_state() -> Dictionary:
+	facing = "A"
 	selected = ""
 	drawer_miss_n = 0
+	held_stamp = ""
+	photo_from = "drawer"
+	photo_back = false
 	return {
 		"supply_on": true, "bridge_installed": false, "p01_complete": false,
 		"log_read": false, "prints_seen": false, "drawer_open": false, "log_rewritten": false,
@@ -259,7 +386,12 @@ func initial_state() -> Dictionary:
 		"heard_unlatch": false,
 		"history": [], "history_seen": false,
 		"soundings_heard": false, "heard_silence": false, "photo_looks": 0,
-		"contours_seen": false, "returns": 0, "turned": false,
+		"contours_seen": false, "turned": false,
+		"look_away_applied": [],
+		"board_loaded": false, "board_pins": [], "board_stamped": false,
+		"hook_tags_seen": false, "service_unlocked": false,
+		"notices_seen": [], "callback_heard": false, "latch_announced": false,
+		"photo_changed_seen": false, "b_seen": false,
 	}
 
 ## Test convenience: a fresh game, as the slice's reset() was. Settings survive.
@@ -270,26 +402,81 @@ func reset(_keep_settings := false) -> void:
 # derived
 # ---------------------------------------------------------------------------
 func objective() -> String:
-	if state.finished: return "done"
-	if not state.p01_complete: return "lamp"
-	if not state.log_read: return "log"
-	if not state.prints_seen: return "changed"
-	if not state.drawer_open: return "drawer"
-	if not state.log_rewritten: return "reread"
-	if not state.seat_wet: return "chair"
-	if not state.report_filed: return "report"
-	if not state.heard_unlatch: return "filed"
-	return "leave"
+	if not state.finished:
+		if not state.p01_complete: return "lamp"
+		if not state.log_read: return "log"
+		if not state.prints_seen and not state.drawer_open: return "changed"
+		if not state.drawer_open: return "drawer"
+		if not game.tide_done(1) and not state.log_rewritten: return "instruments"
+		if not state.log_rewritten: return "reread"
+		if not state.seat_wet: return "chair"
+		if not state.report_filed: return "report"
+		if not state.heard_unlatch: return "filed"
+		return "leave"
+	if game.tide_done(6) and not board_solved(): return "board"
+	if game.flag("P06") and service_locked(): return "service"
+	return "away_t%d" % maxi(game.tide(), 2)
 
-## 0 arrival, 1 lamp lit, 2 log read (sea silent, prints, drawer), 3 seat wet.
+## 0 arrival, 1 lamp lit, 2 log read (sea silent, prints, drawer), 3 seat wet (and after).
 func stage() -> int:
 	if state.seat_wet: return 3
 	if state.log_read: return 2
 	if state.p01_complete: return 1
 	return 0
 
+## The station's weather band, as the office shows it: Tide I is one night, so 0 until
+## she is past the threshold.
+func band() -> int:
+	return game.weather_band() if state.finished else 0
+
+## "", "sever" or "continue".
+func ending() -> String:
+	return str(game.value("ending_choice"))
+
+func board_solved() -> bool:
+	return state.board_stamped or game.flag("P20")
+
+## True once the room has made its change for `id` (see LOOK_AWAY).
+func look_away(id: String) -> bool:
+	return id in state.look_away_applied
+
+## The service door holds until the capsule's key has been turned in it once.
+func service_locked() -> bool:
+	return not game.flag("P06") or (game.has_item("service_key") and not state.service_unlocked)
+
+## The print the photograph shows: the drawer original, then (from band 1) the one where
+## the chair is empty, or the one where she has turned round.
+func photo_variant() -> String:
+	if band() == 0:
+		return "drawer"
+	return "turned" if state.turned else "after"
+
+## T1X: from the wet seat until she is past the threshold.
+func _t1x() -> bool:
+	return state.seat_wet and not state.finished
+
 func is_closeup(v := local_view) -> bool:
-	return v in ["repair", "logbook", "duty", "note", "drawer", "report"]
+	return v in ["repair", "logbook", "duty", "note", "drawer", "report", "board", "photo"]
+
+## The office clock: [h, m, running].
+func clock() -> Array:
+	var e := ending()
+	if e != "":
+		return [7, 13, true]
+	if not state.p01_complete:
+		return [6, 40, true]
+	if not state.finished:
+		return [6, 52, true]
+	return CLOCK_BANDS[band()].duplicate()
+
+## The barometer needle, in degrees from straight up, clockwise.
+func needle() -> int:
+	match ending():
+		"sever":
+			return 30
+		"continue":
+			return 180
+	return NEEDLE[band()]
 
 ## The tide log as it reads now. It grows as she does what it says. Rows are only
 ## ever appended (the blotted time is the one cell that changes in place), so the
@@ -308,19 +495,21 @@ func log_rows() -> Array:
 		rows.append(LOG_FINAL)
 	return rows
 
-## The two log rows the end card writes, as [text, hand]: hand is "her" or "venn".
+## The two log rows the Tide I card writes, as [text, hand]: hand is "her" or "venn".
 ## She does not turn: her row, then the next tide in his hand. She turns: both are hers.
 func end_rows() -> Array:
 	if state.turned:
 		return [[END_TURN_ROW, "her"], [END_NEXT_TURNED, "her"]]
 	return [[END_LOG_ROW, "her"], [END_NEXT_ROW, "venn"]]
 
-## Lines for the end card, in order.
+## Lines for the Tide I card, in order. The tide line is the core's card, after it.
 func end_lines() -> Array:
 	var out := [END_ON_STATION]
-	if seen().size() == OBSERVATIONS.size():
+	var all_seen := true
+	for id in REACHABLE_BY_T1X:
+		all_seen = all_seen and has_seen(id)
+	if all_seen:
 		out.append(END_ALL_SEEN)
-	out.append(END_CONTINUES)
 	return out
 
 ## How many wrong filings the log has written down (0-3).
@@ -331,11 +520,6 @@ func report_misses() -> int:
 			n += 1
 	return n
 
-## True once the room has made its change for `id` (see LOOK_AWAY).
-func look_away(id: String) -> bool:
-	var i := LOOK_AWAY.find(id)
-	return i >= 0 and i + 1 <= int(state.returns)
-
 ## A line in her notebook she did not write. Empty until the log has rewritten itself.
 func notebook_intrusion() -> String:
 	return NOTEBOOK_INTRUSION if state.log_rewritten else ""
@@ -344,65 +528,138 @@ func dial_code() -> Array:
 	return state.drawer_dial.duplicate()
 
 # ---------------------------------------------------------------------------
+# events helper
+# ---------------------------------------------------------------------------
+## Says [[delay, text], ...] as one reveal: story lines when there is more than one.
+func _chain(ev: Array, lines: Array) -> void:
+	var story := lines.size() > 1
+	for l in lines:
+		_say(ev, l[1], l[0], story)
+
+# ---------------------------------------------------------------------------
 # actions
 # ---------------------------------------------------------------------------
 func act(action: String, ev: Array) -> void:
-	if local_view == "room" and action in ROOM_IDS:
-		_room(action, ev)
-	elif local_view == "repair":
-		_repair(action, ev)
-	elif local_view == "drawer":
-		_drawer(action, ev)
-	elif local_view == "report":
-		_report(action, ev)
-	elif local_view == "threshold" and action == "continue":
-		state.finished = true
-		local_view = "end"
-		game.record_move("held_still")
-		game.solve("t1x_threshold_crossed", ev)
-		_sfx(ev, "motif")
-	elif local_view == "threshold" and action == "turn":
-		state.turned = true
-		state.finished = true
-		local_view = "end"
-		game.record_move("turned_round")
-		game.set_flag("t1x_turned")
-		game.solve("t1x_threshold_crossed", ev)
-		_sfx(ev, "exhale_near")
-		_sfx(ev, "motif", 1.4)
-		_fx(ev, "turn")
-	elif local_view == "end" and action == "end_continue":
-		# The end card was the slice's ending; in the game it is the Tide I transition.
-		local_view = "room"
-		_say(ev, AFTER_LINE, 0.4)
+	# A room hotspot sent while a close-up is open (a driver or test; the views never do)
+	# steps back first, with Back's own consequences, then acts on the room.
+	if is_closeup() and ((facing == "A" and action in HOTSPOTS) or (facing == "B" and action in HOTSPOTS_B)):
+		back(ev)
+		if local_view == "room":
+			act(action, ev)
+		return
+	match local_view:
+		"room":
+			if action == "turn":
+				_turn(ev)
+			elif facing == "A" and action in HOTSPOTS:
+				_room(action, ev)
+			elif facing == "B" and action in HOTSPOTS_B:
+				_room_b(action, ev)
+		"repair":
+			_repair(action, ev)
+		"drawer":
+			_drawer(action, ev)
+		"report":
+			_report(action, ev)
+		"duty", "note":
+			if action == "read_contract":
+				_read_contract(ev)
+		"board":
+			_board(action, ev)
+		"photo":
+			_photo(action, ev)
+		"threshold":
+			if action == "continue":
+				state.finished = true
+				local_view = "end"
+				game.record_move("held_still")
+				_sfx(ev, "motif")
+			elif action == "turn":
+				state.turned = true
+				state.finished = true
+				local_view = "end"
+				game.record_move("turned_round")
+				game.set_flag("t1x_turned")
+				_sfx(ev, "exhale_near")
+				_sfx(ev, "motif", 1.4)
+				_fx(ev, "turn")
+		"end":
+			if action == "end_continue":
+				# The Tide I card gives way to the Tide II card, and the corridor to the chart room.
+				local_view = "room"
+				facing = "A"
+				game.solve("t1x_threshold_crossed", ev)
+				# TODO(lead): use the public GameSim.travel() once the core exposes one.
+				game._travel("R03", ev)
 
-const AFTER_LINE := "The office again. The door stands open on an ordinary corridor."
-
-## The first arrival is the game's opening; later arrivals say nothing (the view's
-## arrival hold carries any change).
+## The first arrival is the game's opening. Every arrival faces the desk, lets the room
+## make one look-away change, and carries at most one notice for the view's arrival hold.
 func arrive(ev: Array, first: bool) -> void:
+	facing = "A"
 	if first:
 		_say(ev, "Greywake Survey Station. The launch won't be back for me until the morning tide.")
 		_say(ev, "Power's out. The duty card says to start with the desk lamp.", 3.2)
+		game.give("pencil", ev)
+	_apply_look_away(ev)
+	if game.tide_done(1) and not state.log_rewritten and not state.callback_heard:
+		state.callback_heard = true
+		_add_notice("callback")
+		_sfx(ev, "pen_far", 0.4)
+		ev.append({"type": "fx", "id": "notice", "key": "callback"})
+	elif band() >= 1 and not ("b%d" % band()) in state.notices_seen:
+		for b in range(1, band() + 1):
+			_add_notice("b%d" % b)
+		ev.append({"type": "fx", "id": "notice", "key": "b%d" % band()})
+		if band() == 6:
+			_sfx(ev, "clock_stop", 0.6)
+
+func _add_notice(key: String) -> void:
+	if not key in state.notices_seen:
+		state.notices_seen.append(key)
+
+## The next look-away change, if its band has come. One per call. Returns its id or "".
+func _apply_look_away(ev: Array) -> String:
+	for e in LOOK_AWAY:
+		if e[0] in state.look_away_applied:
+			continue
+		if int(e[1]) <= band():
+			state.look_away_applied.append(e[0])
+			_observe("away_" + e[0])
+			ev.append({"type": "fx", "id": "look_away", "change": e[0]})
+			return e[0]
+		return ""
+	return ""
 
 func exit_block(to: String) -> String:
 	# Venn's rule: nobody leaves until the records reconcile.
-	if state.seat_wet and not state.finished:
-		return LATCHED_LINE
-	if to in ["R03", "R04"] and state.p01_complete and not state.finished:
-		return "Two latches let go down there. I'd rather know what's in this room first."
+	if _t1x():
+		return _latch_line()
+	if to in ["R03", "R04"] and not game.flag("P01"):
+		return "The corridor is pitch black. Light first."
+	if to in ["R05", "R06"] and service_locked():
+		if not game.flag("P06"):
+			return SERVICE_NO_KEY
+		return "Locked. The kitchen key from the capsule should fit it."
 	return ""
+
+## Both doors share one announcement: the rule the first time, then just the latch.
+func _latch_line() -> String:
+	if not state.latch_announced:
+		state.latch_announced = true
+		return LATCHED_LINE
+	return LATCHED_AGAIN
 
 func back(ev: Array) -> void:
 	var before := local_view
 	_back_view(ev)
-	# At stage 3 the room uses the moments she isn't looking at it. The menu doesn't count.
-	if local_view == "room" and is_closeup(before) and stage() == 3:
-		state.returns = mini(int(state.returns) + 1, RETURNS_MAX)
+	# The room uses the moments she isn't looking at the desk. The board and the photograph
+	# on it return her facing the entry wall, which doesn't count.
+	if local_view == "room" and is_closeup(before) and facing == "A":
+		_apply_look_away(ev)
 
-func on_core_return(from: String, _ev: Array) -> void:
-	if from == "notebook" and local_view == "room" and stage() == 3:
-		state.returns = mini(int(state.returns) + 1, RETURNS_MAX)
+func on_core_return(from: String, ev: Array) -> void:
+	if from == "notebook" and local_view == "room" and facing == "A":
+		_apply_look_away(ev)
 
 func _back_view(ev: Array) -> void:
 	match local_view:
@@ -423,11 +680,29 @@ func _back_view(ev: Array) -> void:
 		"repair", "duty", "note", "drawer":
 			local_view = "room"
 			selected = ""
+		"board":
+			local_view = "room"
+			held_stamp = ""
+		"photo":
+			local_view = photo_from
+			photo_back = false
 		"threshold", "end":
-			pass   # there is no going back from the doorway; the end card has its own button
+			pass   # there is no going back from the doorway; the card has its own button
 		_:
 			local_view = "room"
 
+func _turn(ev: Array) -> void:
+	if state.seat_wet and not state.report_filed:
+		_record_history("turn")
+	facing = "B" if facing == "A" else "A"
+	_sfx(ev, "turn")
+	if facing == "B" and not state.b_seen:
+		state.b_seen = true
+		_say(ev, "The entry wall. The way I came in.")
+
+# ---------------------------------------------------------------------------
+# view A
+# ---------------------------------------------------------------------------
 func _room(id: String, ev: Array) -> void:
 	var s := stage()
 	# Between the chair and the report, the log keeps her: the first three different
@@ -447,18 +722,18 @@ func _room(id: String, ev: Array) -> void:
 			_papers(ev)
 		"mug":
 			_observe("mug")
-			if s >= 3 and look_away("mug"):
-				_observe("away_mug")
+			if look_away("mug"):
 				_say(ev, "His mug is full to the brim. Seawater. I didn't fill it.")
+			elif state.finished:
+				_say(ev, "His mug, rinsed, the spoon across it. The ring on the desk is still warm.")
 			elif s >= 2:
 				_say(ev, "Two rings on the desk now. One is still warm.")
 			else:
 				_say(ev, "A chipped green mug, rinsed. A clean spoon laid across it. Someone tidied before they left.")
 		"stove":
 			_observe("stove")
-			if s >= 3 and look_away("stove"):
-				_observe("away_stove")
-				_say(ev, "The stove door is open. It's full of water, up into the flue.")
+			if look_away("stove"):
+				_say(ev, "Water is seeping round the stove door. It's full, up into the flue. The door was shut the whole time.")
 			elif s >= 2:
 				_say(ev, "Raked smooth again. I didn't touch it.")
 			else:
@@ -466,44 +741,31 @@ func _room(id: String, ev: Array) -> void:
 		"map":
 			_map(s, ev)
 		"hooks":
-			_observe("hooks")
-			if s >= 3:
-				_observe("tag")
-				_say(ev, "There's a tag on the ninth hook now. Stamped A.M. It hangs at the height of my collar.")
-			elif s == 2:
-				_say(ev, "Nine hooks. The ninth is wet again. I dried it with my sleeve an hour ago.")
-			else:
-				_say(ev, "Nine hooks. His coat's on the seventh. The ninth is wet, and nothing is hanging on it.")
+			_hooks(s, ev)
 		"window":
 			_window(s, ev)
 		"coat":
-			_observe("coat")
-			if s >= 3 and look_away("coat"):
-				_observe("away_coat")
-				_say(ev, "The hood is up. It's facing the desk.")
-			elif s >= 3:
-				_say(ev, "The shoulders have shape now. I am not going to touch it.")
-			elif state.log_rewritten:
-				_say(ev, "It hangs differently. Heavier at the shoulders.")
-			elif s == 2:
-				_say(ev, "Still dripping. Onto the same spot, every time. Like it's being counted.")
-			else:
-				_say(ev, "Venn's oilskin, soaked through. It hasn't rained since I landed.")
+			_coat(s, ev)
 		"drawer":
 			local_view = "drawer"
 			_sfx(ev, "dial")
-			if state.drawer_open:
+			if state.drawer_open and board_solved():
+				_say(ev, "His watch. The photograph has gone from the drawer.")
+			elif state.drawer_open:
 				_say(ev, "His watch and the photograph. I keep looking at the back of my own head.")
 			else:
 				_say(ev, "The right-hand drawer is locked. Four brass dials, and a plate: \"E.V. Open at the hour she mended it.\"")
 		"puddle":
-			if s >= 3:
+			if state.finished:
+				_observe("prints")
+				var lines := [[0.0, "The puddle. Two trails, dried to salt. One of them is mine."]]
+				if look_away("puddle"):
+					lines.append([2.0, "Wet footprints go up the wall beside the door. They don't come down."])
+				_chain(ev, lines)
+			elif s >= 3:
 				_observe("prints")
 				_say(ev, "There are two trails now.")
 				_say(ev, "One goes to the drawer. One comes from the drawer to the door. The second one is my size.", 2.0, true)
-				if look_away("puddle"):
-					_observe("away_puddle")
-					_say(ev, "And a third. Up the wall beside the door. It doesn't come down.", 4.2, true)
 			elif s == 2:
 				var first_prints: bool = not state.prints_seen
 				state.prints_seen = true
@@ -518,26 +780,22 @@ func _room(id: String, ev: Array) -> void:
 			_chair(s, ev)
 		"door":
 			if state.finished:
-				_say(ev, "A corridor. Forty feet of it, a mat, two doors at the end. It goes exactly as far as it should.")
+				if look_away("door"):
+					_say(ev, "Water is coming under the door from the corridor side. The corridor floor beyond is dry.")
+				else:
+					_say(ev, "A corridor. Forty feet of it, a mat, two doors at the end. It goes exactly as far as it should.")
 			elif state.report_filed and state.heard_unlatch:
 				local_view = "threshold"
 				_sfx(ev, "door")
 				_fx(ev, "threshold")
 			elif state.seat_wet:
-				if look_away("door"):
-					_observe("away_door")
-					_say(ev, "Water is coming under the door. From the corridor side.")
-					_say(ev, LATCHED_LINE, 2.4)
-				else:
-					_say(ev, LATCHED_LINE)
+				_say(ev, _latch_line())
 			elif s == 2:
 				_say(ev, "The latches downstairs let go when the lamp came on. Something wanted the doors open before I did.")
 			elif s == 1:
-				_say(ev, "Two latches let go somewhere below. I'd rather know what's in this room first.")
+				_say(ev, "The corridor. The latches down there let go when the lamp came on.")
 			else:
 				_say(ev, "The corridor is pitch black. Light first.")
-
-const LATCHED_LINE := "Latched. His rule's on the duty card: nobody leaves until the records reconcile."
 
 ## Appends a room click to the log's record of her, up to HISTORY_MAX distinct lines.
 ## Miss rows (MISS_IDS) are written by the report itself and don't count against it.
@@ -556,7 +814,7 @@ func _record_history(id: String) -> void:
 	state.history.append(id)
 
 func _papers(ev: Array) -> void:
-	if state.seat_wet:
+	if state.seat_wet and not state.finished:
 		local_view = "report"
 		_sfx(ev, "page")
 		if state.report_filed:
@@ -580,6 +838,19 @@ func _papers(ev: Array) -> void:
 		_say(ev, "Closure duty. Inventory, reconcile, restore the signal. Begin with the lamp.")
 	_sfx(ev, "page")
 
+## c_duty / c_note: the contract under the card.
+func _read_contract(ev: Array) -> void:
+	if has_seen("contract"):
+		_say(ev, "My contract. Two stripes on the pennant. Do not certify what I have not seen.")
+		return
+	_observe("contract")
+	_sfx(ev, "page")
+	_chain(ev, [
+		[0.0, "The contract, under his card. Addressed to me by name: Miss Ada Mercer, cataloguer."],
+		[2.6, "'Do not certify an observation you have not made.' Underlined, in his ink."],
+		[5.2, "The launch that collects me flies two stripes. It answers the departure signal."],
+	])
+
 func _map(s: int, ev: Array) -> void:
 	if s >= 2 and state.drawer_open and not state.soundings_heard:
 		# The scale of it: the whole floor of the Sound is going down, evenly.
@@ -590,10 +861,10 @@ func _map(s: int, ev: Array) -> void:
 		_say(ev, "Not by much. By the same amount, everywhere. As if the bottom were being drawn down.", 2.8, true)
 		_sfx(ev, "deep", 5.6)
 		_say(ev, "Past the ninth piling there's no figure. 'No bottom at four hundred fathoms. Line came up warm.'", 6.0, true)
-		if s == 3:
+		if state.seat_wet:
 			_observe("chart_tenth")
 			_say(ev, "And someone has inked a tenth piling, further out than the jetty goes.", 9.0, true)
-	elif s == 3 and state.soundings_heard and not state.contours_seen:
+	elif band() >= 4 and state.soundings_heard and not state.contours_seen:
 		# The Sound is not a basin. It is an eye, and the jetty runs out to its pupil.
 		state.contours_seen = true
 		_observe("contours")
@@ -604,7 +875,7 @@ func _map(s: int, ev: Array) -> void:
 		_say(ev, "The station is built on the edge of it. Like a lash.", 5.4, true)
 	elif s >= 2:
 		_observe("chart")
-		if s == 2:
+		if not state.seat_wet:
 			_say(ev, "The chart has been corrected. In pencil. Nine.")
 		else:
 			_observe("chart_tenth")
@@ -612,6 +883,55 @@ func _map(s: int, ev: Array) -> void:
 	else:
 		_observe("map")
 		_say(ev, "Morrow Sound, surveyed 1889. The jetty has nine pilings. I counted eight from the launch.")
+
+func _hooks(s: int, ev: Array) -> void:
+	_observe("hooks")
+	if band() >= 6:
+		if not state.hook_tags_seen:
+			state.hook_tags_seen = true
+			_observe("tag")
+			_observe("hook_measures")
+			_chain(ev, [
+				[0.0, "There are brass tags on the hooks now. Stamped, like luggage."],
+				[2.4, "ZERO 4. INT 3. PRESS 2. BEARING 3. Every setting I've entered in this station."],
+				[5.4, "Five foot six. Five foot seven. R. Two foot four. My height, my reach, my hand, my stride."],
+				[8.6, "The ninth says A.M. It hangs at the height of my collar."],
+			])
+		else:
+			_say(ev, "My numbers on his hooks. The ninth one is mine.")
+	elif state.seat_wet:
+		_say(ev, "Nine hooks. The ninth is wet again. Nothing has hung on it.")
+	elif s == 2:
+		_say(ev, "Nine hooks. The ninth is wet again. I dried it with my sleeve an hour ago.")
+	else:
+		_say(ev, "Nine hooks. His coat's on the seventh. The ninth is wet, and nothing is hanging on it.")
+
+func _coat(s: int, ev: Array) -> void:
+	_observe("coat")
+	var b := band()
+	match ending():
+		"sever":
+			_say(ev, "An ordinary wet coat.")
+			return
+		"continue":
+			_observe("coat_collapsed")
+			_say(ev, "It has gone slack on the hook. An ordinary wet coat. Nobody is in it.")
+			return
+	if look_away("coat"):
+		_chain(ev, [[0.0, "The hood is up. It's facing the desk."],
+			[2.0, "There are shoulders in it. Nobody is wearing it."]])
+	elif board_solved():
+		_say(ev, "It said yes. I'm not going to ask it anything else.")
+	elif b >= 4:
+		_say(ev, "The shoulders have shape now. I am not going to touch it.")
+	elif b >= 1:
+		_say(ev, "Heavier at the shoulders again. It has dripped onto the same spot for hours.")
+	elif state.log_rewritten:
+		_say(ev, "It hangs differently. Heavier at the shoulders.")
+	elif s == 2:
+		_say(ev, "Still dripping. Onto the same spot, every time. Like it's being counted.")
+	else:
+		_say(ev, "Venn's oilskin, soaked through. It hasn't rained since I landed.")
 
 func _logbook(ev: Array) -> void:
 	local_view = "logbook"
@@ -628,7 +948,7 @@ func _logbook(ev: Array) -> void:
 		_say(ev, "And the last line... that's my handwriting.", 1.4, true)
 		_say(ev, "One of the times is under a tide-stain. His margin note isn't.", 3.0, true)
 		_fx(ev, "dread")
-	elif state.prints_seen and state.drawer_open and not state.log_rewritten:
+	elif state.drawer_open and game.tide_done(1) and not state.log_rewritten:
 		state.log_rewritten = true
 		_observe("rewritten")
 		_fx(ev, "log_write")
@@ -655,43 +975,80 @@ func _logbook(ev: Array) -> void:
 		_say(ev, "Observer: A. Mercer. In my hand. I have never seen this book.")
 
 func _window(s: int, ev: Array) -> void:
-	if s >= 3:
-		# Evidence from stage 2 stays collectable: the sea is still silent.
-		_observe("silent")
-		_observe("piling")
-		_observe("horizon")
-		_observe("eye")
-		_say(ev, "The horizon isn't level. The house is.")
-		_say(ev, "There's a ring on the water, out past the pilings. When I move, it moves.", 2.6, true)
-		_say(ev, "I step to the left. It is still in the middle of the glass.", 5.4, true)
-		var last := 5.4
-		if has_seen("knock"):
-			_observe("palms")
-			last = 8.4
-			_say(ev, "There are marks on the outside of the glass, low down. Three. And the heel of a hand.", last, true)
-		if look_away("window"):
-			_observe("away_window")
-			last += 2.8
-			_say(ev, "There's a fourth hand now. At the top of the glass.", last, true)
-		if state.contours_seen and not has_seen("through"):
-			_observe("through")
-			last += 2.8
-			_say(ev, OBSERVATIONS["through"], last, true)
-	elif s == 2:
-		_observe("silent")
-		_observe("piling")
-		_say(ev, "The sea is still moving. It has stopped making a sound, the way a person stops talking when you come into a room.")
-		if state.drawer_open:
-			_say(ev, "The ninth piling is nearer again. I don't think it is a piling.", 3.6, true)
+	match ending():
+		"sever":
+			_say(ev, "Grey water, and daylight. A launch is coming in past the lighthouse.")
+			return
+		"continue":
+			_say(ev, "The dark surface, close to the glass. The desk is lit.")
+			return
+	if not state.seat_wet:
+		if s == 2:
+			_observe("silent")
+			_observe("piling")
+			_say(ev, "The sea is still moving. It has stopped making a sound, the way a person stops talking when you come into a room.")
+			if state.drawer_open:
+				_say(ev, "The ninth piling is nearer again. I don't think it is a piling.", 3.6, true)
+			else:
+				_say(ev, "There are nine pilings now. The ninth is closer than the others.", 3.6, true)
+		elif s == 1:
+			_say(ev, "Dark enough now that the glass shows the lamp more than the sea.")
 		else:
-			_say(ev, "There are nine pilings now. The ninth is closer than the others.", 3.6, true)
-	elif s == 1:
-		_say(ev, "Dark enough now that the glass shows the lamp more than the sea.")
-	else:
-		_say(ev, "The launch is already past the lighthouse. Nobody else is coming tonight.")
+			_say(ev, "The launch is already past the lighthouse. Nobody else is coming tonight.")
+		return
+	var b := band()
+	var lines: Array = []
+	match b:
+		0:
+			_observe("silent")
+			_observe("piling")
+			lines.append([0.0, "Nine pilings. The sea moving against them, without a sound."])
+		1:
+			lines.append([0.0, "Rain on the glass now. The cloud has come down to the water."])
+		2:
+			lines.append([0.0, "Heavier rain. The end of the jetty has gone into it. Damp is coming through under the sill."])
+		3:
+			_observe("horizon")
+			lines.append([0.0, "The rain is falling slower than rain falls."])
+			lines.append([2.6, "The horizon isn't level. The house is."])
+		4:
+			_observe("horizon")
+			_observe("eye")
+			lines.append([0.0, "There's a ring on the water, out past the pilings. When I move, it moves."])
+			lines.append([2.6, "I step to the left. It is still in the middle of the glass."])
+		5:
+			_observe("horizon")
+			_observe("eye")
+			lines.append([0.0, "Rain on the glass, and no sound of it. Sea and sky are one colour."])
+			lines.append([2.6, "The ring is still there. Still in the middle."])
+		6:
+			_observe("horizon")
+			_observe("eye")
+			lines.append([0.0, "The ring has come in to the end of the jetty. It is the size of this window."])
+		_:
+			_observe("horizon")
+			_observe("eye")
+			lines.append([0.0, "There is no sea. Something dark stands where it was, close to the glass."])
+			lines.append([2.6, "Now and then, very slowly, it moves. The desk is still lit."])
+	if has_seen("knock") and not has_seen("palms"):
+		_observe("palms")
+		lines.append([lines.back()[0] + 2.8, "There are marks on the outside of the glass, low down. Three. And the heel of a hand."])
+	if look_away("window"):
+		lines.append([lines.back()[0] + 2.8, "There's a fourth hand now. At the top of the glass."])
+	if b >= 4 and state.contours_seen and not has_seen("through"):
+		_observe("through")
+		lines.append([lines.back()[0] + 2.8, OBSERVATIONS["through"]])
+	_chain(ev, lines)
 
 func _chair(s: int, ev: Array) -> void:
-	if s == 0:
+	if state.finished:
+		if band() >= 7:
+			_say(ev, "The cushion is pressed down again. Fresh, and cold.")
+		elif state.turned:
+			_say(ev, "Venn's chair. I turned round to it once. I won't again.")
+		else:
+			_say(ev, "Venn's chair. Dry now. It keeps the shape of someone who sat very still.")
+	elif s == 0:
 		_say(ev, "Venn's chair. The cushion keeps the shape of someone who sat very still.")
 	elif state.seat_wet:
 		_say(ev, "The seat is wet. Still warm underneath.")
@@ -711,6 +1068,239 @@ func _chair(s: int, ev: Array) -> void:
 		if state.prints_seen:
 			_say(ev, "The prints don't go near it. Not yet.", 1.8)
 
+# ---------------------------------------------------------------------------
+# view B
+# ---------------------------------------------------------------------------
+func _room_b(id: String, ev: Array) -> void:
+	if state.seat_wet and not state.report_filed:
+		_record_history(id)
+	match id:
+		"outer_door":
+			_say(ev, _outer_door_line())
+		"service_door":
+			if not game.flag("P06"):
+				_say(ev, SERVICE_NO_KEY)
+			elif service_locked():
+				_say(ev, "Locked from the kitchen side. The key from the capsule should fit.")
+			elif band() <= 2:
+				_say(ev, "The service door, unlocked. The passage beyond smells of soup.")
+			else:
+				_say(ev, "The service door. The passage smells of soup. Nobody has cooked for days.")
+		"board":
+			if board_solved():
+				local_view = "board"
+				_say(ev, "My name, my name, my sentence. And the photograph, which I didn't pin.")
+			elif state.board_loaded:
+				local_view = "board"
+				_say(ev, "His letters, the inquiry clipping and the contract. Three pins and a thread.")
+			elif game.has_item("venn_correspondence"):
+				_say(ev, "A comparison board. Venn's letters would go on it, side by side with the contract.")
+			else:
+				_say(ev, "A comparison board. Cork, three pins, a rail of rubber stamps. Nothing pinned to it.")
+		"barometer":
+			_sfx(ev, "baro_tap")
+			_say(ev, _barometer_line())
+		"receipt":
+			if not state.p01_complete:
+				_say(ev, "A paper pinned by the door. Too dark to read.")
+			elif not game.flag("o01_found"):
+				game.set_flag("o01_found")
+				_sfx(ev, "page")
+				_chain(ev, [
+					[0.0, "A contractor's receipt, pinned by the door. 'To mending one green enamel mug, chipped at the lip: 1s 4d. New mug, if preferred: 9d.'"],
+					[2.6, "He paid the one and four."],
+					[4.4, "Under it, in his hand: 'Some things you keep because they have been used.'"],
+				])
+			else:
+				_say(ev, "The mug receipt. One and four, to keep a chipped mug.")
+
+func _outer_door_line() -> String:
+	if _t1x():
+		return _latch_line()
+	if ending() == "sever":
+		return "Grey water. A launch with two stripes on its pennant."
+	if not state.p01_complete:
+		return "The outer door. Through its glass, the launch going out past the lighthouse."
+	if not state.finished:
+		return "The jetty, in the dark. The bell on its post hangs too low."
+	match band():
+		0:
+			if game.flag("P05") and not game.flag("P06"):
+				return "There's a launch at the jetty. It isn't moving. The water is."
+			return "The jetty, in the dark. The bell on its post hangs too low."
+		1:
+			return "Rain on the jetty. The capsule hangs open on the mooring line."
+		2:
+			return "The far end of the jetty has gone into the rain."
+		3:
+			return "The pilings' reflections are late. And there's a tenth, past the end."
+		4:
+			return "Out there, the horizon tilts up toward the station."
+		5:
+			return "Sea and sky are one colour. The lighthouse has gone."
+		6:
+			return "The lighthouse light is falling on the jetty from behind the station."
+	return "Where the sea was, something dark stands up off the end of the jetty. The jetty is still lit."
+
+func _barometer_line() -> String:
+	if ending() != "":
+		return "The clock is going again."
+	if not state.p01_complete:
+		return "A barometer in a brass case, a clock above it. Twenty to seven. The needle sits on CHANGE."
+	if not state.finished:
+		return "Eight minutes to seven, the minute I mended the lamp. The second hand goes round. The minute hand doesn't."
+	match band():
+		0:
+			return "Twenty-six minutes to eight. The clock has caught up with the tide I signed for."
+		1:
+			return "Ten past nine. The needle has gone over to RAIN. It is raining."
+		2:
+			return "Twenty-five past eleven. RAIN, and falling."
+		3:
+			return "Ten to two. The needle is at STORMY, and still going."
+		4:
+			return "A quarter past three. The needle has gone past STORMY, onto the bare brass. Someone has scratched a mark there."
+		5:
+			return "Twenty to six. The needle is nearly upside down."
+		6:
+			return "The clock has stopped. Thirteen minutes past seven: the morning tide, when the launch was due. The needle points straight down."
+	return "Still thirteen past seven. The needle points down, at the floor. When I tap the glass, something presses back."
+
+# ---------------------------------------------------------------------------
+# P20: the comparison board (c_board)
+# ---------------------------------------------------------------------------
+func _board(action: String, ev: Array) -> void:
+	match action:
+		"read_contract":
+			_say(ev, "The contract. My name, my duties, his countersignature.")
+			return
+		"read_clipping":
+			_say(ev, "Morrow Harbour Board, 1929. The inquiry into Daniel Roe, dockworker, reported missing. Three signatures. Mine is the one that dissents.")
+			return
+		"read_letter":
+			_say(ev, "His letter to the Board, never sent. He asks for me by name, and quotes me to them.")
+			return
+		"seal":
+			if board_solved():
+				_say(ev, "'You have already refused to make a person disappear for the convenience of a form.'")
+			else:
+				_say(ev, "Sealed with his three-cut seal. It won't lift.")
+			return
+	var board_control: bool = MARKS.has(action) or STAMPS.has(action) or action == "provenance" \
+		or action in ["slot_0", "slot_1", "slot_2"]
+	if board_solved():
+		if board_control:
+			_say(ev, BOARD_DONE)
+		elif action == "photo":
+			local_view = "photo"
+			photo_from = "board"
+			_photo_look(ev)
+		return
+	var pins: Array = state.board_pins
+	if MARKS.has(action):
+		var at := pins.find(action)
+		if at >= 0:
+			pins.remove_at(at)
+			_sfx(ev, "unpin")
+		elif pins.size() >= BOARD_SLOTS:
+			_say(ev, "Three pins. Take one out first.")
+		else:
+			pins.append(action)
+			_sfx(ev, "pin")
+	elif action in ["slot_0", "slot_1", "slot_2"]:
+		var i := int(action.substr(5))
+		if i < pins.size():
+			pins.remove_at(i)
+			_sfx(ev, "unpin")
+	elif STAMPS.has(action):
+		held_stamp = "" if held_stamp == action else action
+	elif action == "provenance":
+		_provenance(ev)
+
+## The board's refusal for the current pins and stamp, in the card's order, or "" to commit.
+func board_refusal(pins: Array, stamp: String) -> String:
+	if pins.size() < BOARD_SLOTS:
+		return "The thread has to run all the way. Three pins first."
+	if "m_callis" in pins or "m_orme" in pins:
+		return "Their signatures don't carry the sentence. Mine does."
+	if "m_countersign" in pins:
+		return "That's his name, not mine. The thread follows mine."
+	if pins != BOARD_ANSWER:
+		return "The name went from the contract, to the inquiry, to his letter. The thread should go the same way."
+	if stamp == "stamp_board":
+		return "The Board didn't assign me. He asked."
+	if stamp == "stamp_unknown":
+		return "It isn't unknown. It's in his letter, in his hand."
+	return ""
+
+func _provenance(ev: Array) -> void:
+	if held_stamp == "":
+		_say(ev, "Pick a stamp from the rack first.")
+		return
+	var refusal := board_refusal(state.board_pins, held_stamp)
+	if refusal != "":
+		held_stamp = ""
+		_sfx(ev, "stamp_dry")
+		_say(ev, refusal)
+		return
+	state.board_stamped = true
+	held_stamp = ""
+	game.solve("P20", ev)
+	_observe("why_ada")
+	_sfx(ev, "stamp", 0.0)
+	_sfx(ev, "seal", 1.6)
+	_sfx(ev, "oilskin", 11.0)
+	_sfx(ev, "pin", 16.6)
+	_fx(ev, "p20_solved")
+	_chain(ev, [
+		[0.0, "Requested by Venn."],
+		[1.6, "The seal on his letter has cracked by itself. There's a paragraph under it."],
+		[3.8, "'You have already refused to make a person disappear for the convenience of a form.'"],
+		[6.6, "You could have asked."],
+		[8.6, "You knew I would finish the work before I understood what it was."],
+		[11.4, "Behind me, from the oilskin on the seventh hook, very quietly: 'Yes.'"],
+		[14.0, "A pause. 'I was afraid you would be kinder than me. I was also counting on it.'"],
+		[17.0, "The photograph from his drawer is pinned to the board. I didn't pin it."],
+		[19.6, "On the back, in his hand: 'Not mine. It was in the developing tray on the 15th. She will need to see herself from outside. — E.V.'"],
+	])
+
+# ---------------------------------------------------------------------------
+# c_photo
+# ---------------------------------------------------------------------------
+func _photo(action: String, ev: Array) -> void:
+	match action:
+		"photo":
+			_photo_look(ev)
+		"turn_over":
+			if board_solved():
+				photo_back = not photo_back
+				if photo_back:
+					_say(ev, "His hand, on the back.")
+
+## One look at the print. In Tide I a second look finds what is behind her chair; from
+## band 1 the print has changed, and says so once.
+func _photo_look(ev: Array) -> void:
+	if band() == 0:
+		state.photo_looks = mini(int(state.photo_looks) + 1, 9)
+		if int(state.photo_looks) == 1:
+			_say(ev, "Me, from outside. From the sea side.")
+		else:
+			_observe("behind")
+			_say(ev, "I hold his lens over it. There is someone behind me in this. There is no one behind me now.")
+	elif not state.photo_changed_seen:
+		state.photo_changed_seen = true
+		if photo_variant() == "turned":
+			_chain(ev, [[0.0, "The photograph has changed. In it I have turned round in the chair, to face the camera."],
+				[2.4, "There is nothing on the front of my head."]])
+		else:
+			_chain(ev, [[0.0, "The photograph has changed. The chair in it is empty."],
+				[2.4, "In the lower pane there's a lit window. In the window, this photograph."]])
+	else:
+		_say(ev, "The photograph. It stays changed.")
+
+# ---------------------------------------------------------------------------
+# drawer, report, repair
+# ---------------------------------------------------------------------------
 func _drawer(action: String, ev: Array) -> void:
 	match action:
 		"dial_0", "dial_1", "dial_2", "dial_3", "dial_down_0", "dial_down_1", "dial_down_2", "dial_down_3":
@@ -739,6 +1329,9 @@ func _drawer(action: String, ev: Array) -> void:
 				_say(ev, "This window, from outside, at night. Someone at the desk under the lamp.", 8.6, true)
 				_say(ev, "That's my coat. That's me.", 11.2, true)
 				_say(ev, "There is nothing outside this window to stand on.", 13.4, true)
+				# P03 part 1: his second tide sheet and his lens were in there too.
+				game.give("venn_tide_sheet", ev)
+				game.give("inspection_lens", ev)
 			else:
 				_sfx(ev, "clunk")
 				_say(ev, _drawer_miss(code))
@@ -746,13 +1339,14 @@ func _drawer(action: String, ev: Array) -> void:
 			if state.drawer_open:
 				_say(ev, "Stopped at 18:52.")
 		"look_photo":
-			if state.drawer_open:
-				state.photo_looks = mini(int(state.photo_looks) + 1, 9)
-				if int(state.photo_looks) == 1:
-					_say(ev, "Me, from outside. From the sea side.")
-				else:
-					_observe("behind")
-					_say(ev, "There is someone behind me in this. There is no one behind me now.")
+			if not state.drawer_open:
+				return
+			if board_solved():
+				_say(ev, "The photograph has gone from the drawer. It's on the board, by the door.")
+				return
+			local_view = "photo"
+			photo_from = "drawer"
+			_photo_look(ev)
 
 ## What a wrong code earns: near misses are answered, the rest just clunk.
 func _drawer_miss(code: Array) -> String:
@@ -876,6 +1470,93 @@ func _repair(action: String, ev: Array) -> void:
 				_sfx(ev, "seat")
 				_say(ev, "Bridge B seats with a click. Now the supply.")
 
+# ---------------------------------------------------------------------------
+# inventory
+# ---------------------------------------------------------------------------
+func use_item(item: String, target: String, ev: Array) -> bool:
+	var on_a: bool = local_view == "room" and facing == "A" and target in HOTSPOTS
+	var on_b: bool = local_view == "room" and facing == "B" and target in HOTSPOTS_B
+	match item:
+		"service_key":
+			if on_b and target == "service_door" and game.flag("P06") and service_locked():
+				game.take("service_key")
+				state.service_unlocked = true
+				_sfx(ev, "lock_turn")
+				_chain(ev, [[0.0, "The key turns."],
+					[1.6, "From the kitchen end of the passage, the smell of soup. Nobody has cooked here for days."]])
+				return true
+			if on_a and target == "door":
+				_say(ev, "Wrong door. This one has no keyhole on this side.")
+				return true
+			if on_b and target == "outer_door":
+				_say(ev, "That door isn't locked.")
+				return true
+		"venn_correspondence":
+			if on_b and target == "board":
+				_load_board(ev)
+				return true
+		"inspection_lens":
+			if local_view == "photo" and target == "photo":
+				if band() == 0:
+					_observe("behind")
+					_say(ev, "I hold his lens over it. There is someone behind me in this. There is no one behind me now.")
+				else:
+					_say(ev, "Through the lens: the same changed print. Sharper.")
+				return true
+			if on_a:
+				match target:
+					"window":
+						_say(ev, "Through the lens the far water is sharper. It doesn't make it any smaller.")
+						return true
+					"map":
+						_say(ev, "Under the lens his pencil is pressed hard into the paper, as if he was afraid it would fade.")
+						return true
+					"hooks":
+						if band() >= 6:
+							_say(ev, "The stamping is fresh. The brass under it isn't.")
+						else:
+							_say(ev, "Brass hooks. Salt in the screw heads.")
+						return true
+					"coat":
+						_say(ev, "Salt dried in the seams. Under it, the oilskin is wet from the inside.")
+						return true
+			if on_b:
+				match target:
+					"barometer":
+						_say(ev, "Behind the glass, the needle's pivot is green with salt.")
+						return true
+					"receipt":
+						_say(ev, "The contractor's stamp: MORROW HARBOUR REPAIRS. Paid in full.")
+						return true
+		"venn_tide_sheet":
+			if on_a and target == "map":
+				_say(ev, "His sheet goes with the chart room's sheet, not this chart.")
+				return true
+	return false
+
+func _load_board(ev: Array) -> void:
+	if not game.tide_done(6):
+		_say(ev, "Not yet. I don't know what I'm comparing them against.")
+	elif not has_seen("contract"):
+		_say(ev, "His letters are all about a name. The contract under the duty card has it. I should read that first.")
+	elif state.board_loaded or board_solved():
+		_say(ev, "They're already on the board.")
+	else:
+		state.board_loaded = true
+		local_view = "board"
+		_sfx(ev, "pin", 0.0)
+		_sfx(ev, "pin", 0.3)
+		_sfx(ev, "pin", 0.6)
+		_say(ev, "I pin up his letters and the inquiry clipping, and fetch the contract from the desk.")
+
+## The ending flow (the lead or R12) tells the office which ending she chose.
+func apply_ending(choice: String) -> void:
+	if choice == "continue":
+		_observe("coat_collapsed")
+
+# ---------------------------------------------------------------------------
+# hints
+# ---------------------------------------------------------------------------
 ## At the threshold the hint ladder steps aside: there is only one thing to do.
 func hint_frozen() -> bool:
 	return local_view == "threshold"
@@ -892,7 +1573,7 @@ func objective_text() -> String:
 # persistence
 # ---------------------------------------------------------------------------
 ## Restores R02's local state from a saved dict (or a slice save, migrated by the core),
-## ignoring anything malformed.
+## ignoring anything malformed. Global flags are already loaded when this runs.
 func load_state(d: Variant) -> void:
 	state = initial_state()
 	if not d is Dictionary:
@@ -924,12 +1605,26 @@ func load_state(d: Variant) -> void:
 					state.history.append(hid)
 			elif HISTORY_TEXT.has(hid):
 				_record_history(hid)
-	var returns = d.get("returns")
-	if (returns is int or returns is float) and float(returns) == floorf(float(returns)):
-		state.returns = clampi(int(returns), 0, RETURNS_MAX)
 	var looks = d.get("photo_looks")
 	if (looks is int or looks is float) and float(looks) == floorf(float(looks)):
 		state.photo_looks = clampi(int(looks), 0, 9)
+	# Look-away changes happen in one order only: accept an exact prefix of it.
+	var applied = d.get("look_away_applied")
+	if applied is Array and applied.size() <= LOOK_AWAY.size():
+		var ok := true
+		for i in applied.size():
+			ok = ok and applied[i] is String and applied[i] == LOOK_AWAY[i][0]
+		if ok:
+			state.look_away_applied = applied.duplicate()
+	if d.get("notices_seen") is Array:
+		for k in d.notices_seen:
+			if k is String and k in NOTICE_KEYS and not k in state.notices_seen:
+				state.notices_seen.append(k)
+	if d.get("board_pins") is Array:
+		for m in d.board_pins:
+			if m is String and MARKS.has(m) and not m in state.board_pins \
+					and state.board_pins.size() < BOARD_SLOTS:
+				state.board_pins.append(m)
 	# Derived flags must agree: progress implies its prerequisites.
 	if state.p01_complete:
 		state.bridge_installed = true
@@ -938,7 +1633,7 @@ func load_state(d: Variant) -> void:
 	state.log_read = state.log_read and state.p01_complete
 	state.prints_seen = state.prints_seen and state.log_read
 	state.drawer_open = state.drawer_open and state.log_read
-	state.log_rewritten = state.log_rewritten and state.drawer_open and state.prints_seen
+	state.log_rewritten = state.log_rewritten and state.drawer_open
 	state.seat_wet = state.seat_wet and state.log_rewritten
 	state.report_filed = state.report_filed and state.seat_wet \
 		and state.report_fields == REPORT_ANSWER and state.report_time == REPORT_TIME_ANSWER
@@ -946,27 +1641,46 @@ func load_state(d: Variant) -> void:
 	state.heard_unlatch = state.report_filed
 	if not state.seat_wet:
 		state.history = []
-		state.returns = 0
 	state.history_seen = state.history_seen and not state.history.is_empty()
 	state.foretold_door = state.foretold_door and state.report_filed
 	state.finished = state.finished and state.report_filed
 	state.turned = state.turned and state.finished
 	state.heard_silence = state.heard_silence and state.log_read
 	state.soundings_heard = state.soundings_heard and state.drawer_open
-	state.contours_seen = state.contours_seen and state.soundings_heard and state.seat_wet
-	# The threshold and its end card are never restored: a save lands in the room.
+	state.contours_seen = state.contours_seen and state.soundings_heard and state.finished
+	state.callback_heard = state.callback_heard and state.drawer_open
+	state.latch_announced = state.latch_announced and state.seat_wet
+	# The board: stamped implies loaded; the core's P20 implies the solved board; a stamp
+	# only stands on the right thread.
+	state.board_loaded = state.board_loaded or state.board_stamped
+	if game.flag("P20"):
+		state.board_loaded = true
+		state.board_pins = BOARD_ANSWER.duplicate()
+		state.board_stamped = true
+	state.board_stamped = state.board_stamped and state.board_pins == BOARD_ANSWER
+	# The threshold and its card are never restored: a save lands in the room.
 
-## P01 and the Tide I transition flags are R02's (flags.md): they follow its state.
+## P01, P20 and the Tide I transition flags are R02's (flags.md): they follow its state.
 func reconcile() -> void:
 	game.set_flag("P01", state.p01_complete)
 	game.set_flag("closure_report_filed", state.report_filed)
 	game.set_flag("t1x_threshold_crossed", state.finished)
 	game.set_flag("t1x_turned", state.turned)
+	if state.board_stamped:
+		game.set_flag("P20")
 
 ## Dev-only: jump to a story stage (0-3), or 4 = stage 3 with the report filed, or 5 = the
-## threshold passed (Tide I continues). Builds the state the real actions would, on a
-## fresh game, standing in the office.
+## threshold passed. Room state only: P02/P03 are the instrument rooms' (set them to test
+## what needs tide_done(1)).
+## 6 = the start of Tide VII facing the loaded board; 7 = Tide VIII, the board solved.
 func debug_jump(target: int) -> void:
+	if target >= 6:
+		game.debug_tide(7 if target == 6 else 8, ID)
+		facing = "B"
+		if target == 6:
+			state.board_loaded = true
+			_observe("contract")
+		return
 	game.reset()
 	game.debug_enter(ID)
 	_jump_state(target)
@@ -981,6 +1695,7 @@ func _jump_state(target: int) -> void:
 	if target >= 3:
 		state.prints_seen = true; state.drawer_open = true; state.log_rewritten = true
 		state.seat_wet = true
+		state.callback_heard = true
 		state.drawer_dial = DRAWER_CODE.duplicate()
 		_observe("prints"); _observe("piling"); _observe("watch"); _observe("photo")
 		_observe("rewritten"); _observe("seat")
@@ -993,7 +1708,32 @@ func _jump_state(target: int) -> void:
 	if target >= 5:
 		state.finished = true
 
-## Any tide after the first: the whole office chain is behind her.
+## The office as real play leaves it at the start of tide `t`. The core has already set
+## every earlier tide's flags, so weather_band() is the band she arrives in.
 func debug_prepare(t: int) -> void:
-	if t >= 2 or game.flag("P02") or game.flag("P03"):
+	if t >= 1:
+		game.give("pencil")
+	if t >= 2:
 		_jump_state(5)
+		game.give("inspection_lens")
+		var b: int = game.weather_band()
+		state.notices_seen = ["callback"]
+		for n in range(1, b + 1):
+			state.notices_seen.append("b%d" % n)
+		var upto: int = mini(maxi(0, t - 2), 7)
+		state.look_away_applied = []
+		for e in LOOK_AWAY:
+			if int(e[1]) <= upto:
+				state.look_away_applied.append(e[0])
+				_observe("away_" + e[0])
+	if t >= 3:
+		state.service_unlocked = true
+		game.take("service_key")
+	if t >= 8:
+		state.board_loaded = true
+		state.board_pins = BOARD_ANSWER.duplicate()
+		state.board_stamped = true
+		_observe("contract")
+		_observe("why_ada")
+	# From Tide VII the hook tags are up but unread (hook_tags_seen stays false), so a
+	# capture shows the first reading.

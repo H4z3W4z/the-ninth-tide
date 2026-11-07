@@ -21,28 +21,54 @@ const BLUE_INK := Color("1f3f8a")
 const NIGHT_INK := Color("8fa6e0")
 const BRASS := Color("b08a4a")
 
-## Ambient modulate per story stage (0 arrival .. 3 seat wet).
-const MODULATE := [Color(0.30, 0.33, 0.42), Color(0.46, 0.44, 0.48),
-	Color(0.22, 0.23, 0.31), Color(0.22, 0.21, 0.30)]
-## The lamp's pool of light shrinks as the story closes in.
+## Ambient modulate per phase (see _phase()): the Tide I stages, then the weather bands,
+## then the endings. Floors, not targets: late stages are lit so the painted wrongness reads
+## (owner note, round 3). Both facings share it.
+const MODULATE := {
+	"s0": Color(0.30, 0.33, 0.42), "s1": Color(0.46, 0.44, 0.48), "s2": Color(0.40, 0.40, 0.48),
+	"t1x": Color(0.40, 0.39, 0.48), "b0": Color(0.46, 0.44, 0.50), "b1": Color(0.58, 0.60, 0.68),
+	"b2": Color(0.56, 0.58, 0.66), "b3": Color(0.55, 0.56, 0.65), "b4": Color(0.54, 0.56, 0.66),
+	"b5": Color(0.54, 0.55, 0.64), "b6": Color(0.54, 0.54, 0.62), "b7": Color(0.56, 0.55, 0.62),
+	"sever": Color(0.95, 0.95, 0.93), "continue": Color(0.56, 0.55, 0.62),
+}
+## The lamp's pool of light shrinks as Tide I closes in; after it the desk is an isolated,
+## usable warm pool.
 const LAMP_SCALE := [3.2, 3.2, 1.85, 1.45]
-## The window's own light per stage, only with the painted plates (they were painted to be
-## seen; the modulate alone leaves the glass black). Stage 3 is lit from below.
-const SEA_GLOW := [0.0, 0.0, 0.45, 0.95]
+const LAMP_SCALE_AFTER := 1.6
+const VIGNETTE := {"s2": 0.35, "t1x": 0.40, "b0": 0.18, "b1": 0.18, "b2": 0.18, "b3": 0.2,
+	"b4": 0.2, "b5": 0.2, "b6": 0.22, "b7": 0.25}
+## The window's own light per phase (the modulate alone leaves painted glass black).
+const SEA_GLOW := {"s2": 0.45, "t1x": 0.45, "b0": 0.45, "b1": 0.45, "b2": 0.45, "b3": 0.45,
+	"b4": 0.45, "b5": 0.45, "b6": 0.45, "b7": 0.25, "continue": 0.25}
+## The dusk wash over the glass: the window darkens with the story, never so far that the
+## painted water stops reading.
+const DUSK := {"s0": 0.18, "s1": 0.42, "s2": 0.45, "t1x": 0.45, "b0": 0.34, "b1": 0.16,
+	"b2": 0.16, "b3": 0.14, "b4": 0.12, "b5": 0.12, "b6": 0.12, "b7": 0.10}
+const BRICK := Color("8e3b2e")
+## Venn's hand: plainer, upright, grey-black (the end card's 'his' row uses the same).
+const VENN_INK := Color("2b3238")
+## The lamp behind her when she faces the entry wall.
+const BACK_LAMP_POS := Vector2(724, 1150)
 const SEA_GLOW_COL := Color(0.62, 0.76, 0.76)
 const TORCH_WARM := Color(1.0, 0.94, 0.82)
 const TORCH_COLD := Color(0.82, 0.88, 1.0)
-const THRESHOLD_SHADE := Color(0.08, 0.08, 0.12)
+## The room at the threshold stays as lit as the wet seat left it (owner note, round 3):
+## the dark is inside the corridor, not over the room.
+const THRESHOLD_SHADE := Color(0.40, 0.39, 0.48)
+## At the threshold the view leans in on the doorway, so the corridor and what stands in it
+## are large: scale about a pivot on the right edge, so the door stays on screen.
+const THRESHOLD_ZOOM := 1.3
+const THRESHOLD_PIVOT := Vector2(1448, 560)
 const SHADOW_COL := Color(0.02, 0.04, 0.07, 0.42)
 const PRINT_COL := Color(0.06, 0.09, 0.12)
 const PILING_COL := Color(0.07, 0.08, 0.11, 0.92)
 
 ## Room hotspots. First match wins, so small objects precede large ones.
 const HOTSPOTS := [
-	["mug", Rect2(915, 662, 82, 62), "Mug"],
+	["mug", Rect2(915, 662, 82, 64), "Mug"],
 	["tray", Rect2(341, 666, 128, 64), "Spares tray"],
 	["lamp", Rect2(242, 469, 192, 260), "Desk lamp"],
-	["logbook", Rect2(500, 684, 205, 44), "Tide log"],
+	["logbook", Rect2(500, 684, 205, 64), "Tide log"],
 	["papers", Rect2(738, 622, 165, 104), "Duty papers"],
 	["chair", Rect2(553, 618, 180, 66), "Chair"],
 	["drawer", Rect2(832, 752, 152, 226), "Desk drawer"],
@@ -64,6 +90,120 @@ const EXIT_RECTS := {
 	"R05": Rect2(1196, 922, 112, 64),
 	"R06": Rect2(1316, 922, 112, 64),
 }
+
+## View B, the entry wall (registered to assets/rooms/R02/entry_wall*.png).
+const HOTSPOTS_B := [
+	["receipt", Rect2(410, 604, 96, 120), "Receipt"],
+	["outer_door", Rect2(88, 120, 316, 790), "Outer door"],
+	["barometer", Rect2(456, 150, 208, 410), "Barometer"],
+	["board", Rect2(692, 142, 436, 414), "Comparison board"],
+	["service_door", Rect2(1160, 120, 270, 790), "Service door"],
+]
+## The turn tab between the desk wall and the entry wall, on the floor line between the exits.
+const TURN_RECT := Rect2(746, 922, 76, 64)
+
+# View B geometry.
+const OUTER_GLASS_AT := Vector2(168, 216)
+const LATCH_BAR := Rect2(330, 546, 52, 14)
+const SERVICE_LABEL := Rect2(1235, 206, 120, 30)
+const CLOCK_C := Vector2(560, 200)
+const BARO_C := Vector2(560, 452)
+const BARO_WORDS := [["STORMY", -120.0], ["RAIN", -60.0], ["CHANGE", 0.0], ["FAIR", 60.0], ["VERY DRY", 120.0]]
+## Room-scale points on the board papers where the thread is pinned.
+const BOARD_POINTS := {
+	"m_addressee": Vector2(790, 230), "m_countersign": Vector2(790, 320), "m_callis": Vector2(912, 300),
+	"m_orme": Vector2(912, 325), "m_mercer": Vector2(912, 352), "m_sentence": Vector2(1010, 276),
+}
+const PROVENANCE_STRIP := Rect2(760, 396, 300, 30)
+## The three brass slot pins under the strip (as on c_board's lower rail): the thread runs
+## from each pinned mark to its slot pin, then pin to pin, exactly as in the close-up.
+const BOARD_SLOT_PINS := [Vector2(812, 438), Vector2(910, 438), Vector2(1008, 438)]
+## The night print pinned over the letter's corner (b_board_solved.png), and its image.
+const BOARD_PRINT := Rect2(1040, 300, 56, 66)
+## The receipt's patch of wall: when it slides, the boards it covered come back from the
+## plate itself, two boards (96 px) to the right, so every plate state matches.
+const RECEIPT_PATCH := Rect2(410, 604, 96, 124)
+## Exit tabs and the turn tab show while the cursor is on them (or at the bottom edge), so
+## the floor, the drawers and the trail of prints stay visible the rest of the time.
+const EXIT_REVEAL_PAD := 12.0
+const EXIT_REVEAL_EDGE := 994.0
+
+# c_board geometry. Hit-tested in this order.
+const C_BOARD_PHOTO := Rect2(1180, 96, 120, 140)
+const C_BOARD_RECTS := [
+	["m_addressee", Rect2(186, 214, 298, 72)],
+	["m_countersign", Rect2(186, 456, 298, 72)],
+	["m_callis", Rect2(576, 372, 298, 64)],
+	["m_orme", Rect2(576, 440, 298, 64)],
+	["m_mercer", Rect2(576, 508, 298, 108)],
+	["m_sentence", Rect2(966, 330, 298, 96)],
+	["seal", Rect2(966, 470, 298, 110)],
+	["read_contract", Rect2(170, 130, 330, 80)],
+	["read_clipping", Rect2(560, 130, 330, 230)],
+	["read_letter", Rect2(950, 130, 330, 190)],
+	["slot_0", Rect2(250, 680, 240, 80)],
+	["slot_1", Rect2(604, 680, 240, 80)],
+	["slot_2", Rect2(958, 680, 240, 80)],
+	["provenance", Rect2(250, 820, 520, 100)],
+	["stamp_venn", Rect2(820, 812, 150, 116)],
+	["stamp_board", Rect2(984, 812, 150, 116)],
+	["stamp_unknown", Rect2(1148, 812, 150, 116)],
+]
+const C_CONTRACT := Rect2(170, 130, 330, 420)
+const C_CLIPPING := Rect2(560, 130, 330, 500)
+const C_LETTER := Rect2(950, 130, 330, 470)
+const C_SEAL := Rect2(966, 470, 298, 110)
+const STAMP_LINES := {"stamp_venn": ["REQUESTED", "BY VENN"], "stamp_board": ["ASSIGNED", "BY BOARD"],
+	"stamp_unknown": ["UNKNOWN"]}
+const CONTRACT_LINES := [
+	"GREYWAKE SURVEY STATION. CONTRACT OF CLOSURE.",
+	"Addressed to: Miss Ada Mercer, cataloguer.",
+	"Inventory instruments. Reconcile outstanding records. Restore departure signal.",
+	"Do not certify an observation you have not made.",
+	"Signed for the Board. Countersigned: E. Venn.",
+]
+const SEAL_TEXT := "You have already refused to make a person disappear for the convenience of a form."
+const PHOTO_BACK_TEXT := "Not mine. It was in the developing tray on the 15th. She will need to see herself from outside. — E.V."
+
+## The two cards' words, in card space (800 x 650): [baseline y, size, text]. As the old
+## SVG cards had them, now in the serif.
+const DUTY_CARD_LINES := [[90, 24, "GREYWAKE SURVEY STATION"], [153, 36, "CLOSURE DUTY"],
+	[236, 26, "Inventory the station instruments."], [281, 26, "Reconcile outstanding records."],
+	[326, 26, "Restore the departure signal."], [416, 26, "Begin with the desk lamp."],
+	[461, 26, "The spare bridge is in the tray."]]
+const NOTE_CARD_LINES := [[90, 24, "GREYWAKE SURVEY STATION"], [153, 36, "PENCIL NOTE"],
+	[236, 26, "Lamp service completed."], [326, 26, "Chart Room: register both sheets"],
+	[371, 26, "at the lighthouse cross."], [461, 26, "Listening Room: preserve the"],
+	[506, 26, "recording before winding again."]]
+
+# c_duty / c_note and c_photo geometry.
+const DUTY_CONTRACT := Rect2(800, 150, 500, 760)
+const DUTY_CARD_BOX := Rect2(150, 150, 600, 760)
+const PHOTO_PRINT := Rect2(460, 130, 528, 620)
+const PHOTO_BACK_TEXT_RECT := Rect2(508, 250, 432, 360)
+const TURN_OVER := Rect2(574, 800, 300, 76)
+
+## The arrival notices: where the room holds the eye for 1.5 s.
+const NOTICE_RECTS := {
+	"callback": Rect2(500, 684, 205, 44), "b1": Rect2(832, 752, 152, 226), "b2": Rect2(915, 662, 82, 62),
+	"b3": Rect2(428, 82, 430, 515), "b4": Rect2(428, 82, 430, 515), "b5": Rect2(428, 82, 430, 515),
+	"b6": Rect2(840, 126, 350, 232), "b7": Rect2(1025, 300, 115, 540),
+}
+const NOTICE_TIME := 1.5
+## The hook tags (band 6): stamped settings, hooks 1-8, and her measurements. One pale card
+## per hook (assets/rooms/R02/hook_tags_large.png), two staggered rows, each tied to its hook.
+const HOOK_X := [872, 907, 941, 976, 1011, 1045, 1080, 1115]
+const HOOK_TAG_TOPS := [132, 196]
+const HOOK_TAG_W := 50.0
+## The A.M. tag on the ninth hook, at her collar height, tied on with the same brick string.
+const HOOK9_TAG := Rect2(1138, 298, 46, 56)
+const HOOK_TAGS := [["ZERO", "4"], ["INT", "3"], ["PRESS", "2"], ["BEAR", "3"], ["HT", "5'6"],
+	["REACH", "5'7"], ["HAND", "R"], ["STRIDE", "2'4"]]
+const HOOK9 := Vector2(1150, 262)
+## The late wave: one pale crest per loop, starting at this phase of the late_wave loop.
+const WAVE_PERIOD := 7.0
+const WAVE_AT := 3.0
+const WAVE_SWEEP := 0.8
 
 # Closure report geometry.
 const REPORT_PAGE := Rect2(284, 150, 880, 820)
@@ -164,10 +304,16 @@ var threshold_t := 0.0
 var end_t := 0.0
 var drawer_k := 1.0            # 0..1 drawer slide progress
 var contours_k := 1.0          # 0..1 fade of Venn's ring contours on the chart
-var away_shown := 0            # office.state.returns as the view last drew it
-var away_from := 0             # changes up to this index are fully in; later ones fade by away_k
-var away_k := 1.0
+var away_alpha := {}           # look-away change id -> 0..1 fade (absent = fully in)
 var pane_src := ""             # which plate the tipped panes were cut from
+var back_lamp: PointLight2D    # the desk lamp behind her, facing the entry wall
+var last_facing := "A"
+var notice_rect := Rect2()     # the arrival hold's focus
+var notice_t := -1.0           # seconds into the hold; < 0 when none
+var photo_armed := false       # P20 solved: the photograph waits for its pin
+var oil_hush := 0.0            # seconds the room holds near-silence around 'Yes.'
+var oil_hush_done := false
+var zoom_k := 0.0              # 0..1 the threshold lean toward the doorway
 
 func _ready() -> void:
 	rng.seed = 9
@@ -198,6 +344,12 @@ func _load_textures() -> void:
 
 ## A texture by id, or null: every painted stage plate is optional, with a drawn fallback.
 
+## A full-canvas overlay by id, if it is there.
+func _draw_full(c: CanvasItem, id: String, a := 1.0) -> void:
+	var tex := _tex(id)
+	if tex and a > 0.0:
+		c.draw_texture_rect(tex, Rect2(Vector2.ZERO, SIZE), false, Color(1, 1, 1, a))
+
 func _tex(id: String) -> Texture2D:
 	return textures.get(id)
 
@@ -224,7 +376,7 @@ func _build_nodes() -> void:
 	room.draw.connect(_draw_room)
 
 	shade = CanvasModulate.new()
-	shade.color = MODULATE[0]
+	shade.color = MODULATE["s0"]
 	add_child(shade)
 
 	lamp_glow = PointLight2D.new()
@@ -245,6 +397,22 @@ func _build_nodes() -> void:
 	sea_glow.color = SEA_GLOW_COL
 	sea_glow.energy = 0.0
 	add_child(sea_glow)
+
+	# The desk lamp behind her when she faces the entry wall: a warm wedge from the lower
+	# right (painted as a quarter-scale light texture), never a sourceless pool.
+	back_lamp = PointLight2D.new()
+	var wedge := _tex("R02/b_lamp_wedge")
+	if wedge:
+		back_lamp.texture = wedge
+		back_lamp.texture_scale = 4.0
+		back_lamp.position = Vector2(SIZE.x / 2.0, (wedge.get_height() * 4.0) / 2.0)
+	else:
+		back_lamp.texture = _radial(512, 0.4)
+		back_lamp.texture_scale = 3.0
+		back_lamp.position = BACK_LAMP_POS
+	back_lamp.color = AMBER.lightened(0.05)
+	back_lamp.energy = 0.0
+	add_child(back_lamp)
 
 	torch = PointLight2D.new()
 	torch.texture = _radial(512, 0.25)
@@ -290,7 +458,8 @@ func _build_audio() -> void:
 			door_panner = AudioServer.get_bus_effect(door_bus, i)
 	mixer = LoopMixer.new()
 	add_child(mixer)
-	for id in ["room", "sea", "wind", "drip", "hum", "drone", "heartbeat", "breath", "ring", "pen"]:
+	for id in ["room", "sea", "wind", "drip", "hum", "drone", "heartbeat", "breath", "ring", "pen",
+			"clock", "rain_glass", "whistle", "late_wave", "pressure", "gulls", "kitchen_air"]:
 		mixer.add_loop(id, _load_audio(id), "Door" if id == "breath" else "Master")
 
 func sfx_bus(id: String) -> String:
@@ -314,11 +483,15 @@ func _load_audio(id: String) -> AudioStream:
 # ---------------------------------------------------------------------------
 
 func tick(dt: float) -> void:
+	if office.facing != last_facing:
+		# Turning round is a cut, not a fade: the light is already where it belongs.
+		last_facing = office.facing
+		_snap_light()
 	_tick_stage(dt)
 	_tick_reveal(dt)
 	_tick_light(dt)
 	_tick_audio(dt)
-	if office.view in ["room", "threshold"] and (motion or office.view == "threshold"):
+	if office.view in ["room", "threshold"]:
 		room.queue_redraw()
 	if _at_threshold() or deep_drawn:
 		deep.queue_redraw()
@@ -331,14 +504,29 @@ func _started() -> bool:
 func _at_threshold() -> bool:
 	return office.view == "threshold" or office.view in ["notebook", "menu"] and office.return_view == "threshold"
 
+## Where the office is in the story, for light, plates and mix: the Tide I stages ("s0",
+## "s1", "s2", "t1x"), then the weather band ("b0".."b7"), then an ending.
+func _phase() -> String:
+	var e := office.ending()
+	if e != "":
+		return e
+	if office.state.finished:
+		return "b%d" % office.band()
+	return ["s0", "s1", "s2", "t1x"][office.stage()]
+
+## The weather band as the office shows it, or -1 in Tide I and in the endings.
+func _band() -> int:
+	if not office.state.finished or office.ending() != "":
+		return -1
+	return office.band()
+
+## The horizon is tipped from band 3 (the plates from band 4 paint their own tilt).
+func _tilted() -> bool:
+	return _band() >= 3
+
 func _tick_stage(dt: float) -> void:
-	var s := office.stage()
-	if s != last_stage:
-		# The horizon tips once, when the seat is found wet; never on load or jump.
-		tilt_k = 0.0 if s == 3 and motion else (1.0 if s == 3 else 0.0)
-		last_stage = s
-	if s == 3 and tilt_k < 1.0:
-		tilt_k = minf(1.0, tilt_k + dt / 6.0) if motion else 1.0
+	last_stage = office.stage()
+	tilt_k = 1.0 if _tilted() else 0.0
 	if prints_fade < 1.0:
 		prints_fade = minf(1.0, prints_fade + dt / 1.5) if motion else 1.0
 	if drawer_k < 1.0:
@@ -347,15 +535,14 @@ func _tick_stage(dt: float) -> void:
 		palms_k = minf(1.0, palms_k + dt / 2.0) if motion else 1.0
 	if contours_k < 1.0:
 		contours_k = minf(1.0, contours_k + dt / 2.0) if motion else 1.0
-	var returns := int(office.state.returns)
-	if returns != away_shown:
-		# A change she comes back to fades in; anything else (a load, a restart) is just there.
-		var fades: bool = returns > away_shown and motion
-		away_from = away_shown if fades else returns
-		away_k = 0.0 if fades else 1.0
-		away_shown = returns
-	if away_k < 1.0:
-		away_k = minf(1.0, away_k + dt / 1.2) if motion else 1.0
+	for k in away_alpha.keys():
+		away_alpha[k] = minf(1.0, away_alpha[k] + dt / 0.8) if motion else 1.0
+		if away_alpha[k] >= 1.0:
+			away_alpha.erase(k)
+	if notice_t >= 0.0:
+		notice_t += dt
+		if notice_t >= NOTICE_TIME:
+			notice_t = -1.0
 	creep_t += dt
 	breath_clock += dt
 	if motion:
@@ -369,7 +556,29 @@ func _tick_stage(dt: float) -> void:
 	if office.view == "end":
 		end_t += dt
 	breath_hold = maxf(0.0, breath_hold - dt)
+	_tick_zoom(dt)
 	hush = maxf(0.0, hush - dt)
+	oil_hush = maxf(0.0, oil_hush - dt)
+
+## The lean toward the doorway: in with the door's opening, back out when she turns round.
+## Motion off: it snaps.
+func _tick_zoom(dt: float) -> void:
+	var target := 1.0 if _at_threshold() else 0.0
+	if not motion:
+		zoom_k = target
+	elif zoom_k < target:
+		zoom_k = minf(target, zoom_k + dt / 2.2)
+	else:
+		zoom_k = maxf(target, zoom_k - dt / 0.6)
+	var xf := _zoom_xform()
+	if transform != xf:
+		transform = xf
+		deep.transform = xf
+
+## Room space to screen space at the current lean.
+func _zoom_xform() -> Transform2D:
+	var s := lerpf(1.0, THRESHOLD_ZOOM, smoothstep(0.0, 1.0, zoom_k))
+	return Transform2D(0.0, Vector2(s, s), 0.0, THRESHOLD_PIVOT - THRESHOLD_PIVOT * s)
 
 ## The threshold asks her to hold still. The cursor is her body: once it has stayed within
 ## 4 px for long enough (or the fallback passes, for anyone who can't), she may go on.
@@ -421,51 +630,85 @@ func _env_drawn() -> float:
 		return 0.5
 	return clampf(_breath_env(_breath_phase()), 0.0, 1.0)
 
+func _modulate_target() -> Color:
+	return MODULATE[_phase()]
+
+func _lamp_scale_target() -> float:
+	return LAMP_SCALE[office.stage()] if not office.state.finished else LAMP_SCALE_AFTER
+
+func _sea_glow_target() -> float:
+	if not _started() or office.facing != "A":
+		return 0.0
+	return SEA_GLOW.get(_phase(), 0.0)
+
+func _back_lamp_target() -> float:
+	if not _back_lamp_on():
+		return 0.0
+	return 0.5
+
+## The lamp is behind her on the entry wall once it is mended (never before: the corridor's
+## 'light first' gate holds here too), except in the grey daylight of the sever ending.
+func _back_lamp_on() -> bool:
+	return office.facing == "B" and office.state.p01_complete and office.ending() != "sever"
+
+## Every light straight to where the state puts it (entry, load, jump, a turn).
+func _snap_light() -> void:
+	var b := office.facing == "B"
+	shade.color = _modulate_target()
+	lamp_glow.texture_scale = _lamp_scale_target()
+	lamp_glow.energy = 1.05 if office.state.p01_complete and not b else 0.0
+	sea_glow.energy = _sea_glow_target()
+	back_lamp.energy = _back_lamp_target()
+
 func _tick_light(dt: float) -> void:
 	var s := office.stage()
+	var after: bool = office.state.finished
 	var at_door := _at_threshold()
+	var facing_b := office.facing == "B"
 	var in_room: bool = office.view in ["room", "threshold"] or \
 		office.view == "menu" and office.return_view in ["room", "threshold"]
-	torch.visible = in_room and _started()
-	torch.position = get_global_mouse_position()
+	# Her hand-held light is on the desk wall only: facing the entry wall, the lamp behind her
+	# is the only light, so nothing glows without a source.
+	torch.visible = in_room and _started() and office.ending() != "sever" and not facing_b
+	torch.global_position = get_global_mouse_position()
 	var flick := 1.0
 	if motion:
 		flick = 0.93 + 0.07 * sin(time * 13.0) * sin(time * 7.3)
-		if s >= 2 and fmod(time, 9.0) < 0.35:
-			flick *= 0.35 + 0.65 * absf(sin(time * 40.0))   # the torch stutters later on
+		if s >= 2 and not after and fmod(time, 9.0) < 0.35:
+			flick *= 0.35 + 0.65 * absf(sin(time * 40.0))   # the torch stutters in Tide I's last hour
 	if torch_dead > 0.0:
 		torch_dead -= dt
 		flick = 0.0 if torch_dead > 0.25 or not motion else rng.randf()
-	torch.energy = 1.15 * flick * (0.75 if s >= 1 else 1.0) * (0.4 if at_door else 1.0)
+	# After Tide I the room is lit enough to see; the torch is only a hand-held warmth.
+	var torch_k := 0.45 if after else (0.75 if s >= 1 else 1.0)
+	torch.energy = 1.15 * flick * torch_k * (0.4 if at_door else 1.0)
 	torch.color = torch.color.lerp(TORCH_COLD if s >= 2 else TORCH_WARM, clampf(dt * 0.6, 0.0, 1.0))
 	if at_door:
 		shade.color = shade.color.lerp(THRESHOLD_SHADE, clampf(dt * 1.0, 0.0, 1.0))
 	else:
-		shade.color = shade.color.lerp(MODULATE[s], clampf(dt * 1.5, 0.0, 1.0))
-	var scale_target: float = LAMP_SCALE[s]
+		shade.color = shade.color.lerp(_modulate_target(), clampf(dt * 1.5, 0.0, 1.0))
+	var scale_target := _lamp_scale_target()
 	var scale_rate := 0.6
-	if s >= 2 and motion and not at_door:
+	if s >= 2 and not after and motion and not at_door:
 		# The pool of light breathes with the room.
 		scale_target *= 1.0 + 0.04 * (_env_drawn() * 2.0 - 1.0)
 		scale_rate = 1.5
 	lamp_glow.texture_scale = lerpf(lamp_glow.texture_scale, scale_target, clampf(dt * scale_rate, 0.0, 1.0))
-	var glow_target := 0.0
-	if _tex("office_s2") and _started():
-		glow_target = SEA_GLOW[s]
-		if s == 3 and _tex("office_s3"):
-			glow_target = lerpf(SEA_GLOW[2], SEA_GLOW[3], smoothstep(0.0, 1.0, tilt_k))
-		if at_door:
-			glow_target *= 0.5
+	var glow_target := _sea_glow_target()
+	if at_door:
+		glow_target *= 0.5
 	sea_glow.energy = lerpf(sea_glow.energy, glow_target, clampf(dt * 1.5, 0.0, 1.0))
-	if office.state.p01_complete:
+	back_lamp.energy = lerpf(back_lamp.energy, _back_lamp_target(), clampf(dt * 3.0, 0.0, 1.0))
+	if office.state.p01_complete and not facing_b:
 		var lamp_target := 1.05
 		if at_door:
-			lamp_target = 0.35
-		elif s >= 2:
+			lamp_target = 0.85
+		elif s >= 2 and not after:
 			# The lamp swells and sags with the breath. With Motion off it holds the midpoint.
 			lamp_target *= 0.96 + 0.04 * _env_drawn()
 		var rate := 1.0 if at_door else 3.0
-		lamp_glow.energy = lerpf(lamp_glow.energy, lamp_target, clampf(dt * rate, 0.0, 1.0))
+		if lamp_tween == null or not lamp_tween.is_running():
+			lamp_glow.energy = lerpf(lamp_glow.energy, lamp_target, clampf(dt * rate, 0.0, 1.0))
 	else:
 		lamp_glow.energy = 0.0
 	if flash.color.a > 0.0:
@@ -474,6 +717,8 @@ func _tick_light(dt: float) -> void:
 func _knock_pending() -> bool:
 	return game.sfx_pending("knock_glass") if game else false
 
+## Ambient targets for every loop. Tide I keeps the slice's mix (plus the clock); after the
+## threshold the weather band drives it; the endings have their own.
 func _tick_audio(dt: float) -> void:
 	var s := office.stage()
 	var env := clampf(_breath_env(_breath_phase()), 0.0, 1.0)
@@ -481,6 +726,9 @@ func _tick_audio(dt: float) -> void:
 	var silent: bool = office.state.log_read and (office.view != "logbook" or office.state.heard_silence \
 		or office.state.prints_seen)
 	var focus := 0.55 if office.is_closeup() or office.view == "notebook" else 1.0
+	var b := _band()
+	var ending := office.ending()
+	var facing_b := office.facing == "B"
 	var target := {
 		"room": [0.30, 0.30, 0.12, 0.12][s],
 		"sea": 0.0 if silent else 0.75 * focus,
@@ -492,10 +740,39 @@ func _tick_audio(dt: float) -> void:
 		"ring": [0.0, 0.0, 0.05, 0.07][s],
 		"breath": 0.16 if s == 3 else 0.0,
 		"pen": 0.45 if _reveal_active() or _end_row_writing() or game._intrusion_writing() else 0.0,
+		"clock": (0.26 if facing_b else 0.16) * focus,
+		"rain_glass": 0.0, "whistle": 0.0, "late_wave": 0.0, "pressure": 0.0, "gulls": 0.0,
+		"kitchen_air": 0.0,
 	}
+	if ending != "":
+		for k in target: target[k] = 0.0
+		target["clock"] = 0.2 * focus
+		target["hum"] = 0.18
+		if ending == "sever":
+			target["sea"] = 0.5 * focus
+			target["gulls"] = 0.35 * focus
+			target["wind"] = 0.12 * focus
+			target["room"] = 0.25
+		else:
+			target["pressure"] = 0.12
+			target["room"] = 0.12
+	elif b >= 0:
+		target["room"] = 0.22
+		target["breath"] = 0.0
+		target["drip"] = 0.45 * focus
+		target["drone"] = 0.30 if b >= 2 else 0.0
+		target["ring"] = 0.05 if b >= 4 else 0.0
+		target["wind"] = 0.0 if b >= 5 else 0.15 * focus
+		target["clock"] = 0.0 if b >= 6 else target["clock"]
+		target["rain_glass"] = [0.0, 0.30, 0.40, 0.34, 0.30, 0.0, 0.0, 0.0][b] * focus
+		target["whistle"] = [0.0, 0.14, 0.16, 0.12, 0.10, 0.0, 0.0, 0.0][b] * focus
+		target["late_wave"] = 0.28 * focus if b == 3 else 0.0
+		target["pressure"] = 0.35 if b == 7 else 0.0
+		if facing_b and not office.service_locked() and b >= 1 and b <= 6:
+			target["kitchen_air"] = 0.08 * focus
 	# The sea and the wind drain away together; the pen stops with the nib.
 	var rates := {"sea": 0.9, "wind": 0.9 if silent else 0.8, "pen": 4.0}
-	var hum_pitch := 1.0 - 0.012 * s
+	var hum_pitch := 1.0 - 0.012 * (s if not office.state.finished else 1)
 	if not _started():
 		for k in target: target[k] = 0.0
 		target["sea"] = 0.4
@@ -517,7 +794,7 @@ func _tick_audio(dt: float) -> void:
 			target["breath"] = 0.55 if threshold_t >= 2.8 else 0.0
 			target["sea"] = 0.40 * env   # the silent sea comes back only on the exhale
 	else:
-		if s >= 2:
+		if s >= 2 and not office.state.finished:
 			# The room has been breathing all along: everything swells with the loop.
 			var swell := lerpf(0.55, 1.0, env)
 			for k in ["room", "hum", "drip", "drone"]:
@@ -537,6 +814,11 @@ func _tick_audio(dt: float) -> void:
 				if k != "heartbeat" and k != "ring":
 					target[k] = 0.0
 					rates[k] = 3.0
+		if oil_hush > 0.0:
+			# 'Yes.' is said into near-silence.
+			for k in target:
+				target[k] *= 0.4
+				rates[k] = 3.0
 	if office.view != "end" and _motif_playing():
 		target["drone"] *= 0.6   # the harmonium sits on top of the drone, not inside it
 	last_targets = target
@@ -548,15 +830,17 @@ func _tick_audio(dt: float) -> void:
 		door_panner.pan = move_toward(door_panner.pan, 0.6 if _at_threshold() else 0.0, dt * 1.0)
 
 ## True while a live one-shot is playing the motif (or its short tail).
-
-## True while a live one-shot is playing the motif (or its short tail).
 func _motif_playing() -> bool:
 	return game.oneshot_playing(["motif", "motif_short"]) if game else false
 
-## The room falls silent to listen to the glass, just before the knock lands.
+## The room falls silent to listen to the glass, just before the knock lands; and it goes
+## nearly silent for the coat's answer at the board.
 func on_sfx_pending(id: String, left: float) -> void:
 	if id == "knock_glass" and left <= 0.6 and hush == 0.0:
 		hush = 1.6
+	if id == "oilskin" and left <= 0.6 and not oil_hush_done:
+		oil_hush_done = true
+		oil_hush = 1.2
 
 # ---------------------------------------------------------------------------
 # subtitles: a scheduler keyed to absolute time
@@ -615,7 +899,30 @@ func esc_action() -> String:
 	return super.esc_action()
 
 func exits_active() -> bool:
-	return office.local_view == "room"
+	return office.local_view == "room" and _exit_bar_live()
+
+## The exit bar shows only while the cursor is on a tab (or at the bottom edge of the
+## screen): it would otherwise cover the floor, the drawers and the prints. A tap on a tab
+## still lands, because the cursor is there when it is tapped.
+func _exit_bar_live() -> bool:
+	if game == null or not _has_pointer():
+		return true
+	return exit_bar_live_at(get_global_mouse_position())
+
+## Without a hovering pointer (headless, touch screens) the bar is simply always there:
+## there is no cursor to call it up with.
+static func _has_pointer() -> bool:
+	return DisplayServer.get_name() != "headless" and not DisplayServer.is_touchscreen_available()
+
+func exit_bar_live_at(p: Vector2) -> bool:
+	if p.y >= EXIT_REVEAL_EDGE:
+		return true
+	if TURN_RECT.grow(EXIT_REVEAL_PAD).has_point(p):
+		return true
+	for r in exit_rects().values():
+		if r.grow(EXIT_REVEAL_PAD).has_point(p):
+			return true
+	return false
 
 
 ## Inserts a line due at absolute time `due`, after any line due no later.
@@ -638,6 +945,8 @@ func exits_active() -> bool:
 
 
 func on_view_changed(before: String) -> void:
+	if before == "board" and office.view != "photo":
+		photo_armed = false   # she left before the pin: the photograph is simply there next time
 	if office.view == "room" and (office.is_closeup(before) or before == "notebook"):
 		shadow_creep = mini(shadow_creep + 1, 4)
 		creep_t = 0.0
@@ -674,6 +983,14 @@ func reset_presentation() -> void:
 	end_t = 0.0
 	drawer_k = 1.0
 	flash.color.a = 0.0
+	away_alpha.clear()
+	notice_t = -1.0
+	photo_armed = false
+	oil_hush = 0.0
+	oil_hush_done = false
+	zoom_k = 0.0
+	transform = Transform2D.IDENTITY
+	deep.transform = Transform2D.IDENTITY
 
 func _reset_still() -> void:
 	still_t = 0.0
@@ -683,8 +1000,21 @@ func _reset_still() -> void:
 	still_spoken = false
 	door_env = 0.5
 
-func play_fx(id: String, _e: Dictionary = {}) -> void:
+func play_fx(id: String, e: Dictionary = {}) -> void:
 	match id:
+		"notice":
+			# The room holds the eye on what changed, once, on arrival. A click ends it.
+			var key := str(e.get("key", ""))
+			if NOTICE_RECTS.has(key):
+				notice_rect = NOTICE_RECTS[key]
+				notice_t = 0.0
+		"look_away":
+			var change := str(e.get("change", ""))
+			if change != "":
+				away_alpha[change] = 0.0 if motion else 1.0
+		"p20_solved":
+			photo_armed = true
+			oil_hush_done = false
 		"spark":
 			if motion:
 				flash.color = Color(0.85, 0.9, 1.0, 0.75)
@@ -695,8 +1025,8 @@ func play_fx(id: String, _e: Dictionary = {}) -> void:
 				if lamp_tween:
 					lamp_tween.kill()
 				lamp_tween = create_tween()
-				for e in [0.9, 0.1, 0.7, 0.0, 1.05]:
-					lamp_tween.tween_property(lamp_glow, "energy", e, 0.09)
+				for en in [0.9, 0.1, 0.7, 0.0, 1.05]:
+					lamp_tween.tween_property(lamp_glow, "energy", en, 0.09)
 		"prints":
 			prints_fade = 0.0 if motion else 1.0
 			breath_hold = 2.5
@@ -737,8 +1067,12 @@ func play_fx(id: String, _e: Dictionary = {}) -> void:
 const SFX_DB := {"spark": -4.0, "sting": -6.0, "latch_far": -8.0, "latch_near": -5.0,
 	"door": -6.0, "page": -10.0, "switch": -6.0, "seat": -6.0, "clink": -8.0,
 	"knock_glass": -3.0, "dial": -16.0, "clunk": -10.0, "drawer": -9.0, "sign": -8.0, "nib": -14.0,
-	"deep": -9.0, "motif": -14.0, "motif_short": -14.0, "exhale_near": -10.0}
-const SFX_SOFT := ["spark", "latch_near", "sting", "door", "knock_glass", "clunk", "deep", "exhale_near"]
+	"deep": -9.0, "motif": -14.0, "motif_short": -14.0, "exhale_near": -10.0,
+	"turn": -14.0, "lock_turn": -7.0, "pin": -12.0, "unpin": -14.0, "thread": -14.0, "stamp": -6.0,
+	"stamp_dry": -10.0, "seal": -9.0, "oilskin": -8.0, "pen_far": -10.0, "baro_tap": -12.0,
+	"paper_lift": -14.0, "clock_stop": -9.0, "photo_turn": -14.0}
+const SFX_SOFT := ["spark", "latch_near", "sting", "door", "knock_glass", "clunk", "deep", "exhale_near",
+	"lock_turn", "seal"]
 
 ## "Soften sudden sounds" takes 12 dB off these, and 8 off the knock.
 const SFX_SOFT_CUT := {"knock_glass": 8.0}
@@ -747,6 +1081,13 @@ const SFX_SOFT_CUT := {"knock_glass": 8.0}
 
 
 func on_sfx(id: String) -> void:
+	if id == "pin":
+		if photo_armed:
+			photo_armed = false   # the photograph is pinned with the sound of its pin
+		elif office.view == "board" and office.state.board_pins.size() >= 2 and game:
+			game._play_sfx_now("thread")   # the thread draws tight to the new pin
+	if id == "oilskin":
+		oil_hush_done = false
 	if id == "knock_glass":
 		# The marks on the glass appear with the knock, whether or not the file loads.
 		palms_armed = true
@@ -755,20 +1096,24 @@ func on_sfx(id: String) -> void:
 func apply_instantly() -> void:
 	var s := office.stage()
 	last_stage = s
-	shade.color = MODULATE[s]
-	lamp_glow.energy = 1.05 if office.state.p01_complete else 0.0
-	lamp_glow.texture_scale = LAMP_SCALE[s]
-	sea_glow.energy = SEA_GLOW[s] if _tex("office_s2") and _started() else 0.0
+	last_facing = office.facing
+	_snap_light()
 	torch.color = TORCH_COLD if s >= 2 else TORCH_WARM
-	tilt_k = 1.0 if s == 3 else 0.0
-	palms_k = 1.0 if s == 3 else 0.0
+	tilt_k = 1.0 if _tilted() else 0.0
+	palms_k = 1.0 if _palms_on() else 0.0
+	palms_armed = palms_k > 0.0
 	contours_k = 1.0
-	away_shown = int(office.state.returns)
-	away_from = away_shown
-	away_k = 1.0
+	away_alpha.clear()
 	eye_x = 640.0
+	zoom_k = 1.0 if _at_threshold() else 0.0
+	transform = _zoom_xform()
+	deep.transform = transform
 	if mixer.players.has("hum"):
-		mixer.players["hum"].pitch_scale = 1.0 - 0.012 * s
+		mixer.players["hum"].pitch_scale = 1.0 - 0.012 * (s if not office.state.finished else 1)
+
+## The palms are on the glass from the knock on (a jump to the wet seat counts as heard).
+func _palms_on() -> bool:
+	return office.has_seen("knock") or office.state.seat_wet
 
 func redraw() -> void:
 	room.queue_redraw()
@@ -815,35 +1160,55 @@ func _tick_reveal(dt: float) -> void:
 
 
 
+func _hotspots() -> Array:
+	return HOTSPOTS_B if office.facing == "B" else HOTSPOTS
+
+func _notice_active() -> bool:
+	return notice_t >= 0.0 and notice_t < NOTICE_TIME
+
 func hover_at(p: Vector2) -> String:
 	if office.view != "room":
 		return ""
-	for h in HOTSPOTS:
+	if TURN_RECT.has_point(p):
+		return "turn"
+	for h in _hotspots():
 		if h[1].has_point(p):
 			return h[0]
 	return ""
 
 func label_for(id: String) -> String:
-	for h in HOTSPOTS:
+	if id == "turn":
+		return "Entry wall" if office.facing == "A" else "Desk wall"
+	if office.facing == "B" and game and game.hover_id == id:
+		return ""   # the entry wall anchors its names above each object (draw_hud), off its props
+	return _hotspot_label(id)
+
+func _hotspot_label(id: String) -> String:
+	for h in _hotspots():
 		if h[0] == id:
 			return h[2]
 	return ""
 
 func dev_rects() -> Array:
-	var out := []
-	for h in HOTSPOTS:
+	var out := [TURN_RECT]
+	for h in _hotspots():
 		out.append(h[1])
 	return out
 
 ## Maps a screen point to a room action for the room's current view. "" = nothing.
 ## The core handles the HUD, Back and the exits first.
-
 func action_at(p: Vector2) -> String:
+	if _notice_active():
+		# The arrival hold: any click ends it, and does nothing else.
+		notice_t = -1.0
+		return ""
 	match office.view:
 		"end":
 			return "end_continue" if _end_button_ready() and END_BUTTON.has_point(p) else ""
 		"room":
-			for h in HOTSPOTS:
+			if TURN_RECT.has_point(p):
+				return "turn"
+			for h in _hotspots():
 				if h[1].has_point(p):
 					return h[0]
 		"repair":
@@ -851,6 +1216,24 @@ func action_at(p: Vector2) -> String:
 			if Rect2(250, 435, 415, 132).has_point(p): return "fit"
 			if Rect2(88, 855, 278, 139).has_point(p): return "select_b"
 			if Rect2(376, 855, 278, 139).has_point(p): return "select_c"
+		"duty", "note":
+			if DUTY_CONTRACT.has_point(p):
+				if not office.has_seen("contract") and game:
+					game._play_sfx_now("paper_lift")   # the contract lifts from under the card
+				return "read_contract"
+		"board":
+			if office.board_solved() and not photo_armed and C_BOARD_PHOTO.has_point(p):
+				return "photo"
+			for r in C_BOARD_RECTS:
+				if r[1].has_point(p):
+					return r[0]
+		"photo":
+			if office.board_solved() and TURN_OVER.has_point(p):
+				if game:
+					game._play_sfx_now("photo_turn")
+				return "turn_over"
+			if PHOTO_PRINT.has_point(p):
+				return "photo"
 		"drawer":
 			if office.state.drawer_open:
 				if Rect2(WATCH_C - Vector2.ONE * WATCH_R, Vector2.ONE * WATCH_R * 2).has_point(p):
@@ -879,7 +1262,9 @@ func action_at(p: Vector2) -> String:
 			if not office.state.report_filed and REPORT_SIGN.has_point(p):
 				return "file_report"
 		"threshold":
-			# Two ways out: turn round to the chair, or go on through the doorway.
+			# Two ways out: turn round to the chair, or go on through the doorway. The view
+			# leans in on the door here, so the click is taken back into the room's frame.
+			p = _zoom_xform().affine_inverse() * p
 			if _hotspot_rect("chair").has_point(p):
 				return "turn"
 			if continue_ready and _hotspot_rect("door").has_point(p):
@@ -932,81 +1317,226 @@ func _rtime_rect(i: int) -> Rect2:
 func _draw_room() -> void:
 	if textures.is_empty():
 		return
+	if office.facing == "B":
+		_draw_entry_wall(room)
+		return
 	var c := room
 	var s := office.stage()
+	var phase := _phase()
+	var b := _band()
+	var ending := office.ending()
 	var full := Rect2(Vector2.ZERO, SIZE)
-	# The painted stage plates, when present: s2 is the base from the log on, and at s3 the
-	# tipped plate crossfades in over it with the tilt. Without them, the drawn fallback.
-	var base_id := "office_s2" if s >= 2 and _tex("office_s2") else "office_arrival"
-	c.draw_texture_rect(textures[base_id], full, false)
-	var s3_plate: Texture2D = _tex("office_s3") if s == 3 else null
-	var tilt := 0.0
-	if s == 3:
-		tilt = deg_to_rad(TILT_DEG) * smoothstep(0.0, 1.0, tilt_k)
-		if s3_plate:
-			c.draw_texture_rect(s3_plate, full, false, Color(1, 1, 1, smoothstep(0.0, 1.0, tilt_k)))
-		else:
-			_draw_tipped_panes(c, tilt, base_id)
-	# The window darkens with the story, not with a clock. Painted water must still read.
-	var painted := base_id == "office_s2"
-	var dusk: float = ([0.18, 0.42, 0.45, 0.34] if painted else [0.18, 0.42, 0.62, 0.72])[s]
-	c.draw_rect(GLASS, Color(0.04, 0.06, 0.12, dusk))
-	if s >= 2:
-		# The sea outside keeps moving, silently: a slow bruise-violet sheen on the water.
-		var sheen := 0.10 + (0.05 * sin(time * 0.8) if motion else 0.0)
-		_draw_sea_sheen(c, tilt, Color(BRUISE, sheen))
+	var base_id := _base_plate()
+	c.draw_texture_rect(textures.get(base_id, textures["office_arrival"]), full, false)
+	var tilt := deg_to_rad(TILT_DEG) * smoothstep(0.0, 1.0, tilt_k) if _tilted() else 0.0
+	if b == 3 and _tex("office_s2"):
+		_draw_tipped_panes(c, tilt, "office_s2")   # band 3: the s2 plate's sea, really turned
+	if ending == "":
+		# The window darkens with the story, not with a clock. Painted water must still read.
+		c.draw_rect(GLASS, Color(0.04, 0.06, 0.12, DUSK.get(phase, 0.12)))
+		var sea_moves: bool = (s >= 2 and not office.state.finished) or (b >= 0 and b <= 4)
+		if sea_moves:
+			# The sea outside keeps moving, silently: a slow bruise-violet sheen on the water.
+			var sheen := 0.10 + (0.05 * sin(time * 0.8) if motion else 0.0)
+			_draw_sea_sheen(c, tilt, Color(BRUISE, sheen))
 		# Everything out on the water tips with the sea; the frame stays square.
 		c.draw_set_transform_matrix(_tilt_xform(tilt))
-		_draw_ninth_piling(c, s)
-		if s == 3:
+		if (s >= 2 and not office.state.finished) or (b >= 0 and b <= 2):
+			_draw_ninth_piling(c, s)
+		if b == 3:
+			_draw_late_wave(c, tilt)
+		if b >= 4:
 			_draw_eye(c, tilt)   # above the dusk wash: Ada says she can see it, so the player must too
-			if s3_plate == null:
-				# The plate paints its own tipped horizon; the drawn one is only a hint of it.
-				var lo: Rect2 = PANES[6]
-				c.draw_line(Vector2(lo.position.x + 2, HORIZON_PIVOT.y), Vector2(lo.end.x - 2, HORIZON_PIVOT.y),
-					Color(0.80, 0.84, 0.90, 0.15), 1.5, true)
 		c.draw_set_transform_matrix(Transform2D.IDENTITY)
-	if s == 3:
+		if b >= 1:
+			_draw_rain(c, b)
 		_draw_palms(c)
-	if s >= 1:
+		_draw_away_one(c, "window")
+	elif ending == "sever" and _tex("R02/window_day"):
+		c.draw_texture_rect(_tex("R02/window_day"), full, false)
+	elif ending == "continue":
+		# The sea has risen to the glass: a flat mass, its skin across the top row.
+		var drowned := _tex("R02/window_drowned")
+		if drowned == null:
+			drowned = _tex("R02/window_surface")
+		if drowned:
+			c.draw_texture_rect(drowned, full, false)
+	if b >= 4 or ending == "continue":
+		# The high-water mark from band 4: a hard line, salt on it, the plaster wet below.
+		_draw_full(c, "R02/tide_line_hard")
+	if b >= 2 or ending == "continue":
+		var damp := _tex("R02/damp_sill")
+		if damp:
+			c.draw_texture_rect(damp, full, false)
+		_draw_full(c, "R02/damp_window_hard")   # band 2: the damp under the sill, as one hard shape
+	if s >= 1 and ending != "sever":
 		_draw_wrong_shadow(c, s)   # on the wall, so the lamp stands in front of it
-	_draw_away(c, false)
+	for id in ["door", "stove", "puddle", "coat"]:
+		_draw_away_one(c, id)
+	if office.look_away("door"):
+		# The seep from the corridor side, as a hard flat tongue on the boards (away_door).
+		_draw_full(c, "R02/door_seep_hard", away_alpha.get("door", 1.0))
 	c.draw_texture_rect(textures["lamp_off"], Rect2(242, 469, 192, 288), false)
 	if office.state.p01_complete:
 		c.draw_texture_rect(textures["lamp_light"], Rect2(242, 469, 192, 288), false)
-	_draw_away(c, true)   # the brimming mug stands in front of the lamp's foot
+	_draw_away_one(c, "mug")   # the brimming mug stands in front of the lamp's foot
 	c.draw_texture_rect(textures["spares_tray"], Rect2(341, 666, 128, 64), false)
 	if s >= 2:
 		_draw_map_pencil(c, s)
-	if s >= 3:
+	if b >= 6:
+		_draw_hook_tags(c)
+	if office.state.seat_wet and ending != "sever":
+		_draw_hook9_wet(c)
+	if b >= 6:
 		_draw_hook_tag(c)
 	_draw_coat_weight(c, s)
 	_draw_prints(c, s)
+	_draw_drawer_gap(c)
 	if _at_threshold():
 		pass   # the doorway draws on its own layer
-	elif office.state.report_filed:
+	elif office.state.report_filed and not office.state.finished:
 		c.draw_rect(Rect2(1228, 168, 6, 736), Color(0.01, 0.01, 0.02, 0.85))   # unlatched, ajar
-	var vig: float = [0.0, 0.0, 0.35, 0.5][s]
-	if s == 3:
+	var vig: float = VIGNETTE.get(phase, 0.0)
+	if phase == "t1x":
 		vig += 0.06 * _env_drawn()
+	if _at_threshold():
+		vig = 0.12   # the room stays readable; the corridor carries the dark
 	_draw_vignette(c, vig)
+	_draw_notice(c)
 
-## What changed while she looked away (office.look_away), as painted overlays. The mug is
-## drawn after the lamp; the others before it. A missing PNG is skipped: the line and the
-## notebook still carry the change.
+## The desk wall's plate for the phase (reconciliation D8): the arrival plate through Tide I
+## and band 0; rain at 1-2; s2 at 3; s3 at 4-6; ominous at 7. The endings use the rain or the
+## band-7 plate with their own window.
+func _base_plate() -> String:
+	match office.ending():
+		"sever":
+			return "office_rain"
+		"continue":
+			return "office_ominous"
+	var b := _band()
+	if b <= 0:
+		return "office_arrival"
+	if b <= 2:
+		return "office_rain"
+	if b == 3:
+		return "office_s2"
+	if b <= 6:
+		return "office_s3"
+	return "office_ominous"
 
-func _draw_away(c: Node2D, mug: bool) -> void:
-	if office.stage() != 3:
+## Rain on the glass: quick at bands 1-2, slow at 3-4 (rain falling slower than rain falls),
+## and still from 5 (rain seen, not heard). Motion off: the first frame, still.
+func _draw_rain(c: Node2D, b: int) -> void:
+	var frame := 0
+	if motion and b <= 4:
+		var period := 0.12 if b <= 2 else 0.36
+		frame = int(floor(time / period)) % 3
+	var tex := _tex("rain_%d" % frame)
+	if tex:
+		c.draw_texture_rect(tex, Rect2(Vector2.ZERO, SIZE), false, Color(1, 1, 1, 0.85))
+
+## Band 3: a pale crest crosses the lower pane once a loop, a beat before its sound. It follows
+## the late_wave loop's own playhead. Motion off: drawn still, mid-pane.
+func _draw_late_wave(c: Node2D, tilt: float) -> void:
+	var lo: Rect2 = PANES[6]
+	var k := 0.5
+	var a := 0.55
+	if motion:
+		var phase := fmod(time, WAVE_PERIOD)
+		var p: AudioStreamPlayer = mixer.players.get("late_wave")
+		if p and p.playing:
+			phase = fmod(p.get_playback_position(), WAVE_PERIOD)
+		var u := (phase - WAVE_AT) / WAVE_SWEEP
+		if u < 0.0 or u > 1.3:
+			return
+		k = clampf(u, 0.0, 1.0)
+		a = 0.6 * (1.0 - smoothstep(0.9, 1.3, u))
+	var y := lerpf(HORIZON_PIVOT.y + 6.0, lo.end.y - 6.0, k)
+	var pane := _tilt_xform(tilt).affine_inverse() * PackedVector2Array([lo.position,
+		Vector2(lo.end.x, lo.position.y), lo.end, Vector2(lo.position.x, lo.end.y)])
+	var crest := PackedVector2Array()
+	for i in 25:
+		var x := lerpf(lo.position.x - 40.0, lo.end.x + 40.0, i / 24.0)
+		crest.append(Vector2(x, y + 3.0 * sin(x * 0.045)))
+	for part in Geometry2D.intersect_polyline_with_polygon(crest, pane):
+		if part.size() >= 2:
+			c.draw_polyline(part, Color(0.88, 0.93, 0.95, a), 3.0, true)
+			c.draw_polyline(part, Color(0.88, 0.93, 0.95, a * 0.35), 8.0, true)
+
+## Her settings and her measurements, stamped on brass tags on hooks 1-8 (band 6 on).
+## Pale card tags, ink words: the setting's name over a rule, the figure large beneath it.
+func _draw_hook_tags(c: Node2D) -> void:
+	var tex := _tex("R02/hook_tags_large")
+	if tex:
+		c.draw_texture_rect(tex, Rect2(Vector2.ZERO, SIZE), false)
+	for i in HOOK_X.size():
+		var cx: float = HOOK_X[i]
+		var top: float = HOOK_TAG_TOPS[i % 2]
+		for row in 2:
+			var word: String = HOOK_TAGS[i][row]
+			var size := 15 if row == 0 else 25
+			var room_w := HOOK_TAG_W - 10.0
+			var w := serif.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+			while w > room_w and size > 9:
+				size -= 1
+				w = serif.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+			c.draw_string(serif, Vector2(cx - w / 2.0, top + (21.0 if row == 0 else 47.0)), word,
+				HORIZONTAL_ALIGNMENT_LEFT, -1, size, INK)
+
+## The ninth hook is wet again from the wet seat on: a sheen on the brass, and a drip.
+func _draw_hook9_wet(c: Node2D) -> void:
+	var sheen := Color(0.86, 0.93, 0.96, 0.7)
+	c.draw_polyline(PackedVector2Array([HOOK9 + Vector2(-2, 6), HOOK9 + Vector2(-3, 22),
+		HOOK9 + Vector2(-1, 36), HOOK9 + Vector2(5, 44)]), sheen, 2.0, true)
+	c.draw_circle(HOOK9 + Vector2(-3, 2), 2.5, sheen)
+	var tip := HOOK9 + Vector2(4, 50)
+	if _band() >= 6:
+		tip = Vector2(HOOK9_TAG.get_center().x, HOOK9_TAG.end.y)   # it drips off the tag now
+	var drop := tip
+	if motion:
+		var t := fmod(time, 2.2)
+		drop = tip + Vector2(0, 0.0 if t < 1.4 else 260.0 * pow(t - 1.4, 2))
+	if drop.y < 700.0:
+		c.draw_colored_polygon(_ellipse(drop + Vector2(0, 3), 2.6, 3.6, 10), Color(0.80, 0.88, 0.93, 0.85))
+	# A dark wet run down the wall under it.
+	c.draw_line(tip + Vector2(0, 6), tip + Vector2(1, 40), Color(0.10, 0.14, 0.18, 0.28), 3.0, true)
+
+## The drawer stands a finger open once she has opened it; what is in it follows the print.
+func _draw_drawer_gap(c: Node2D) -> void:
+	if not office.state.drawer_open:
 		return
-	for i in R02Sim.LOOK_AWAY.size():
-		var id: String = R02Sim.LOOK_AWAY[i]
-		if (id == "mug") != mug or not office.look_away(id):
-			continue
-		var tex := _tex("away_" + id)
-		if tex == null:
-			continue
-		var a := away_k if i + 1 > away_from else 1.0
-		c.draw_texture_rect(tex, Rect2(Vector2.ZERO, SIZE), false, Color(1, 1, 1, a))
+	var id := "R02/drawer_gap"
+	if office.board_solved():
+		id = "R02/drawer_gap_empty"
+	elif office.band() >= 1 and office.state.finished:
+		id = "R02/drawer_gap_turned" if office.photo_variant() == "turned" else "R02/drawer_gap_after"
+	var tex := _tex(id)
+	if tex:
+		c.draw_texture_rect(tex, Rect2(Vector2.ZERO, SIZE), false)
+
+## The arrival hold: everything outside the change dims a little, then lets go.
+func _draw_notice(c: Node2D) -> void:
+	if not _notice_active():
+		return
+	var k := 1.0
+	if motion:
+		k = minf(clampf(notice_t / 0.3, 0.0, 1.0), clampf((NOTICE_TIME - notice_t) / 0.3, 0.0, 1.0))
+	var col := Color(0, 0, 0, 0.25 * k)
+	var r := notice_rect.grow(40).intersection(Rect2(Vector2.ZERO, SIZE))
+	c.draw_rect(Rect2(0, 0, SIZE.x, r.position.y), col)
+	c.draw_rect(Rect2(0, r.end.y, SIZE.x, SIZE.y - r.end.y), col)
+	c.draw_rect(Rect2(0, r.position.y, r.position.x, r.size.y), col)
+	c.draw_rect(Rect2(r.end.x, r.position.y, SIZE.x - r.end.x, r.size.y), col)
+
+## One look-away change (office.look_away), as its painted overlay, faded in if it is new.
+## The coat's is gone in the endings: it is an ordinary coat again.
+func _draw_away_one(c: Node2D, id: String) -> void:
+	if not office.look_away(id) or (id == "coat" and office.ending() != ""):
+		return
+	var tex := _tex("away_" + id)
+	if tex == null:
+		return
+	c.draw_texture_rect(tex, Rect2(Vector2.ZERO, SIZE), false, Color(1, 1, 1, away_alpha.get(id, 1.0)))
 
 ## Rotation about the painted horizon.
 
@@ -1083,18 +1613,14 @@ func _draw_eye(c: Node2D, tilt: float) -> void:
 	var pane := _tilt_xform(tilt).affine_inverse() * PackedVector2Array([lo.position,
 		Vector2(lo.end.x, lo.position.y), lo.end, Vector2(lo.position.x, lo.end.y)])
 	var centre := Vector2(eye_x, 502)
-	for band in [[260.0, 19.0, 0.08], [190.0, 14.0, 0.13], [120.0, 9.0, 0.20]]:
+	for band in [[260.0, 19.0, 0.12], [190.0, 14.0, 0.19], [120.0, 9.0, 0.28]]:
 		var ell := _ellipse(centre, band[0] * band_k, band[1], 48)
 		for poly in Geometry2D.intersect_polygons(ell, pane):
 			c.draw_colored_polygon(poly, Color(0.62, 0.74, 0.74, band[2]))
 	c.draw_colored_polygon(_ellipse(centre, 23.0 * pupil_k, 3.0, 24), Color(0.02, 0.03, 0.05, 0.6))
 
-func _draw_ninth_piling(c: Node2D, s: int) -> void:
-	if s == 3:
-		# The pupil the contours point at: larger, nearer, unmistakable.
-		c.draw_rect(Rect2(586, 428, 18, 110), PILING_COL)
-		c.draw_circle(Vector2(595, 428), 9, PILING_COL)
-	elif office.state.drawer_open:
+func _draw_ninth_piling(c: Node2D, _s: int) -> void:
+	if office.state.drawer_open:
 		c.draw_rect(Rect2(590, 436, 14, 92), PILING_COL)
 		c.draw_circle(Vector2(597, 436), 7, PILING_COL)
 	else:
@@ -1104,7 +1630,7 @@ func _draw_ninth_piling(c: Node2D, s: int) -> void:
 ## They are on the glass, not on the sea, so they do not tip.
 
 func _draw_palms(c: Node2D) -> void:
-	if palms_k <= 0.0:
+	if palms_k <= 0.0 or not _palms_on():
 		return
 	var painted := _tex("palms_glass")
 	if painted:
@@ -1145,7 +1671,7 @@ func _draw_map_pencil(c: Node2D, s: int) -> void:
 	var pencil := Color(0.25, 0.25, 0.28, 0.8)
 	c.draw_line(Vector2(352, 298), Vector2(352, 342), pencil, 2.5)
 	c.draw_string(hand, Vector2(346, 364), "9", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, pencil)
-	if s == 3:
+	if office.state.seat_wet:
 		c.draw_line(Vector2(372, 318), Vector2(372, 354), Color(0.09, 0.10, 0.12, 0.85), 3.0)
 	if office.state.soundings_heard:
 		# His re-soundings over the open water: deeper everywhere. Seaward, past the jetty's
@@ -1183,20 +1709,30 @@ func _draw_contours(c: Node2D) -> void:
 ## The brass tag on the ninth hook, stamped with her initials, at the height of her collar.
 
 func _draw_hook_tag(c: Node2D) -> void:
-	var r := Rect2(1135, 300, 34, 44)
-	c.draw_rect(r, BRASS)
-	c.draw_rect(r, BRASS.darkened(0.45), false, 1.0)
-	c.draw_circle(Vector2(r.get_center().x, r.position.y + 6), 3, Color(0.06, 0.05, 0.04))
-	c.draw_string(hand, Vector2(1139, 334), "A.M.", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, BLUE_INK)
+	var r := HOOK9_TAG
+	var eye := Vector2(r.get_center().x, r.position.y + 7)
+	c.draw_line(HOOK9 + Vector2(0, 4), eye, BRICK, 2.6, true)   # tied to the hook, like the others
+	c.draw_rect(r, Color("e6dfca"))
+	c.draw_rect(r, INK, false, 2.0)
+	c.draw_circle(eye, 3.4, BRASS.darkened(0.2))
+	c.draw_arc(eye, 3.4, 0, TAU, 12, INK, 1.0)
+	var w := hand.get_string_size("A.M.", HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
+	c.draw_string(hand, Vector2(r.get_center().x - w / 2.0, r.end.y - 12), "A.M.", HORIZONTAL_ALIGNMENT_LEFT, -1, 22,
+		BLUE_INK)
 
 ## The oilskin fills out at the shoulders, as if someone were standing inside it.
 
-func _draw_coat_weight(c: Node2D, s: int) -> void:
+func _draw_coat_weight(c: Node2D, _s: int) -> void:
+	if office.ending() != "" or office.look_away("coat"):
+		return   # an ordinary coat again; or the painted one, filled, hood up
 	var a := 0.0
-	if s >= 3:
-		a = 0.6
+	var b := _band()
+	if b >= 4:
+		a = 0.55
+	elif b >= 1:
+		a = 0.42
 	elif office.state.log_rewritten:
-		a = 0.3
+		a = 0.30
 	if a <= 0.0:
 		return
 	if motion:
@@ -1213,7 +1749,7 @@ func _draw_coat_weight(c: Node2D, s: int) -> void:
 	c.draw_colored_polygon(torso, col)
 	c.draw_colored_polygon(_ellipse(Vector2(1064, 364), 21, 15, 20), Color(col, a * 0.7))
 	c.draw_colored_polygon(_ellipse(Vector2(1100, 364), 21, 15, 20), Color(col, a * 0.7))
-	if s >= 3:
+	if b >= 4:
 		c.draw_colored_polygon(_ellipse(Vector2(1082, 324), 19, 14, 18), Color(0.04, 0.06, 0.09, 0.5))
 
 ## The chair's shadow falls toward the lamp, built from the chair's own back, and leans
@@ -1371,13 +1907,15 @@ func _draw_door_opening(c: Node2D) -> void:
 	# Only at the top of a breath, only while she isn't holding hers: someone standing there.
 	var figure := _tex("threshold_figure")
 	if figure and k >= 1.0 and motion and not held and not still_spoken:
-		var fa := 0.42 * smoothstep(0.85, 1.0, env)
+		var fa := 0.68 * smoothstep(0.85, 1.0, env)
 		if fa > 0.0:
 			c.draw_texture_rect(figure, Rect2(Vector2.ZERO, SIZE), false, Color(1, 1, 1, fa))
 	if k < 1.0:
 		return
 	# On the inhale, a wet gleam reaches out of the doorway across the floor toward the desk.
 	var reach := 260.0 * env
+	if reach < 2.0:
+		return
 	c.draw_colored_polygon(PackedVector2Array([Vector2(1228, 900), Vector2(1228, 920),
 		Vector2(1228 - reach, 916), Vector2(1228 - reach, 906)]), Color(0.70, 0.76, 0.84, 0.08 * env))
 
@@ -1430,6 +1968,189 @@ func _ellipse(center: Vector2, rx: float, ry: float, n: int) -> PackedVector2Arr
 	return pts
 
 # ---------------------------------------------------------------------------
+# drawing: view B, the entry wall (world space, lit)
+# ---------------------------------------------------------------------------
+
+func _entry_plate() -> String:
+	if office.ending() == "sever":
+		return "R02/entry_wall_day"
+	if office.ending() == "continue":
+		return "R02/entry_wall_ominous"
+	var b := _band()
+	if b <= 2:
+		return "R02/entry_wall"
+	if b <= 6:
+		return "R02/entry_wall_damp"
+	return "R02/entry_wall_ominous"
+
+## The entry wall's escalation step: the weather band, with the continue ending holding the
+## last band's wrongness (the sever ending is the day plate, and steps back to -1).
+func _b_step() -> int:
+	match office.ending():
+		"continue":
+			return 7
+		"sever":
+			return -1
+	return _band()
+
+func _outer_glass() -> String:
+	if office.ending() == "sever":
+		return "R02/outer_glass_day"
+	if _b_step() >= 7 and _tex("R02/outer_glass_sea"):
+		return "R02/outer_glass_sea"   # the sea stands above the jetty
+	if game and game.sim.flag("P05") and not game.sim.flag("P06"):
+		return "R02/outer_glass_boat"
+	return "R02/outer_glass_%d" % maxi(_band(), 0)
+
+func _draw_entry_wall(c: Node2D) -> void:
+	var full := Rect2(Vector2.ZERO, SIZE)
+	var plate := _tex(_entry_plate())
+	if plate == null:
+		plate = _tex("R02/entry_wall")
+	if plate:
+		c.draw_texture_rect(plate, full, false)
+	var step := _b_step()
+	if step >= 2 and plate:
+		# Bands 2-3 on: the receipt has slid down the boards and been pinned again upside
+		# down. The boards it covered come back from the plate itself, two boards along.
+		c.draw_texture_rect_region(plate, RECEIPT_PATCH, Rect2(RECEIPT_PATCH.position + Vector2(96, 0),
+			RECEIPT_PATCH.size))
+		_draw_full(c, "R02/receipt_fallen")
+	if _band() == 2 and _tex("R02/b_damp_low"):
+		c.draw_texture_rect(_tex("R02/b_damp_low"), full, false)
+	if step >= 4:
+		_draw_full(c, "R02/entry_wall_s4_stain")   # band 4: the wet climbs off the skirting, hard-edged
+	if _back_lamp_on():
+		_draw_full(c, "R02/entry_wall_shadow")     # her own shadow, thrown by the lamp behind her
+		if step >= 5:
+			_draw_full(c, "R02/entry_wall_shadow2")   # and, from band 5, someone taller just behind it
+	var glass := _tex(_outer_glass())
+	if glass:
+		c.draw_texture_rect(glass, Rect2(OUTER_GLASS_AT, glass.get_size()), false)
+	if step >= 7:
+		_draw_full(c, "R02/outer_door_pour")       # the sea, coming in under the glass
+	if office.state.seat_wet and not office.state.finished:
+		# The T1X latch: a brass bar across the outer door's lock plate.
+		c.draw_rect(LATCH_BAR, BRASS)
+		c.draw_rect(LATCH_BAR, BRASS.darkened(0.55), false, 2.0)
+		c.draw_line(LATCH_BAR.position + Vector2(4, 4), LATCH_BAR.position + Vector2(LATCH_BAR.size.x - 4, 4),
+			Color(BRASS.lightened(0.4), 0.8), 1.5)
+		for x in [LATCH_BAR.position.x + 7, LATCH_BAR.end.x - 7]:
+			c.draw_circle(Vector2(x, LATCH_BAR.get_center().y), 2.5, BRASS.darkened(0.6))
+	if not office.service_locked() and _tex("R02/b_service_open"):
+		c.draw_texture_rect(_tex("R02/b_service_open"), full, false)
+	var lw := serif.get_string_size("SERVICE", HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+	c.draw_string(serif, Vector2(SERVICE_LABEL.get_center().x - lw / 2.0, SERVICE_LABEL.position.y + 22),
+		"SERVICE", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, INK)
+	_draw_barometer(c)
+	_draw_clock(c)
+	_draw_board_room(c)
+	_draw_vignette(c, VIGNETTE.get(_phase(), 0.0) * 0.6)
+
+## A direction from straight up, clockwise, in degrees.
+static func _dir(deg: float) -> Vector2:
+	var a := deg_to_rad(deg)
+	return Vector2(sin(a), -cos(a))
+
+func _draw_barometer(c: Node2D) -> void:
+	for w in BARO_WORDS:
+		var p: Vector2 = BARO_C + _dir(w[1]) * 66.0
+		var ws := serif.get_string_size(w[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 13)
+		# The dial's own enamel behind each word, so the scale ticks never cut through it.
+		c.draw_rect(Rect2(p + Vector2(-ws.x / 2.0 - 3, -9), Vector2(ws.x + 6, 18)), Color("e0d6bd", 0.95))
+		c.draw_string(serif, p + Vector2(-ws.x / 2.0, 5), w[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
+	if _band() >= 4 or office.ending() != "":
+		# Someone has scratched a mark on the bare brass past STORMY.
+		var d := _dir(-150.0)
+		var n := d.orthogonal()
+		c.draw_line(BARO_C + d * 70.0, BARO_C + d * 86.0, Color(INK, 0.85), 1.5, true)
+		c.draw_line(BARO_C + d * 71.0 + n * 1.5, BARO_C + d * 84.0 + n * 2.5, Color(INK, 0.5), 1.0, true)
+	var nd := float(office.needle())
+	var navy := Color("1b2a44")
+	if _band() == 7 or office.ending() == "continue":
+		# Bent: the last 18 px kinked over by 25 degrees.
+		var knee := BARO_C + _dir(nd) * 60.0
+		c.draw_line(BARO_C, knee, navy, 3.0, true)
+		c.draw_line(knee, knee + _dir(nd + 25.0) * 18.0, navy, 3.0, true)
+	else:
+		c.draw_line(BARO_C, BARO_C + _dir(nd) * 78.0, navy, 3.0, true)
+	c.draw_line(BARO_C, BARO_C - _dir(nd) * 14.0, navy, 4.0, true)
+	c.draw_circle(BARO_C, 6.0, BRASS.darkened(0.3))
+	c.draw_circle(BARO_C, 3.0, navy)
+
+func _draw_clock(c: Node2D) -> void:
+	var t: Array = office.clock()
+	var h := float(t[0])
+	var m := float(t[1])
+	var running: bool = t[2]
+	c.draw_line(CLOCK_C, CLOCK_C + _dir((fmod(h, 12.0) + m / 60.0) * 30.0) * 19.0, INK, 3.5, true)
+	if _b_step() >= 7:
+		# The clock's minute hand is bent exactly as the barometer's needle is.
+		var knee := CLOCK_C + _dir(m * 6.0) * 21.0
+		c.draw_line(CLOCK_C, knee, INK, 2.5, true)
+		c.draw_line(knee, knee + _dir(m * 6.0 + 25.0) * 9.0, INK, 2.5, true)
+	else:
+		c.draw_line(CLOCK_C, CLOCK_C + _dir(m * 6.0) * 29.0, INK, 2.5, true)
+	var sec := 0.0
+	if running and motion:
+		sec = fmod(floor(time), 60.0) * 6.0
+	c.draw_line(CLOCK_C - _dir(sec) * 6.0, CLOCK_C + _dir(sec) * 31.0, BRICK, 1.2, true)
+	c.draw_circle(CLOCK_C, 3.0, INK)
+
+## The board at room scale mirrors c_board: each pinned mark is outlined in brick, a thread
+## runs from it to its slot pin on the lower rail, then pin to pin. The aged-card strip lies
+## over the thread; when stamped it carries a bold VENN block that fits it.
+func _draw_board_room(c: Node2D) -> void:
+	var full := Rect2(Vector2.ZERO, SIZE)
+	if office.state.board_loaded and _tex("R02/b_board_papers"):
+		c.draw_texture_rect(_tex("R02/b_board_papers"), full, false)
+	var pins: Array = office.state.board_pins
+	var n := 0
+	for i in pins.size():
+		if not BOARD_POINTS.has(pins[i]) or i >= BOARD_SLOT_PINS.size():
+			continue
+		var p: Vector2 = BOARD_POINTS[pins[i]]
+		c.draw_rect(Rect2(p - Vector2(26, 7), Vector2(52, 14)), Color(BRICK, 0.9), false, 1.5)
+		c.draw_line(p + Vector2(26, 0), BOARD_SLOT_PINS[i], BRICK, 2.0, true)
+		if i > 0:
+			c.draw_line(BOARD_SLOT_PINS[i - 1], BOARD_SLOT_PINS[i], BRICK, 2.0, true)
+		n += 1
+	var solved := office.board_solved()
+	if solved and _tex("R02/b_board_solved"):
+		c.draw_texture_rect(_tex("R02/b_board_solved"), full, false)
+	var strip := _tex("R02/b_board_strip")
+	if strip:
+		c.draw_texture_rect(strip, PROVENANCE_STRIP, false)
+	for i in BOARD_SLOT_PINS.size():
+		if i < n:
+			var pin: Vector2 = BOARD_SLOT_PINS[i]
+			c.draw_circle(pin, 4.0, BRICK)   # the thread's knot on its pin
+	if solved:
+		_draw_venn_stamp(c, PROVENANCE_STRIP.get_center())
+		# The night print gets its pale border, so it reads as a photograph and not a hole.
+		var pr := BOARD_PRINT
+		var card := Color("e2dccb")
+		for r in [Rect2(pr.position - Vector2(6, 6), Vector2(pr.size.x + 12, 11)),
+				Rect2(pr.position.x - 6, pr.end.y - 12, pr.size.x + 12, 22),
+				Rect2(pr.position - Vector2(6, 6), Vector2(11, pr.size.y + 16)),
+				Rect2(pr.end.x - 5, pr.position.y - 6, 11, pr.size.y + 16)]:
+			c.draw_rect(r, card)
+		c.draw_rect(Rect2(pr.position - Vector2(6, 6), pr.size + Vector2(12, 16)), INK, false, 2.0)
+		c.draw_circle(Vector2(pr.get_center().x, pr.position.y - 1), 4.0, BRASS)
+		c.draw_arc(Vector2(pr.get_center().x, pr.position.y - 1), 4.0, 0, TAU, 12, INK, 1.0)
+
+## A bold rubber-stamp block: double brick border, VENN in heavy capitals, sized to the strip.
+func _draw_venn_stamp(c: CanvasItem, ctr: Vector2) -> void:
+	var box := Rect2(ctr - Vector2(46, 11), Vector2(92, 22))
+	c.draw_rect(box, Color(BRICK, 0.16))
+	c.draw_rect(box, Color(BRICK, 0.95), false, 2.5)
+	c.draw_rect(box.grow(-4), Color(BRICK, 0.85), false, 1.2)
+	var w := serif.get_string_size("VENN", HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x
+	var at := Vector2(ctr.x - w / 2.0, ctr.y + 6.5)
+	for o in [Vector2.ZERO, Vector2(0.8, 0), Vector2(0, 0.6)]:   # struck heavy, as a rubber stamp is
+		c.draw_string(serif, at + o, "VENN", HORIZONTAL_ALIGNMENT_LEFT, -1, 17, BRICK)
+
+# ---------------------------------------------------------------------------
 # drawing: close-ups and full-screen views (unlit layer)
 # ---------------------------------------------------------------------------
 
@@ -1443,19 +2164,183 @@ func _draw_close() -> void:
 		"logbook":
 			_draw_logbook(c)
 		"duty", "note":
-			c.draw_rect(Rect2(Vector2.ZERO, SIZE), Color(INK, 0.94))
-			c.draw_texture_rect(textures["duty_card" if office.view == "duty" else "chart_note"],
-				Rect2(244, 180, 960, 780), false)
-			if office.view == "note":
-				# Her initials, in a hand she doesn't remember using.
-				c.draw_set_transform(Vector2(314, 880), -0.025)
-				c.draw_string(hand, Vector2.ZERO, "Lamp service completed.  — A.M.",
-					HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Color(0.22, 0.22, 0.25, 0.9))
-				c.draw_set_transform(Vector2.ZERO)
+			_draw_duty(c)
 		"drawer":
 			_draw_drawer(c)
 		"report":
 			_draw_report(c)
+		"board":
+			_draw_board_close(c)
+		"photo":
+			_draw_photo_close(c)
+
+## c_duty / c_note: the card (or the note) on the left, the contract it was lying on to the
+## right of it, with the launch she is waiting for.
+func _draw_duty(c: Node2D) -> void:
+	c.draw_rect(Rect2(Vector2.ZERO, SIZE), Color(INK, 0.94))
+	# The card is set in the serif like every other paper in the station: a blank painted card
+	# (assets/rooms/R02/c_note_card.png, 800 x 650 like the old SVG cards) and the words here.
+	var tex: Texture2D = _tex("R02/c_note_card")
+	if tex == null:
+		tex = textures["duty_card" if office.view == "duty" else "chart_note"]
+	var k := minf(DUTY_CARD_BOX.size.x / tex.get_width(), DUTY_CARD_BOX.size.y / tex.get_height())
+	var size := tex.get_size() * k
+	var card := Rect2(DUTY_CARD_BOX.position + (DUTY_CARD_BOX.size - size) / 2.0, size)
+	c.draw_texture_rect(tex, card, false)
+	if _tex("R02/c_note_card"):
+		var lines: Array = DUTY_CARD_LINES if office.view == "duty" else NOTE_CARD_LINES
+		for l in lines:
+			c.draw_string(serif, card.position + Vector2(58, l[0]) * k, l[2], HORIZONTAL_ALIGNMENT_LEFT,
+				card.size.x - 100 * k, int(round(l[1] * k)), INK)
+	if office.view == "note":
+		# Her initials, in a hand she doesn't remember using.
+		c.draw_set_transform(card.position + Vector2(0.073, 0.897) * card.size, -0.025)
+		c.draw_string(hand, Vector2.ZERO, "Lamp service completed.  — A.M.",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, int(round(30 * k * 1.2)), Color(0.22, 0.22, 0.25, 0.9))
+		c.draw_set_transform(Vector2.ZERO)
+	var paper := _tex("R02/c_duty_contract")
+	if paper:
+		c.draw_texture_rect(paper, DUTY_CONTRACT, false)
+	else:
+		c.draw_rect(DUTY_CONTRACT, PAPER)
+	var x := DUTY_CONTRACT.position.x + 34
+	var w := DUTY_CONTRACT.size.x - 68
+	var y := DUTY_CONTRACT.position.y + 82
+	c.draw_string(serif, Vector2(x, y), "GREYWAKE SURVEY STATION.", HORIZONTAL_ALIGNMENT_LEFT, w, 20, INK)
+	c.draw_string(serif, Vector2(x, y + 25), "CONTRACT OF CLOSURE.", HORIZONTAL_ALIGNMENT_LEFT, w, 20, INK)
+	y = DUTY_CONTRACT.position.y + 154
+	for i in range(1, CONTRACT_LINES.size() - 1):
+		y = Ink.wrapped(c, CONTRACT_LINES[i], Vector2(x, y), 19, INK, w, true, serif) + 10
+	Ink.wrapped(c, CONTRACT_LINES[CONTRACT_LINES.size() - 1], Vector2(x, DUTY_CONTRACT.position.y + 440), 18,
+		INK, w, true, serif)
+	c.draw_string(serif, Vector2(x, DUTY_CONTRACT.position.y + 512), "Collection: the station launch, two stripes.",
+		HORIZONTAL_ALIGNMENT_LEFT, w, 16, Color(INK, 0.8))
+
+## c_board: the contract, the inquiry clipping and his letter, three slots, the provenance
+## field and the stamp rack. Every word on it is drawn here, readable at any light.
+func _draw_board_close(c: Node2D) -> void:
+	c.draw_rect(Rect2(Vector2.ZERO, SIZE), Color(INK, 0.94))
+	var bg := _tex("R02/c_board")
+	if bg:
+		c.draw_texture_rect(bg, Rect2(Vector2.ZERO, SIZE), false)
+	var solved := office.board_solved()
+	# The contract.
+	var cx := C_CONTRACT.position.x + 18
+	var cw := C_CONTRACT.size.x - 36
+	c.draw_string(serif, Vector2(cx, 194), "GREYWAKE SURVEY STATION.", HORIZONTAL_ALIGNMENT_LEFT, cw, 15, INK)
+	c.draw_string(serif, Vector2(cx, 210), "CONTRACT OF CLOSURE.", HORIZONTAL_ALIGNMENT_LEFT, cw, 15, INK)
+	Ink.wrapped(c, CONTRACT_LINES[1], Vector2(cx, 246), 17, INK, cw, true, serif)
+	var y := Ink.wrapped(c, CONTRACT_LINES[2], Vector2(cx, 314), 15, INK, cw, true, serif) + 6
+	Ink.wrapped(c, CONTRACT_LINES[3], Vector2(cx, y), 15, INK, cw, true, serif)
+	c.draw_string(serif, Vector2(cx, 474), "Signed for the Board.", HORIZONTAL_ALIGNMENT_LEFT, cw, 16, INK)
+	c.draw_string(serif, Vector2(cx, 504), "Countersigned: E. Venn.", HORIZONTAL_ALIGNMENT_LEFT, cw, 16, INK)
+	# The clipping.
+	var kx := C_CLIPPING.position.x + 18
+	var kw := C_CLIPPING.size.x - 36
+	y = Ink.wrapped(c, "MORROW HARBOUR BOARD. Inquiry, 1929.", Vector2(kx, 166), 17, INK, kw, true, serif) + 4
+	Ink.wrapped(c, "In the matter of Daniel Roe, dockworker, reported missing. The Board certifies that no person of that name was employed on the harbour.",
+		Vector2(kx, y), 15, INK, kw, true, serif)
+	c.draw_string(hand, Vector2(kx, 412), "J. Callis", HORIZONTAL_ALIGNMENT_LEFT, kw, 20, INK)
+	c.draw_string(hand, Vector2(kx, 480), "R. Orme", HORIZONTAL_ALIGNMENT_LEFT, kw, 20, INK)
+	Ink.wrapped(c, "A. Mercer, dissenting: 'Unverified does not mean absent. I will not certify that this man never worked here.'",
+		Vector2(kx, 532), 15, INK, kw, true, hand)
+	# The letter, in his hand.
+	var lx := C_LETTER.position.x + 18
+	var lw := C_LETTER.size.x - 36
+	# The pinned photograph covers the letter's top right corner: the heading keeps clear of it.
+	var head_w := C_BOARD_PHOTO.position.x - 8.0 - lx
+	c.draw_string(serif, Vector2(lx, 176), "Greywake, 2 September 1931.", HORIZONTAL_ALIGNMENT_LEFT, head_w, 14, VENN_INK)
+	Ink.wrapped(c, "To the Secretary, Morrow Harbour Board.", Vector2(lx, 210), 15, VENN_INK, head_w, true, serif)
+	Ink.wrapped(c, "For the closure I ask for one person by name: Miss A. Mercer, who sat on your Roe inquiry.",
+		Vector2(lx, 260), 15, VENN_INK, lw, true, serif)
+	Ink.wrapped(c, "She wrote that 'unverified does not mean absent.' I require exactly that.", Vector2(lx, 356), 16,
+		VENN_INK, lw, true, serif)
+	c.draw_string(serif, Vector2(lx + 160, 452), "E. Venn", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, VENN_INK)
+	if solved:
+		var broken := _tex("R02/venn_seal_broken")
+		if broken:
+			c.draw_texture_rect(broken, Rect2(C_SEAL.end.x - 60, C_SEAL.position.y + 2, 56, 56), false)
+		Ink.wrapped(c, SEAL_TEXT, C_SEAL.position + Vector2(8, 22), 15, VENN_INK, C_SEAL.size.x - 82, true, serif)
+	else:
+		for i in 4:   # the folded paragraph under the seal: lines, unreadable
+			var ly := C_SEAL.position.y + 22 + i * 22
+			c.draw_line(Vector2(C_SEAL.position.x + 10, ly), Vector2(C_SEAL.end.x - 10 - (60 if i == 3 else 0), ly),
+				Color(VENN_INK, 0.18), 6.0)
+		var seal := _tex("R02/venn_seal")
+		if seal:
+			c.draw_texture_rect(seal, Rect2(C_SEAL.get_center() - Vector2(48, 48), Vector2(96, 96)), false)
+	# The marks, outlined where pinned.
+	var pins: Array = office.state.board_pins
+	var rects := {}
+	for r in C_BOARD_RECTS:
+		rects[r[0]] = r[1]
+	for id in pins:
+		if rects.has(id):
+			c.draw_rect(rects[id], Color(BRICK, 0.9), false, 2.5)
+	# The thread: each pinned mark to its slot, then slot to slot.
+	for i in pins.size():
+		if not rects.has(pins[i]):
+			continue
+		var mr: Rect2 = rects[pins[i]]
+		var slot: Vector2 = rects["slot_%d" % i].get_center()
+		c.draw_line(Vector2(mr.end.x, mr.get_center().y), slot, BRICK, 3.0, true)
+		if i > 0:
+			c.draw_line(rects["slot_%d" % (i - 1)].get_center(), slot, BRICK, 3.0, true)
+	for i in R02Sim.BOARD_SLOTS:
+		var sr: Rect2 = rects["slot_%d" % i]
+		if i < pins.size():
+			var label: String = R02Sim.MARKS.get(pins[i], pins[i])
+			var h := Ink.wrapped(c, label, Vector2.ZERO, 16, PAPER, sr.size.x - 16, false, serif)
+			var plaque := Rect2(sr.position + Vector2(0, 44), Vector2(sr.size.x, h + 8))
+			c.draw_rect(plaque, Color(INK, 0.86))
+			Ink.wrapped(c, label, plaque.position + Vector2(8, 22), 16, PAPER, sr.size.x - 16, true, serif)
+		c.draw_circle(sr.get_center(), 9.0, Color(BRASS.darkened(0.2), 0.0 if i >= pins.size() else 1.0))
+	# The provenance field.
+	var prov: Rect2 = rects["provenance"]
+	c.draw_string(serif, prov.position + Vector2(14, 22), "PROVENANCE OF APPOINTMENT", HORIZONTAL_ALIGNMENT_LEFT, -1, 13,
+		Color(INK, 0.7))
+	if solved:
+		var ink := _tex("R02/stamp_ink")
+		var ir := Rect2(prov.get_center() - Vector2(180, 30), Vector2(360, 72))
+		if ink:
+			c.draw_texture_rect(ink, ir, false)
+		var tw := serif.get_string_size("REQUESTED BY VENN", HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
+		c.draw_string(serif, Vector2(ir.get_center().x - tw / 2.0, ir.get_center().y + 11), "REQUESTED BY VENN",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 30, BRICK)
+	# The stamp rack.
+	for id in ["stamp_venn", "stamp_board", "stamp_unknown"]:
+		var r: Rect2 = rects[id]
+		var held: bool = office.held_stamp == id
+		if held:
+			c.draw_rect(Rect2(r.position + Vector2(0, 52), Vector2(r.size.x, r.size.y - 52)), Color(0, 0, 0, 0.35))
+			r = Rect2(r.position - Vector2(0, 14), r.size)
+			var face := Rect2(r.position + Vector2(4, 50), Vector2(r.size.x - 8, 52))
+			c.draw_rect(face, Color("5a3d26"))
+			c.draw_rect(face.grow(2), GOLD, false, 3.0)
+		var lines: Array = STAMP_LINES[id]
+		for li in lines.size():
+			var ws := serif.get_string_size(lines[li], HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+			var ty := r.position.y + (82.0 if lines.size() == 1 else 72.0 + li * 20.0)
+			c.draw_string(serif, Vector2(r.get_center().x - ws / 2.0, ty), lines[li], HORIZONTAL_ALIGNMENT_LEFT, -1, 16, PAPER)
+	if solved and not photo_armed:
+		_draw_photo(c, C_BOARD_PHOTO, office.photo_variant())
+		c.draw_circle(C_BOARD_PHOTO.position + Vector2(60, 6), 5.0, BRASS)
+
+## c_photo: the print, full frame; after P20 its back, in his hand.
+func _draw_photo_close(c: Node2D) -> void:
+	c.draw_rect(Rect2(Vector2.ZERO, SIZE), Color(INK, 0.94))
+	if office.photo_back:
+		var back := _tex("R02/photo_back")
+		if back:
+			c.draw_texture_rect(back, PHOTO_PRINT, false)
+		else:
+			c.draw_rect(PHOTO_PRINT, Color("e4dcc8"))
+		Ink.wrapped(c, PHOTO_BACK_TEXT, PHOTO_BACK_TEXT_RECT.position + Vector2(0, 30), 26, VENN_INK,
+			PHOTO_BACK_TEXT_RECT.size.x, true, serif)
+	else:
+		_draw_photo(c, PHOTO_PRINT, office.photo_variant())
+	if office.board_solved():
+		_button(c, TURN_OVER, "Turn it back" if office.photo_back else "Turn it over")
 
 
 ## The end card: the photograph from after she left, the log's last row writing itself,
@@ -1735,7 +2620,8 @@ func _draw_drawer_open(c: Node2D) -> void:
 	c.draw_polyline(PackedVector2Array([WATCH_C + Vector2(-96, -52), WATCH_C + Vector2(-30, -14),
 		WATCH_C + Vector2(18, -40), WATCH_C + Vector2(88, 30)]), Color(1, 1, 1, 0.35), 2.0, true)
 	_text(c, "stopped 18:52", Vector2(480, 770), 22, PAPER, hand, 300, HORIZONTAL_ALIGNMENT_LEFT)
-	_draw_photo(c, PHOTO_RECT, "drawer")
+	if not office.board_solved():
+		_draw_photo(c, PHOTO_RECT, office.photo_variant())
 
 ## The painted print for a photo variant, or null for the drawn fallback.
 
@@ -1764,15 +2650,16 @@ func _draw_photo(c: Node2D, rect: Rect2, variant: String, alpha := 1.0) -> void:
 	var ctr := rect.get_center()
 	c.draw_set_transform(ctr, 0.04)
 	var half := rect.size / 2.0
+	var k := minf(1.0, rect.size.x / 300.0)   # a small print keeps its proportions
 	c.draw_rect(Rect2(-half, rect.size), Color("d8d0bc"))
-	var img := Rect2(-half.x + 18, -half.y + 18, rect.size.x - 36, rect.size.y - 70)
+	var img := Rect2(-half.x + 18 * k, -half.y + 18 * k, rect.size.x - 36 * k, rect.size.y - 70 * k)
 	var painted := _photo_tex(variant)
 	if painted:
 		c.draw_texture_rect(painted, img, false)
 	else:
 		_draw_photo_drawn(c, img, variant)
 	c.draw_rect(img, Color(0.45, 0.35, 0.2, 0.18))
-	_text(c, "Greywake. 18 Oct.", Vector2(-half.x, half.y - 18), 20, INK, hand, rect.size.x)
+	_text(c, "Greywake. 18 Oct.", Vector2(-half.x, half.y - 18 * k), maxi(9, int(20 * k)), INK, hand, rect.size.x)
 	if alpha < 1.0:
 		c.draw_rect(Rect2(-half, rect.size).grow(3), Color("070b0f", 1.0 - alpha))
 	c.draw_set_transform(Vector2.ZERO)
@@ -1904,6 +2791,12 @@ func _draw_report_time(c: Node2D, filed: bool) -> void:
 
 ## The threshold's prompt, once she may go on.
 func draw_hud(c: Node2D) -> void:
+	if office.view == "room" and game and game.sim.view == "room":
+		if _exit_bar_live():
+			_draw_turn_tab(c)
+		else:
+			_draw_exit_lips(c)
+		_draw_anchored_label(c)
 	if office.view == "threshold" and continue_ready:
 		var a := clampf((threshold_t - continue_t - 1.5) / 1.5, 0.0, 1.0)
 		if a > 0.0:
@@ -1912,9 +2805,56 @@ func draw_hud(c: Node2D) -> void:
 			c.draw_rect(Rect2((SIZE.x - w) / 2.0, 940, w, 40), Color(0.03, 0.06, 0.08, 0.85 * a))
 			_text(c, prompt, Vector2(0, 967), 22, Color(PAPER, 0.9 * a), hand, SIZE.x)
 
-# ---------------------------------------------------------------------------
-# drawing helpers
-# ---------------------------------------------------------------------------
+## While the exit bar is away, a slim lip at the very bottom edge says it is there: one
+## short plaque edge per tab, in the tabs' own ink, under the subtitle slab.
+func _draw_exit_lips(c: Node2D) -> void:
+	var rects: Array = [TURN_RECT]
+	for e in game.sim.exits():
+		if exit_rects().has(e[0]):
+			rects.append(exit_rects()[e[0]])
+	for r in rects:
+		var lip := Rect2(r.position.x + 6, SIZE.y - 9, r.size.x - 12, 9)
+		c.draw_rect(lip, Color(0.03, 0.06, 0.08, 0.82))
+		c.draw_line(lip.position, Vector2(lip.end.x, lip.position.y), Color(PAPER, 0.55), 1.5)
+		var ctr := Vector2(lip.get_center().x, lip.position.y + 1)
+		c.draw_colored_polygon(PackedVector2Array([ctr + Vector2(-6, 6), ctr + Vector2(6, 6), ctr + Vector2(0, 1)]),
+			Color(PAPER, 0.7))
+
+## Facing the entry wall, a hovered object's name sits just above it (or just inside its
+## top edge), not at the cursor, so it never lies over the stamp rail or the board.
+func _draw_anchored_label(c: Node2D) -> void:
+	if office.facing != "B" or game.hover_id == "" or game.hover_id == "turn":
+		return
+	var r := Rect2()
+	for h in HOTSPOTS_B:
+		if h[0] == game.hover_id:
+			r = h[1]
+	if not r.has_area():
+		return
+	var label := _hotspot_label(game.hover_id)
+	var w := serif.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x + 20
+	var y := r.position.y - 40.0
+	if y < 84.0:
+		y = r.position.y + 6.0
+	var x := clampf(r.get_center().x - w / 2.0, 8.0, SIZE.x - w - 8.0)
+	c.draw_rect(Rect2(x, y, w, 34), Color(0.03, 0.06, 0.08, 0.8))
+	c.draw_string(serif, Vector2(x + 10, y + 24), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, PAPER)
+
+## The turn tab: a plaque like the exit tabs, with a curved arrow drawn in ink lines that
+## bends the way she turns.
+func _draw_turn_tab(c: Node2D) -> void:
+	Ink.button(c, TURN_RECT, "", game.hover_id == "turn", 19)
+	var ctr := TURN_RECT.get_center() + Vector2(0, 6)
+	var col := Color(PAPER, 0.95)
+	var sweep := 1.0 if office.facing == "A" else -1.0
+	var pts := PackedVector2Array()
+	for i in 17:
+		var a := lerpf(PI * 0.95, PI * 0.05, i / 16.0)
+		pts.append(ctr + Vector2(cos(a) * 20.0 * sweep, -sin(a) * 15.0))
+	c.draw_polyline(pts, col, 3.0, true)
+	var tip := pts[pts.size() - 1]
+	c.draw_line(tip, tip + Vector2(-9 * sweep, -3), col, 3.0, true)
+	c.draw_line(tip, tip + Vector2(-1 * sweep, -10), col, 3.0, true)
 
 # ---------------------------------------------------------------------------
 # drawing helpers
