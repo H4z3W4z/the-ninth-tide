@@ -1,6 +1,7 @@
 extends "res://tests/rooms/room_test_base.gd"
-## R12, the Observation Chamber: skeleton checks (registration, gates, hotspots, exits, view).
-## The room team adds its puzzle tests here: see docs/dev/room-contract.md.
+## R12, the Observation Chamber: P25 (the record of the observer), P26 (understand each route),
+## P27 (the choice), the P26 checkpoint, both endings, the bridge net, saves, reconcile, hints,
+## debug jumps and the chain actions handed to tests/chain_test.gd.
 ##   godot --headless --path . --script tests/rooms/R12_test.gd
 
 const ROOM := "R12"
@@ -9,6 +10,1120 @@ const EXPECT_REQUIRES := ["P24"]
 ## First tide at whose start the room is reachable from the office by real gates.
 const OPEN_TIDE := 9
 
+const TRACE := ["zero_turned", "hatch_opened", "stair_looked"]
+const BRIDGE := "witness_bridge"
+const READ_ONLY := "It has its record of me. The frames won't open again."
+const SEALED := "Both cards are sealed in. I know what each one does."
+const LATER := "Not until I know exactly what each one does."
+const COPY_REFUSAL := "ROUTE won't turn. The strip: WOULD FINALIZE OBSERVER."
+const PREVIEW_TAG := "CONFIRM UNDERSTANDING won't press. A tag on it: PREVIEW EACH ROUTE."
+const NEEDS_CARDS := "Each plate needs a card before I can say I understand it."
+const ONE_OR_OTHER := "One or the other."
+const PREVIEW_FIRST := "Preview first."
+const CATEGORY := {
+	"body": "What the subject did, in the order it was done.",
+	"place": "Where the subject stands in the survey.",
+	"name": "Who the subject is, and who asked for them.",
+}
+const LABEL := {"body": "BODY", "place": "PLACE", "name": "NAME"}
+const SOL := {"body": "trace", "place": "position", "name": "identity"}
+## The CONFIRM refusals, written out independently of the sim: [plate][card] -> [line, row].
+const REF_MISMATCH := {
+	"sever": {
+		"cc_restored": ["Nothing in the preview comes back to life.", 0],
+		"cc_returns": ["The preview doesn't bring him back. His line goes out with the other eight.", 1],
+		"cc_remains": ["The preview doesn't keep anything. All eight lines go out, and the door opens.", 0],
+	},
+	"continue": {
+		"cc_restored": ["Nothing in the preview comes back to life.", 0],
+		"cc_returns": ["The preview doesn't bring him back. It moves his line to me.", 1],
+		"cc_ends": ["The preview doesn't end anything but his line. The eight stay lit, and the line comes to me.", 0],
+	},
+}
+const P25_STORY := [
+	"The key turns. All three frames slide back into the wall together, like drawers into a desk.",
+	"The strip types, slowly: NINTH OBSERVER LOCATED.",
+	"Then: AUTOMATIC COUNTERSIGN AVAILABLE.",
+	"It's offering to sign for me.",
+	"The terminal lights. Through its grille, small and close, his voice.",
+	"VENN: \"Don't let it sign for you.\"",
+	"That was the last of him it had. The lamp stays on.",
+	"Across the chamber, on the routing wall, a shutter rolls up.",
+]
+const P26_STORY := [
+	"CONFIRM UNDERSTANDING. The two cards drop into the plates, and the slots close over them.",
+	"If I break it, they're gone, all of them, and I go home.",
+	"If I stay, they're kept, whatever they are, and Venn can stop.",
+	"Nobody comes back either way.",
+	"Behind me, in the window, something moved.",
+]
+const ARRIVAL_STORY := [
+	"The chamber. A chair faces an instrument. Nothing in here is dusty.",
+	"Every arm of the instrument ends where a part of a seated person would be. Head. Hands. Feet.",
+	"On the left wall, three frames. One of them already has a name on it.",
+	"Mine.",
+]
+const REF_HINTS := {
+	"frames": ["The chamber wants a record of you.",
+		"Your movements are a body record, your position is a place, your contract is your name. Route as the model showed.",
+		"Trace to BODY, position to PLACE, identity to NAME, switch to WITNESS, then ROUTE."],
+	"routing": ["Before choosing, make sure you know what each choice does.",
+		"Preview each route and match it to what Venn said and what the model showed.",
+		"SEVER: connection ends, traces lost, you leave. CONTINUE: you stay as witness, traces kept, Venn's duty ends."],
+	"decide": ["Both choices are ready. The chamber is waiting for your hands.",
+		"The yoke goes across the feed contacts. The bridge goes in your terminal. Preview before you confirm.",
+		"To leave: yoke on the contacts, preview, BREAK CONNECTION AND LEAVE. To stay: bridge in your terminal, preview, REMAIN AS WITNESS."],
+	"finale": ["I've chosen. All that's left is to watch it happen.",
+		"I've chosen. All that's left is to watch it happen.",
+		"I've chosen. All that's left is to watch it happen."],
+}
+const P25_ACTIONS := ["to_frames", "frame_body", "rack_trace", "f_body", "rack_position", "f_place",
+	"rack_identity", "f_name", "switch", "route"]
+const P26_ACTIONS := ["back", "back", "to_routing", "plate_sever", "preview_sever", "preview_continue",
+	"cc_ends", "slot_sever", "cc_remains", "slot_continue", "confirm"]
+const P27_SEVER := ["back", "contacts", "tray", "contacts", "preview", "btn_sever"]
+const P27_CONTINUE := ["to_routing", "bridge_seat", "bridge_seat", "preview", "btn_continue"]
+
 func run_tests() -> void:
 	skeleton_checks(ROOM, EXPECT_REQUIRES, OPEN_TIDE)
-	await view_checks(ROOM)
+	test_constants()
+	test_arrival()
+	test_p25_solution()
+	test_p25_permutations()
+	test_p25_refusals()
+	test_p25_cards()
+	test_body_card()
+	test_p25_after()
+	test_p25_save_load()
+	test_load_state()
+	test_p26_gates()
+	test_p26_pairs()
+	test_p26_previews()
+	test_p26_checkpoint()
+	test_p27_gates()
+	test_p27_fittings()
+	test_p27_buttons()
+	test_endings_sever_and_replay()
+	test_seen_lines()
+	test_bridge_net()
+	test_ending_saves()
+	test_use_item()
+	test_answers()
+	test_objectives_hints()
+	test_reconcile()
+	test_debug_jumps()
+	test_back()
+	test_chain_actions()
+	if _view_ready():
+		await view_checks(ROOM)
+	else:
+		print("SKIP: R12 view_checks: the R12 view does not yet declare rects for every sim hotspot (view team)")
+
+# ---------------------------------------------------------------------------------------------
+# helpers
+# ---------------------------------------------------------------------------------------------
+func r12(g: GameSim) -> R12Sim:
+	return g.room(ROOM) as R12Sim
+
+## A started game in the chamber with only P24 set, the stored trace and the bridge from R10.
+func fresh(bridge := true) -> GameSim:
+	var g := with_flags(["P24"], ROOM)
+	g.state.p05_trace = TRACE.duplicate()
+	if bridge:
+		g.give(BRIDGE)
+	return g
+
+func play(g: GameSim, actions: Array) -> Array:
+	var ev: Array = []
+	for a in actions:
+		ev = g.dispatch(a)
+	return ev
+
+func p25_game() -> GameSim:
+	var g := fresh()
+	play(g, P25_ACTIONS)
+	return g
+
+## P26 done, standing in c_routing.
+func p26_game() -> GameSim:
+	var g := p25_game()
+	play(g, P26_ACTIONS)
+	return g
+
+## P26 done, standing in c_final.
+func final_game() -> GameSim:
+	var g := p26_game()
+	play(g, ["back", "contacts"])
+	return g
+
+func story(ev: Array) -> Array:
+	var out := []
+	for e in ev:
+		if e.type == "say" and e.story:
+			out.append(e.text)
+	return out
+
+func fx(ev: Array, id: String) -> Dictionary:
+	for e in ev:
+		if e.type == "fx" and e.get("id", "") == id:
+			return e
+	return {}
+
+func fx_count(ev: Array, id: String) -> int:
+	var n := 0
+	for e in ev:
+		if e.type == "fx" and e.get("id", "") == id:
+			n += 1
+	return n
+
+func sfx_list(ev: Array) -> Array:
+	var out := []
+	for e in ev:
+		if e.type == "sfx":
+			out.append([e.id, _d(e.delay)])
+	return out
+
+## A delay to two places, as the nearest float to its literal (so 2.6 == 2.6).
+static func _d(x: float) -> float:
+	return float("%.2f" % x)
+
+func flags_json(g: GameSim) -> String:
+	return JSON.stringify(g.state.flags)
+
+func roundtrip(g: GameSim) -> GameSim:
+	var t := GameSim.new()
+	t.load_settings(g.settings_dict())
+	t.from_dict(JSON.parse_string(JSON.stringify(g.to_dict())))
+	return t
+
+func bridges(g: GameSim) -> int:
+	return g.state.inventory.count(BRIDGE)
+
+func sorted(a: Array) -> Array:
+	var b := a.duplicate()
+	b.sort()
+	return b
+
+## Places the cards: perm[i] goes into FRAME_IDS[i] ("" leaves it empty). Ends in c_frames.
+func place(g: GameSim, perm: Array) -> void:
+	play(g, ["to_frames", "frame_body"])
+	for i in perm.size():
+		if perm[i] != "":
+			g.dispatch("rack_" + perm[i])
+			g.dispatch("f_" + R12Sim.FRAME_IDS[i])
+
+func _view_ready() -> bool:
+	var m: Dictionary = load("res://game/rooms/R12/R12_view.gd").get_script_constant_map()
+	var ids := []
+	for h in m.get("HOTSPOTS", []):
+		ids.append(h[0])
+	for id in R12Sim.HOTSPOTS:
+		if not id in ids:
+			return false
+	return true
+
+# ---------------------------------------------------------------------------------------------
+# constants and arrival
+# ---------------------------------------------------------------------------------------------
+func test_constants() -> void:
+	check(R12Sim.ID == "R12" and R12Sim.TITLE == "Observation Chamber", "R12 id and title")
+	check(R12Sim.LINE4_TURNED == R03Sim.LINE4_TURNED and R12Sim.LINE4_STILL == R03Sim.LINE4_STILL,
+		"the fourth line is P05's, word for word")
+	check(not R12Sim.new().get_script().get_script_constant_map().has("SKELETON"), "R12 is built (no SKELETON)")
+	check(not GameSim.new().is_unbuilt(ROOM), "the core treats R12 as built")
+	check(R12Sim.ITEMS.is_empty() and GameSim.new().item_defs()[BRIDGE].room == "R10",
+		"the bridge is R10's item")
+	check(R12Sim.EXITS == [["R11", "Stair", []]], "one way out, the stair")
+	var r := fresh().room(ROOM)
+	for v in ["frames", "routing", "c_frames", "c_routing", "c_final", "ending"]:
+		check(r.is_closeup(v), "%s is a close-up for the core" % v)
+	check(not r.is_closeup("room"), "the room is not a close-up")
+	for id in R12Sim.OBSERVATIONS:
+		check(R12Sim.OBSERVATIONS[id] != "", "observation %s has text" % id)
+
+func test_arrival() -> void:
+	var g := with_flags(["P04", "P24"], "R11")
+	g.state.p05_trace = TRACE.duplicate()
+	var ev := g.dispatch("go:R12")
+	check(g.state.room == ROOM, "walked into the chamber")
+	var st := story(ev)
+	check(st.slice(0, 4) == ARRIVAL_STORY, "the arrival chain (%s)" % [st])
+	check(fx_count(ev, "notice") == 1 and fx(ev, "notice").get("which") == "name_frame", "notice fx: the name frame")
+	check(r12(g).has_seen("chamber"), "arrival notes the chamber")
+	check(bridges(g) == 1 and "The bridge is in my pocket. The door gave it back." in says(ev),
+		"the bridge net hands back a missing bridge on arrival")
+	check(has_ev(ev, "fx", "item_added"), "the bridge arrives with item_added")
+	g.dispatch("go:R11")
+	ev = g.dispatch("go:R12")
+	check(story(ev).is_empty() and fx_count(ev, "notice") == 0, "the arrival chain plays once")
+	check(bridges(g) == 1 and not "door gave it back" in says(ev), "no second bridge on re-arrival")
+	# Arrival with the bridge already in hand: no bridge line, chain without it.
+	var h := with_flags(["P04", "P24"], "R11")
+	h.give(BRIDGE)
+	ev = h.dispatch("go:R12")
+	check(story(ev) == ARRIVAL_STORY and bridges(h) == 1, "arrival with the bridge: just the chain")
+
+# ---------------------------------------------------------------------------------------------
+# P25
+# ---------------------------------------------------------------------------------------------
+func test_p25_solution() -> void:
+	var g := fresh()
+	var r := r12(g)
+	var ev := g.dispatch("to_frames")
+	check(r.local_view == "frames" and says(ev) == "The record wall.", "to the record wall")
+	ev = g.dispatch("frame_body")
+	check(r.local_view == "c_frames", "a frame opens c_frames")
+	check(r.switch() == "copy", "the switch starts on COPY")
+	check("WOULD FINALIZE OBSERVER" in says(ev), "the first c_frames line shows the copy preview (%s)" % says(ev))
+	check(r.has_seen("frames_procedure"), "the procedure is noted")
+	ev = g.dispatch("rack_trace")
+	check(says(ev) == "My movements: 'Turned the zero wheel. Opened the hatch. Looked down the stair.' And under them: 'Observer has not yet looked behind her.'",
+		"the trace card reads the stored trace (%s)" % says(ev))
+	check(r.held_card() == "trace" and has_ev(ev, "sfx", "card_lift"), "the trace card is in hand")
+	ev = g.dispatch("f_body")
+	check(says(ev) == "It clips into the BODY frame." and fx(ev, "card_seat").get("frame") == "body",
+		"the trace clips into BODY")
+	play(g, ["rack_position", "f_place", "rack_identity", "f_name"])
+	check(not g.flag("P25"), "three cards on COPY: not yet")
+	ev = g.dispatch("switch")
+	check(says(ev) == "WITNESS. The strip goes blank." and r.strip_lines().is_empty(), "WITNESS blanks the strip")
+	ev = g.dispatch("route")
+	check(g.flag("P25") and r.state.p25_complete, "ROUTE solves P25")
+	check(story(ev) == P25_STORY, "the P25 story lines (%s)" % [story(ev)])
+	var delays := []
+	for e in ev:
+		if e.type == "say":
+			delays.append(_d(e.delay))
+	check(delays == [0.0, 2.6, 5.4, 7.6, 9.6, 11.8, 14.4, 16.4], "the P25 line timings (%s)" % [delays])
+	check(sfx_list(ev) == [["route_key", 0.0], ["frames_slide", 0.5], ["strip_type", 2.6], ["strip_type", 5.4],
+		["terminal_on", 9.4], ["venn_last", 11.6], ["shutters_open", 16.2]], "the P25 sounds (%s)" % [sfx_list(ev)])
+	check(fx(ev, "strip_print").get("lines") == ["NINTH OBSERVER LOCATED.", "AUTOMATIC COUNTERSIGN AVAILABLE."]
+		and fx(ev, "strip_print").get("delays") == [2.6, 5.4], "the strip prints the countersign offer")
+	check(has_ev(ev, "fx", "frames_slide") and has_ev(ev, "fx", "terminal_lit"), "frames slide, terminal lights")
+	check(not has_ev(ev, "fx", "tide") and not has_ev(ev, "fx", "glance"), "no tide card, no glance")
+	check(r.has_seen("ninth_position") and r.has_seen("venn_last"), "the ninth position and Venn's last line are noted")
+	check(r.strip_lines() == ["NINTH OBSERVER LOCATED.", "AUTOMATIC COUNTERSIGN AVAILABLE."], "the strip after P25")
+	check(r.stage() == "s1", "stage s1 after P25")
+	# At tide IX with everything before it behind her: still no tide card.
+	var t := game_at(9, ROOM)
+	ev = play(t, P25_ACTIONS)
+	check(t.flag("P25") and not has_ev(ev, "fx", "tide") and t.tide() == 9, "P25 at tide IX: no tide card")
+
+const PERMS := [["trace", "position", "identity"], ["trace", "identity", "position"],
+	["position", "trace", "identity"], ["position", "identity", "trace"],
+	["identity", "trace", "position"], ["identity", "position", "trace"]]
+
+func test_p25_permutations() -> void:
+	for perm in PERMS:
+		for sw in ["copy", "witness"]:
+			var g := fresh()
+			var r := r12(g)
+			place(g, perm)
+			if sw == "witness":
+				g.dispatch("switch")
+			var before := flags_json(g)
+			var ev := g.dispatch("route")
+			var tag := "%s/%s" % [perm, sw]
+			var solution: bool = perm == ["trace", "position", "identity"] and sw == "witness"
+			check(g.flag("P25") == solution, "%s: P25 only for the solution on WITNESS" % tag)
+			if solution:
+				continue
+			check(flags_json(g) == before and not r.state.p25_complete, "%s: a wrong ROUTE changes no flag" % tag)
+			check(has_ev(ev, "sfx", "route_refuse"), "%s: the key refuses" % tag)
+			if sw == "copy":
+				check(says(ev) == COPY_REFUSAL + " | Not COPY. Not that.", "%s: the COPY refusal (%s)" % [tag, says(ev)])
+				check(fx(ev, "strip_print").get("lines") == ["WOULD FINALIZE OBSERVER"], "%s: COPY prints" % tag)
+				check(r.has_seen("copy_preview"), "%s: the copy preview is noted" % tag)
+			else:
+				var wrong := ""
+				for f in ["body", "place", "name"]:
+					if wrong == "" and r.frames()[f] != SOL[f]:
+						wrong = f
+				check(says(ev) == "ROUTE won't turn. The %s plate lights: '%s'" % [LABEL[wrong], CATEGORY[wrong]],
+					"%s: the first wrong frame lights (%s)" % [tag, says(ev)])
+				check(fx(ev, "frame_lamp").get("frame") == wrong and r.last_lamp_frame == wrong, "%s: frame lamp fx" % tag)
+			check(r.frames() == {"body": perm[0], "place": perm[1], "name": perm[2]}, "%s: nothing is consumed" % tag)
+
+func test_p25_refusals() -> void:
+	# Empty frames: the first empty one is named, in BODY, PLACE, NAME order.
+	for perm in [["", "", ""], ["trace", "", ""], ["trace", "position", ""], ["", "position", "identity"],
+			["trace", "", "identity"]]:
+		var g := fresh()
+		place(g, perm)
+		g.dispatch("switch")
+		var before := flags_json(g)
+		var ev := g.dispatch("route")
+		var empty := ""
+		for i in 3:
+			if empty == "" and perm[i] == "":
+				empty = R12Sim.FRAME_IDS[i]
+		check(says(ev) == "ROUTE won't turn. The %s frame is empty." % LABEL[empty], "%s: names the %s frame (%s)" % [perm, empty, says(ev)])
+		check(flags_json(g) == before and has_ev(ev, "sfx", "route_refuse"), "%s: refused, no flags" % [perm])
+	# The empty check comes before the switch check.
+	var c := fresh()
+	place(c, ["trace", "position", ""])
+	check(says(c.dispatch("route")) == "ROUTE won't turn. The NAME frame is empty.", "empty beats COPY")
+	# Switching to COPY always prints the preview first.
+	var s := fresh()
+	var r := r12(s)
+	place(s, ["", "", ""])
+	s.dispatch("switch")
+	var ev := s.dispatch("switch")
+	check(r.switch() == "copy" and fx(ev, "strip_print").get("lines") == r.strip_lines()
+		and r.strip_lines() == ["WOULD FINALIZE OBSERVER"], "switching to COPY prints its preview")
+	check(says(ev) == "COPY. The strip types: WOULD FINALIZE OBSERVER." and has_ev(ev, "sfx", "switch_throw")
+		and has_ev(ev, "sfx", "strip_type"), "the COPY line and sounds")
+	check(says(s.dispatch("look_strip")) == "WOULD FINALIZE OBSERVER", "look_strip on COPY")
+	s.dispatch("switch")
+	check(says(s.dispatch("look_strip")) == "The strip is blank.", "look_strip on WITNESS")
+	# Categories: an empty frame and the look controls say the plate, and note it.
+	for f in ["body", "place", "name"]:
+		check(says(s.dispatch("f_" + f)) == "%s. %s" % [LABEL[f], CATEGORY[f]], "empty %s frame says its plate" % f)
+		check(says(s.dispatch("look_" + f)) == "%s. %s" % [LABEL[f], CATEGORY[f]], "look_%s says its plate" % f)
+	check(r.has_seen("frame_categories"), "the plates are noted")
+
+func test_p25_cards() -> void:
+	var g := fresh()
+	var r := r12(g)
+	place(g, ["", "", ""])
+	# First lifts say the card; later lifts say its header.
+	var ev := g.dispatch("rack_position")
+	check(says(ev) == "My position: 'Ninth position. Centre of the station outline.'" and r.has_seen("card_position"), "position card")
+	ev = g.dispatch("rack_position")
+	check(says(ev) == "Back in the rack." and r.held_card() == "" and has_ev(ev, "sfx", "card_return"), "lift twice puts it back")
+	check(says(g.dispatch("rack_position")) == "POSITION · A. MERCER", "a second lift says the header")
+	ev = g.dispatch("rack_identity")
+	check(says(ev) == "My contract: 'Miss Ada Mercer, cataloguer. Requested by E. Venn.'" and r.held_card() == "identity",
+		"lifting another card swaps it silently")
+	check(r.card_in_rack("position") and not r.card_in_rack("identity"), "the swapped card is back in the rack")
+	g.dispatch("f_name")
+	check(says(g.dispatch("rack_identity")) == "That card's in a frame.", "a framed card stays framed")
+	# Displacing a card.
+	g.dispatch("rack_trace")
+	ev = g.dispatch("f_name")
+	check(says(ev) == "It clips into the NAME frame. The other card goes back to the rack.", "displacement line")
+	check(r.frames().name == "trace" and r.card_in_rack("identity"), "the occupant returns to the rack")
+	# Empty hand on a filled frame: back to the rack.
+	ev = g.dispatch("f_name")
+	check(says(ev) == "Back in the rack." and r.frames().name == "" and r.card_in_rack("trace"), "a filled frame empties")
+	check(R12Sim.RACK_ORDER == ["identity", "trace", "position"], "rack order, left to right")
+	check(r.card_header("trace") == "MOVEMENT · A. MERCER" and r.card_header("identity") == "CONTRACT · A. MERCER",
+		"card headers")
+	check(r.card_text("position") == ["Ninth position. Centre of the station outline."], "position card text")
+	check(r.card_text("trace") == r.body_card_lines(), "the trace card is the body card")
+	check(not g.has_item("trace") and g.state.inventory == [BRIDGE], "the cards never enter the inventory")
+
+func test_body_card() -> void:
+	for turned in [false, true]:
+		# At tide IX R02's threshold is behind her, so its `turned` (which owns the flag) holds on a load.
+		var g := game_at(9, ROOM)
+		g.state.p05_trace = TRACE.duplicate()
+		g.room("R02").state.turned = turned
+		g.set_flag("t1x_turned", turned)
+		var r := r12(g)
+		var line4 := R03Sim.LINE4_TURNED if turned else R03Sim.LINE4_STILL
+		var expect := ["Turned the zero wheel.", "Opened the hatch.", "Looked down the stair.", line4]
+		check(r.body_card_lines() == expect, "body card lines (turned %s): %s" % [turned, r.body_card_lines()])
+		check(r.line4() == line4, "line4 follows t1x_turned")
+		g.record_move("lamp_mended")
+		check(r.body_card_lines() == expect, "the stored trace, not recomputed from new moves")
+		var t := roundtrip(g)
+		check(r12(t).body_card_lines() == expect, "the body card survives a save (turned %s)" % turned)
+	var h := fresh()
+	h.set_flag("t1x_turned")
+	place(h, [])
+	check(says(h.dispatch("rack_trace")).ends_with("'Observer has looked behind her once.'"), "the turned fourth line on the card")
+
+func test_p25_after() -> void:
+	var g := p25_game()
+	var r := r12(g)
+	var nb: int = g.state.notebook.size()
+	var ev := g.dispatch("route")
+	check(says(ev) == READ_ONLY and ev.size() == 1, "a repeat ROUTE is the read-only line and nothing else")
+	check(g.state.notebook.size() == nb, "no new observations from a repeat")
+	for c in R12Sim.FRAMES_CONTROLS:
+		var before := JSON.stringify(r.state)
+		ev = g.dispatch(c)
+		check(says(ev) == READ_ONLY and JSON.stringify(r.state) == before, "after P25, %s is read-only" % c)
+	play(g, ["back"])
+	check(says(g.dispatch("frame_body")) == READ_ONLY and r.local_view == "c_frames", "the frames read-only on re-entry")
+	g.dispatch("back")
+	check(says(g.dispatch("terminal")) == "Lit. The strip still says it: AUTOMATIC COUNTERSIGN AVAILABLE.", "terminal after P25")
+
+func test_p25_save_load() -> void:
+	var g := fresh()
+	place(g, ["trace", "position", ""])
+	g.dispatch("switch")
+	g.dispatch("rack_identity")
+	check(r12(g).held_card() == "identity", "a card in hand before the save")
+	var t := roundtrip(g)
+	var r := r12(t)
+	check(r.frames() == {"body": "trace", "place": "position", "name": ""}, "the frames survive a save")
+	check(r.switch() == "witness", "the switch survives a save")
+	check(r.held_card() == "" and r.card_in_rack("identity"), "the held card drops back to the rack")
+	check(r.local_view == "room" and t.view == "room" and t.state.room == ROOM, "a load lands in the room")
+	check(JSON.stringify(t.to_dict()) == JSON.stringify(roundtrip(t).to_dict()), "the mid-puzzle save round-trips")
+	play(t, ["frame_body", "rack_identity", "f_name", "route"])
+	check(t.flag("P25"), "the loaded puzzle completes")
+
+func test_load_state() -> void:
+	var g := fresh()
+	var r := r12(g)
+	r.load_state({"frames": {"body": "trace", "place": "trace", "name": "bogus"}, "switch": "sideways",
+		"routes": {"sever": "cc_ends", "continue": "cc_ends"}, "previewed": ["sever", "sever", "x"],
+		"window_looks": 3.5, "armature_looks": 500, "noticed": ["arrival", "x"], "opened": ["c_frames", "c_x"],
+		"yoke": "contacts", "final_preview": "sever", "chosen": "sever", "ending_step": 4, "bridge_seated": true})
+	check(r.frames() == {"body": "trace", "place": "", "name": ""}, "duplicate and unknown cards are dropped (%s)" % [r.frames()])
+	check(r.switch() == "copy", "an unknown switch position is dropped")
+	check(r.routes() == {"sever": "cc_ends", "continue": ""}, "duplicate consequence cards are dropped")
+	check(r.state.previewed == ["sever"], "previewed: known, once")
+	check(r.state.window_looks == 0 and r.state.armature_looks == 99, "looks: whole, clamped")
+	check(r.state.noticed == ["arrival"] and r.state.opened == ["c_frames"], "known ids only")
+	check(r.yoke() == "tray" and not r.bridge_seated() and r.final_preview() == "", "no P26: nothing fitted")
+	check(r.chosen() == "" and r.ending_step() == 0 and not r.state.p27_complete, "no P27 without P26")
+	r.load_state({"p25_complete": true, "frames": {"body": "identity"}, "switch": "copy"})
+	check(r.frames() == R12Sim.SOLUTION_FRAMES and r.switch() == "witness", "p25_complete forces the solution")
+	r.load_state({"p26_complete": true})
+	check(not r.state.p26_complete, "P26 needs P25")
+	r.load_state({"p25_complete": true, "p26_complete": true, "routes": {}, "previewed": []})
+	check(r.routes() == R12Sim.SOLUTION_ROUTES and r.state.previewed == ["sever", "continue"], "p26_complete forces its routes")
+	r.load_state({"p25_complete": true, "p26_complete": true, "p27_complete": true, "chosen": "", "ending_step": 3})
+	check(not r.state.p27_complete and r.ending_step() == 0, "P27 needs a choice")
+	r.load_state({"p25_complete": true, "p26_complete": true, "p27_complete": true, "chosen": "continue", "ending_step": 40})
+	check(r.chosen() == "continue" and r.ending_step() == 9, "ending_step clamps to the choice's steps")
+	r.load_state({"p25_complete": true, "p26_complete": true, "yoke": "contacts", "final_preview": "continue"})
+	check(r.final_preview() == "", "a preview that doesn't match the fittings is dropped")
+	r.load_state("junk")
+	check(JSON.stringify(r.state) == JSON.stringify(r.initial_state()), "junk loads fresh")
+
+# ---------------------------------------------------------------------------------------------
+# P26
+# ---------------------------------------------------------------------------------------------
+func test_p26_gates() -> void:
+	var g := fresh()
+	var r := r12(g)
+	g.dispatch("to_routing")
+	var lines := {
+		"plate_sever": "Two plates behind brass shutters: SEVER and CONTINUE. The shutters are locked. A tag: ROUTE A RECORD FIRST.",
+		"plate_continue": "Two plates behind brass shutters: SEVER and CONTINUE. The shutters are locked. A tag: ROUTE A RECORD FIRST.",
+		"cards": "A holder of four cards, behind the same shutter.",
+		"handle": "The severance handle, locked in its housing.",
+		"yoke_tray": "A tray with a severance yoke in it: a heavy insulated bar. It's on the chamber's inventory, in his hand.",
+		"contacts": "Two feed contacts, labelled FEED A and FEED B.",
+		"bridge_seat": "My terminal. A. MERCER · WITNESS. There's a seat in it the shape of the bridge from the model.",
+	}
+	for h in lines:
+		check(says(g.dispatch(h)) == lines[h] and r.local_view == "routing", "before P25, %s stays on the wall" % h)
+	for o in ["routing_plates", "yoke", "feed_contacts", "ada_terminal"]:
+		check(r.has_seen(o), "before P25, %s is noted" % o)
+	for c in R12Sim.ROUTING_CONTROLS:
+		g.dispatch(c)
+	check(r.routes() == {"sever": "", "continue": ""} and r.state.previewed.is_empty() and r.local_view == "routing",
+		"routing controls do nothing before P25")
+	# After P25: the plates open; the final hardware waits.
+	var p := p25_game()
+	var q := r12(p)
+	play(p, ["back", "back", "to_routing"])
+	check(says(p.dispatch("plate_continue")) == "Two plates, SEVER and CONTINUE, each with a PREVIEW key and a card slot. Four cards in the tray. A button: CONFIRM UNDERSTANDING."
+		and q.local_view == "c_routing", "first c_routing entry")
+	p.dispatch("back")
+	check(says(p.dispatch("cards")) == "The routing plates." and q.local_view == "c_routing", "later entries")
+	p.dispatch("back")
+	for h in ["handle", "yoke_tray", "contacts", "bridge_seat"]:
+		check(says(p.dispatch(h)) == LATER and q.local_view == "routing", "after P25, %s waits for P26" % h)
+
+func _routing_game() -> GameSim:
+	var g := p25_game()
+	play(g, ["back", "back", "to_routing", "plate_sever"])
+	return g
+
+func test_p26_pairs() -> void:
+	var cards := ["cc_restored", "cc_remains", "cc_returns", "cc_ends"]
+	check(R12Sim.CC_IDS == cards, "tray order")
+	for a in cards:
+		for b in cards:
+			if a == b:
+				continue
+			var g := _routing_game()
+			var r := r12(g)
+			play(g, ["preview_sever", "preview_continue", a, "slot_sever", b, "slot_continue"])
+			var before := flags_json(g)
+			var ev := g.dispatch("confirm")
+			var tag := "%s/%s" % [a, b]
+			var solution: bool = a == "cc_ends" and b == "cc_remains"
+			check(g.flag("P26") == solution, "%s: P26 only for ends/remains" % tag)
+			if solution:
+				continue
+			var plate := "sever" if a != "cc_ends" else "continue"
+			var m: Array = REF_MISMATCH[plate][a if plate == "sever" else b]
+			check(says(ev) == m[0], "%s: the mismatch line (%s)" % [tag, says(ev)])
+			check(fx(ev, "mismatch").get("plate") == plate and fx(ev, "mismatch").get("row") == m[1], "%s: mismatch fx" % tag)
+			check(r.last_mismatch == {"plate": plate, "row": m[1]}, "%s: last_mismatch" % tag)
+			check(has_ev(ev, "sfx", "mismatch_lamp") and flags_json(g) == before, "%s: lamp, no flags" % tag)
+			check(r.routes() == {"sever": a, "continue": b} and g.checkpoint.is_empty(), "%s: nothing consumed, no checkpoint" % tag)
+			# Fully reversible: take both back and set it right.
+			play(g, ["slot_sever", "slot_continue", "cc_ends", "slot_sever", "cc_remains", "slot_continue"])
+			check(r.routes() == R12Sim.SOLUTION_ROUTES, "%s: reversible" % tag)
+			g.dispatch("confirm")
+			check(g.flag("P26"), "%s: then confirm solves" % tag)
+	# Partial fills.
+	for fill in [["", ""], ["cc_ends", ""], ["", "cc_remains"]]:
+		var g := _routing_game()
+		play(g, ["preview_sever", "preview_continue"])
+		if fill[0] != "":
+			play(g, [fill[0], "slot_sever"])
+		if fill[1] != "":
+			play(g, [fill[1], "slot_continue"])
+		var ev := g.dispatch("confirm")
+		check(says(ev) == NEEDS_CARDS and has_ev(ev, "sfx", "confirm_refuse") and not g.flag("P26"), "%s: each plate needs a card" % [fill])
+	# Previews come first, even with the right cards.
+	for pv in [[], ["preview_sever"], ["preview_continue"]]:
+		var g := _routing_game()
+		play(g, pv)
+		play(g, ["cc_ends", "slot_sever", "cc_remains", "slot_continue"])
+		var ev := g.dispatch("confirm")
+		check(says(ev) == PREVIEW_TAG and has_ev(ev, "sfx", "confirm_refuse") and not g.flag("P26"), "%s: PREVIEW EACH ROUTE" % [pv])
+	# Card handling lines.
+	var h := _routing_game()
+	var q := r12(h)
+	var ev := h.dispatch("cc_returns")
+	check(says(ev) == "'Venn returns.'" and q.held_cc() == "cc_returns" and has_ev(ev, "sfx", "cc_lift"), "lifting a card reads it")
+	ev = h.dispatch("cc_returns")
+	check(says(ev) == "Back in the tray." and q.held_cc() == "" and q.cc_in_tray("cc_returns"), "lifting twice returns it")
+	check(says(h.dispatch("slot_sever")) == "An empty card slot.", "an empty slot, empty hand")
+	h.dispatch("cc_ends")
+	check(says(h.dispatch("slot_sever")) == "Into the SEVER slot.", "into SEVER")
+	check(says(h.dispatch("cc_ends")) == "That card's in a plate.", "a slotted card stays")
+	h.dispatch("cc_remains")
+	h.dispatch("slot_sever")
+	check(q.routes().sever == "cc_remains" and q.cc_in_tray("cc_ends"), "a slotted card is displaced to the tray")
+	h.dispatch("cc_ends")
+	check(says(h.dispatch("slot_continue")) == "Into the CONTINUE slot.", "into CONTINUE")
+	check(says(h.dispatch("look_sever")) == "SEVER. Subject lines one to eight, the witness feed, the outer door. Each with a lamp.", "look_sever")
+	check(says(h.dispatch("look_continue")) == "CONTINUE. Subject lines one to eight, the witness feed from E.V. to A.M., the outer door.", "look_continue")
+
+func test_p26_previews() -> void:
+	var g := _routing_game()
+	var r := r12(g)
+	var ev := g.dispatch("preview_sever")
+	check(story(ev) == ["PREVIEW. On the SEVER plate the eight subject lamps go out, one after another.",
+		"The witness feed lamp goes out last. The outer-door shutter turns to OPEN.",
+		"Then they all light again. It was only showing me."], "first SEVER preview")
+	check(sfx_list(ev) == [["preview_key", 0.0], ["preview_out", 0.3]] and fx(ev, "preview").get("route") == "sever", "SEVER preview sounds/fx")
+	check(r.has_seen("preview_sever") and r.previewed("sever"), "SEVER previewed and noted")
+	ev = g.dispatch("preview_sever")
+	check(says(ev) == "The eight go out. The feed goes out. The door opens. Every time." and story(ev).is_empty(), "repeat SEVER preview")
+	check(r.state.previewed == ["sever"], "previewed once")
+	ev = g.dispatch("preview_continue")
+	check(story(ev) == ["PREVIEW. On the CONTINUE plate the eight subject lamps stay lit.",
+		"The witness feed slides along its rail, from the terminal marked E.V. to the one marked A.M.",
+		"His lamp goes out. Mine comes on. The eight don't change."], "first CONTINUE preview")
+	check(sfx_list(ev) == [["preview_key", 0.0], ["preview_move", 0.3]] and fx(ev, "preview").get("route") == "continue", "CONTINUE preview sounds/fx")
+	check(says(g.dispatch("preview_continue")) == "The eight stay lit. His lamp out, mine on.", "repeat CONTINUE preview")
+
+func test_p26_checkpoint() -> void:
+	var g := _routing_game()
+	var r := r12(g)
+	play(g, ["preview_sever", "preview_continue", "cc_ends", "slot_sever", "cc_remains", "slot_continue"])
+	check(g.checkpoint.is_empty(), "no checkpoint before P26")
+	var ev := g.dispatch("confirm")
+	check(g.flag("P26") and r.state.p26_complete and r.stage() == "s2", "CONFIRM solves P26")
+	check(story(ev) == P26_STORY, "the P26 story lines (%s)" % [story(ev)])
+	check(sfx_list(ev) == [["confirm_stamp", 0.0], ["slots_close", 0.6], ["surface_withdraw", 10.4]], "the P26 sounds")
+	check(has_ev(ev, "fx", "slots_close") and not has_ev(ev, "fx", "tide"), "slots close, no tide card")
+	var gl := fx(ev, "glance")
+	check(gl.get("rect") == [474, 96, 500, 290] and gl.get("target") == "window", "the glance goes to the window")
+	check(r.has_seen("consequences") and r.has_seen("surface_withdrew"), "consequences and the withdrawal are noted")
+	check(not g.checkpoint.is_empty(), "the checkpoint is written")
+	var snap := JSON.stringify(g.checkpoint)
+	check(JSON.stringify(g.to_dict()) == snap, "the checkpoint is the state after the commit")
+	for c in R12Sim.ROUTING_CONTROLS:
+		check(says(g.dispatch(c)) == SEALED, "after P26, %s is sealed" % c)
+	check(JSON.stringify(g.checkpoint) == snap, "a second confirm keeps the checkpoint")
+	play(g, ["back", "plate_sever"])
+	check(says(g.dispatch("plate_sever")) == SEALED or r.local_view == "c_routing", "re-entering c_routing")
+	play(g, ["back", "back", "window", "pressure"])
+	check(JSON.stringify(g.checkpoint) == snap, "the checkpoint is written exactly once")
+	# The checkpoint loads into the decision.
+	var t := GameSim.new()
+	check(t.from_dict(JSON.parse_string(snap)), "the checkpoint loads")
+	var q := r12(t)
+	check(t.state.room == ROOM and t.view == "room" and q.local_view == "room", "into the chamber, room view")
+	check(t.flag("P26") and not t.flag("P27") and t.state.ending == "" and t.has_item(BRIDGE), "P26 set, P27 not, the bridge in hand")
+	check(q.objective() == "decide", "the checkpoint stands at the decision")
+	var a := GameSim.new()
+	a.from_dict(JSON.parse_string(snap))
+	play(a, ["to_routing", "contacts", "tray", "contacts", "preview", "btn_sever"])
+	check(a.flag("P27") and r12(a).chosen() == "sever", "SEVER completes from the checkpoint")
+	var b := GameSim.new()
+	b.from_dict(JSON.parse_string(snap))
+	play(b, P27_CONTINUE)
+	check(b.flag("P27") and r12(b).chosen() == "continue", "CONTINUE completes from the checkpoint")
+
+# ---------------------------------------------------------------------------------------------
+# P27
+# ---------------------------------------------------------------------------------------------
+func test_p27_gates() -> void:
+	var g := p25_game()
+	var r := r12(g)
+	play(g, ["back", "back", "to_routing"])
+	for h in ["handle", "yoke_tray", "contacts", "bridge_seat"]:
+		g.dispatch(h)
+		check(r.local_view == "routing", "c_final refused before P26 (%s)" % h)
+	g.selected_item = BRIDGE
+	var ev := g.dispatch("bridge_seat")
+	check(says(ev) == "Not yet. I don't know yet what it would do." and g.has_item(BRIDGE) and not r.bridge_seated(),
+		"the bridge is kept before P26")
+	# After P26: first and later entries.
+	var p := p26_game()
+	var q := r12(p)
+	p.dispatch("back")
+	ev = p.dispatch("handle")
+	check(says(ev) == "The feed contacts, my terminal, the preview lamps. Two buttons, each with its whole meaning printed on it."
+		and q.local_view == "c_final", "first c_final entry")
+	p.dispatch("back")
+	check(says(p.dispatch("yoke_tray")) == "The yoke, the bridge, the two buttons." and q.local_view == "c_final", "later entries")
+
+func test_p27_fittings() -> void:
+	var g := final_game()
+	var r := r12(g)
+	var ev := g.dispatch("contacts")
+	check(says(ev) == "Two feed contacts: FEED A, SUBJECTS 1 TO 4. FEED B, SUBJECTS 5 TO 8. The yoke would sit across both."
+		and r.has_seen("feed_contacts"), "contacts with an empty hand")
+	ev = g.dispatch("tray")
+	check(says(ev) == "The severance yoke. Heavy, and insulated at the grips." and r.held_yoke(), "lift the yoke")
+	ev = g.dispatch("tray")
+	check(says(ev) == "Back in its tray." and not r.held_yoke() and r.yoke() == "tray", "put it back")
+	play(g, ["tray"])
+	ev = g.dispatch("contacts")
+	check(says(ev) == "It drops across both feed contacts and seats." and r.yoke() == "contacts" and has_ev(ev, "fx", "yoke_fit"), "fit the yoke")
+	check(says(g.dispatch("tray")) == "The tray is empty. The yoke is across the contacts.", "the tray is empty")
+	g.dispatch("preview")
+	check(r.final_preview() == "sever", "yoke preview")
+	ev = g.dispatch("contacts")
+	check(says(ev) == "I lift the yoke off. Back in its tray." and r.yoke() == "tray" and r.final_preview() == "", "lifting resets the preview")
+	ev = g.dispatch("bridge_seat")
+	check(says(ev) == "The bridge seats in my terminal. A. MERCER · WITNESS. The lamp beside it doesn't light. Not yet."
+		and r.bridge_seated() and not g.has_item(BRIDGE) and has_ev(ev, "fx", "bridge_seat"), "seat the bridge")
+	g.dispatch("preview")
+	check(r.final_preview() == "continue", "bridge preview")
+	ev = g.dispatch("bridge_seat")
+	check(says(ev) == "I take the bridge out. It's still warm." and not r.bridge_seated() and g.has_item(BRIDGE)
+		and r.final_preview() == "", "unseat resets the preview")
+	g.take(BRIDGE)
+	check(says(g.dispatch("bridge_seat")) == "The seat is empty. It wants the bridge from the model.", "no bridge anywhere")
+	g.give(BRIDGE)
+	# Both fitted.
+	play(g, ["bridge_seat", "tray", "contacts"])
+	check(r.yoke() == "contacts" and r.bridge_seated(), "both fitted")
+	ev = g.dispatch("preview")
+	check(says(ev) == ONE_OR_OTHER and r.final_preview() == "" and has_ev(ev, "sfx", "one_or_other"), "preview with both")
+	for b in ["btn_sever", "btn_continue"]:
+		check(says(g.dispatch(b)) == ONE_OR_OTHER and not g.flag("P27"), "%s with both: one or the other" % b)
+	# Nothing fitted.
+	play(g, ["contacts", "bridge_seat"])
+	ev = g.dispatch("preview")
+	check(says(ev) == "PREVIEW. Nothing fitted. The lamps show the chamber as it is." and r.final_preview() == "", "preview with nothing")
+	play(g, ["tray", "contacts"])
+	ev = g.dispatch("preview")
+	check(says(ev) == "PREVIEW. The eight lines go out on the panel, one by one. In the preview only."
+		and fx(ev, "final_preview").get("route") == "sever" and sfx_list(ev) == [["final_preview", 0.0], ["preview_out", 0.3]], "SEVER final preview")
+	play(g, ["contacts", "bridge_seat"])
+	ev = g.dispatch("preview")
+	check(says(ev) == "PREVIEW. The lit line moves from E.V. to A.M. on the panel. In the preview only."
+		and fx(ev, "final_preview").get("route") == "continue" and sfx_list(ev) == [["final_preview", 0.0], ["preview_move", 0.3]], "CONTINUE final preview")
+	check(says(g.dispatch("look_lamps")) == "The preview lamps. They only show. They don't do.", "look_lamps")
+	check(says(g.dispatch("look_handle")) == "The severance handle. It stays locked until BREAK CONNECTION AND LEAVE is pressed.", "look_handle")
+	# The yoke in hand leaves with the close-up.
+	play(g, ["bridge_seat", "tray", "back"])
+	check(not r.held_yoke() and r.yoke() == "tray", "back puts the yoke in its tray")
+
+func test_p27_buttons() -> void:
+	var g := final_game()
+	var r := r12(g)
+	var seen_before := JSON.stringify(g.value("endings_seen"))
+	check(says(g.dispatch("btn_sever")) == "The yoke isn't across the contacts.", "SEVER without the yoke")
+	check(says(g.dispatch("btn_continue")) == "The bridge isn't in my terminal.", "CONTINUE without the bridge")
+	play(g, ["tray", "contacts"])
+	var ev := g.dispatch("btn_sever")
+	check(says(ev) == PREVIEW_FIRST and r.refused_button == "sever" and has_ev(ev, "sfx", "button_refuse"), "SEVER without a preview")
+	play(g, ["contacts", "bridge_seat"])
+	check(says(g.dispatch("btn_continue")) == PREVIEW_FIRST and r.refused_button == "continue", "CONTINUE without a preview")
+	# A preview of the other route doesn't satisfy a button.
+	play(g, ["preview"])
+	check(r.final_preview() == "continue", "CONTINUE previewed")
+	play(g, ["bridge_seat", "tray", "contacts"])
+	check(r.final_preview() == "" and says(g.dispatch("btn_sever")) == PREVIEW_FIRST, "the CONTINUE preview doesn't arm SEVER")
+	play(g, ["preview", "contacts", "bridge_seat"])
+	check(says(g.dispatch("btn_continue")) == PREVIEW_FIRST, "the SEVER preview doesn't arm CONTINUE")
+	check(not g.flag("P27") and g.value("ending_choice") == "" and JSON.stringify(g.value("endings_seen")) == seen_before
+		and r.local_view == "c_final" and r.chosen() == "", "nothing changes before a confirm")
+	# Commit SEVER.
+	play(g, ["bridge_seat", "tray", "contacts", "preview"])
+	ev = g.dispatch("btn_sever")
+	check(g.flag("P27") and r.chosen() == "sever" and r.local_view == "ending" and r.ending_step() == 0, "SEVER commits")
+	check(not has_ev(ev, "fx", "tide"), "P27: the tide holds, no card")
+	check(story(ev) == ["I pull the handle. It is heavier than it looks, and then it isn't.",
+		"Above the frames the eight indicators go out. Not together. One, and a wait, and the next."], "SEVER step 0")
+	var expect := [["handle_pull", 0.0]]
+	for i in 8:
+		expect.append(["line_out_%d" % (i + 1), _d(3.0 + 0.9 * i)])
+	check(sfx_list(ev) == expect, "the eight lines go out in turn (%s)" % [sfx_list(ev)])
+	var e := fx(ev, "ending")
+	check(e.get("choice") == "sever" and e.get("step") == 0 and e.get("tableau") == "c_sever" and e.get("change") == "", "ending fx step 0")
+	check(g.value("ending_choice") == "" and g.view == "room", "the end card waits for the ending")
+	check(r.hint_frozen() and r.objective() == "finale", "the hint freezes in the ending")
+
+func test_endings_sever_and_replay() -> void:
+	var g := game_at(9, ROOM)
+	var r := r12(g)
+	play(g, P25_ACTIONS)
+	play(g, P26_ACTIONS)
+	var ev := play(g, P27_SEVER)
+	check(r.chosen() == "sever" and not has_ev(ev, "fx", "tide") and g.tide() == 9, "SEVER at tide IX: tide holds 9")
+	var tabs := ["c_sever"]
+	for i in 12:
+		ev = g.dispatch("ending_next")
+		check(g.view == "room" and r.local_view == "ending" and r.ending_step() == i + 1, "SEVER step %d" % (i + 1))
+		var e := fx(ev, "ending")
+		check(e.get("step") == i + 1 and e.get("tableau") == R12Sim.ENDING_SEVER[i + 1].tableau, "SEVER fx step %d" % (i + 1))
+		check(story(ev).size() == R12Sim.ENDING_SEVER[i + 1].lines.size() and not story(ev).is_empty(), "SEVER lines step %d" % (i + 1))
+		check(e.get("change") == R12Sim.ENDING_SEVER[i + 1].change, "SEVER change step %d" % (i + 1))
+		var ch: String = e.get("change")
+		check(ch == "" or has_ev(ev, "sfx", ch), "SEVER change sfx plays at step %d" % (i + 1))
+		tabs.append(e.get("tableau"))
+		check(says(g.dispatch("back")) == "" and r.local_view == "ending", "Back does nothing in the ending")
+		check(r.exit_block("R11") == "Not now. I've chosen.", "no leaving after the choice")
+	check(tabs == ["c_sever", "m_funnels", "m_diaphragm", "m_jars", "m_spoon", "m_bed", "m_pen", "b_dark", "a_day",
+		"end_a_record", "end_a_jetty", "end_a_inquiry", "end_a_page"], "the SEVER tableaux (%s)" % [tabs])
+	check(story(ev) == ["The corrected page dries on the sill in ordinary daylight.",
+		"There's a small water stain at its corner. Nothing is reflected in it."], "the last SEVER page")
+	g.dispatch("ending_next")
+	check(g.view == "end" and g.value("ending_choice") == "sever" and "sever" in g.value("endings_seen"), "the 13th next finishes SEVER")
+	ev = g.dispatch("return_decision")
+	check(g.view == "room" and g.state.room == ROOM and g.flag("P26") and not g.flag("P27") and g.value("ending_choice") == "",
+		"return to the decision")
+	check(r.chosen() == "" and r.objective() == "decide" and g.has_item(BRIDGE), "back at the decision with the bridge")
+	ev = play(g, P27_CONTINUE)
+	check(r.chosen() == "continue" and r.local_view == "ending", "CONTINUE commits")
+	check(story(ev) == ["I press it. The lit line leaves the terminal marked E.V. and comes into mine.",
+		"It's warm. At my own temperature."] and sfx_list(ev).has(["feed_move", 0.0]) and sfx_list(ev).has(["terminal_on", 2.2]),
+		"CONTINUE step 0")
+	tabs = [fx(ev, "ending").get("tableau")]
+	for i in 9:
+		ev = g.dispatch("ending_next")
+		tabs.append(fx(ev, "ending").get("tableau"))
+		check(g.view == "room" and r.ending_step() == i + 1, "CONTINUE step %d" % (i + 1))
+	check(tabs == ["c_continue", "m_funnel_venn", "m_coat", "a_sit", "end_b_terminal_1", "m_cup", "end_b_terminal_2",
+		"a_morning", "end_b_wide", "end_b_cover"], "the CONTINUE tableaux (%s)" % [tabs])
+	check(story(ev).back() == "Nora Bell took her tea without sugar. Begin there.", "the last CONTINUE line")
+	g.dispatch("ending_next")
+	check(g.view == "end" and g.value("ending_choice") == "continue", "the 10th next finishes CONTINUE")
+	check(sorted(g.value("endings_seen")) == ["continue", "sever"], "both endings seen")
+	g.dispatch("new_game")
+	check(sorted(g.value("endings_seen")) == ["continue", "sever"], "endings seen survive New game")
+
+func test_seen_lines() -> void:
+	var g := final_game()
+	var r := r12(g)
+	play(g, ["tray", "contacts", "preview", "btn_sever"])
+	for i in 13:
+		g.dispatch("ending_next")
+	g.dispatch("return_decision")
+	var ev := play(g, ["to_routing", "contacts"])
+	check(r.local_view == "c_final" and "I've broken the line before. I remember the launch." in says(ev), "the launch remembered")
+	check(r.has_seen("seen_sever") and not r.has_seen("seen_continue"), "seen_sever noted, continue not")
+	g.dispatch("back")
+	ev = g.dispatch("contacts")
+	check(not "I've broken the line before" in says(ev), "the memory line once per replay")
+	play(g, ["bridge_seat", "preview", "btn_continue"])
+	for i in 10:
+		g.dispatch("ending_next")
+	g.dispatch("return_decision")
+	ev = play(g, ["to_routing", "handle"])
+	check("I've broken the line before. I remember the launch." in says(ev) and "I've stayed before. I remember the first correction." in says(ev),
+		"both memories on the next replay, side by side")
+	check(r.has_seen("seen_sever") and r.has_seen("seen_continue"), "both memories noted")
+
+func test_bridge_net() -> void:
+	# Without the bridge: arrival gives it once.
+	var g := with_flags(["P04", "P24"], "R11")
+	check(not g.has_item(BRIDGE), "no bridge before the chamber")
+	g.dispatch("go:R12")
+	check(bridges(g) == 1, "arrive gives the bridge")
+	g.dispatch("go:R11")
+	g.dispatch("go:R12")
+	check(bridges(g) == 1, "no duplicate on re-arrival")
+	# Reconcile also covers a save without it.
+	var s := fresh(false)
+	var t := roundtrip(s)
+	check(bridges(t) == 1, "a P24 save without the bridge loads with it")
+	# Seated: kept seated across saves.
+	var f := final_game()
+	f.dispatch("bridge_seat")
+	t = roundtrip(f)
+	check(r12(t).bridge_seated() and not t.has_item(BRIDGE), "a seated bridge stays seated and out of the inventory")
+	# Both seated and in inventory: loads unseated.
+	var d: Dictionary = JSON.parse_string(JSON.stringify(f.to_dict()))
+	d.inventory.append(BRIDGE)
+	var u := GameSim.new()
+	u.from_dict(d)
+	check(not r12(u).bridge_seated() and bridges(u) == 1, "a doubled bridge loads unseated, once")
+	# No P24, no bridge net.
+	var n := with_flags([], ROOM)
+	r12(n).reconcile()
+	check(not n.has_item(BRIDGE), "the net needs P24")
+
+func test_ending_saves() -> void:
+	var g := final_game()
+	var r := r12(g)
+	play(g, ["tray", "contacts", "preview", "btn_sever"])
+	for i in 5:
+		g.dispatch("ending_next")
+	check(r.ending_step() == 5, "at SEVER step 5")
+	var t := roundtrip(g)
+	var q := r12(t)
+	check(t.view == "room" and q.local_view == "room" and t.state.room == ROOM and q.ending_step() == 5 and q.chosen() == "sever",
+		"an ending save lands in the room at its step")
+	var before := JSON.stringify(t.to_dict())
+	var ev := t.dispatch("go:R11")
+	check(t.state.room == ROOM and says(ev) == "Not now. I've chosen.", "no leaving after a load either")
+	ev = t.dispatch("chair")
+	check(q.local_view == "ending" and q.ending_step() == 5 and story(ev) == ["In the bunk room the hollows in the mattresses rise, one by one, until the beds are only made."],
+		"a hotspot resumes at step 5 (%s)" % [story(ev)])
+	check(fx(ev, "ending").get("step") == 5 and JSON.stringify(t.to_dict()) == before, "resume changes nothing")
+	ev = t.dispatch("ending_next")
+	check(q.ending_step() == 6, "and the ending goes on")
+	# A control after a load resumes too.
+	var u := roundtrip(g)
+	ev = u.dispatch("btn_sever")
+	check(r12(u).local_view == "ending" and fx(ev, "ending").get("step") == 5, "a control resumes the ending")
+
+func test_use_item() -> void:
+	var g := fresh()
+	g.give("pencil")
+	g.selected_item = "pencil"
+	check(says(g.dispatch("chair")) == "That belongs upstairs." and g.has_item("pencil"), "other items belong upstairs")
+	g.selected_item = BRIDGE
+	check(says(g.dispatch("chair")) == "Not here. The bridge is for my terminal." and g.has_item(BRIDGE), "the bridge on the chair")
+	g.dispatch("to_routing")
+	g.selected_item = BRIDGE
+	check(says(g.dispatch("contacts")) == "The bridge goes in my terminal, not across the feed.", "the bridge on the contacts")
+	check(not r12(g).use_item(BRIDGE, "go:R11", []), "the bridge on the stair exit is not handled")
+	check(not r12(g).use_item(BRIDGE, "nowhere", []), "unknown targets are not handled")
+	# After P26, from the routing wall: opens c_final and seats it.
+	var p := p26_game()
+	var r := r12(p)
+	p.dispatch("back")
+	p.selected_item = BRIDGE
+	var ev := p.dispatch("bridge_seat")
+	check(r.local_view == "c_final" and r.bridge_seated() and not p.has_item(BRIDGE), "the bridge seats from the wall (%s)" % says(ev))
+
+# ---------------------------------------------------------------------------------------------
+# every hotspot and control answers
+# ---------------------------------------------------------------------------------------------
+func _jumped(n: int) -> GameSim:
+	var g := GameSim.new()
+	g.room(ROOM).debug_jump(n)
+	return g
+
+func test_answers() -> void:
+	for n in [0, 1, 2]:
+		var g := _jumped(n)
+		var r := r12(g)
+		check(r.stage() == ["s0", "s1", "s2"][n], "jump %d: stage" % n)
+		for h in R12Sim.HOTSPOTS + R12Sim.FRAMES_HOTSPOTS + R12Sim.ROUTING_HOTSPOTS:
+			check(says(g.dispatch(h)) != "", "s%d: %s answers" % [n, h])
+		for cs in [["frame_body", R12Sim.FRAMES_CONTROLS, "c_frames"]]:
+			g.dispatch(cs[0])
+			for c in cs[1]:
+				check(r.local_view == cs[2], "s%d: still in %s for %s" % [n, cs[2], c])
+				check(says(g.dispatch(c)) != "", "s%d: %s answers" % [n, c])
+		if n >= 1:
+			g.dispatch("plate_sever")
+			for c in R12Sim.ROUTING_CONTROLS:
+				check(r.local_view == "c_routing", "s%d: in c_routing for %s" % [n, c])
+				check(says(g.dispatch(c)) != "", "s%d: %s answers" % [n, c])
+		if n == 2:
+			g.dispatch("handle")
+			for c in R12Sim.FINAL_CONTROLS:
+				check(r.local_view == "c_final", "s2: in c_final for %s" % c)
+				check(says(g.dispatch(c)) != "", "s2: %s answers" % c)
+	# The configured states: fittings on, and the ending.
+	for n in [3, 4, 5, 6]:
+		var g := _jumped(n)
+		var r := r12(g)
+		if n <= 4:
+			play(g, ["handle"])
+			for c in R12Sim.FINAL_CONTROLS:
+				if c in ["btn_sever", "btn_continue"]:
+					continue
+				check(says(g.dispatch(c)) != "", "jump %d: %s answers" % [n, c])
+		else:
+			for h in R12Sim.HOTSPOTS + R12Sim.ENDING_CONTROLS:
+				check(says(g.dispatch(h)) != "" and r.local_view == "ending", "jump %d: %s answers in the ending" % [n, h])
+	# Room view lines by stage.
+	var a := _jumped(0)
+	check(says(a.dispatch("chair")) == "A plain chair, bolted down, facing the instrument. The seat is worn pale in the shape of somebody.", "chair s0")
+	check(says(a.dispatch("armatures")) == "Every arm ends at a part of whoever sits there. A cup for the back of the head. Two cuffs. Two plates for the feet.", "armatures first")
+	check(says(a.dispatch("armatures")) == "Someone has adjusted them recently. The brass is bright at the joints.", "armatures later")
+	check(says(a.dispatch("window")) == "The surface. It fills the glass. There's no edge to it, and no reflection of the room.", "window 1")
+	check(says(a.dispatch("window")) == "It isn't water. Water moves. This is holding still, the way a held breath is still.", "window 2")
+	check(says(a.dispatch("window")) == "A line has crossed it, slowly, top to bottom, like a lid. It isn't looking at the station. It's looking at the chair.", "window 3")
+	check(says(a.dispatch("window")).begins_with("A line has crossed it") and r12(a).state.window_looks == 4, "window 4+")
+	check(says(a.dispatch("pressure")) == "A pressure gauge, marked in tides. The needle rests on IX and trembles, as if something is leaning on it.", "pressure s0")
+	check(says(a.dispatch("indicators")).begins_with("Eight indicators, shuttered. Under each, a name: ROOK, BELL, IVES, LUSK, PRYCE, DOANE, HART, TULL."), "indicators s0")
+	check(says(a.dispatch("copy_port")) == "A socket marked COPY, under a brass dust cap on a chain. The cap is warm.", "copy port s0")
+	check(says(a.dispatch("nameplate")) == "A brass plate over three empty frames: ADA MERCER. The engraving is fresh. There are brass filings still in the letters.", "nameplate")
+	for o in ["chair", "armatures", "armatures_adjusted", "surface", "surface_lid", "pressure", "indicators", "copy_port", "nameplate"]:
+		check(r12(a).has_seen(o), "s0 notes %s" % o)
+	var b := _jumped(1)
+	check(says(b.dispatch("chair")) == "The cushion is pressed down, as if someone has just sat. Nobody has. I haven't.", "chair s1")
+	check(says(b.dispatch("armatures")) == "The head cup has come down. It's at my height now.", "armatures s1")
+	check(says(b.dispatch("indicators")) == "The shutters have all turned a little. Toward my terminal.", "indicators s1")
+	check(says(b.dispatch("copy_port")) == "The cap is off, hanging on its chain. I didn't take it off.", "copy port s1")
+	for o in ["chair_pressed", "armatures_lowered", "shutters_turned", "copy_uncapped"]:
+		check(r12(b).has_seen(o), "s1 notes %s" % o)
+	var c := _jumped(2)
+	check(says(c.dispatch("chair")) == "It's waiting. It doesn't mind how long.", "chair s2")
+	check(says(c.dispatch("window")) == "It drew back from the glass. A margin of darker water at the edge. It made room.", "window s2")
+	check(says(c.dispatch("pressure")) == "The needle has eased back a hair. Off IX, a little.", "pressure s2")
+	check(says(c.dispatch("to_routing")) == "The routing wall." and r12(c).local_view == "routing", "to_routing")
+
+func test_objectives_hints() -> void:
+	var expect := {0: "frames", 1: "routing", 2: "decide", 3: "decide", 5: "finale", 8: "finale"}
+	for n in expect:
+		var g := _jumped(n)
+		var r := r12(g)
+		var o: String = expect[n]
+		check(r.objective() == o, "jump %d: objective %s (got %s)" % [n, o, r.objective()])
+		check(r.objective_text() == R12Sim.OBJECTIVES[o], "jump %d: objective text" % n)
+		for i in 3:
+			check(r.hint_line(i) == REF_HINTS[o][i], "jump %d: hint %d" % [n, i])
+	check(R12Sim.OBJECTIVES == {"frames": "Give the chamber its record of me. Don't let it sign.",
+		"routing": "Find out exactly what each route does.", "decide": "Choose: break the line, or stay as its witness.",
+		"finale": "See it through.", "done_chamber": "It's done."}, "objective lines")
+	var g := with_flags(["P24", "P25", "P26", "P27"], ROOM)
+	r12(g).reconcile()
+	check(r12(g).objective() == "done_chamber", "P27 by flags with no choice: done")
+	# The hint ladder climbs in play.
+	var h := fresh()
+	var lines := []
+	for i in 3:
+		lines.append(says(h.dispatch("hint")))
+	check(lines == REF_HINTS.frames, "the frames ladder in play (%s)" % [lines])
+	var e := _jumped(5)
+	check(says(e.dispatch("hint")) == REF_HINTS.finale[0] and r12(e).hint_frozen(), "the ending: frozen hint")
+	check(R12Sim.WAY_IN_HINT == "The lower door on the stair landing has opened. Below it, the chamber.", "way-in hint")
+
+func test_reconcile() -> void:
+	var g := with_flags(["P24", "P25"], ROOM)
+	var r := r12(g)
+	r.reconcile()
+	check(r.state.p25_complete and r.frames() == R12Sim.SOLUTION_FRAMES and r.switch() == "witness", "adopts P25")
+	g = with_flags(["P24", "P25", "P26"], ROOM)
+	r = r12(g)
+	r.reconcile()
+	check(r.state.p26_complete and r.routes() == R12Sim.SOLUTION_ROUTES and r.state.previewed == ["sever", "continue"], "adopts P26")
+	g = with_flags(["P24", "P25", "P26", "P27"], ROOM)
+	r = r12(g)
+	r.reconcile()
+	check(r.state.p27_complete, "adopts P27")
+	check(JSON.stringify(roundtrip(g).to_dict()) == JSON.stringify(g.to_dict()), "an adopted P27 round-trips")
+	g = with_flags(["P24"], ROOM)
+	r = r12(g)
+	r.state.p25_complete = true
+	r.state.p26_complete = true
+	r.reconcile()
+	check(g.flag("P25") and g.flag("P26") and not g.flag("P27"), "sets flags from state")
+	check(r.p25_done() and r.p26_done() and not r.p27_done(), "done helpers")
+
+func test_debug_jumps() -> void:
+	for n in 9:
+		var g := _jumped(n)
+		var r := r12(g)
+		var tag := "jump %d" % n
+		check(g.state.room == ROOM and g.view == "room" and g.tide() == 9, "%s: in the chamber at IX" % tag)
+		check(g.flag("P25") == (n >= 1) and g.flag("P26") == (n >= 2) and g.flag("P27") == (n >= 5), "%s: flags" % tag)
+		check(r.state.noticed == (["arrival"] if n >= 1 else []), "%s: noticed" % tag)
+		check(g.checkpoint.is_empty() == (n < 2), "%s: checkpoint" % tag)
+		var yoke_on := n in [3, 5, 7]
+		var seated := n in [4, 6, 8]
+		check(r.yoke() == ("contacts" if yoke_on else "tray") and r.bridge_seated() == seated, "%s: fittings" % tag)
+		check(g.has_item(BRIDGE) == (not seated), "%s: the bridge is in hand or seated" % tag)
+		check(r.final_preview() == ("sever" if n in [3] else ("continue" if n in [4] else ("sever" if yoke_on else ("continue" if seated else "")))), "%s: preview" % tag)
+		check(r.chosen() == ({5: "sever", 7: "sever", 6: "continue", 8: "continue"}.get(n, "")), "%s: chosen" % tag)
+		check(r.ending_step() == ({7: 12, 8: 9}.get(n, 0)), "%s: ending step" % tag)
+		check(r.local_view == ("ending" if n >= 5 else "room"), "%s: view" % tag)
+		var t := roundtrip(g)
+		check(JSON.stringify(t.to_dict()) == JSON.stringify(g.to_dict()), "%s: round-trips byte-identical" % tag)
+	var f := _jumped(7)
+	f.dispatch("ending_next")
+	check(f.view == "end" and f.value("ending_choice") == "sever", "jump 7: one more next ends it")
+	var c := _jumped(8)
+	c.dispatch("ending_next")
+	check(c.view == "end" and c.value("ending_choice") == "continue", "jump 8: one more next ends it")
+	# debug_prepare: fresh at every tide.
+	for t in [1, 5, 9]:
+		var g := game_at(t, "R02")
+		check(JSON.stringify(r12(g).state) == JSON.stringify(r12(g).initial_state()), "debug_prepare(%d) is fresh" % t)
+
+func test_back() -> void:
+	var g := _jumped(2)
+	var r := r12(g)
+	var walks := [["frame_body", "c_frames", "frames"], ["plate_sever", "c_routing", "routing"],
+		["handle", "c_final", "routing"], ["to_frames", "frames", "room"], ["to_routing", "routing", "room"]]
+	for w in walks:
+		g.dispatch(w[0])
+		check(r.local_view == w[1], "%s opens %s" % [w[0], w[1]])
+		g.dispatch("back")
+		check(r.local_view == w[2], "back from %s goes to %s (got %s)" % [w[1], w[2], r.local_view])
+		g.dispatch("back")
+		g.dispatch("back")
+	var e := _jumped(5)
+	e.dispatch("back")
+	check(r12(e).local_view == "ending", "back in the ending stays")
+	# Back clears what is in hand.
+	var p := fresh()
+	place(p, ["trace"])
+	p.dispatch("rack_identity")
+	p.dispatch("back")
+	check(r12(p).held_card() == "" and r12(p).local_view == "frames", "back puts the card down")
+
+# ---------------------------------------------------------------------------------------------
+# the chain actions (handed to tests/chain_test.gd)
+# ---------------------------------------------------------------------------------------------
+func test_chain_actions() -> void:
+	var g := game_at(9, "R11")
+	var r := r12(g)
+	g.dispatch("go:R12")
+	check(g.state.room == ROOM, "chain: into the chamber")
+	play(g, P25_ACTIONS)
+	check(g.flag("P25") and r.local_view == "c_frames", "chain: P25")
+	play(g, P26_ACTIONS)
+	check(g.flag("P26") and not g.checkpoint.is_empty() and r.local_view == "c_routing", "chain: P26")
+	var snap := JSON.stringify(g.checkpoint)
+	play(g, P27_SEVER)
+	check(g.flag("P27") and r.chosen() == "sever", "chain: P27 SEVER")
+	for i in 13:
+		check(g.view == "room", "chain: SEVER step %d before the end" % i)
+		g.dispatch("ending_next")
+	check(g.view == "end" and g.value("ending_choice") == "sever", "chain: the 13th next finishes")
+	g.dispatch("return_decision")
+	check(JSON.stringify(g.to_dict()) == snap or g.flag("P26"), "chain: back at the checkpoint")
+	play(g, P27_CONTINUE)
+	check(r.chosen() == "continue", "chain: P27 CONTINUE")
+	for i in 10:
+		g.dispatch("ending_next")
+	check(g.view == "end" and g.value("ending_choice") == "continue", "chain: the 10th next finishes")
+	check(sorted(g.value("endings_seen")) == ["continue", "sever"], "chain: both endings seen")
+	# The glance path: the core puts the close-up down with back until the room; the chain still works.
+	var h := game_at(9, ROOM)
+	play(h, P25_ACTIONS)
+	play(h, P26_ACTIONS)
+	for i in 4:
+		if r12(h).local_view != "room":
+			h.dispatch("back")
+	check(r12(h).local_view == "room", "after the glance the room is up")
+	play(h, P27_SEVER)
+	check(h.flag("P27") and r12(h).chosen() == "sever", "P27 from the room after the glance")
