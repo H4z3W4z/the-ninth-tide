@@ -77,7 +77,7 @@ const SHELF_CX := {"bell": 224.0, "rook": 544.0, "venn": 864.0, "ives": 1184.0}
 const SHELF_Y := 560.0
 const TRAY_X := [270.0, 560.0, 850.0, 1140.0]
 const TRAY_Y := 960.0
-const LIFT_PX := 40.0
+const LIFT_PX := 56.0
 const TOKEN_AT := Vector2(764, 620)       # the rubbing sprite, its nail on Venn's painted nail
 const CUP_MARK_AT := Vector2(150, 556)
 const VENN_FADE := 0.4
@@ -98,17 +98,22 @@ const SLOPE_CONTROLS := [
 	["erase", Rect2(160, 820, 280, 120), "ERASE"],
 	["append", Rect2(1008, 820, 280, 120), "APPEND"],
 ]
-const WHEEL_X := [[236.0, 448.0], [620.0, 832.0], [1004.0, 1216.0]]
-const WHEEL_BASE := 728.0
+## The engraved drums' windows (painted by tools/art/rooms/R06.py, DRUMS / DRUM_Y).
+const WHEEL_X := [[230.0, 450.0], [614.0, 834.0], [998.0, 1218.0]]
+const WHEEL_BASE := 731.0
+const WHEEL_PITCH := 34.0      # the neighbour words, half under the drum's curve
+const WHEEL_MARGIN := 24.0
+## The engraved plates under ERASE and APPEND (centre x, baseline).
+const KEY_LABEL := {"erase": Vector2(300, 932), "append": Vector2(1148, 932)}
 const KEY_TIME := 0.15
 
 # base-view text --------------------------------------------------------------------------
 const PLATE_A := [["BELL", 98], ["ROOK", 198], ["VENN", 298], ["IVES", 398]]
 const PLATE_SHUT := [["LUSK", 480], ["DOANE", 544], ["HART", 608], ["TULL", 672]]
-const TAGS_A := [["ROOK", Vector2(920, 497)], ["VENN", Vector2(920, 747)], ["HART", Vector2(1300, 497)],
-	["IVES", Vector2(1300, 747)]]
-const TAGS_B := [["LUSK", Vector2(1030, 497)], ["DOANE", Vector2(1030, 747)], ["TULL", Vector2(1350, 497)],
-	["BELL", Vector2(1350, 747)]]
+const TAGS_A := [["ROOK", Vector2(898, 497)], ["VENN", Vector2(898, 747)], ["HART", Vector2(1246, 497)],
+	["IVES", Vector2(1246, 747)]]
+const TAGS_B := [["LUSK", Vector2(974, 497)], ["DOANE", Vector2(974, 747)], ["TULL", Vector2(1266, 497)],
+	["BELL", Vector2(1266, 747)]]
 ## The rota's eight hands, one per row: [size, slant, ink]. Fixed, never random.
 const MANY_HANDS := [
 	[21, 0.24, Color("1f3f8a")], [19, 0.06, Color("172b36")], [22, 0.16, Color("3a3e44")],
@@ -133,7 +138,11 @@ const B_BEDS := ["doane", "lusk", "tull", "bell"]
 const EIGHT_STEP := 0.7        # springs_eight: one settle every 0.7 s
 const RISE_STEP := 1.2         # dents_rise: one release every 1.2 s
 const RISE_FADE := 1.5
-const FAN_GLASS := Rect2(828, 150, 404, 92)
+const FAN_GLASS := Rect2(747, 154, 566, 128)
+## The notice hold: the room outside the focus darkens (INK at this alpha) under the slow zoom.
+const NOTICE_DIM := 0.2
+## How long Ada's amendment takes to write itself under the printed line.
+const AMEND_WRITE := 1.6
 const CURTAIN_BOX := Rect2(26, 126, 482, 770)
 
 # sound -----------------------------------------------------------------------------------
@@ -161,6 +170,7 @@ var r: R06Sim:
 var textures := {}
 var narrow: SystemFont
 var serif_bold: SystemFont
+var typewriter: SystemFont
 var room: Node2D
 var close: Node2D
 var shade: CanvasModulate
@@ -184,6 +194,7 @@ var token_on := false         # the rubbing shows through the P08 reveal chain
 var key_t := {"erase": 0.0, "append": 0.0}
 var refuse_t := 0.0
 var refuse_shelf := ""
+var commit_t := -1.0          # P22: seconds since the amendment began; the card stays on its rest
 
 func _ready() -> void:
 	narrow = SystemFont.new()
@@ -192,6 +203,10 @@ func _ready() -> void:
 	serif_bold = SystemFont.new()
 	serif_bold.font_names = PackedStringArray(["Noto Serif", "DejaVu Serif", "Liberation Serif", "serif"])
 	serif_bold.font_weight = 700
+	# the index hand: stamped, typewritten, slightly too even
+	typewriter = SystemFont.new()
+	typewriter.font_names = PackedStringArray(["Courier 10 Pitch", "Nimbus Mono PS", "Liberation Mono", "Courier New", "monospace"])
+	typewriter.font_weight = 700
 	for l in R06Sim.LETTER:
 		letter_texts.append(l[0])
 	_build_nodes()
@@ -253,6 +268,11 @@ func shown_wall() -> String:
 	if v == "room" and hold_t > 0.0:
 		return hold_wall
 	return "room"
+
+## A painted overlay cut from the plate set on screen (tools/art/rooms/R06.py: diff_overlay).
+func staged(id: String) -> String:
+	var st := r.plate_stage()
+	return id if st == "s1" else id + "_" + st
 
 func plate_id(wall: String) -> String:
 	var st := r.plate_stage()
@@ -320,6 +340,10 @@ func tick(dt: float) -> void:
 	for k in key_t:
 		key_t[k] = maxf(0.0, key_t[k] - dt)
 	refuse_t = maxf(0.0, refuse_t - dt)
+	if commit_t >= 0.0:
+		commit_t += dt
+		if _view() != "c_slope" or (commit_t > 0.5 and (game == null or not game.chain_active())):
+			commit_t = -1.0
 	_tick_audio(dt)
 	redraw()
 
@@ -409,8 +433,12 @@ func on_sfx(id: String) -> void:
 				reveal_t = 0.0
 		"erase_refuse":
 			key_t["erase"] = KEY_TIME
-		"append_refuse", "pencil_scratch":
+		"append_refuse":
 			key_t["append"] = KEY_TIME
+		"pencil_scratch":
+			key_t["append"] = KEY_TIME
+			if _view() == "c_slope" and r.amendment_written():
+				commit_t = 0.0
 		"reject_set":
 			var lr := r.last_refusal
 			if lr.contains(">"):
@@ -457,6 +485,7 @@ func apply_instantly() -> void:
 	reveal_t = -1.0
 	venn_k = 1.0
 	venn_pending = false
+	commit_t = -1.0
 	room.scale = Vector2.ONE
 	room.position = Vector2.ZERO
 	if mixer:
@@ -473,6 +502,7 @@ func reset_presentation() -> void:
 	key_t = {"erase": 0.0, "append": 0.0}
 	refuse_t = 0.0
 	refuse_shelf = ""
+	commit_t = -1.0
 
 func on_view_changed(before: String) -> void:
 	if _view() == "c_lockers" and before != "c_lockers" and game:
@@ -640,10 +670,15 @@ func _draw_room() -> void:
 	else:
 		_draw_view_a(room)
 	if hold_t > 0.0 and not r.is_closeup():
-		var a := 0.9 if not motion else 0.9 * smoothstep(0.0, 0.3, hold_e)
+		# the room outside the focus darkens a little; the slow zoom does the rest
+		var a := NOTICE_DIM if not motion else NOTICE_DIM * smoothstep(0.0, 0.6, hold_e)
+		var col := Color(INK, a)
 		var fr := hold_rect.grow(14)
-		room.draw_rect(fr, Color(INK, a * 0.85), false, 7.0)
-		room.draw_rect(fr.grow(-1), Color(PAPER_HI, a), false, 2.5)
+		var big := Rect2(Vector2(-200, -200), SIZE + Vector2(400, 400))
+		room.draw_rect(Rect2(big.position, Vector2(big.size.x, fr.position.y - big.position.y)), col)
+		room.draw_rect(Rect2(Vector2(big.position.x, fr.end.y), Vector2(big.size.x, big.end.y - fr.end.y)), col)
+		room.draw_rect(Rect2(Vector2(big.position.x, fr.position.y), Vector2(fr.position.x - big.position.x, fr.size.y)), col)
+		room.draw_rect(Rect2(Vector2(fr.end.x, fr.position.y), Vector2(big.end.x - fr.end.x, fr.size.y)), col)
 
 func _draw_view_a(c: CanvasItem) -> void:
 	var b := _band()
@@ -685,7 +720,7 @@ func _draw_view_a(c: CanvasItem) -> void:
 	for bed in A_BEDS:
 		var a := dent_alpha(bed)
 		if a > 0.0:
-			_full(c, "a_dent_" + bed, Color(1, 1, 1, a))
+			_full(c, staged("a_dent_" + bed), Color(1, 1, 1, a))
 	if r.cup_steam():
 		var st := _tex("a_steam")
 		if st:
@@ -724,9 +759,9 @@ func _draw_view_b(c: CanvasItem) -> void:
 	for bed in B_BEDS:
 		var a := dent_alpha(bed)
 		if a > 0.0:
-			_full(c, "b_dent_" + bed, Color(1, 1, 1, a))
+			_full(c, staged("b_dent_" + bed), Color(1, 1, 1, a))
 	if r.curtain_shape():
-		_full(c, "b_curtain_shape")
+		_full(c, staged("b_curtain_shape"))
 	for t in TAGS_B:
 		_ctext(c, t[0], t[1].x, t[1].y, 14, INK, narrow)
 	_draw_calendar(c)
@@ -750,7 +785,15 @@ func _draw_calendar(c: CanvasItem) -> void:
 			"ada":
 				Ink.handwriting(c, n, n.length(), Vector2(590, y), 22, 7, false, Ink.BLUE_INK)
 			_:
-				_text(c, n.to_upper(), Vector2(590, y), 19, INK, narrow)
+				# one hand for every name: stamped, too even
+				_text(c, n.to_upper(), Vector2(592, y), 21, Color(INK, 0.92), typewriter)
+	# band 7: the erased names are still pressed into the paper
+	if r.ending() == "" and _band() == 7:
+		for k in 7:
+			var gy := 196.0 + 38.0 * k + 27.0
+			var ghost: String = R06Sim.CAL_INDEX[k]
+			_text(c, ghost, Vector2(593, gy + 1), 21, Color(PAPER_HI, 0.9), typewriter)
+			_text(c, ghost, Vector2(592, gy), 21, Color(INK, 0.13), typewriter)
 
 # ---------------------------------------------------------------------------
 # drawing: close-ups (layer 5)
@@ -808,17 +851,13 @@ func _draw_lockers(c: CanvasItem) -> void:
 			continue
 		var at := Vector2(TRAY_X[i], TRAY_Y)
 		if r.lifted == o:
-			var slot := Rect2(at.x - 74, TRAY_Y - 9, 148, 14)
-			var sb := StyleBoxFlat.new()
-			sb.draw_center = false
-			sb.border_color = FELT_HI
-			sb.set_border_width_all(2)
-			sb.set_corner_radius_all(6)
-			c.draw_style_box(sb, slot)
+			# lifted clear of the bench: its soft drop shadow left behind on the felt, a thin
+			# paper-hi outline round the object
 			for k in 4:
-				var rx := 70.0 - 12.0 * k
-				c.draw_colored_polygon(Ink.ellipse(at + Vector2(0, -2), rx, 9.0 - 1.5 * k, 32),
-					Color(SHADOW_NAVY, 0.10))
+				var rx := 66.0 - 11.0 * k
+				c.draw_colored_polygon(Ink.ellipse(at + Vector2(6, -3), rx, 8.0 - 1.4 * k, 32),
+					Color(SHADOW_NAVY, 0.16))
+			_sprite(c, SPRITE[o] + "_halo", at - Vector2(0, LIFT_PX))
 			_sprite(c, SPRITE[o], at - Vector2(0, LIFT_PX))
 		else:
 			_sprite(c, SPRITE[o], at)
@@ -828,7 +867,10 @@ func _draw_slope(c: CanvasItem) -> void:
 	_ctext(c, "RECORD", 400, 184, 22, INK, narrow)
 	_ctext(c, "EVIDENCE", 1048, 184, 22, INK, narrow)
 	var st: Dictionary = r.state
-	if st.card_on_rest:
+	# P22: after APPEND the card stays on its rest while Ada writes under the printed line, until
+	# the chain ends (commit_t); then it is in her bag
+	var committing := commit_t >= 0.0
+	if st.card_on_rest or committing:
 		var card := _tex("c_card")
 		if card:
 			c.draw_texture(card, Vector2(200, 260))
@@ -840,25 +882,57 @@ func _draw_slope(c: CanvasItem) -> void:
 		c.draw_rect(box, INK, false, 2.0)
 		c.draw_rect(box.grow(-3), Color(INK, 0.6), false, 1.0)
 		_ctext(c, R06Sim.REGISTER_STAMP, box.get_center().x, box.get_center().y + 6, 16, INK, narrow)
-	if st.sketch_on_rest:
+		if committing:
+			_draw_amendment(c)
+	if st.sketch_on_rest or committing:
 		var sk := _tex("c_sketch")
 		if sk:
 			c.draw_texture(sk, Vector2(848, 260))
 		Ink.handwriting(c, R06Sim.SKETCH_TEXT, R06Sim.SKETCH_TEXT.length(), Vector2(880, 520), 22, 11, false,
 			Ink.BLUE_INK)
 		_text(c, "(copied from N. Bell's book)", Vector2(880, 548), 14, INK)
+	_full(c, "c_slope_clips")
+	# the drums: the word in the window, its neighbours half under the drum's curve
+	for i in 3:
+		var w: Array = WHEEL_X[i]
+		var cx: float = (w[0] + w[1]) / 2.0
+		var width: float = w[1] - w[0] - WHEEL_MARGIN
+		var words: Array = R06Sim.WHEELS[i]
+		var idx := int(st.wheels[i])
+		for d in [-1, 1]:
+			var nb := str(words[posmod(idx + d, words.size())])
+			var ns := _fit(nb, narrow, 16, 11, width)
+			_ctext(c, nb, cx, WHEEL_BASE + WHEEL_PITCH * d, ns, Color(INK, 0.7), narrow)
+	_full(c, "c_slope_drums")
 	for i in 3:
 		var s := r.wheel_text(i)
 		var w: Array = WHEEL_X[i]
-		var size := _fit(s, narrow, 20, 16, w[1] - w[0] - 8)
-		if narrow.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > w[1] - w[0] - 8:
-			size = _fit(s, narrow, size, 13, w[1] - w[0] - 8)
-		_ctext(c, s, (w[0] + w[1]) / 2.0, WHEEL_BASE, size, INK, narrow)
+		var cx: float = (w[0] + w[1]) / 2.0
+		var size := _fit(s, narrow, 20, 13, w[1] - w[0] - WHEEL_MARGIN)
+		# engraved: a bright brass lip under the cut
+		_ctext(c, s, cx + 1, WHEEL_BASE + 1, size, Color(PAPER_HI, 0.55), narrow)
+		_ctext(c, s, cx, WHEEL_BASE, size, INK, narrow)
 	for k in [["erase", 160.0, "ERASE"], ["append", 1008.0, "APPEND"]]:
-		var down: bool = key_t[k[0]] > 0.0
-		var x0: float = k[1]
-		if down:
-			var kd := _tex("c_key_down")
+		if key_t[k[0]] > 0.0:
+			var kd := _tex("c_%s_down" % k[0])
 			if kd:
-				c.draw_texture(kd, Vector2(x0, 820))
-		_ctext(c, k[2], x0 + 140, 880 + (10 if down else 0), 26, INK, narrow)
+				c.draw_texture(kd, Vector2(k[1], 820))
+		var lp: Vector2 = KEY_LABEL[k[0]]
+		_ctext(c, k[2], lp.x + 1, lp.y + 1, 18, Color(PAPER_HI, 0.5), serif_bold)
+		_ctext(c, k[2], lp.x, lp.y, 18, INK, serif_bold)
+
+## Ada's amendment, in her blue hand, written in under the printed line (the P22 reward).
+func _draw_amendment(c: CanvasItem) -> void:
+	var parts := R06Sim.AMEND_TEXT.split(" / ")
+	var lines: Array[String] = [parts[0] + " /", " / ".join(parts.slice(1)) + "  A.M."]
+	var total: int = lines[0].length() + lines[1].length()
+	var shown: int = total
+	if motion:
+		shown = int(clampf(commit_t / AMEND_WRITE, 0.0, 1.0) * total)
+	var y := 514.0
+	for ln in lines:
+		var n: int = mini(shown, ln.length())
+		if n > 0:
+			Ink.handwriting(c, ln, n, Vector2(232, y), 17, 61 + int(y), false, Ink.BLUE_INK)
+		shown -= ln.length()
+		y += 28.0

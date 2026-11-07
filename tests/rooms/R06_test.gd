@@ -73,6 +73,7 @@ func run_tests() -> void:
 	if _view_ready():
 		await view_checks(ROOM)
 		test_view_rects()
+		test_view_staged_art()
 		await test_view_presentation()
 	else:
 		print("SKIP: R06 view_checks and rect checks: the R06 view does not yet declare rects for every sim hotspot (view team)")
@@ -940,6 +941,19 @@ func test_view_rects() -> void:
 		check(s in soft, "R06 view: %s is in SFX_SOFT" % s)
 	check(float(m.get("SFX_SOFT_CUT", {}).get("spring_creak", 0.0)) >= 60.0, "R06 view: spring_creak is cut by at least 60 dB")
 
+## Every staged overlay the view can ask for is painted (tools/art/rooms/R06.py diff_overlay).
+func test_view_staged_art() -> void:
+	for st in ["s1", "s2", "s3", "s4", "sever"]:
+		for bed in R06Sim.BEDS:
+			var side := "a" if bed in ["venn", "rook", "hart", "ives"] else "b"
+			var id: String = "%s_dent_%s" % [side, bed] + ("" if st == "s1" else "_" + st)
+			check(ResourceLoader.exists("res://assets/rooms/R06/%s.png" % id), "R06 art: %s painted" % id)
+	for st in ["s3", "s4"]:
+		check(ResourceLoader.exists("res://assets/rooms/R06/b_curtain_shape_%s.png" % st), "R06 art: the figure at %s" % st)
+	for id in ["c_erase_down", "c_append_down", "c_slope_clips", "c_slope_drums", "c_cup_halo", "c_calipers_halo",
+			"c_pencils_halo", "c_glove_halo"]:
+		check(ResourceLoader.exists("res://assets/rooms/R06/%s.png" % id), "R06 art: %s painted" % id)
+
 # ---------------------------------------------------------------------------------------------
 # (20) the view presents the sim: walls, controls, holds, hollows, tint and loops
 # ---------------------------------------------------------------------------------------------
@@ -1039,7 +1053,15 @@ func test_view_presentation() -> void:
 	for h in v._controls():
 		sl.append(h[0])
 	check(not "printed_line" in sl, "view: the rests are empty after P22")
+	# P22's reward: the card stays on the RECORD rest, the amendment writing itself in under the
+	# printed line, until the chain ends or she turns away.
+	v.on_sfx("pencil_scratch")
+	check(v.commit_t >= 0.0, "view: after APPEND the amended card stays on its rest while she writes")
+	v.tick(0.3)
+	check(v.commit_t > 0.0, "view: still on the rest a moment later")
 	scene.dispatch("back")
+	scene.room_view.tick(0.01)
+	check(scene.room_view.commit_t < 0.0, "view: turning away puts the card in her bag")
 	check(scene.room_view.hold_active() and scene.room_view.hold_rect == Rect2(48, 250, 100, 640),
 		"view: the cup notice focuses Bell's locker")
 	await free_scene(scene)

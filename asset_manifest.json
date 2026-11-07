@@ -2522,7 +2522,43 @@
       "path": "assets/rooms/R06/a_dent_hart.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "9529e97fd7e5c52b7caa9b1e94508447ec39e0c067b3f83df8457fd66e3df3c4",
+      "sha256": "c1d103b2147e7b42762dc764fa46f163e99bdb1d5f932940cd260862e97a9cd6",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/a_dent_hart_s2",
+      "path": "assets/rooms/R06/a_dent_hart_s2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "6395e088d7d76a8ed7dbf18f931bc815d91939a48d99878414cad66ba849234d",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/a_dent_hart_s3",
+      "path": "assets/rooms/R06/a_dent_hart_s3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "c8b94cec30b466eaa99f3bdd412f2859e68e8bb0611487c2d610df3fb2931be9",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/a_dent_hart_s4",
+      "path": "assets/rooms/R06/a_dent_hart_s4.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "00c2facc2eeca334428b39174d918e42735bb0ea91387a78153caf86a104716f",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/a_dent_hart_sever",
+      "path": "assets/rooms/R06/a_dent_hart_sever.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "db18422d8e49213ef2f54b4a9b77e409394cbae4388857718378eaa396c51978",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2531,7 +2567,43 @@
       "path": "assets/rooms/R06/a_dent_ives.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "dde8022904f0392a83818c3532e214aeca1d3b370f304501de4b3fec6ce1204a",
+      "sha256": "d64029ecd91b36eca550262f4ad7e1bb240141a53f5e2cd5e79e1a08ae420f4e",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/a_dent_ives_s2",
+      "path": "assets/rooms/R06/a_dent_ives_s2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "a09f37c6263216c638334b2c213d2833494c7ea9760b50969f78e71e57af03c1",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/a_dent_ives_s3",
+      "path": "assets/rooms/R06/a_dent_ives_s3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "dc94cf56b5621c79f83b77f0e63d41286f4160fb03b205279a9d196bf5d0eeb3",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/a_dent_ives_s4",
+      "path": "assets/rooms/R06/a_dent_ives_s4.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "9076cbcdc2ec0accafdce7b9ac9fd36d152dba979d34e88e0cd4e4f25aac6eb8",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/a_dent_ives_sever",
+      "path": "assets/rooms/R06/a_dent_ives_sever.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "61dc568157eb163450506672d070fe6bc6825c2c103f395cab27b9085047ff58",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2540,7 +2612,43 @@
       "path": "assets/rooms/R06/a_dent_rook.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "7c678777c002c4baab759d94eaebc7ce7ca6376a38aa562a4de0d2cfafca3fb4",
+      "sha256": "e1047bc703a08c1424ee172ff4fdc1d474d86484fe187f7ead6ff07996392150",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/a_dent_rook_s2",
+      "path": "assets/rooms/R06/a_dent_rook_s2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "806b1c72260f274dbb22b3c1ead052925a85843341e93a7bddd57a332696e5fb",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/a_dent_rook_s3",
+      "path": "assets/rooms/R06/a_dent_rook_s3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "1a5aa2266ac9e716b06e15502a789c958800027588e1c974ec1d341c9b6442e1",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/a_dent_rook_s4",
+      "path": "assets/rooms/R06/a_dent_rook_s4.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "3a0967384c3d2833654ba5ef000a1f451ccf5e1169acc50e42d53cb79b4a120a",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/a_dent_rook_sever",
+      "path": "assets/rooms/R06/a_dent_rook_sever.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "a80376698665e1fc1a116f87aa3be5e42a0c012c3aecebb6509cb9a31474e7d3",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2549,7 +2657,43 @@
       "path": "assets/rooms/R06/a_dent_venn.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "8c9342303e7032a29a82093a39b4b16d0d5aeb306171233b1c2e212ff17703ee",
+      "sha256": "74c2bcdcefaddd8c52c0519cf782469215306585e3f06d979461c9dba6d57198",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/a_dent_venn_s2",
+      "path": "assets/rooms/R06/a_dent_venn_s2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "4d4da15f03b3d42c5d7acedb579a48fbed81f9596f56bd85d476a0c2723b4f0f",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/a_dent_venn_s3",
+      "path": "assets/rooms/R06/a_dent_venn_s3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "b16db469ebdbae7e903a0dca25f2eeaedccd8e86c776708288590512ecf18575",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/a_dent_venn_s4",
+      "path": "assets/rooms/R06/a_dent_venn_s4.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "65603a8ef8762b9dea146a1471d78b9721332d8d1c4f8bfbf6ad8a86cd47ea32",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/a_dent_venn_sever",
+      "path": "assets/rooms/R06/a_dent_venn_sever.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "5616778d6f6129520cdf9319fea76c99a5c2701b69ccccedc1b851b2e24e335a",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2567,7 +2711,7 @@
       "path": "assets/rooms/R06/a_fan_b1.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "96549ad2f9120ab1272b06c1b92877c193b345a9370db6a6307e31190e083a60",
+      "sha256": "48d4f64f875a427f64c73c209267fc23b8df17264261267d5f82796bf81845cf",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2576,7 +2720,7 @@
       "path": "assets/rooms/R06/a_fan_b2.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "357624400590f1390a937f0e5dd57f400fbc631d20099566e5d0072f1d6ae02c",
+      "sha256": "da7da799705830d7c4acb12a41474cdd940006b6265b88c04e22122284e18ebc",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2585,7 +2729,7 @@
       "path": "assets/rooms/R06/a_fan_b3.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "4aab2e794d003eab3892be7697884373805a79c827f27d75b8ccbfd4fae224fa",
+      "sha256": "57711e9ee84695dbcd241f9ccc23bfe138ef368738ad4d78a307c9a2834e6330",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2594,7 +2738,7 @@
       "path": "assets/rooms/R06/a_fan_b4.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "73c6287b19dbca15f0526e2b8ab30270c183681c1cbe9d2c4c9b5648aed60bdc",
+      "sha256": "0cab19e5fcd4e952dd25f51c3b470f445469fd06a0e35d09500efb455cbfa6d8",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2603,7 +2747,7 @@
       "path": "assets/rooms/R06/a_fan_b5.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "cdb6be817c82f796a36ffdbd8c688bf6ce2f2d16b57397ab9b7e28ac682ba89b",
+      "sha256": "674c2ce3293ecd3a9e52835b26bb6ec10824745514b76430db1a08c3dd6e5470",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2612,7 +2756,7 @@
       "path": "assets/rooms/R06/a_fan_b6.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "4cd6b1ba6a05e9fbd82f4a7dbda65cdd2364e8644456a9731100cbe0391c3318",
+      "sha256": "5c8d66c9ffd1b6e5872d5bd34708a9525f55b08864dd6e4bb1e5eb8436cb0c01",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2621,7 +2765,7 @@
       "path": "assets/rooms/R06/a_fan_b7.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "02ddc232b12e9c2ff77853151eee0e789ceb418042040fea950f410ece40dfd3",
+      "sha256": "917215209ed52b247f3e0baf79f71e281aaade0772fe0877bb1f44caaefae1ba",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2630,7 +2774,7 @@
       "path": "assets/rooms/R06/a_fan_frame.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "b03af331f8540282afb06d9d2618163b380aa080c03afff4f0ef2b454219d2be",
+      "sha256": "98021a8ad1a5833ad6f38467fb248da54ab54c50db757a5481e1770887e0ff5d",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2639,7 +2783,7 @@
       "path": "assets/rooms/R06/a_fan_rain_0.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "958bf1c11cb00d93f3275da0d639551a9ccf9e7d6b5cbd3983f3acc3fb24342b",
+      "sha256": "fa848970c12f27180576c6dd118eea9a7d6b30f959ce455914f259bf24f3e99c",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2648,7 +2792,7 @@
       "path": "assets/rooms/R06/a_fan_rain_1.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "4cad796f784c736dc9666ddb34ad1ecea4bcc3c46a94c77a47caaa0114404273",
+      "sha256": "369536fc25375e9ce45c700f7bed45ca734a76549bc465f0380df03e648f3825",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2657,7 +2801,7 @@
       "path": "assets/rooms/R06/a_fan_rain_hang.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "4d16d8c7170294c53d84abe247ea634c08c533ccb274fccc56ffdb6429c07097",
+      "sha256": "ba44fa9a650aadedc79eaccd4e913e7516363e62292c9eb3716a2570fa6e7a98",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2666,7 +2810,7 @@
       "path": "assets/rooms/R06/a_fan_rain_heavy_0.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "f585578fe9ab796e5273adf8ed6fc662cd29beccd6e3a0a0005c65212852a5ea",
+      "sha256": "0db526bc2a27070aa013c9a4f33730877bdd2ecfa78268c2d3de0da9830b8cf4",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2675,7 +2819,7 @@
       "path": "assets/rooms/R06/a_fan_rain_heavy_1.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "4143ce7bce733bbbbee9b6378f432291a68b0b3f51e73d945a1219b83c9cae0d",
+      "sha256": "993acd0a4a2135a12e9c2ace4e30133f7df395cd2fd5cd39899f2df250de9fa1",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2684,7 +2828,7 @@
       "path": "assets/rooms/R06/a_fan_sever.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "2da24acb398a734d7310d92fcddef89c2d6335a70a4cb449b1bad202e093a986",
+      "sha256": "9abdd57edd36c754aa917df2a94602db89e260116e0f8a6c6586013ac061d8d2",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2693,7 +2837,7 @@
       "path": "assets/rooms/R06/a_in_calipers.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "bdc040f604bc4da8029253cb0cd7dc81a8607d3e173f3f392711fd4682cf989b",
+      "sha256": "d052e79673c51eb7d643499584a7abb09965327cb2fa5676b73caa8f95bf52d9",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2702,7 +2846,7 @@
       "path": "assets/rooms/R06/a_in_cup.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "d15578977d0cf6f68721e84a32af47216e28bbe43a2105ae78cbe46eb02d7a2a",
+      "sha256": "7263265093e18a136204ca40a0f246ee5d5149647a6f365d870fb3e688bc2e04",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2711,7 +2855,7 @@
       "path": "assets/rooms/R06/a_in_glove.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "723a319af614a342366e038e24b2a15c9200b4dd49ad02bdd1032b90fb397a3c",
+      "sha256": "c764c7dfd9d12e4879897c3eb505ff0ad02ec93e537df16e1d691c451ccb2f90",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2720,7 +2864,7 @@
       "path": "assets/rooms/R06/a_in_pencils.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "cd183a5788f73aa8e9662b1e129e2e892d1a6e4fb595a04e7306d4d8725853b1",
+      "sha256": "077f60757a04f41d6d6f731388663c736037c52af75378d38c9692ac15880dcb",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2738,7 +2882,7 @@
       "path": "assets/rooms/R06/a_top_calipers.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "cf1a9be786b87ef348a0a8b70ad803bb00e94832a8c85d57bcce44cf1e35247c",
+      "sha256": "547f67d183c82bcd2815f027dbf089ff316f0108a82f44a9c4a7afa861785542",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2747,7 +2891,7 @@
       "path": "assets/rooms/R06/a_top_cup.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "0176325a01a63e08ab2d0e5d07e0709f0f856dcab9779546d44ab21047422959",
+      "sha256": "f426b6e7cb4f0684c40145ba1bd8ae3574102375f6555677ef79fdb476a5ccad",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2756,7 +2900,7 @@
       "path": "assets/rooms/R06/a_top_glove.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "ac07e55195c4ceb9f63898234ab4b9bd49736bfb0c5397e13c57037da272a5b4",
+      "sha256": "1cf366522e3d3e226ab4e47ea3c8e14045b42d3bab52d7e56c5a146b9270dd5f",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2765,7 +2909,7 @@
       "path": "assets/rooms/R06/a_top_pencils.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "4d64d94f40929323346a5194ed8368ad6f580363b4e8189c1e87e983973c6bb7",
+      "sha256": "855cb47aa50243ae2b998bda195aa8f44ee7c8a8cf8fa63d6ccce134a212f55f",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2774,7 +2918,7 @@
       "path": "assets/rooms/R06/a_venn_open.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "8bee182f00c944d757dbe397ec2aaf1f02b530030ec9aa911b9950e3545f5541",
+      "sha256": "632158ddda871927fff04231b73cdcb7acb67d87784ae008facc45b69163b142",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2783,7 +2927,34 @@
       "path": "assets/rooms/R06/b_curtain_shape.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "82984dc6d81bb690a6bf357aa944127094c4028c27ff23b5e0c9fa5149d8035e",
+      "sha256": "f45211e8a8e80381b3a83d39900d756a45cde52f3965da98dced0eb9b81291b3",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_curtain_shape_s2",
+      "path": "assets/rooms/R06/b_curtain_shape_s2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "019dc49682dbbce975e2c061156368342f32238e084d848046985e23678a7a3c",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_curtain_shape_s3",
+      "path": "assets/rooms/R06/b_curtain_shape_s3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "e0a4d5524936df0af3b40b859a4cf7ac54e53cabba49cb1bb53a3bc988d44a02",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_curtain_shape_s4",
+      "path": "assets/rooms/R06/b_curtain_shape_s4.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "20e48c123304ed677ca3f7a846d35cd941b7a08260512a1933f545529a79a004",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2792,7 +2963,43 @@
       "path": "assets/rooms/R06/b_dent_bell.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "98e02f922df0e2aab852531844ac1e6e5ad243ca1c4fae6293f3ff2c0feb0d8d",
+      "sha256": "9439c798f54cb0b649bbc264981b694c0daddfda7e3e43a983ef0513a745a028",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_dent_bell_s2",
+      "path": "assets/rooms/R06/b_dent_bell_s2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "e9316af24b49c2195765cc53a3de34533394b6edcae15c5a811d686fd9392f23",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_dent_bell_s3",
+      "path": "assets/rooms/R06/b_dent_bell_s3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "97c123f96fe0e7c99dbe1d8145d032e349dc94099b2a906da52bf08f857f5f76",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_dent_bell_s4",
+      "path": "assets/rooms/R06/b_dent_bell_s4.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "0e9405a6311ff77d3daaed0540d2bc24a8d4048886e8d2a7d69e48160106192e",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_dent_bell_sever",
+      "path": "assets/rooms/R06/b_dent_bell_sever.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "9007f87a8efc8dd3f50a33747aa85a734ca8dcc1f8e7c7ed162e432cc70581f4",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2801,7 +3008,43 @@
       "path": "assets/rooms/R06/b_dent_doane.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "a7e319f5a2aac8a490acec6c9ecbd6df0c079c7c87cab666658412c9c2d0ab03",
+      "sha256": "76875f098da825caf1422d45942770d8009a4a78a5524968f1d55b97e276bde1",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_dent_doane_s2",
+      "path": "assets/rooms/R06/b_dent_doane_s2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "32ce1249af1800fa700cc849ecbcd398dacfa4d592e00b80a33637ee539fac1f",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_dent_doane_s3",
+      "path": "assets/rooms/R06/b_dent_doane_s3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "b221c8527348345c8622ce21f69d85749f395d1d1bc43578dbf8e2b254c67037",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_dent_doane_s4",
+      "path": "assets/rooms/R06/b_dent_doane_s4.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "ae2f796d1ca9ac73ef10aa3c624b570499d9132cdfd48f44577cfe8a9c6859c2",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_dent_doane_sever",
+      "path": "assets/rooms/R06/b_dent_doane_sever.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "ac77ec3348fffc3189469e3c123e6f4a3161b28a5947d60a7beca8489a380bef",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2810,7 +3053,43 @@
       "path": "assets/rooms/R06/b_dent_lusk.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "86ede86863d54e61e721b5ba6841beed9fa71980545695a18f45cacbbc9eafdb",
+      "sha256": "3a47910da526eb22bdf86d99f1e764b2da078dd93d797d39b4efc62b25127d3c",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_dent_lusk_s2",
+      "path": "assets/rooms/R06/b_dent_lusk_s2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "da031cfce4bcdf9e6c9e3e190f0d72e198c2152c6c4e08a25c023ea08b00e8d9",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_dent_lusk_s3",
+      "path": "assets/rooms/R06/b_dent_lusk_s3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "9bcb234a9c9a15b83376f0d83f83ad9e442e01164d10a69b148777822d3e1ee0",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_dent_lusk_s4",
+      "path": "assets/rooms/R06/b_dent_lusk_s4.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "bbf94cbfc2b1a1250909ae14c9c5f8082b735326ed75469cf5a99e56ecae0518",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_dent_lusk_sever",
+      "path": "assets/rooms/R06/b_dent_lusk_sever.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "52b520a964cfeef66405872c51dbc129e1cbc7223e4e344ed432f30e1cac311b",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2819,7 +3098,43 @@
       "path": "assets/rooms/R06/b_dent_tull.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "1ffff1a072726d62faad152eaca0eb327cd6258c84886e93d07265160d738fe6",
+      "sha256": "45bbd192f131e2c0fa8ce846ddb9006049bccac18bfd36459cc95fef14b67491",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_dent_tull_s2",
+      "path": "assets/rooms/R06/b_dent_tull_s2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "c476ef5c0252d37b2dc76dd1ff29e41c666e43983f66f3a40a797850774a382e",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_dent_tull_s3",
+      "path": "assets/rooms/R06/b_dent_tull_s3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "2406e3f13ed93e43ebd673becd3189ee09c04305aecd09b7bf26aace862cc09b",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_dent_tull_s4",
+      "path": "assets/rooms/R06/b_dent_tull_s4.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "ccf3d1c7043ea5655935a84335e87f0ffbb6209256550d069b91485f4cf3133f",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_dent_tull_sever",
+      "path": "assets/rooms/R06/b_dent_tull_sever.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "9321a5336eb76c84eaeb614006e7306da95c113135d9839a767a11e916b4f559",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2833,11 +3148,29 @@
       "source_svg": null
     },
     {
+      "id": "R06/c_append_down",
+      "path": "assets/rooms/R06/c_append_down.png",
+      "width": 280,
+      "height": 120,
+      "sha256": "0fac44687c40f61573a10a30a76a7cc9ae54afcfef4ff49bbce41227b3e3304d",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R06/c_calipers",
       "path": "assets/rooms/R06/c_calipers.png",
       "width": 120,
       "height": 200,
-      "sha256": "6a888deec905a593f0d84b10954db8f3aef1e795fed3722864bbdf36d372c7b7",
+      "sha256": "989e3fb0ca91263cf94e126d1b9d2ca89fd49a62a2dd91779ba9ec6ba1c47f25",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/c_calipers_halo",
+      "path": "assets/rooms/R06/c_calipers_halo.png",
+      "width": 120,
+      "height": 200,
+      "sha256": "8419c45ba4d2bd309c957f8d927995d227adfb76143e49a016b9ee0c1525a562",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2860,6 +3193,15 @@
       "source_svg": null
     },
     {
+      "id": "R06/c_cup_halo",
+      "path": "assets/rooms/R06/c_cup_halo.png",
+      "width": 150,
+      "height": 120,
+      "sha256": "a14786c7fd0a9599642d6b1fca1e504489803e3fb54e8d0c7be54dd3eb41b614",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R06/c_cup_mark",
       "path": "assets/rooms/R06/c_cup_mark.png",
       "width": 170,
@@ -2869,11 +3211,29 @@
       "source_svg": null
     },
     {
+      "id": "R06/c_erase_down",
+      "path": "assets/rooms/R06/c_erase_down.png",
+      "width": 280,
+      "height": 120,
+      "sha256": "98df24a8ff2edc46cce2a25aab422c54b6dcd8a2afc974793449cc6e87ac95ea",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R06/c_glove",
       "path": "assets/rooms/R06/c_glove.png",
       "width": 190,
       "height": 120,
-      "sha256": "c1f7cadbf09b4cf89a0ba35a892a70e631040388252aa03d46b1ecd8e732f5f2",
+      "sha256": "d2b523eda23f5921dd5a703a229806afbfd4504c02ff7c852c619d8342bef225",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/c_glove_halo",
+      "path": "assets/rooms/R06/c_glove_halo.png",
+      "width": 190,
+      "height": 120,
+      "sha256": "351fc7c8a9e78a519194132bf15d43106488f25cbeb80d971fa335f2c79e783c",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2891,7 +3251,7 @@
       "path": "assets/rooms/R06/c_lockers.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "536c000847f6b490d037027264faeef4d1602fa107fe42fe4e48fcb1458bda32",
+      "sha256": "4512b160ce022f22e2dd73dff01346b5d80327e279932b77301a407c0334db64",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2901,6 +3261,15 @@
       "width": 110,
       "height": 170,
       "sha256": "c0f9da34acac92a618cc282fa804930e9936ee233ab504add3de1039bb93a6bf",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/c_pencils_halo",
+      "path": "assets/rooms/R06/c_pencils_halo.png",
+      "width": 110,
+      "height": 170,
+      "sha256": "64612752c12c430f1245aa10412e4d39613e8fe375eeb109edce3496c77dacba",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2927,7 +3296,25 @@
       "path": "assets/rooms/R06/c_slope.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "d8616b48f6e5fddd09d05f9fb2f99b5a4300abf678526a7b7eda27cfc197800e",
+      "sha256": "160ed2e94918c9afb4e35c20ec179c02918e8290f8ac8bed049728154ea34af0",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/c_slope_clips",
+      "path": "assets/rooms/R06/c_slope_clips.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "8a36dd4c84f97373ee4d3cd4f345f8621b3c5a6d53d227e83deea49c9be947ee",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/c_slope_drums",
+      "path": "assets/rooms/R06/c_slope_drums.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "0e97aabc79eea1841a45c701ba826b97ab7fb7ccaa0e966c9035b103b6504e52",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2945,7 +3332,7 @@
       "path": "assets/rooms/R06/c_venn_open.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "649ccecb9cec92476d88c518101a3bb4e522863a5059eb8eee5228f89a695e76",
+      "sha256": "48d68f9c944d84f4bf0b47135573abf25ced679713ebbdf9a9628af24284c246",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2954,7 +3341,7 @@
       "path": "assets/rooms/R06/view_a.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "0bae639224bc687b2cfa9b3cd8f3bb69374215ca193d53081c0147f950b3d9f1",
+      "sha256": "d1ba320531983684d9774b6fa47a64ef21b7f83f8de4c505871011003858c5da",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2963,7 +3350,7 @@
       "path": "assets/rooms/R06/view_a_s2.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "40af13fdd512584333f4ed2e25c9b162e9e0594c49dba6947025cbd3b8952bc8",
+      "sha256": "a7e93b54cbfdf8342e0da1986f150bfc727066a0a30100324f6298c2badaaa59",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2972,7 +3359,7 @@
       "path": "assets/rooms/R06/view_a_s3.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "b0d687177a6696134fc34b37defcf20f38feeccb333eda6042db6ba83b979c54",
+      "sha256": "41043a5082b9d562288913a5f83aaaffd597ada91043a4a954865dfc360525ed",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2981,7 +3368,7 @@
       "path": "assets/rooms/R06/view_a_s4.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "3a58d04321d473c9018e378edc553eac228032855e8d885dd15659098fb3e5c0",
+      "sha256": "3db74336dd5abfea31881fad96749ddf96fc2d95e998655363b771f8c9d6ac01",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2990,7 +3377,7 @@
       "path": "assets/rooms/R06/view_a_sever.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "062f620b609b2206d8e20d012809ffc035a3583a2add1cc8a21ee71f84e99972",
+      "sha256": "fe7aeb3c74b1e5e794f7a9ec32837a1b224a1ede73f768dab3289c486aaf918d",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2999,7 +3386,7 @@
       "path": "assets/rooms/R06/view_b.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "f4823f881f9567cf317e655d68dc465afb71ba481813bff8fa36f6ad27da50e0",
+      "sha256": "e4957a470f815b858ed1a9148510420774c3affa7a5f207f418e55ab7d995ab6",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -3008,7 +3395,7 @@
       "path": "assets/rooms/R06/view_b_s2.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "8a6df497fb7cb50dc26f0ecf0457bd163274fc580868e7c25848c4b4b53bf12b",
+      "sha256": "b70656e502db2a9edae202fc90d608062aabe36c72148fe9534481f986b78f4a",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -3017,7 +3404,7 @@
       "path": "assets/rooms/R06/view_b_s3.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "7383974858eb14bd096cbc1e9f9ce43e831302e15e190b1b629909ddedba497f",
+      "sha256": "cc57fd8e971f05c850cc3182d079b21637c0b3505f27f8e6c7cb32d2197c5b44",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -3026,7 +3413,7 @@
       "path": "assets/rooms/R06/view_b_s4.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "001889b0c87cd22ac95863168d17f4be13c97bec47beff02b17524aae7f0dd73",
+      "sha256": "f3e43fd4ba9d4950393333911afabc7059bbb2ea014af27d8d0c2857b06ccfb8",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -3035,7 +3422,7 @@
       "path": "assets/rooms/R06/view_b_sever.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "aa1d3f6665bde510b7c9fc21422d5ddb0409c143a6f537df347a5275cbb19f55",
+      "sha256": "11a6dde1331fa6e4e5599cc7927d3e32525ed2b198249a0ef478dc575b3c4e77",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
