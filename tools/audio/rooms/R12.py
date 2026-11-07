@@ -536,10 +536,16 @@ def r12_hum() -> list[float]:
         tph = rnd.uniform(0, TAU)
         ph1, ph2 = rnd.uniform(0, TAU), rnd.uniform(0, TAU)
         amp = 1.0 / (1 + 0.12 * idx) ** 0.5
+        # the 3rd and 5th harmonics, so eight notes near 110-210 Hz carry on a laptop speaker;
+        # their phases follow ph1, so the seeded draws (and every other voice) stay as they were
+        f3, f5 = loop_freq(3 * f, L), loop_freq(5 * f, L)
         w1, w2, wt = TAU * fq / SR, TAU * f2 / SR, TAU * rate / SR
+        w3, w5 = TAU * f3 / SR, TAU * f5 / SR
+        ph3, ph5 = 3 * ph1 + 0.7, 5 * ph1 + 1.9
         for i in range(n):
             trem = 1 - 0.3 * (0.5 + 0.5 * math.sin(wt * i + tph))
-            out[i] += amp * trem * (math.sin(w1 * i + ph1) + 0.2 * math.sin(w2 * i + ph2))
+            out[i] += amp * trem * (math.sin(w1 * i + ph1) + 0.2 * math.sin(w2 * i + ph2)
+                                    + 0.15 * math.sin(w3 * i + ph3) + 0.08 * math.sin(w5 * i + ph5))
     return out
 
 
@@ -567,13 +573,15 @@ def r12_pressure_low() -> list[float]:
 
 
 def r12_surface() -> list[float]:
-    """Near-inaudible broadband rumble below 140 Hz breathing at 0.04 Hz (depth 0.5)."""
+    """A broadband rumble below 140 Hz, with a band of noise at 380-620 Hz mixed in at 0.25 so it
+    is heard on a laptop, both breathing together at 0.04 Hz (depth 0.5)."""
     rnd = seed(3)
     L = 30.0
     n = n_of(L + 1)
     nz = unit(lowpass(lowpass(lowpass(white(n, rnd), 140), 140), 140))
+    mid = unit(bandlimit(white(n, rnd), 380, 620))
     wb = TAU * 0.04 / SR
-    return [x * (1 - 0.5 * (0.5 + 0.5 * math.cos(wb * i))) for i, x in enumerate(nz)]
+    return [(x + 0.25 * m) * (1 - 0.5 * (0.5 + 0.5 * math.cos(wb * i))) for i, (x, m) in enumerate(zip(nz, mid))]
 
 
 def r12_terminal() -> list[float]:
@@ -1347,7 +1355,8 @@ SFX_DB = {
     "cup_warm": -16, "counter_type": -12, "paper_cover": -12, "motif_human_b": -8,
 }
 SFX_SOFT = ["handle_pull", "confirm_stamp", "frames_slide", "slots_close", "yoke_fit", "shutters_open",
-            "launch_engine"]
+            "launch_engine", "throat"]
+SFX_SOFT_CUT = {"throat": 4}   # soft audio caps the throat in the silence at -18 dB
 
 
 def check_attacks(name: str, xs: list[float]) -> None:

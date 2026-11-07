@@ -594,11 +594,16 @@ func play_p24() -> void:
 # ---------------------------------------------------------------------------
 # Tide IX: the observation chamber
 # ---------------------------------------------------------------------------
-## R12 P25: TRACE, POSITION and IDENTITY in BODY, PLACE and NAME; the switch to WITNESS; ROUTE.
+## R12 P25: seven cards in her name. A near miss first (the swapped MOVEMENT run lights the BODY
+## plate: DOES NOT CORRESPOND TO OBSERVER); then TRACE, POSITION and IDENTITY in BODY, PLACE and
+## NAME; the switch to WITNESS; ROUTE.
 func play_p25() -> void:
-	for a in ["to_frames", "frame_body", "rack_trace", "f_body", "rack_position", "f_place",
-			"rack_identity", "f_name", "switch"]:
+	for a in ["to_frames", "frame_body", "rack_trace_a", "f_body"]:
 		_qd(a)
+	check(chamber.plate_mismatch("body"), "P25: a decoy MOVEMENT card lights the BODY plate")
+	for a in ["rack_trace", "f_body", "rack_position", "f_place", "rack_identity", "f_name", "switch"]:
+		_qd(a)
+	check(not chamber.plate_mismatch("body") and chamber.card_in_rack("trace_a"), "P25: the true card displaces it")
 	var ev := _qd("route")
 	check(g.flag("P25") and chamber.frames() == R12Sim.SOLUTION_FRAMES and chamber.switch() == "witness",
 		"P25: her record routed to the witness line")

@@ -60,7 +60,7 @@ const P26_STORY := [
 const ARRIVAL_STORY := [
 	"The chamber. A chair faces an instrument. Nothing in here is dusty.",
 	"Every arm of the instrument ends where a part of a seated person would be. Head. Hands. Feet.",
-	"On the left wall, three frames. One of them already has a name on it.",
+	"Through the left arch, a wall of frames. One of them already has a name on it.",
 	"Mine.",
 ]
 const REF_HINTS := {
@@ -92,6 +92,9 @@ func run_tests() -> void:
 	test_p25_permutations()
 	test_p25_refusals()
 	test_p25_cards()
+	test_p25_decoys()
+	test_p25_wrong_cards()
+	test_p25_only_true_cards()
 	test_body_card()
 	test_p25_after()
 	test_p25_save_load()
@@ -107,6 +110,8 @@ func run_tests() -> void:
 	test_seen_lines()
 	test_bridge_net()
 	test_ending_saves()
+	test_ending_reload()
+	test_ending_timings()
 	test_use_item()
 	test_answers()
 	test_objectives_hints()
@@ -120,6 +125,9 @@ func run_tests() -> void:
 		await test_view_hooks()
 		await test_view_arrival()
 		await test_view_endings()
+		await test_view_surface()
+		await test_view_ending_sound()
+		await test_view_continue_mark()
 	else:
 		print("SKIP: R12 view_checks: the R12 view does not yet declare rects for every sim hotspot (view team)")
 
@@ -281,7 +289,7 @@ func test_p25_solution() -> void:
 	check("WOULD FINALIZE OBSERVER" in says(ev), "the first c_frames line shows the copy preview (%s)" % says(ev))
 	check(r.has_seen("frames_procedure"), "the procedure is noted")
 	ev = g.dispatch("rack_trace")
-	check(says(ev) == "My movements: 'Turned the zero wheel. Opened the hatch. Looked down the stair.' And under them: 'Observer has not yet looked behind her.'",
+	check(says(ev) == "A MOVEMENT card: 'Turned the zero wheel. Opened the hatch. Looked down the stair.' And under them: 'Observer has not yet looked behind her.'",
 		"the trace card reads the stored trace (%s)" % says(ev))
 	check(r.held_card() == "trace" and has_ev(ev, "sfx", "card_lift"), "the trace card is in hand")
 	ev = g.dispatch("f_body")
@@ -392,12 +400,13 @@ func test_p25_cards() -> void:
 	place(g, ["", "", ""])
 	# First lifts say the card; later lifts say its header.
 	var ev := g.dispatch("rack_position")
-	check(says(ev) == "My position: 'Ninth position. Centre of the station outline.'" and r.has_seen("card_position"), "position card")
+	check(says(ev) == "A POSITION card: 'Ninth position. Centre of the station outline.'" and r.has_seen("card_position"), "position card")
 	ev = g.dispatch("rack_position")
 	check(says(ev) == "Back in the rack." and r.held_card() == "" and has_ev(ev, "sfx", "card_return"), "lift twice puts it back")
-	check(says(g.dispatch("rack_position")) == "POSITION · A. MERCER", "a second lift says the header")
+	check(says(g.dispatch("rack_position")) == "A POSITION card: 'Ninth position. Centre of the station outline.'",
+		"a second lift reads the card again")
 	ev = g.dispatch("rack_identity")
-	check(says(ev) == "My contract: 'Miss Ada Mercer, cataloguer. Requested by E. Venn.'" and r.held_card() == "identity",
+	check(says(ev) == "A CONTRACT card: 'Miss Ada Mercer, cataloguer. Requested by E. Venn.'" and r.held_card() == "identity",
 		"lifting another card swaps it silently")
 	check(r.card_in_rack("position") and not r.card_in_rack("identity"), "the swapped card is back in the rack")
 	g.dispatch("f_name")
@@ -410,12 +419,151 @@ func test_p25_cards() -> void:
 	# Empty hand on a filled frame: back to the rack.
 	ev = g.dispatch("f_name")
 	check(says(ev) == "Back in the rack." and r.frames().name == "" and r.card_in_rack("trace"), "a filled frame empties")
-	check(R12Sim.RACK_ORDER == ["identity", "trace", "position"], "rack order, left to right")
+	check(R12Sim.RACK_ORDER == ["position_b", "trace_a", "identity", "trace", "identity_b", "trace_b", "position"],
+		"rack order, left to right: fixed, mixed, not true-first")
 	check(r.card_header("trace") == "MOVEMENT · A. MERCER" and r.card_header("identity") == "CONTRACT · A. MERCER",
 		"card headers")
 	check(r.card_text("position") == ["Ninth position. Centre of the station outline."], "position card text")
 	check(r.card_text("trace") == r.body_card_lines(), "the trace card is the body card")
 	check(not g.has_item("trace") and g.state.inventory == [BRIDGE], "the cards never enter the inventory")
+
+## The decoy MOVEMENT runs: for every trace record_move can leave (consecutive duplicates
+## collapsed, 1 to 8 events) over a sample of the whitelist, neither decoy repeats the trace or
+## the other decoy; with three or more events they are the two swaps whenever those differ.
+func test_p25_decoys() -> void:
+	var sample := ["zero_turned", "hatch_opened", "stair_looked", "lamp_mended"]
+	var seqs := [[]]
+	var checked := 0
+	var bad := []
+	for length in range(1, 9):
+		var next := []
+		for q in seqs:
+			for m in sample:
+				if q.is_empty() or q.back() != m:
+					var t: Array = q.duplicate()
+					t.append(m)
+					next.append(t)
+		seqs = next
+		for t in seqs:
+			var d := R12Sim.decoys_for(t)
+			checked += 1
+			if d.size() != 2 or d[0] == t or d[1] == t or d[0] == d[1] or d[0].size() < 3 or d[1].size() < 3:
+				bad.append(t)
+			for run in d:
+				for m in run:
+					if not GameSim.MOVES.has(m):
+						bad.append([t, m])
+			if t.size() >= 3:
+				var a: Array = t.duplicate()
+				a[0] = t[1]
+				a[1] = t[0]
+				if a != t and d[0] != a:
+					bad.append(["first swap", t])
+	check(bad.is_empty() and checked > 3000, "decoys never repeat the trace (%d traces, bad %s)" % [checked, bad.slice(0, 3)])
+	# the same through record_move and the real freeze, as play leaves it
+	var g := fresh()
+	g.state.p05_trace = []
+	for m in ["lamp_mended", "lamp_mended", "zero_turned", "hatch_opened", "zero_turned"]:
+		g.record_move(m)
+	g.freeze_p05_trace()
+	var tr: Array = g.value("p05_trace")
+	var r := r12(g)
+	check(tr == ["zero_turned", "hatch_opened", "zero_turned"], "the frozen trace (%s)" % [tr])
+	check(r.movement_of("trace_a") == ["hatch_opened", "zero_turned", "zero_turned"]
+		and r.movement_of("trace_b") == ["zero_turned", "zero_turned", "hatch_opened"], "decoys: the two swaps")
+	for cid in ["trace_a", "trace_b"]:
+		check(r.card_text(cid).back() == r.line4() and r.card_text(cid) != r.body_card_lines(),
+			"%s prints its own run and the same fourth line" % cid)
+	# short and empty traces take the fixed runs, which differ from the trace and each other
+	for t in [[], ["zero_turned"], ["held_still", "turned_round"]]:
+		var d := R12Sim.decoys_for(t)
+		check(d == [R12Sim.DECOY_FALLBACK[0], R12Sim.DECOY_FALLBACK[1]], "short trace %s: the fixed runs" % [t])
+	var d2 := R12Sim.decoys_for(R12Sim.DECOY_FALLBACK[0])
+	check(not R12Sim.DECOY_FALLBACK[0] in d2 and d2[0] != d2[1], "a trace equal to a fixed run never meets itself")
+	# the rack: seven cards, fixed slots, three categories, faces as specified
+	check(R12Sim.CARD_IDS.size() == 7 and sorted(R12Sim.RACK_ORDER) == sorted(R12Sim.CARD_IDS), "seven cards, each in one slot")
+	check(R12Sim.RACK_ORDER.find("trace") != 0 and R12Sim.RACK_ORDER.slice(0, 3) != ["trace", "position", "identity"],
+		"the true cards are not first")
+	check(r.card_text("position_b") == ["Eighth position. Seat beside the window."]
+		and r.card_text("identity_b") == ["Miss Ada Mercer, cataloguer. Requested by S. Rook."], "decoy faces")
+	var rack_ids := []
+	for c in R12Sim.FRAMES_CONTROLS:
+		if c.begins_with("rack_"):
+			rack_ids.append(c.substr(5))
+	check(rack_ids == R12Sim.RACK_ORDER, "the rack controls follow the rack order")
+	for cid in R12Sim.CARD_IDS:
+		check(R12Sim.OBSERVATIONS.has("card_" + cid), "card_%s has a notebook line" % cid)
+
+## A wrong card of the right category lights its frame's plate: DOES NOT CORRESPOND TO
+## OBSERVER. It persists (and saves), nothing locks, and a wrong category still names its own.
+func test_p25_wrong_cards() -> void:
+	var lit := "DOES NOT CORRESPOND TO OBSERVER"
+	for pair in [["trace_a", "body"], ["trace_b", "body"], ["position_b", "place"], ["identity_b", "name"]]:
+		var g := fresh()
+		var r := r12(g)
+		place(g, [])
+		g.dispatch("rack_" + pair[0])
+		var ev := g.dispatch("f_" + pair[1])
+		var f: String = pair[1]
+		check(says(ev) == "It clips into the %s frame. The plate lights: %s." % [LABEL[f], lit],
+			"%s in %s: the plate lights (%s)" % [pair[0], f, says(ev)])
+		check(fx(ev, "plate_mismatch").get("frame") == f and has_ev(ev, "sfx", "frame_lamp"), "%s: plate fx and lamp" % pair[0])
+		check(r.plate_mismatch(f) and r.has_seen("plate_mismatch"), "%s: the plate stays lit and is noted" % pair[0])
+		var t := roundtrip(g)
+		check(r12(t).frames()[f] == pair[0] and r12(t).plate_mismatch(f), "%s: the lit plate survives a save" % pair[0])
+		check(JSON.stringify(t.to_dict()) == JSON.stringify(roundtrip(t).to_dict()), "%s: the save round-trips" % pair[0])
+		# nothing locks: lift it back out, the plate goes dark
+		g.dispatch("f_" + f)
+		check(r.frames()[f] == "" and not r.plate_mismatch(f) and r.card_in_rack(pair[0]), "%s: it comes back out" % pair[0])
+	# ROUTE with a lit plate refuses and says so; the true card then clears it.
+	var h := fresh()
+	var q := r12(h)
+	place(h, ["trace_b", "position", "identity"])
+	h.dispatch("switch")
+	var before := flags_json(h)
+	var ev := h.dispatch("route")
+	check(says(ev) == "ROUTE won't turn. The BODY plate reads: %s." % lit and flags_json(h) == before
+		and has_ev(ev, "sfx", "route_refuse"), "ROUTE refuses a lit plate (%s)" % says(ev))
+	play(h, ["rack_trace", "f_body"])
+	check(not q.plate_mismatch("body"), "the true card puts the plate out")
+	play(h, ["route"])
+	check(h.flag("P25"), "then P25")
+	# A wrong category names its category, as before.
+	var w := fresh()
+	place(w, ["position_b", "trace", "identity"])
+	w.dispatch("switch")
+	check(says(w.dispatch("route")) == "ROUTE won't turn. The BODY plate lights: '%s'" % CATEGORY.body
+		and not r12(w).plate_mismatch("body"), "a wrong category names its category")
+	# Load validation: unknown ids drop, decoy ids load, one card per frame.
+	var v := fresh()
+	var rv := r12(v)
+	rv.load_state({"frames": {"body": "trace_a", "place": "identity_b", "name": "trace_c"}})
+	check(rv.frames() == {"body": "trace_a", "place": "identity_b", "name": ""}, "load keeps known cards only (%s)" % [rv.frames()])
+	check(rv.plate_mismatch("body") and not rv.plate_mismatch("place"), "a loaded wrong-category card is not lit")
+
+## P25 commits only with the three true cards, in their frames, on WITNESS (every placement of
+## any three of the seven cards).
+func test_p25_only_true_cards() -> void:
+	var g0 := fresh()
+	var base := g0.to_dict()
+	var wrong_solved := []
+	var solved := 0
+	for a in R12Sim.CARD_IDS:
+		for b in R12Sim.CARD_IDS:
+			for c in R12Sim.CARD_IDS:
+				if a == b or b == c or a == c:
+					continue
+				var g := GameSim.new()
+				g.from_dict(base)
+				place(g, [a, b, c])
+				g.dispatch("switch")
+				g.dispatch("route")
+				if g.flag("P25"):
+					if [a, b, c] == ["trace", "position", "identity"]:
+						solved += 1
+					else:
+						wrong_solved.append([a, b, c])
+	check(solved == 1 and wrong_solved.is_empty(), "only the true cards route (%d, %s)" % [solved, wrong_solved])
 
 func test_body_card() -> void:
 	for turned in [false, true]:
@@ -769,10 +917,14 @@ func test_p27_buttons() -> void:
 	check(not has_ev(ev, "fx", "tide"), "P27: the tide holds, no card")
 	check(story(ev) == ["I pull the handle. It is heavier than it looks, and then it isn't.",
 		"Above the frames the eight indicators go out. Not together. One, and a wait, and the next."], "SEVER step 0")
-	var expect := [["handle_pull", 0.0]]
-	for i in 8:
-		expect.append(["line_out_%d" % (i + 1), _d(3.0 + 0.9 * i)])
-	check(sfx_list(ev) == expect, "the eight lines go out in turn (%s)" % [sfx_list(ev)])
+	var expect := [["handle_pull", 0.0], ["line_out_1", 3.0], ["line_out_2", 3.8], ["line_out_3", 4.9],
+		["line_out_4", 6.3], ["line_out_5", 8.0], ["line_out_6", 10.1], ["line_out_7", 12.6], ["line_out_8", 16.2]]
+	check(sfx_list(ev) == expect, "the eight lines go out in turn, each wait longer (%s)" % [sfx_list(ev)])
+	var gaps := []
+	for i in range(2, expect.size()):
+		gaps.append(_d(expect[i][1] - expect[i - 1][1]))
+	for i in range(1, gaps.size()):
+		check(gaps[i] > gaps[i - 1], "gap %d after line %d is longer than the one before (%s)" % [i, i + 1, gaps])
 	var e := fx(ev, "ending")
 	check(e.get("choice") == "sever" and e.get("step") == 0 and e.get("tableau") == "c_sever" and e.get("change") == "", "ending fx step 0")
 	check(g.value("ending_choice") == "" and g.view == "room", "the end card waits for the ending")
@@ -887,11 +1039,13 @@ func test_ending_saves() -> void:
 	check(r.ending_step() == 5, "at SEVER step 5")
 	var t := roundtrip(g)
 	var q := r12(t)
-	check(t.view == "room" and q.local_view == "room" and t.state.room == ROOM and q.ending_step() == 5 and q.chosen() == "sever",
-		"an ending save lands in the room at its step")
+	check(t.view == "room" and q.local_view == "ending" and t.state.room == ROOM and q.ending_step() == 5 and q.chosen() == "sever",
+		"an ending save lands in the ending at its step")
 	var before := JSON.stringify(t.to_dict())
 	var ev := t.dispatch("go:R11")
-	check(t.state.room == ROOM and says(ev) == "Not now. I've chosen.", "no leaving after a load either")
+	check(t.state.room == ROOM and q.local_view == "ending" and JSON.stringify(t.to_dict()) == before,
+		"no leaving after a load either")
+	check(q.exit_block("R11") == "Not now. I've chosen.", "the stair stays shut after a load")
 	ev = t.dispatch("chair")
 	check(q.local_view == "ending" and q.ending_step() == 5 and story(ev) == ["In the bunk room the hollows in the mattresses rise, one by one, until the beds are only made."],
 		"a hotspot resumes at step 5 (%s)" % [story(ev)])
@@ -902,6 +1056,44 @@ func test_ending_saves() -> void:
 	var u := roundtrip(g)
 	ev = u.dispatch("btn_sever")
 	check(r12(u).local_view == "ending" and fx(ev, "ending").get("step") == 5, "a control resumes the ending")
+
+## A save taken mid-ending loads back into the ending, on the same page, and goes on.
+func test_ending_reload() -> void:
+	for choice in ["sever", "continue"]:
+		var g := final_game()
+		var r := r12(g)
+		if choice == "sever":
+			play(g, ["tray", "contacts", "preview", "btn_sever"])
+		else:
+			play(g, ["bridge_seat", "preview", "btn_continue"])
+		check(r.state.chosen == choice and r.state.ending_step == 0, "%s: chosen and step set on the commit" % choice)
+		g.dispatch("ending_next")
+		var d := g.to_dict()
+		check(d.rooms.R12.chosen == choice and d.rooms.R12.ending_step == 1, "%s: the save holds the choice and the page" % choice)
+		var t := GameSim.new()
+		t.load_settings(g.settings_dict())
+		check(t.from_dict(JSON.parse_string(JSON.stringify(d))), "%s: loads" % choice)
+		var q := r12(t)
+		check(q.local_view == R12Sim.V_ENDING and q.ending_step() == 1 and q.chosen() == choice,
+			"%s: the load lands in the ending on its page (%s, %d)" % [choice, q.local_view, q.ending_step()])
+		check(q.resume_view() == R12Sim.V_ENDING, "%s: resume_view is the ending" % choice)
+		var ev: Array = []
+		check(q.resume(ev), "%s: the room takes the resume" % choice)
+		check(not R12Sim.RESUME in says(ev) and fx(ev, "ending").get("step") == 1
+			and story(ev).size() == R12Sim.steps(choice)[1].lines.size(), "%s: resume replays the page, no 'Back in'" % choice)
+		check(q.ending_step() == 1, "%s: the resume changes nothing" % choice)
+		ev = t.dispatch("ending_next")
+		check(q.ending_step() == 2 and fx(ev, "ending").get("step") == 2, "%s: and ending_next goes on" % choice)
+	var n := fresh()
+	check(r12(n).resume_view() == "room" and not r12(n).resume([]), "before the choice a load resumes in the room")
+
+## The sounds and silences the endings are timed to.
+func test_ending_timings() -> void:
+	var funnels: Dictionary = R12Sim.ENDING_SEVER[1]
+	check(funnels.sfx == [["funnel_stop", 0.4], ["throat", 3.6]], "the throat clears at 3.6 s (%s)" % [funnels.sfx])
+	var wide: Dictionary = R12Sim.ENDING_CONTINUE[8]
+	check(wide.tableau == "end_b_wide" and wide.lines == [[0.0, "Far out in the dark, one small lit window. The kitchen."],
+		[4.2, "Around it, more windows than I can count. None of them lit."]], "the wide page: both lines, 1.2 s more silence")
 
 func test_use_item() -> void:
 	var g := fresh()
@@ -1003,7 +1195,10 @@ func test_objectives_hints() -> void:
 		check(r.objective() == o, "jump %d: objective %s (got %s)" % [n, o, r.objective()])
 		check(r.objective_text() == R12Sim.OBJECTIVES[o], "jump %d: objective text" % n)
 		for i in 3:
-			check(r.hint_line(i) == REF_HINTS[o][i], "jump %d: hint %d" % [n, i])
+			var want: String = REF_HINTS[o][i]
+			if o == "frames" and i == 2:
+				want = frames_hint3(g)
+			check(r.hint_line(i) == want, "jump %d: hint %d (%s)" % [n, i, r.hint_line(i)])
 	check(R12Sim.OBJECTIVES == {"frames": "Give the chamber its record of me. Don't let it sign.",
 		"routing": "Find out exactly what each route does.", "decide": "Choose: break the line, or stay as its witness.",
 		"finale": "See it through.", "done_chamber": "It's done."}, "objective lines")
@@ -1015,10 +1210,21 @@ func test_objectives_hints() -> void:
 	var lines := []
 	for i in 3:
 		lines.append(says(h.dispatch("hint")))
-	check(lines == REF_HINTS.frames, "the frames ladder in play (%s)" % [lines])
+	check(lines == [REF_HINTS.frames[0], REF_HINTS.frames[1], frames_hint3(h)], "the frames ladder in play (%s)" % [lines])
+	check(lines[2] == "The true cards: the MOVEMENT card reading 'Turned the zero wheel. Opened the hatch. Looked down the stair.' to BODY; 'Ninth position. Centre of the station outline.' to PLACE; 'Requested by E. Venn.' to NAME. Then the switch to WITNESS, and ROUTE.",
+		"hint 3 names each true card and its frame")
 	var e := _jumped(5)
 	check(says(e.dispatch("hint")) == REF_HINTS.finale[0] and r12(e).hint_frozen(), "the ending: frozen hint")
 	check(R12Sim.WAY_IN_HINT == "The lower door on the stair landing has opened. Below it, the chamber.", "way-in hint")
+
+## P25's third hint, written out independently: each true card by its words, and its frame.
+func frames_hint3(g: GameSim) -> String:
+	var moves := []
+	for t in g.value("p05_trace"):
+		moves.append(GameSim.move_text(t))
+	var body := "the MOVEMENT card reading '%s'" % " ".join(moves) if not moves.is_empty() \
+		else "the MOVEMENT card that is my own departure record"
+	return "The true cards: %s to BODY; 'Ninth position. Centre of the station outline.' to PLACE; 'Requested by E. Venn.' to NAME. Then the switch to WITNESS, and ROUTE." % body
 
 func test_reconcile() -> void:
 	var g := with_flags(["P24", "P25"], ROOM)
@@ -1272,4 +1478,121 @@ func test_view_endings() -> void:
 			check(lt.end_wide > 0.0 and lt.r12_hum == 0.0, "ending continue, last step: the wide dark")
 		if n == 6:
 			check(lt.r12_hum > 0.0 and lt.r12_terminal > 0.0 and lt.end_wide == 0.0, "ending continue, first step: the chamber hums")
+		await free_scene(scene)
+
+## The room view's wall of glass: the wide plate behind every hotspot, the lid on its clock (or
+## still at a third), the margin after P26, and the window rect unchanged.
+func test_view_surface() -> void:
+	var view_script: Dictionary = load("res://game/rooms/R12/R12_view.gd").get_script_constant_map()
+	check(view_script.HOTSPOTS[1] == ["window", Rect2(474, 96, 500, 290), "Window"], "the window hotspot is unchanged")
+	check(ResourceLoader.exists("res://assets/rooms/R12/a_surface_wide.png")
+		and ResourceLoader.exists("res://assets/rooms/R12/end_b_field.png"), "the new plates exist")
+	var scene = await _scene_at(0, [])
+	var view = scene.room_view
+	var g: Rect2 = view_script.GLASS_IN
+	scene.sim.settings.motion = false
+	check(is_equal_approx(view.lid_top(), g.position.y + g.size.y / 3.0), "Motion off: the lid holds a third of the way down")
+	scene.sim.settings.motion = true
+	scene.time = 40.0 + 3.0       # 3 s into a 20 s period
+	var y: float = view.lid_top()
+	check(not is_nan(y) and y > g.position.y and y < g.end.y, "Motion on: mid-pass the lid crosses the glass (%s)" % y)
+	scene.time = 40.0 + 12.0
+	check(is_nan(view.lid_top()), "between passes the lid is gone")
+	scene.time = 40.0 + 0.0
+	check(is_equal_approx(view.lid_top(), g.position.y - 70.0), "each pass starts above the water")
+	await free_scene(scene)
+
+## The SEVER line-outs end in true silence; the wide CONTINUE page ducks its gap; the bed levels;
+## the throat under soft audio.
+func test_view_ending_sound() -> void:
+	var lin := func(db: float) -> float: return db_to_linear(db)
+	var s0 = await _scene_at(0, [])
+	var lt: Dictionary = s0.room_view.loop_targets()
+	check(is_equal_approx(lt.r12_hum, lin.call(-9.0)) and is_equal_approx(lt.r12_pressure, lin.call(-10.0))
+		and is_equal_approx(lt.r12_surface, lin.call(-14.0)), "the bed: hum -9, pressure -10, surface -14 (%s)" % [lt])
+	s0.sim.settings.soft_audio = false
+	check(is_equal_approx(s0.sfx_db("throat"), -14.0), "the throat at -14")
+	s0.sim.settings.soft_audio = true
+	check(is_equal_approx(s0.sfx_db("throat"), -18.0), "soft audio caps the throat at -18")
+	s0.sim.settings.soft_audio = false
+	await free_scene(s0)
+	var s2 = await _scene_at(2, [])
+	check(is_equal_approx(s2.room_view.loop_targets().r12_pressure_low, lin.call(-10.0))
+		and is_equal_approx(s2.room_view.loop_targets().r12_hum, lin.call(-8.0)), "s2: low pressure -10, hum -8")
+	await free_scene(s2)
+	# SEVER: a real commit, then the eighth line out
+	var sc = await _scene_at(3, ["to_routing", "contacts"])
+	var view = sc.room_view
+	var r: R12Sim = sc.sim.room(ROOM)
+	sc.dispatch("btn_sever")
+	check(r.chosen() == "sever" and not view.sever_silence(), "SEVER: the hum still sounds before the lines go")
+	for i in 7:
+		view.on_sfx("line_out_%d" % (i + 1))
+	var t7: Dictionary = view.loop_targets()
+	check(is_equal_approx(t7.r12_hum, lin.call(-8.0) / 8.0) and t7.r12_pressure_low > 0.0, "seven out: an eighth of the hum, the bed on")
+	check(is_equal_approx(view.loop_rates().r12_hum, lin.call(-8.0) / 8.0 / 0.5), "each eighth goes over half a second")
+	view.on_sfx("line_out_8")
+	var t8: Dictionary = view.loop_targets()
+	var silent := true
+	for id in ["r12_hum", "r12_pressure", "r12_pressure_low", "r12_surface", "r12_terminal"]:
+		silent = silent and t8[id] == 0.0
+	check(view.sever_silence() and silent, "after the eighth: every chamber loop at 0 (%s)" % [t8])
+	check(is_equal_approx(view.loop_rates().r12_hum, lin.call(-8.0) / 8.0 / 0.5), "the last eighth also goes over half a second")
+	sc.lines.clear()
+	sc.pending_sfx.clear()
+	sc.cur_text = ""
+	sc.cur_story = false
+	sc.dispatch("ending_next")
+	check(r.ending_step() == 1 and view.sever_silence(), "the next page is silent until its first line types")
+	view.tick(0.0)
+	check(not view.sever_silence() and view.loop_targets().r12_pressure_low > 0.0, "its first line up: the bed comes back")
+	await free_scene(sc)
+	# CONTINUE's wide page
+	var cc = await _scene_at(6, [])
+	var cr: R12Sim = cc.sim.room(ROOM)
+	cr.state.ending_step = 7
+	cc.dispatch("ending_next")
+	var cv = cc.room_view
+	check(cr.tableau() == "end_b_wide" and cv.cur_tab == "end_b_wide", "on the wide page")
+	cv.tick(0.0)
+	check(is_equal_approx(cv.loop_targets().end_wide, lin.call(-14.0)), "the first line over the wide dark")
+	cc.time += 3.2
+	cv.tick(0.0)
+	check(cv.wide_duck() and is_equal_approx(cv.loop_targets().end_wide, lin.call(-40.0)), "the gap: ducked to -40 dB")
+	cc.cur_text = R12Sim.ENDING_CONTINUE[8].lines[1][1]
+	cv.tick(0.0)
+	check(not cv.wide_duck() and is_equal_approx(cv.loop_targets().end_wide, lin.call(-14.0)), "the count: the dark comes back")
+	await free_scene(cc)
+
+## The ending's 'continue' mark: once the page is done, pulsing (still with Motion off); and
+## unanswered for 12 s it turns the page by itself, on both endings, to the end card.
+func test_view_continue_mark() -> void:
+	for n in [5, 6, 7, 8]:
+		var scene = await _scene_at(n, [])
+		var view = scene.room_view
+		var r: R12Sim = scene.sim.room(ROOM)
+		var step := r.ending_step()
+		view.tick(0.0)
+		check(view.page_finished() and view.cont_visible(), "ending %d: the finished page shows the mark" % n)
+		scene.sim.settings.motion = false
+		check(is_equal_approx(view.cont_alpha(), 0.8), "ending %d: Motion off, the mark is still at 0.8" % n)
+		scene.sim.settings.motion = true
+		var lo := 1.0
+		var hi := 0.0
+		var t0: float = scene.time
+		for k in 9:
+			scene.time = t0 + k * 0.25
+			lo = minf(lo, view.cont_alpha())
+			hi = maxf(hi, view.cont_alpha())
+		check(lo >= 0.45 - 0.001 and lo < 0.5 and hi > 0.95 and hi <= 1.0, "ending %d: it pulses 0.45-1.0 (%s-%s)" % [n, lo, hi])
+		scene.time = t0 + 11.0
+		view.tick(0.0)
+		check(r.ending_step() == step and scene.sim.view == "room", "ending %d: no turn before 12 s" % n)
+		scene.time = t0 + 12.1
+		view.tick(0.0)
+		if n in [7, 8]:
+			check(scene.sim.view == "end", "ending %d: the last page turns to the end card by itself" % n)
+		else:
+			check(r.ending_step() == step + 1, "ending %d: the page turns by itself (%d)" % [n, r.ending_step()])
+			check(not view.cont_visible(), "ending %d: the new page hides the mark while it plays" % n)
 		await free_scene(scene)
