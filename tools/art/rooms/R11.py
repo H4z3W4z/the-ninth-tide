@@ -2194,6 +2194,257 @@ def paint_rec_bridge(rng):
     return p
 
 
+# ----------------------------------------------------------------------------- w3 overlays
+# New files only (w3 fixes); no existing stem is repainted.
+
+SLAB_Y = (486, 566)             # the horizontal pane: the water_plane hotspot's band
+
+
+def _treads(p, y0, y1, pitch, riser, edge, wet=False, nose=12.0):
+    """Flat stair rows inside OPEN between y0 and y1, each a riser, a nosing and a hard ink
+    edge, stepping in a few px a row. One flat colour pair per zone: no depth gradient."""
+    x0, _, x1, _ = OPEN
+    i = 0
+    y = y0
+    while y < y1:
+        b = min(y + pitch, y1)
+        ins = i * 3.0
+        xa, xb = x0 - 12 + ins, x1 + 12 - ins
+        p.rect(xa, y, xb, b, riser, None)
+        nb = min(b, y + nose)
+        p.rect(xa, y, xb, nb, edge, None)
+        if wet:
+            # wet: a hard pale gloss line along each nosing and a short glint, nothing soft
+            p.line([(xa + 8, y + 3.2), (xb - 8, y + 3.2)], rgba(mix(SEAGLASS_HI, COLD, 0.5), 200), 1.6)
+            gx = lerp(xa + 40, xb - 120, (i * 0.37) % 1.0)
+            p.line([(gx, y + nose + 5), (gx + 70, y + nose + 5)], rgba(mix(STORM_HI, COLD, 0.35), 170), 1.2)
+        else:
+            p.line([(xa, y + 1.6), (xb, y + 1.6)], LIMEWASH_HI, 1.4)
+        p.line([(xa, y + nose), (xb, y + nose)], mix(riser, INK, 0.45), 1.2)
+        p.line([(xa, y), (xb, y)], INK, 1.8)
+        p.line([(xa, y), (xa, b)], INK, 1.8)
+        p.line([(xb, y), (xb, b)], INK, 1.8)
+        y += pitch
+        i += 1
+
+
+def paint_pane_slab(rng):
+    """The gateway with the water as one sharp horizontal sea-glass slab, flat to the jambs, a
+    2 px bright edge-on highlight on top. Above it the steps are wet-dark navy; below it they
+    are bone-dry limewash. No gradient between the two: the hard border is the wrongness."""
+    p = Pen(W, H, rng)
+    x0, y0, x1, y1 = OPEN
+    top, bot = SLAB_Y
+    pitch = 45.0
+    # above: wet navy (the well wall behind is the same navy, a step darker)
+    p.rect(x0, y0, x1, top, STORM_DK, None)
+    _treads(p, y0, top, pitch, STORM, mix(STORM, STORM_HI, 0.6), wet=True)
+    # below: bone dry, chalk-flat
+    p.rect(x0, bot, x1, y1, LIMEWASH_DK, None)
+    _treads(p, bot - 14, y1, pitch, LIMEWASH, LIMEWASH_HI)
+    # the slab itself: flat sea-glass, jamb to jamb
+    p.rect(x0 - 2, top, x1 + 2, bot, SEA_SAT, None)
+    p.rect(x0 - 2, top + 4, x1 + 2, top + 16, mix(SEA_SAT, SEAGLASS_HI, 0.35), None)
+    p.rect(x0 - 2, bot - 10, x1 + 2, bot, mix(SEA_SAT, SEA_DEEP, 0.6), None)
+    p.line([(x0 - 2, top - 1.0), (x1 + 2, top - 1.0)], INK, 2.0)
+    p.rect(x0 - 2, top, x1 + 2, top + 2, (250, 254, 252), None)        # the 2 px edge-on highlight
+    p.line([(x0 - 2, bot + 0.5), (x1 + 2, bot + 0.5)], INK, 2.2)
+    # flat to the jambs: a hard cold bevel where it meets each jamb face, no meniscus, no spill
+    for xe, s in ((x0, 1), (x1, -1)):
+        p.rect(min(xe, xe + s * 5), top + 2, max(xe, xe + s * 5), bot, mix(COLD, SEAGLASS_HI, 0.3), None)
+        p.line([(xe + s * 5.5, top + 2), (xe + s * 5.5, bot)], mix(SEA_DEEP, INK, 0.45), 1.2)
+    clip(p, rect_mask((W, H), [(x0 + 1.5, y0 + 1.5, x1 - 1.5, y1 - 1.5)]))
+    return p
+
+
+def paint_pane_files(rng):
+    """After P12: rows of filing shelves inside the slab, stark navy silhouettes, upside down:
+    each board on top with its brackets pointing up, the files hanging from it."""
+    p = Pen(W, H, rng)
+    x0, _, x1, _ = OPEN
+    top, bot = SLAB_Y
+    sil = mix(INK, STORM_DK, 0.3)
+    for by, h in ((top + 6, 30), (top + 44, 28)):
+        p.rect(x0, by, x1, by + 5, sil, None)
+        for bx in (x0 + 34, (x0 + x1) / 2, x1 - 34):
+            p.poly([(bx - 5, by), (bx + 5, by), (bx, by - 4)], sil, None)
+        x = x0 + rng.uniform(2, 10)
+        while x < x1 - 6:
+            w = rng.uniform(12, 20)
+            hh = h * rng.uniform(0.72, 1.0)
+            if rng.random() < 0.07:
+                x += w
+                continue
+            p.rect(x, by + 5, x + w - 2.5, by + 5 + hh, sil, None)
+            # a pale label slot at each file's (upside-down) foot
+            p.rect(x + 3, by + 5 + hh - 7, x + w - 5.5, by + 5 + hh - 4, mix(SEA_SAT, COLD, 0.25), None)
+            x += w
+    p.put(p.layer())
+    clip(p, rect_mask((W, H), [(x0 + 6, top + 3, x1 - 6, bot - 2)]))
+    return p
+
+
+BELL_FROZEN_K = 1.12
+
+
+def paint_bell_frozen(rng):
+    """The clapperless bell as a stark navy silhouette about 160 px tall, frozen at 30 degrees
+    on its bearing: one hard cold rim line down its lit side, an empty mouth, nothing inside."""
+    p = Pen(W, H, rng)
+    c = PIVOT
+    k = BELL_FROZEN_K
+    ang = 30
+    T = lambda q: rot((c[0] + q[0] * k, c[1] + (q[1] + 14) * k), c, ang)
+    body = mix(INK, STORM_DK, 0.25)
+    sh = p.layer()
+    sh.poly([(q[0] + 7, q[1] + 9) for q in map(T, bell_shape())], (10, 16, 22), None)
+    p.put_soft(sh, 6, 0.35)
+    p.poly([T(q) for q in bell_shape()], body, INK, 3.0)
+    # the lit side: one hard cold line, the lip a second
+    right = bell_shape()[:15]
+    p.line([T((x - 4, y)) for x, y in right[2:-1]], mix(COLD, SEAGLASS_HI, 0.3), 2.0)
+    p.line([T((-56, 104)), T((56, 104))], mix(STORM_HI, COLD, 0.2), 1.6)
+    # the mouth, tipped toward us: a flat ellipse, empty to the crown
+    mouth = [T((60 * math.cos(t), 112 + 20 * math.sin(t))) for t in (math.tau * i / 56 for i in range(56))]
+    p.poly(mouth, mix(STORM, INK, 0.2), INK, 2.6)
+    inner = [T((44 * math.cos(t), 112 + 12 * math.sin(t))) for t in (math.tau * i / 48 for i in range(48))]
+    p.poly(inner, (8, 12, 16), None)
+    # the yoke on the bearing
+    p.poly([T(q) for q in ((-18, -27), (18, -27), (18, -3), (-18, -3))], body, INK, 2.2)
+    p.line([T((-18, -9)), T((18, -9))], STORM_HI, 2.0)
+    p.ell(c[0], c[1], 8, 8, STORM_HI, INK, 1.8)
+    return p
+
+
+def _upper_stair_geom():
+    n = 12
+    xa, ya, xb, yb = 1140, FLOOR_Y, 1390, SLAB[1]
+    return n, xa, ya, xb, yb, (xb - xa) / n, (ya - yb) / n
+
+
+FILL_TOP = (185, 203, 196)      # #b9cbc4
+FILL_BOT = (143, 168, 162)      # #8fa8a2
+FILL_Y1 = DADO_Y - 12           # the cap rail's top
+FILL_X0 = 1150
+
+
+def paint_stairwell_fill(rng):
+    """The lower landing's stairwell, no longer a white void: a paper-textured wall in a flat
+    vertical gradient (#b9cbc4 to #8fa8a2) up the shaft and behind the flight, navy-contoured
+    stringers of the stair going on up out of frame, and the old light wedge laid back over it
+    at 0.25. The flight itself, the slab and the dado are left as painted."""
+    p = Pen(W, H, rng)
+    n, xa, ya, xb, yb, run, rise = _upper_stair_geom()
+    # where the fill may go: the shaft, the hole, the wall behind the flight; never the flight
+    m = rect_mask((W, H), [(HOLE[0] - 10, -4, HOLE[1] + 10, SLAB[0]), (HOLE[0], SLAB[0], HOLE[1], SLAB[1]),
+                           (FILL_X0, SLAB[1] + 1.5, W + 4, FILL_Y1)])
+    ex = Image.new("L", m.size, 0)
+    d = ImageDraw.Draw(ex)
+    for i in range(n):
+        tx, ty = xa + i * run, ya - (i + 1) * rise
+        d.rectangle(((tx - 3) * SS, (ty - 1.5) * SS, (tx + run + 2) * SS, ya * SS), fill=255)
+    T = 46
+    st = [(xa - 8, ya + 2), (xb + 12, yb + rise * 0.6 - 2), (xb + 12, yb + rise * 0.6 + T + 2), (xa + 14, ya + 2)]
+    d.polygon([(x * SS, y * SS) for x, y in st], fill=255)
+    d.rectangle(((xb - 2) * SS, (yb - 2) * SS, (xb + 13) * SS, (yb + rise * 0.6 + T) * SS), fill=255)
+    m = ImageChops.subtract(m, ex)
+    # the wall: a flat vertical gradient in bands of 2 px, then paper grain
+    wall = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    wd = ImageDraw.Draw(wall)
+    for y in range(0, FILL_Y1 + 2, 2):
+        wd.rectangle((0, y, W, y + 2), fill=rgba(mix(FILL_TOP, FILL_BOT, y / FILL_Y1)))
+    wall = grain(wall, rng_for(1029), amp=6, mottle=7, speck=10).convert("RGBA")
+    fill = Pen(W, H, rng)
+    fill.im = wall.resize((W * SS, H * SS), Image.NEAREST)
+    fill.d = ImageDraw.Draw(fill.im)
+    # faint block courses, as the walls round it
+    for y in range(SLAB[1] + 96, FILL_Y1, 96):
+        fill.line([(FILL_X0, y), (W + 4, y)], mix(FILL_BOT, SEAGLASS, 0.35), 1.6)
+    for y in range(SLAB[0] - 96, -4, -96):
+        fill.line([(HOLE[0] - 10, y), (HOLE[1] + 10, y)], mix(FILL_TOP, SEAGLASS, 0.3), 1.4)
+    # the stair goes on up the shaft, out of frame: two stringers and the treads between them
+    fl = fill.layer()
+    sx0, sy0, sx1, sy1 = HOLE[1] + 4, SLAB[0] + 10, HOLE[0] - 40, -60
+    steps = 9
+    for j in range(steps):
+        t0 = j / steps
+        x = lerp(sx0, sx1, t0)
+        y = lerp(sy0, sy1, t0)
+        sw, shh = (sx0 - sx1) / steps, (sy0 - sy1) / steps
+        fl.rect(x - sw, y - shh, x, y - shh + 9, LIMEWASH_HI, INK, 1.8)
+        fl.rect(x - sw + 2, y - shh + 9, x, y, mix(LIMEWASH_DK, STORM, 0.25), INK, 1.4)
+    back = [(sx0 + 10, sy0 + 26), (sx1 + 10, sy1 + 26)]
+    fl.line(back, mix(STORM, INK, 0.3), 5.0)
+    front = [(sx0 + 30, sy0 + 40), (sx1 + 30, sy1 + 40), (sx1 + 30, sy1 + 84), (sx0 + 30, sy0 + 84)]
+    fl.poly(front, STORM, INK, 2.6)
+    fl.line([(sx0 + 30, sy0 + 44), (sx1 + 30, sy1 + 44)], STORM_HI, 1.6)
+    clip(fl, rect_mask((W, H), [(HOLE[0] - 10, -4, HOLE[1] + 10, SLAB[0])]))
+    fill.put(fl)
+    # the old light wedge, laid back at 0.25
+    lt = fill.layer()
+    lt.poly([(HOLE[0] + 4, SLAB[1]), (HOLE[1] - 4, SLAB[1]), (1350, 640), (1150, 560)], (250, 252, 248), None)
+    fill.put(lt, 0.25)
+    sh = fill.layer()
+    sh.rect(HOLE[0] + 20, -4, HOLE[1] - 10, SLAB[0], (250, 252, 248), None)
+    fill.put_soft(sh, 20, 0.25)
+    clip(fill, m)
+    p.put(fill)
+    # the wedge where it falls on the dado: the dado painted again under a 0.25 wedge
+    dm = Image.new("L", m.size, 0)
+    ImageDraw.Draw(dm).polygon([(x * SS, y * SS) for x, y in
+                                ((HOLE[0] + 4, SLAB[1]), (HOLE[1] - 4, SLAB[1]), (1350, 640), (1150, 560))], fill=255)
+    dm = ImageChops.multiply(dm, rect_mask((W, H), [(FILL_X0 - 10, FILL_Y1, W + 4, 660)]))
+    dm = ImageChops.subtract(dm, ex)
+    dd = p.layer()
+    dado(dd, rng_for(1129))
+    lt = dd.layer()
+    lt.poly([(HOLE[0] + 4, SLAB[1]), (HOLE[1] - 4, SLAB[1]), (1350, 640), (1150, 560)], (250, 252, 248), None)
+    dd.put(lt, 0.25)
+    clip(dd, dm)
+    p.put(dd)
+    # contours: the stairwell's own wall plane, and the shaft's edges again
+    p.line([(FILL_X0, SLAB[1]), (FILL_X0, FILL_Y1)], INK, 2.6)
+    p.line([(HOLE[0] - 10, -4), (HOLE[0] - 10, SLAB[0])], INK, 3)
+    p.line([(HOLE[1] + 10, -4), (HOLE[1] + 10, SLAB[0])], INK, 3)
+    return p
+
+
+def _gauge_face(size, r, tick_in, tick_out, tick_w, ring_r, ring_w, window, pin_r):
+    """A gauge face overlay: enamel, an unnumbered ring with four ticks (1-4; the needle rests on
+    a stop pin at 0 and the far stop is a second pin), no reference needle, no words."""
+    p = Pen(size, size, random.Random(SEED + 900))
+    c = (size / 2, size / 2)
+    p.ell(c[0], c[1], r, r, ENAMEL, None)
+    p.ell(c[0], c[1], r - r * 0.074, r - r * 0.074, None, mix(ENAMEL, INK, 0.3), max(1.2, r * 0.0085))
+    p.arc(c[0], c[1], ring_r, ring_r, -90 - 120, -90 + 120, INK, ring_w)
+    for k in range(1, 5):
+        a = tick_angle(k)
+        p.line([from_up(c, tick_in, a), from_up(c, tick_out, a)], INK, tick_w)
+    for k in (0, 5):
+        q = from_up(c, ring_r, tick_angle(k))
+        p.ell(q[0], q[1], pin_r, pin_r, BRASS, INK, max(1.2, pin_r * 0.3))
+    if window:
+        wx0, wy0, wx1, wy1 = window
+        p.rect(wx0, wy0, wx1, wy1, BRASS_LO, INK, max(1.6, r * 0.012), 3)
+        p.rect(wx0 + 4, wy0 + 4, wx1 - 4, wy1 - 4, PAPER_HI, INK, max(1.4, r * 0.01), 2)
+    sh = p.layer()
+    sh.poly([(c[0] - r * 0.75, c[1] - r * 0.3), (c[0] - r * 0.35, c[1] - r * 0.8), (c[0] - r * 0.2, c[1] - r * 0.72),
+             (c[0] - r * 0.66, c[1] - r * 0.15)], (255, 255, 255), None)
+    p.put_soft(sh, max(4, r * 0.05), 0.3, circle_mask((size, size), c, r - 2))
+    clip(p, circle_mask((size, size), c, r))
+    return p
+
+
+def paint_c_gauge_face(rng):
+    # c_gate's dial at (330, 300) r 190; the sprite is 400 x 400 about that centre
+    return _gauge_face(400, 187, 136, 172, 7, 154, 2.4, (125, 282, 275, 318), 7)
+
+
+def paint_L1_gauge_face(rng):
+    # L1's dial at (300, 300) r 88; the sprite is 200 x 200 about that centre
+    return _gauge_face(200, 86, 64, 80, 3.4, 72, 1.4, (63, 132, 137, 158), 3.4)
+
+
 # ----------------------------------------------------------------------------- registry
 
 ASSETS = [  # name, seed index, painter, opaque, grain
@@ -2239,6 +2490,13 @@ ASSETS = [  # name, seed index, painter, opaque, grain
     ("rec_card", 72, lambda r: paint_rec_card(r, False), False, False),
     ("rec_card_amended", 72, lambda r: paint_rec_card(r, True), False, False),
     ("rec_bridge", 73, paint_rec_bridge, False, False),
+    # w3 overlays (new files)
+    ("pane_slab", 13, paint_pane_slab, False, False),
+    ("pane_files", 14, paint_pane_files, False, False),
+    ("L1_gauge_face", 15, paint_L1_gauge_face, False, False),
+    ("bell_frozen", 28, paint_bell_frozen, False, False),
+    ("stairwell_fill", 29, paint_stairwell_fill, False, False),
+    ("c_gauge_face", 55, paint_c_gauge_face, False, False),
 ]
 
 

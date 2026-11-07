@@ -6721,6 +6721,15 @@
       "source_svg": null
     },
     {
+      "id": "R11/L1_gauge_face",
+      "path": "assets/rooms/R11/L1_gauge_face.png",
+      "width": 200,
+      "height": 200,
+      "sha256": "f7ce9b7c980cce909498c1872db7bdc6c2c728f4a09c4ad24566579421b3df54",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R11/L1_glass",
       "path": "assets/rooms/R11/L1_glass.png",
       "width": 1448,
@@ -6901,6 +6910,15 @@
       "source_svg": null
     },
     {
+      "id": "R11/bell_frozen",
+      "path": "assets/rooms/R11/bell_frozen.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "fc3bddc77f57f84df19a3db4ce8633aa8e0741b93e609b5a043ff24091e7fceb",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R11/c_access_down",
       "path": "assets/rooms/R11/c_access_down.png",
       "width": 180,
@@ -6951,6 +6969,15 @@
       "width": 1448,
       "height": 1086,
       "sha256": "c219ce5561137b2f3bf9afa8b9f68aac608ea01132e8ee113a8e1410f9f4c6bf",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R11/c_gauge_face",
+      "path": "assets/rooms/R11/c_gauge_face.png",
+      "width": 400,
+      "height": 400,
+      "sha256": "6d263f37a8e5b85a90d7923ae9741185fd23fe331d247b000dd22d38cd452769",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -7014,6 +7041,24 @@
       "width": 1448,
       "height": 1086,
       "sha256": "0931a844cf0db4417e0fcb5545b37cff0d13e164aa389f91170919baee7a7af4",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R11/pane_files",
+      "path": "assets/rooms/R11/pane_files.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "00feb9547e875d44fb15c06b520ef36394ccf5855dc6271823d79968079f8056",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R11/pane_slab",
+      "path": "assets/rooms/R11/pane_slab.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "7306d68ac2f9538ea740108387bb830db3d24ddc284b920baaf4f826823260d8",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -7086,6 +7131,15 @@
       "width": 300,
       "height": 220,
       "sha256": "28b37ecbfcec02308a32abbcdeff65e8ff636367b901f6d14151a8075287cf32",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R11/stairwell_fill",
+      "path": "assets/rooms/R11/stairwell_fill.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "9e9fd3c201e6b235dd2dad6d89e738b1a307a89a8a08d6a0411bc9697747e08b",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },

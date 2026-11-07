@@ -55,6 +55,8 @@ const GATE_CONTROLS := [
 	["plate_o1", Rect2(560, 700, 180, 150), "[ 1"],
 	["plate_c1", Rect2(760, 700, 180, 150), "] 1"],
 	["plate_o2", Rect2(960, 700, 180, 150), "[ 2"],
+	["plate_o3", Rect2(670, 852, 180, 120), "[ 3"],
+	["plate_c3", Rect2(870, 852, 180, 120), "] 3"],
 	["placard_read", Rect2(1170, 500, 250, 400), "Placard"],
 	["lever_open", Rect2(1230, 100, 160, 360), "OPEN"],
 ]
@@ -69,13 +71,17 @@ const BOUNDARY_PLATE := Rect2(842, 426, 114, 36)
 const PORT_C := Vector2(1100, 370)
 const PORT_R := 96.0
 ## The rack's hooks (their bent tips), one per plate, in R11Sim.PLATES order.
-const GATE_HOOKS := {"o1": Vector2(659, 716), "c1": Vector2(859, 716), "o2": Vector2(1059, 716)}
+const GATE_HOOKS := {"o1": Vector2(659, 716), "c1": Vector2(859, 716), "o2": Vector2(1059, 716),
+	"o3": Vector2(759, 870), "c3": Vector2(959, 870)}
+## The rack's second bar (view-drawn, under the painted one), for '[ 3' and '] 3'.
+const GATE_RACK2 := Rect2(686, 838, 348, 12)
 const GATE_LEVER_AT := Vector2(1230, 100)
 const PLACARD_IN := Rect2(1192, 524, 206, 352)
 const PLATE_SIZE := Vector2(240, 140)
 const PLATE_HOLE := Vector2(120, 24)
-## Reference needle at rest (NO REFERENCE), degrees from straight up.
-const REF_REST := -140.0
+## The unnumbered gauge faces (four ticks, no reference needle) laid over the painted dials.
+const C_FACE_HALF := Vector2(200, 200)
+const L1_FACE_HALF := Vector2(100, 100)
 
 # --- c_chamber_door ----------------------------------------------------------------------
 const DOOR_CONTROLS := [
@@ -104,12 +110,18 @@ const L1_DIAL := Vector2(300, 300)
 const L1_DIAL_R := 88.0
 const L1_HUB := Vector2(300, 530)
 const L1_SLOTS := [Rect2(1006, 556, 100, 58), Rect2(1006, 644, 100, 58)]
-const L1_HOOKS := {"o1": Vector2(1062, 750), "c1": Vector2(1062, 800), "o2": Vector2(1062, 850)}
+const L1_HOOKS := {"o1": Vector2(1062, 750), "c1": Vector2(1062, 800), "o2": Vector2(1062, 850),
+	"o3": Vector2(988, 775), "c3": Vector2(988, 825)}
+## The second strap for '[ 3' and '] 3', off the painted bar's left bracket.
+const L1_STRAP2 := Rect2(979, 746, 6, 84)
 const L1_LEVER := Rect2(1124, 560, 22, 140)
 const L1_PLACARD := Rect2(1184, 194, 202, 292)
 const STAIR_MARKS := {"bracket": Vector2(930, 260), "linked": Vector2(930, 400), "circle": Vector2(930, 600)}
 const WATER_Y := 520.0
 const WATER_X := [548.0, 902.0]
+## The horizontal pane (pane_slab): its band, the water_plane hotspot's, and its bright top edge.
+const SLAB_BAND := Rect2(540, 480, 370, 92)
+const SLAB_Y := 486.0
 
 # --- landing 2, room scale ---------------------------------------------------------------
 const L2_FRAMES := {"BODY": Rect2(925, 450, 120, 96), "PLACE": Rect2(925, 560, 120, 96),
@@ -121,6 +133,15 @@ const L2_LEVER := Rect2(1084, 600, 20, 180)
 const L2_DOOR_PLATE := Rect2(110, 470, 130, 40)
 const LATCH := Rect2(840, 640, 30, 60)
 const HINGE_X := 600.0
+## The frozen bell: its bearing, and the centre of its body (tipped 30 degrees toward the office;
+## mirrored about the bearing when it tips toward the lower door).
+const BELL_PIVOT := Vector2(456, 374)
+const BELL_BODY := Vector2(415, 446)
+## One thin navy ring off the bell each time it sounds: radius from/to over RING_TIME (Motion
+## off: one still ring at RING_STILL_R for RING_TIME).
+const RING_TIME := 1.5
+const RING_R := [70.0, 240.0]
+const RING_STILL_R := 120.0
 
 ## Ambient light per weather band, per landing: never below 0.78; the dread is in what is seen.
 const MODULATE_L1 := [0.92, 0.91, 0.90, 0.88, 0.86, 0.84, 0.82, 0.80]
@@ -218,6 +239,7 @@ var flag_t := 99.0         # seconds since the flags dropped
 var flags_waiting := false # a pull's flags not yet dropped
 var mote_t := -1.0
 var latch_t := -1.0
+var ring_t := -1.0         # seconds into the bell's ring; < 0 none
 var bell_pos := -1.0       # the last bell playback position seen
 var clock := 0.0           # the view's own 16 s clock, when no bell loop plays
 var bell_glance_t := 99.0
@@ -243,7 +265,8 @@ func _load_textures() -> void:
 		"L2_door_open", "L2_finger_marks", "plate_blank", "port_false", "port_true", "cut_glass",
 		"cut_hand_a", "cut_hand_b", "c_gate", "c_wheel", "c_lever_up", "c_lever_down", "c_port_shutter",
 		"c_door", "c_access_up", "c_access_down", "c_copy_shut", "rec_frame", "rec_strip", "rec_card",
-		"rec_card_amended", "rec_bridge", "L1_glass_tilt", "L1_spill", "c_copy_smear"]
+		"rec_card_amended", "rec_bridge", "L1_glass_tilt", "L1_spill", "c_copy_smear",
+		"pane_slab", "pane_files", "bell_frozen", "stairwell_fill", "c_gauge_face", "L1_gauge_face"]
 	for k in range(1, 6):
 		names.append("L1_tide_%d" % k)
 	for n in names:
@@ -336,14 +359,19 @@ func _tick_bell(dt: float) -> void:
 		latch_t += dt
 		if latch_t >= LATCH_TIME:
 			latch_t = -1.0
+	if ring_t >= 0.0:
+		ring_t += dt
+		if ring_t >= RING_TIME:
+			ring_t = -1.0
 	var dir := r11.bell_dir()
 	var pos := bell_position(dir)
-	if bell_pos >= 0.0 and pos >= 0.0 and landing() == 2 and r11.local_view == "room" and cut == "" and motion:
+	if bell_pos >= 0.0 and pos >= 0.0 and landing() == 2 and r11.local_view == "room" and cut == "":
 		var crossed := (bell_pos < BELL_CUE and pos >= BELL_CUE) or (pos < bell_pos and pos >= BELL_CUE)
 		if crossed:
-			if dir == "above":
+			ring_t = 0.0
+			if motion and dir == "above":
 				mote_t = 0.0
-			elif dir == "below":
+			elif motion and dir == "below":
 				latch_t = 0.0
 	bell_pos = pos
 
@@ -461,6 +489,7 @@ func apply_instantly() -> void:
 	flags_waiting = false
 	mote_t = -1.0
 	latch_t = -1.0
+	ring_t = -1.0
 	bell_glance_t = 99.0
 	finger_k = 1.0
 	finger_fading = false
@@ -481,6 +510,7 @@ func reset_presentation() -> void:
 	flags_waiting = false
 	mote_t = -1.0
 	latch_t = -1.0
+	ring_t = -1.0
 	bell_glance_t = 99.0
 	finger_k = 1.0
 	finger_fading = false
@@ -531,6 +561,8 @@ func on_sfx(id: String) -> void:
 			access_t = LEVER_DOWN
 		"r11_flags":
 			_drop_flags()
+		"r11_bell_up":
+			ring_t = 0.0
 
 func on_sfx_pending(id: String, _left: float) -> void:
 	if id == "r11_flags" and not flags_waiting and flag_t > FLAG_DROP:
@@ -706,7 +738,6 @@ func _draw_l1() -> void:
 	var n := r11.tide_lines()
 	if n > 0:
 		_plate("L1_tide_%d" % n)
-	_draw_water_glint()
 	var gm := r11.glass_mode()
 	if gm != "":
 		_plate(glass_plate(gm))
@@ -714,6 +745,8 @@ func _draw_l1() -> void:
 	# The shelves go over the glass: the pane is opaque inside the opening and would hide them.
 	if r11.shelves_shown():
 		_plate("L1_shelves")
+	_draw_pane(gm != "")
+	_draw_water_glint()
 	if _band() >= SPILL_BAND:
 		_plate("L1_spill")
 	_plate("L1_grille_up" if r11.gate_up() else "L1_grille")
@@ -725,6 +758,19 @@ func _draw_l1() -> void:
 	_draw_l1_plates()
 	_draw_l1_lever()
 	_draw_l1_placard()
+
+## The horizontal pane: before P12 the whole gateway (wet navy steps above it, bone-dry ones
+## below, one hard sea-glass slab between); after it, the slab alone over the standing water,
+## with the vault's files hanging upside down inside it.
+func _draw_pane(open: bool) -> void:
+	var t := _tex("pane_slab")
+	if t == null:
+		return
+	if open:
+		draw_texture_rect_region(t, SLAB_BAND, SLAB_BAND)
+		_plate("pane_files")
+	else:
+		draw_texture(t, Vector2.ZERO)
 
 ## The standing water's plate: shallow, deep (band 4+), or deep with its plane tilted (band 7).
 func glass_plate(gm: String) -> String:
@@ -754,8 +800,8 @@ func glint_x() -> float:
 func _draw_water_glint() -> void:
 	var x := glint_x()
 	var col := Color(PALE, 0.75)
-	draw_line(Vector2(x, WATER_Y - 1), Vector2(x + 40, WATER_Y - 1), col, 3.0)
-	draw_line(Vector2(x + 8, WATER_Y + 3), Vector2(x + 30, WATER_Y + 3), Color(PALE, 0.35), 2.0)
+	draw_line(Vector2(x, SLAB_Y + 1), Vector2(x + 40, SLAB_Y + 1), col, 2.0)
+	draw_line(Vector2(x + 8, SLAB_Y + 5), Vector2(x + 30, SLAB_Y + 5), Color(PALE, 0.35), 2.0)
 
 ## Two pale vertical caustic lines in the standing glass, drifting a little (still: static).
 func _draw_caustics() -> void:
@@ -793,23 +839,9 @@ static func _from_up(c0: Vector2, r: float, deg: float) -> Vector2:
 static func tick_deg(n: float) -> float:
 	return -120.0 + 48.0 * n
 
-## The reference needle's angle (degrees from up): on 2 when referenced, else at rest.
-func ref_deg() -> float:
-	return tick_deg(R11Sim.PRESSURE_TARGET) if r11.referenced() else REF_REST
-
+## The gauge's one needle: black, on the wheel. The face has four unnumbered ticks and no
+## reference needle; the target is the laboratory's tag, never the gauge's.
 func _needles(cv: CanvasItem, c0: Vector2, r: float, k: float) -> void:
-	# REFERENCE: brass, narrower, hatched.
-	var rd := ref_deg()
-	var tip := _from_up(c0, r * 0.78, rd)
-	var nrm := (tip - c0).normalized().orthogonal()
-	var base_w := 7.0 * k
-	cv.draw_colored_polygon(PackedVector2Array([c0 + nrm * base_w, tip, c0 - nrm * base_w]), Ink.BRASS)
-	cv.draw_polyline(PackedVector2Array([c0 + nrm * base_w, tip, c0 - nrm * base_w, c0 + nrm * base_w]), Ink.INK, 1.6 * k, true)
-	for j in range(1, 5):
-		var q := c0.lerp(tip, 0.18 * j)
-		var w := base_w * (1.0 - 0.18 * j)
-		cv.draw_line(q + nrm * w, q - nrm * w + (tip - c0).normalized() * 6.0 * k, Color(Ink.INK, 0.7), 1.2 * k)
-	# PRESSURE: ink, wide.
 	var pd := tick_deg(r11.needle_pressure())
 	var ptip := _from_up(c0, r * 0.86, pd)
 	var pn := (ptip - c0).normalized().orthogonal()
@@ -819,7 +851,14 @@ func _needles(cv: CanvasItem, c0: Vector2, r: float, k: float) -> void:
 	cv.draw_circle(c0, 14.0 * k, Ink.INK)
 	cv.draw_circle(c0, 6.0 * k, Ink.BRASS)
 
-## Band 5+: a second, faint hairline needle resting on 2. Nothing moves it.
+## The unnumbered face over a painted dial: `half` is the sprite's half size about its centre.
+func _gauge_face(cv: CanvasItem, id: String, c0: Vector2, half: Vector2) -> void:
+	var t := _tex(id)
+	if t:
+		cv.draw_texture(t, c0 - half)
+
+## Band 5+, once the gate is open: a second, faint hairline needle resting on 2. Nothing moves
+## it. (Never before P12: the face must not give the target.)
 func _ghost_needle(cv: CanvasItem, c0: Vector2, r: float) -> void:
 	var tip := _from_up(c0, r * 1.02, tick_deg(2))
 	var tail := _from_up(c0, r * 0.34, tick_deg(2) + 180.0)
@@ -827,23 +866,19 @@ func _ghost_needle(cv: CanvasItem, c0: Vector2, r: float) -> void:
 	cv.draw_line(tail, tip, col, 2.0, true)
 	cv.draw_circle(tail, 7.0, col)
 
-func _numerals(cv: CanvasItem, c0: Vector2, r: float, size: int) -> void:
-	var nf := narrow()
-	for n in 6:
-		var at := _from_up(c0, r, tick_deg(n))
-		var s := str(n)
-		var w := nf.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
-		cv.draw_string(nf, at + Vector2(-w / 2.0, size * 0.36), s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Ink.INK)
-
+## The window under the hub: NO PRESSURE on a dead line, else blank. No reference reading.
 func status_text() -> String:
-	if not r11.powered():
-		return "NO PRESSURE"
-	return "REFERENCE 2" if r11.referenced() else "NO REFERENCE"
+	return "NO PRESSURE" if not r11.powered() else ""
 
 func _draw_l1_gauge() -> void:
-	_numerals(self, L1_DIAL, L1_DIAL_R - 42.0, 17)
-	_needles(self, L1_DIAL, L1_DIAL_R - 10.0, 0.5)
-	_centered(self, status_text(), Rect2(264, 334, 72, 22), 11, Ink.INK)
+	_draw_l1_gauge_on(self)
+
+func _draw_l1_gauge_on(cv: CanvasItem) -> void:
+	_gauge_face(cv, "L1_gauge_face", L1_DIAL, L1_FACE_HALF)
+	_needles(cv, L1_DIAL, L1_DIAL_R - 10.0, 0.5)
+	var st := status_text()
+	if st != "":
+		_centered(cv, st, Rect2(264, 334, 72, 22), 11, Ink.INK)
 
 ## The handwheel, a sixth of a turn per step of pressure.
 func _draw_wheel(cv: CanvasItem, at: Vector2, k: float) -> void:
@@ -856,6 +891,12 @@ func _draw_wheel(cv: CanvasItem, at: Vector2, k: float) -> void:
 	cv.draw_set_transform_matrix(Transform2D.IDENTITY)
 
 func _draw_l1_plates() -> void:
+	# The second strap and its two hooks, for '[ 3' and '] 3'.
+	var sr := L1_STRAP2
+	draw_rect(sr, Ink.BRASS)
+	draw_rect(sr, Ink.INK, false, 1.4)
+	for pid in ["o3", "c3"]:
+		_hook(self, L1_HOOKS[pid], 1.0)
 	var slots: Array = r11.state.slots
 	for i in 2:
 		var pid: String = slots[i]
@@ -865,6 +906,20 @@ func _draw_l1_plates() -> void:
 	for pid in R11Sim.PLATES:
 		if not pid in slots:
 			_draw_plate(self, pid, L1_HOOKS[pid] - PLATE_HOLE * 0.3, 0.3)
+
+## A rack hook whose bent tip is `tip`, as the painted ones: `k` 1 at room scale.
+func _hook(cv: CanvasItem, tip: Vector2, k: float) -> void:
+	var pts := PackedVector2Array()
+	if k > 1.0:
+		for q in [Vector2(-9, -22), Vector2(-9, -4), Vector2(0, 6), Vector2(9, -4)]:
+			pts.append(tip + q)
+		cv.draw_polyline(pts, Ink.INK, 7.0, true)
+		cv.draw_polyline(pts, BRASS_HI, 3.6, true)
+	else:
+		for q in [Vector2(-6, -10), Vector2(-6, -2), Vector2(0, 2), Vector2(6, -2)]:
+			pts.append(tip + q)
+		cv.draw_polyline(pts, Ink.INK, 4.2, true)
+		cv.draw_polyline(pts, BRASS_HI, 2.0, true)
 
 func _draw_l1_lever() -> void:
 	var r := L1_LEVER
@@ -894,11 +949,11 @@ func _draw_l1_placard() -> void:
 func _draw_l2() -> void:
 	if not _plate("L2_base"):
 		_placeholder(L2_HOTSPOTS)
+	_plate("stairwell_fill")
 	if _band() >= CAUSTIC_BAND:
 		_draw_floor_caustics()
 	_plate("L2_shoes_" + r11.shoes_state())
-	var bd := r11.bell_dir()
-	_plate("L2_bell_down" if bd == "below" else "L2_bell_up")
+	_draw_bell()
 	if r11.door_open():
 		_draw_door_leaf()
 	else:
@@ -908,6 +963,44 @@ func _draw_l2() -> void:
 			_draw_latch_shake()
 	_draw_l2_marks()
 	_draw_motes()
+
+## The frozen bell: tipped 30 degrees toward the office, or the same bell mirrored about its
+## bearing once it tips toward the lower door (band 6+). It never moves.
+func bell_mirrored() -> bool:
+	return r11.bell_dir() == "below"
+
+func bell_centre() -> Vector2:
+	if bell_mirrored():
+		return Vector2(2.0 * BELL_PIVOT.x - BELL_BODY.x, BELL_BODY.y)
+	return BELL_BODY
+
+func _draw_bell() -> void:
+	var t := _tex("bell_frozen")
+	if t == null:
+		_plate("L2_bell_down" if bell_mirrored() else "L2_bell_up")
+	elif bell_mirrored():
+		draw_set_transform(Vector2(2.0 * BELL_PIVOT.x, 0), 0.0, Vector2(-1, 1))
+		draw_texture(t, Vector2.ZERO)
+		draw_set_transform_matrix(Transform2D.IDENTITY)
+	else:
+		draw_texture(t, Vector2.ZERO)
+	_draw_ring()
+
+## The ring's radius and alpha now, or [] for none: one thin ring off the bell per toll,
+## expanding over 1.5 s (Motion off: one still ring held for 1.5 s).
+func ring_now() -> Array:
+	if ring_t < 0.0 or ring_t >= RING_TIME:
+		return []
+	if not motion:
+		return [RING_STILL_R, 0.7]
+	var k := ring_t / RING_TIME
+	return [lerpf(RING_R[0], RING_R[1], k), 0.85 * (1.0 - k)]
+
+func _draw_ring() -> void:
+	var rn := ring_now()
+	if rn.is_empty():
+		return
+	draw_arc(bell_centre(), rn[0], 0.0, TAU, 96, Color(Ink.INK, rn[1]), 3.0, true)
 
 ## The lower door's leaf, swung in from its hinge at x 600 while the P24 cut dissolves (still:
 ## open at once).
@@ -1144,12 +1237,14 @@ func _draw_gate(cv: CanvasItem, in_cut: bool) -> void:
 	_bg(cv, "c_gate", Color("54646a"))
 	cv.draw_set_transform_matrix(Transform2D.IDENTITY)
 	var nf := narrow()
-	# The dial: numerals, needles, its status window.
-	_numerals(cv, DIAL_C, DIAL_R - 88.0, 34)
-	if _band() >= GHOST_BAND:
+	# The dial: the unnumbered face, the one needle, its status window.
+	_gauge_face(cv, "c_gauge_face", DIAL_C, C_FACE_HALF)
+	if _band() >= GHOST_BAND and r11.state.p12_complete:
 		_ghost_needle(cv, DIAL_C, DIAL_R - 20.0)
 	_needles(cv, DIAL_C, DIAL_R - 20.0, 1.0)
-	_centered(cv, status_text(), STATUS_WIN, 20, Ink.INK)
+	var st := status_text()
+	if st != "":
+		_centered(cv, st, STATUS_WIN, 20, Ink.INK)
 	# The handwheel and its two step plates.
 	_draw_wheel(cv, WHEEL_C, 1.0)
 	_centered(cv, "LESS", Rect2(150, 840, 150, 70), 34, Ink.INK)
@@ -1169,6 +1264,16 @@ func _draw_gate(cv: CanvasItem, in_cut: bool) -> void:
 		cv.draw_set_transform(Vector2(r.position.x + 26, r.get_center().y + ww / 2.0), -PI / 2.0, Vector2.ONE)
 		cv.draw_string(nf, Vector2.ZERO, word, HORIZONTAL_ALIGNMENT_LEFT, -1, 19, PALE)
 		cv.draw_set_transform_matrix(Transform2D.IDENTITY)
+	# The rack's second bar, under the painted one, and its two hooks.
+	var rb := GATE_RACK2
+	cv.draw_rect(rb, Ink.BRASS)
+	cv.draw_rect(rb, Ink.INK, false, 2.4)
+	cv.draw_line(rb.position + Vector2(4, 3), Vector2(rb.end.x - 4, rb.position.y + 3), BRASS_HI, 1.6)
+	for x in [rb.position.x, rb.end.x]:
+		cv.draw_rect(Rect2(x - 10, rb.position.y - 8, 20, 28), Color("424e58"))
+		cv.draw_rect(Rect2(x - 10, rb.position.y - 8, 20, 28), Ink.INK, false, 2.2)
+	for pid in ["o3", "c3"]:
+		_hook(cv, GATE_HOOKS[pid], 2.0)
 	# The rack: plates on their hooks, at 0.75.
 	for pid in R11Sim.PLATES:
 		if not pid in slots and pid != r11.held_plate:
@@ -1236,7 +1341,7 @@ func _draw_gate_placard(cv: CanvasItem) -> void:
 	_centered(cv, "PRESSURE GATE · DRY STAIR", Rect2(x, r.position.y, w, 26), 19, Ink.INK)
 	cv.draw_line(Vector2(x + 6, r.position.y + 30), Vector2(r.end.x - 6, r.position.y + 30), Ink.STORM, 2.0)
 	var y := r.position.y + 54.0
-	y = Ink.wrapped(cv, "1. EQUALISE. Turn the wheel until the PRESSURE needle lies on the REFERENCE needle.",
+	y = Ink.wrapped(cv, "1. EQUALISE. Turn the wheel until the PRESSURE needle stands at the stair's target.",
 		Vector2(x, y), 17, Ink.INK, w, true, nf)
 	y = Ink.wrapped(cv, "2. SELECT A STABLE LANDING. Its marks must correspond across the boundary.",
 		Vector2(x, y + 4), 17, Ink.INK, w, true, nf)
@@ -1287,6 +1392,8 @@ func _draw_grille_beat(cv: CanvasItem) -> void:
 	var n := r11.tide_lines()
 	if n > 0 and _tex("L1_tide_%d" % n):
 		cv.draw_texture(_tex("L1_tide_%d" % n), Vector2.ZERO)
+	if _tex("pane_slab"):
+		cv.draw_texture(_tex("pane_slab"), Vector2.ZERO)
 	var g := _tex("L1_grille")
 	var k := grille_rise()
 	if g and k < 1.0:
@@ -1297,9 +1404,7 @@ func _draw_grille_beat(cv: CanvasItem) -> void:
 	if k >= 1.0 and _tex("L1_grille_up"):
 		cv.draw_texture(_tex("L1_grille_up"), Vector2.ZERO)
 	# The gate's own marks at room scale, as on the landing.
-	_numerals(cv, L1_DIAL, L1_DIAL_R - 42.0, 17)
-	_needles(cv, L1_DIAL, L1_DIAL_R - 10.0, 0.5)
-	_centered(cv, status_text(), Rect2(264, 334, 72, 22), 11, Ink.INK)
+	_draw_l1_gauge_on(cv)
 	for i in 2:
 		var pid: String = r11.state.slots[i]
 		if pid != "":
