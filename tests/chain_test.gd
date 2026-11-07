@@ -158,6 +158,12 @@ func run_tests() -> void:
 		_check_save(pid)
 		if pid == stop_after:
 			return
+	# Every item with a last use was filed in the notebook at that use, and nowhere else.
+	var filed: Array = g.retired()
+	filed.sort()
+	var spent: Array = GameSim.ITEM_RETIRES_AFTER.keys()
+	spent.sort()
+	check(filed == spent, "the end: every spent item filed in the notebook (%s)" % [filed])
 	_endings()
 
 # ---------------------------------------------------------------------------

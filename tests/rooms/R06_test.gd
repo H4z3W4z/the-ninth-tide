@@ -657,7 +657,8 @@ func test_p22_commit() -> void:
 		else:
 			ev = use(g, "pencil", how)
 		check(g.flag("P22") and r.state.p22_complete, "P22 %s: P22 set" % how)
-		check(g.has_item("pencil"), "P22 %s: the pencil is not consumed" % how)
+		# Core w3: P22 is the pencil's last use, so it is filed in the notebook (never handed back).
+		check(not g.has_item("pencil") and "pencil" in g.retired(), "P22 %s: the pencil is filed in the notebook" % how)
 		check(says(ev).begins_with(WRITE_LINE), "P22 %s: the line is kept (got '%s')" % [how, says(ev)])
 		# The amended card stays in view on the RECORD rest; it is not in her bag yet.
 		check(r.state.card_on_rest and r.local_view == "c_slope", "P22 %s: the amended card stays on the rest" % how)
@@ -1065,13 +1066,15 @@ func test_w2_details() -> void:
 	for id in R06Sim.GLANCES:
 		var gr: Rect2 = R06Sim.GLANCES[id].rect
 		check(CANVAS.encloses(gr) and gr.size.x >= 64 and gr.size.y >= 64, "glance %s: a sane rect" % id)
-	# The pencil never leaves her.
+	# The pencil never leaves her before P22; its last use files it in the notebook.
 	var p := p22_ready()
 	lay_all(p, [1, 3, 3])
 	p.dispatch("append")
 	use(p, "pencil", "printed_line")
+	check(p.has_item("pencil") and p.retired().is_empty(), "pencil: kept through refusal and erase")
 	amend(p)
-	check(p.has_item("pencil") and p.flag("P22"), "pencil: durable through refusal, erase and the amendment")
+	check("pencil" in p.retired() and not p.has_item("pencil") and p.flag("P22"),
+		"pencil: durable through refusal and erase; filed in the notebook by the amendment")
 
 # ---------------------------------------------------------------------------------------------
 # (19) the view's rects and sounds

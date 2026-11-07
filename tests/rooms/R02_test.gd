@@ -2658,7 +2658,11 @@ func test_p20() -> void:
 	check(not has_ev(ev, "fx", "tide") and s.game.tide() == tide_before, "P20 alone does not finish Tide VII")
 	check(has_ev(ev, "fx", "p20_solved") and has_ev(ev, "sfx", "stamp") and has_ev(ev, "sfx", "seal") and has_ev(ev, "sfx", "oilskin"),
 		"the solve's sounds")
-	check(says(ev).split(" | ").size() == 9 and is_equal_approx(say_ev(ev, "'Yes.'").delay, 11.4)
+	# Core w3: P20 is the Venn correspondence's last use, so a held copy is filed after the chain.
+	var reveal: PackedStringArray = says(ev).split(" | ")
+	var filed: bool = "venn_correspondence" in s.game.retired()
+	check(reveal.size() == (10 if filed else 9) and (not filed or reveal[9] == GameSim.FILED_LINE), "the reveal chain ends with the filing (%s)" % [reveal])
+	check(is_equal_approx(say_ev(ev, "'Yes.'").delay, 11.4)
 		and is_equal_approx(say_ev(ev, "developing tray").delay, 19.6) and say_ev(ev, "You could have asked.").story, "the reveal chain")
 	check("developing tray on the 15th" in R02Sim.OBSERVATIONS["why_ada"] and "She will need to see herself from outside" in R02Sim.OBSERVATIONS["why_ada"],
 		"why_ada carries the photograph's back")

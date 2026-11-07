@@ -384,13 +384,17 @@ func test_hints() -> void:
 		# With live work in a built room elsewhere the core sends her there first (GameSim._hint);
 		# the jetty's own ladder is still what the room answers.
 		var away := g.work_elsewhere()
+		# Core w3: the ladder toward an unvisited room opens with a where-step, a visited one with
+		# that room's own first line; either way it is the core's ladder, not the jetty's.
+		var away_first: String = g._elsewhere_ladder(away)[0] if away != "" else ""
 		for lvl in 3:
 			check(r01(g).hint_line(lvl) == R01Sim.HINTS[o][lvl], "17: %s hint %d" % [o, lvl])
 			var ev := g.dispatch("hint")
 			if away == "":
 				check(says(ev) == R01Sim.HINTS[o][lvl], "17: %s hint %d dispatched" % [o, lvl])
 			elif lvl == 0:
-				check(says(ev).begins_with("Something in the"), "17: %s hint points to %s" % [o, away])
+				check(says(ev) == away_first and says(ev) != R01Sim.HINTS[o][0],
+					"17: %s hint points to %s (got '%s')" % [o, away, says(ev)])
 		check(JSON.stringify(g.to_dict().rooms.R01) == before, "17: hints change no room state")
 		check(R01Sim.OBJECTIVES.has(o), "17: objective text for %s" % o)
 

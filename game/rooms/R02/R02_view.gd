@@ -1387,6 +1387,16 @@ func dev_rects() -> Array:
 
 ## Maps a screen point to a room action for the room's current view. "" = nothing.
 ## The core handles the HUD, Back and the exits first.
+## The drawer's reveal chain ("And a photograph." ... the window line) is a story beat: a click
+## on the photograph while it plays only advances it, so the photo close-up cannot cut in ahead
+## of the reveal (the core otherwise lets close-up controls act in the advancing press).
+func consume_click(p: Vector2) -> bool:
+	if game and office.view == "drawer" and office.state.drawer_open and PHOTO_RECT.has_point(p) \
+			and game.chain_active():
+		game.advance()
+		return true
+	return false
+
 func action_at(p: Vector2) -> String:
 	if _notice_active():
 		# The arrival hold: any click ends it, and does nothing else.

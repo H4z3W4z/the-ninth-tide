@@ -323,14 +323,16 @@ func test_p16_success() -> void:
 	var ev := solve_p16(g)
 	check(g.flag("P16") and r.state.p16_complete and r.state.cover_off, "P16 set")
 	check(inv_count(g, "contact_sheet") == 1 and count_ev(ev, "fx", "item_added") == 1, "contact sheet given once")
-	check(g.has_item("chart_clips"), "chart clips still held")
+	# Core w3: P16 is the chart clips' last use, so they are filed in the notebook.
+	check(not g.has_item("chart_clips") and "chart_clips" in g.retired(), "chart clips filed in the notebook")
 	check(r.has_seen("contact_sheet_1927"), "contact_sheet_1927 noted")
 	var obs: String = R10Sim.OBSERVATIONS.contact_sheet_1927
 	check("18 October 1927" in obs and "Sync: bell." in obs, "the observation carries the date and the sync")
 	check(has_ev(ev, "sfx", "cover_slide") and has_ev(ev, "fx", "cover_off") and has_ev(ev, "fx", "last_turn")
 		and has_ev(ev, "fx", "reflection") and has_ev(ev, "sfx", "sheet_take"), "reveal events")
 	var lines := says(ev).split(" | ")
-	check(lines.size() == 5 and lines[-1] == "The film edge is dated 18 October 1927. I take the sheet.", "reveal chain")
+	check(lines.size() == 6 and lines[-2] == "The film edge is dated 18 October 1927. I take the sheet."
+		and lines[-1] == GameSim.FILED_LINE, "reveal chain, then the filing (%s)" % [lines])
 	var glance := {}
 	for e in ev:
 		if e.type == "fx" and e.id == "glance":
