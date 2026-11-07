@@ -517,8 +517,7 @@ func _record(ev: Array) -> void:
 		_say(ev, UNCONFIRMED, 0.0)
 		_say(ev, CONTRACT_RULE, 2.2)
 		return
-	state.p15_complete = true
-	state.frame_mounted = false
+	_set_done()   # the same arrangement a load gives, so a save round-trips byte-identical
 	last_record = "recorded"
 	_sfx(ev, "record_key", 0.0)
 	_fx(ev, "record_key")

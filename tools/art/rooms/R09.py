@@ -535,13 +535,17 @@ def reflections(p, spec, opacity, lamp=True):
         p.ell(lx, ly, 9, 9, mix(AMBER, PAPER_HI, 0.25), None)
 
 
+# View A: the lens (504..944) is opaque, so the office window and its lamp hang in the clear
+# left pane, where the lamp point reads at a glance; the second door stands left of the lens.
 A_REFL = {
-    "window": (820, 260, 1040, 420),
-    "lamp": (930, 330),
+    "window": (110, 250, 330, 410),
+    "lamp": (220, 320),
     "table": (230, 470, 560, 500),
-    "doors": [(1092, 230, 1176, 600), (96, 236, 196, 450)],
+    "doors": [(1092, 230, 1176, 600), (400, 236, 480, 460)],
     "floor": (52, 1396, 588),
 }
+# b7: the lantern housing's reflection, clear of the lens in view A
+A_HOUSING = (1230, 300)
 B_REFL = {
     "window": (1010, 230, 1230, 390),
     "lamp": (1120, 300),
@@ -621,7 +625,10 @@ def paint_sea(rng, view, band):
         surface(p, 0, "b7", view=view)
         c0, c1 = surf_cols("b7")
         immense_arc(p, (724, 1900), 1500, mix(c0, c1, 0.5))
-        lantern_housing(p, 724, 250 if view == "a" else 300, 56)
+        if view == "a":
+            lantern_housing(p, A_HOUSING[0], A_HOUSING[1], 56)
+        else:
+            lantern_housing(p, 724, 300, 56)
     return p
 
 

@@ -5690,7 +5690,7 @@
       "path": "assets/rooms/R09/a_sea_b4.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "0fbc65407cc47e06281f82982d5e20d415a26918af3c55efa26f7b79be487477",
+      "sha256": "ddf08e0eb5ad852a1be70bf0414c39ed06414e0b5ed6261a540a61d3f96d7c76",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -5708,7 +5708,7 @@
       "path": "assets/rooms/R09/a_sea_b4_shut.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "4cb8a17e46b12b998cf3c32a545c09f62f49cb50f60858ba677e2cb3b33d0b67",
+      "sha256": "2b9d9216898623913830362ae9ca1c3ea5e423416efefac5ad523a39bb5f622c",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -5717,7 +5717,7 @@
       "path": "assets/rooms/R09/a_sea_b5.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "b08f2b1d2322f98617242e7191758251e85e8e2ea7fad62c4e63e19a20189c5e",
+      "sha256": "452974544f47108160b306186e3cc48f0ee82fa985e766859bb6863c3873345c",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -5726,7 +5726,7 @@
       "path": "assets/rooms/R09/a_sea_b6.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "1a37141cc50c5884f927171a2a22323efc3f3b7f86ee5e622ed59e25499b4744",
+      "sha256": "7dc2dc217b59b71cbaae18e61405bffc1405b912c6c1c7a72117ed0b0ebb3015",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -5735,7 +5735,7 @@
       "path": "assets/rooms/R09/a_sea_b7.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "fd5b2d2fee1382914463914aba2b82a37506c34d6a88621d7ffaf715cbef936a",
+      "sha256": "98effd397574e38da8bfa4e773d41daf6aed1717be3c8c3a493aec5421597634",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },

@@ -61,10 +61,10 @@ const BAND_AFTER := {"T1X": 0, "P06": 1, "P09": 2, "P12": 3, "P15": 4, "P18": 5,
 
 ## Steps played by their room's real actions (everything else: flags only).
 const PLAYED := ["P01", "P03a", "P02", "P03", "T1X", "P04", "P05", "P06", "P07", "P08", "P09", "P10",
-	"P11", "P13", "P14", "P17", "P19", "P20", "P21", "P22"]
+	"P11", "P13", "P14", "P15", "P17", "P19", "P20", "P21", "P22"]
 
 ## Items a not-yet-built room hands out at its step (flags.md section 4).
-const GIVES := {"P15": ["nora_spatial_strip"], "P16": ["contact_sheet"], "P18": ["venn_correspondence"],
+const GIVES := {"P16": ["contact_sheet"], "P18": ["venn_correspondence"],
 	"P23": ["witness_bridge"]}
 
 ## A capture driver (tools-side, under .panel/) may hand in the scene's own GameSim and an
@@ -435,6 +435,28 @@ func play_p14() -> void:
 	_qd("back")
 	_qd("back")
 	check(lab.local_view == "room", "P14: back in the laboratory")
+
+## R09 P15: her frame on the scope's clamp, STATION 3, the patch under the lens, RECORD
+## BEARING. The strip prints, the frame comes back, and leaving the scope stands the sea up.
+func play_p15() -> void:
+	if g.state.room != "R09":
+		_qd("go:R09")
+	var gallery: R09Sim = g.room("R09")
+	_qd("scope")
+	check(gallery.local_view == "c_scope", "P15: the scope opens")
+	_qd("item:nora_frame")
+	_qd("mount")
+	check(gallery.state.frame_mounted and not g.has_item("nora_frame"), "P15: her frame in the clamp")
+	_qd("sel_3")
+	_qd("item:inspection_lens")
+	_qd("scope_view")
+	check(gallery.state.patch_confirmed, "P15: the square patch under the lens")
+	var ev := _qd("record")
+	check(g.flag("P15") and g.has_item("nora_spatial_strip") and g.has_item("nora_frame"),
+		"P15: her bearing recorded; the strip printed; her frame back")
+	check(has_ev(ev, "fx", "tide"), "P15: Tide V closes on the bearing")
+	_qd("back")
+	check(gallery.local_view == "room" and gallery.state.reveal_seen, "P15: the sea stood up")
 
 # ---------------------------------------------------------------------------
 # Tide VIII
