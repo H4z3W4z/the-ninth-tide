@@ -6694,6 +6694,42 @@
       "source_svg": null
     },
     {
+      "id": "R10/view_a_t6",
+      "path": "assets/rooms/R10/view_a_t6.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "f7179ba64f9af1369d4f59840b59abeff450e1941f19b0bc15e11edc06c1524c",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R10/view_a_t7",
+      "path": "assets/rooms/R10/view_a_t7.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "34643b2a4288356776204645ad980b0d35d3928d4a111b6f04acf8df240ea39d",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R10/view_a_t8",
+      "path": "assets/rooms/R10/view_a_t8.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "5d107252d477ccb32a675c7ee11fbbe1fa2cdf2012e37c718e0a363ad339d01c",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R10/view_a_t9",
+      "path": "assets/rooms/R10/view_a_t9.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "5e3e61c1efc23cde92314c50c13b03eac78e5cf7ef4c0736f675c5f7241f3e11",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R10/view_b",
       "path": "assets/rooms/R10/view_b.png",
       "width": 1448,
@@ -6708,6 +6744,42 @@
       "width": 1448,
       "height": 1086,
       "sha256": "b7a5f1bd64128ad51c1e912d6f4b7c59b49fb6a0b82e9a0e253a8b73b2009377",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R10/view_b_t6",
+      "path": "assets/rooms/R10/view_b_t6.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "fe0cbfb5c0b35044782741873271c1ddcd29daa71ccbb262585cdfb972ed09df",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R10/view_b_t7",
+      "path": "assets/rooms/R10/view_b_t7.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "64e8f09218561096a67a1432e66b6365c063a43e9a58abf74114e8932d324e93",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R10/view_b_t8",
+      "path": "assets/rooms/R10/view_b_t8.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "c2847a69c198efaabf8a477d69cef9d603d8e3257482a8b40aa8f91344ce6d78",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R10/view_b_t9",
+      "path": "assets/rooms/R10/view_b_t9.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "43ebd86050efea212e456cbd766cab146260528bab748d67970062b2d810161b",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
