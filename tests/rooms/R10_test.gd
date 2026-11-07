@@ -1141,8 +1141,10 @@ func test_flag_adoption() -> void:
 	r.reconcile()
 	check(g.flag("P16"), "state sets the flag")
 
-func load_with(patch: Dictionary) -> R10Sim:
+func load_with(patch: Dictionary, drop := []) -> R10Sim:
 	var g := game_at(6, ROOM)
+	for it in drop:
+		g.take(it)
 	var d := g.to_dict()
 	for k in patch:
 		d.rooms[ROOM][k] = patch[k]
@@ -1175,7 +1177,8 @@ func test_malformed_saves() -> void:
 	r = load_with({"notices": ["bogus", "ninth_photo", "ninth_photo"], "catalogue_notices": ["aperture_wide", "x"]})
 	check(r.state.notices.count("ninth_photo") == 1 and not "bogus" in r.state.notices and r.state.catalogue_notices == ["aperture_wide"], "notices whitelisted")
 	r = load_with({"filed": {"BODY": "nora_frame", "PLACE": "nora_frame", "NAME": "chart_clips", "X": "nora_spatial_strip"},
-		"tray": ["nora_frame", "nora_register_card", "nora_register_card", "witness_bridge"]})
+		"tray": ["nora_frame", "nora_register_card", "nora_register_card", "witness_bridge"]},
+		["nora_spatial_strip"])  # R09 is built: tide VI starts with the strip in hand, so set it aside
 	check(r.state.filed.values() == ["", "", ""] and r.state.tray.is_empty(), "a load always empties folders and tray")
 	check(r.game.has_item("nora_frame") and r.game.has_item("nora_register_card") and not r.game.has_item("nora_spatial_strip"),
 		"only the legal records come back")

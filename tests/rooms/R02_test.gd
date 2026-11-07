@@ -2550,6 +2550,8 @@ func test_p20() -> void:
 	early.dispatch("item:venn_correspondence")
 	check(says(early.dispatch("board")) == "Not yet. I don't know what I'm comparing them against." and not early.state.board_loaded, "before tide_done(6)")
 	var c := office(game_at(7))
+	# With R10 built, tide VII starts with Venn's letters in hand (P18): put them away to see the bare board.
+	c.game.take("venn_correspondence")
 	c.dispatch("turn")
 	check(says(c.dispatch("board")) == "A comparison board. Cork, three pins, a rail of rubber stamps. Nothing pinned to it.", "the empty board")
 	c.game.give("venn_correspondence")

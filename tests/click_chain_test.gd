@@ -8,7 +8,7 @@ extends SceneTree
 ## are dispatched and counted:
 ##   - R03 and R06 turn to the wall that holds a hotspot (wall auto-switch);
 ##   - R02's "door" is the corridor exit (go:R03);
-##   - the unbuilt rooms R09-R12 offer only the way back, so exits to or from them;
+##   - an unbuilt room offers only the way back, so exits to or from one (none since Wave 3);
 ##   - "Back" with no close-up open (a sim no-op the chain script sends to be sure).
 ## Run after an import:
 ##   godot --headless --path . --script tests/click_chain_test.gd

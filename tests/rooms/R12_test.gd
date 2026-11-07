@@ -1033,6 +1033,9 @@ func test_reconcile() -> void:
 	r = r12(g)
 	r.reconcile()
 	check(r.state.p27_complete, "adopts P27")
+	# P24 by flag: the built stair adopts it on load too, so let every room reconcile first.
+	for rid in g.order:
+		g.room(rid).reconcile()
 	check(JSON.stringify(roundtrip(g).to_dict()) == JSON.stringify(g.to_dict()), "an adopted P27 round-trips")
 	g = with_flags(["P24"], ROOM)
 	r = r12(g)

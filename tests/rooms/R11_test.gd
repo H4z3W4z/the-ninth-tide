@@ -197,7 +197,7 @@ func door_game(live := true) -> GameSim:
 	var g := game_at(8, ROOM)
 	if live:
 		grant(g, "R06", "P22")
-		g.set_flag("P23")
+		grant(g, "R10", "P23")
 	for it in NORA + ["witness_bridge"]:
 		g.give(it)
 	g.dispatch("descend")

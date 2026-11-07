@@ -1017,7 +1017,7 @@ func _hover_at(p: Vector2) -> String:
 
 ## The exit under `p` as "go:<rid>", when the room is showing itself.
 func _exit_at(p: Vector2) -> String:
-	if room_view == null or room_sim().local_view != "room" or not room_view.exits_active():
+	if room_view == null or room_sim().is_closeup() or not room_view.exits_active():
 		return ""
 	var rects: Dictionary = room_view.live_exit_rects()
 	for e in sim.exits():
@@ -1561,7 +1561,7 @@ func _draw_inventory(c: Node2D) -> void:
 ## Exit tabs: a plaque per way out, arrowed toward the side it leaves by, dimmed while
 ## locked. On the HUD layer, so no room lighting can hide them.
 func _draw_exits(c: Node2D) -> void:
-	if sim.view != "room" or room_view == null or room_sim().local_view != "room" or not room_view.exits_active():
+	if sim.view != "room" or room_view == null or room_sim().is_closeup() or not room_view.exits_active():
 		return
 	var rects: Dictionary = room_view.live_exit_rects()
 	for e in sim.exits():

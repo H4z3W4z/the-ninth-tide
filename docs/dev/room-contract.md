@@ -73,6 +73,8 @@ global flags you own from your state (R02 sets `P01` from `p01_complete`).
 
 `local_view` is where the room is looking: `"room"` or one of your close-up ids. It is never
 saved: a load always lands in `"room"`. Override `is_closeup(v)` if a view is not a close-up.
+Exit tabs are drawn and answered in any view that is not a close-up (`is_closeup()` false), so a
+base view such as R09's rail or R10's catalogue wall leaves by its tabs; `exits_active()` can still hide them.
 
 ### Actions and events
 

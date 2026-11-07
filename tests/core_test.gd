@@ -940,28 +940,29 @@ func test_card_and_slab() -> void:
 	check(scene.cur_text == "Later." and scene.slab_a > 0.0, "the slab comes up with the line")
 	await free_scene(scene)
 
-## An unbuilt room shows its card with one way back; its hotspots stay live.
+## Wave 3 built R09-R12: no room shows the placeholder card. The card itself stays for a
+## bare RoomView (a room whose view scene is missing).
 func test_placeholder() -> void:
+	var bare := RoomView.new()
+	check(bare.is_skeleton(), "a bare RoomView is still a skeleton (the placeholder card)")
+	bare.free()
+	for rid in GameSim.new().order:
+		var v: RoomView = load("res://game/rooms/%s/%s_view.tscn" % [rid, rid]).instantiate()
+		check(not v.is_skeleton(), "%s's view is built" % rid)
+		v.free()
 	var scene = new_scene("user://core_ph_test.json")
 	await process_frame
-	# Wave 2 built R05-R08: the stair landing (R11) is the unbuilt room off a built one.
 	scene.tide_jump(4, "R03")
 	scene.dispatch("go:R11")
-	check(scene.room_view.rid == "R11" and scene.room_view.is_skeleton(), "the stair landing is a skeleton")
+	check(scene.room_view.rid == "R11" and not scene.room_view.is_skeleton(), "the stair landing is built")
+	for i in 60:   # past the stair's first-arrival hold
+		scene._process(0.1)
 	var live: Dictionary = scene.room_view.live_exit_rects()
-	check(live.keys() == ["R03"], "one exit, back to the chart room (%s)" % [live.keys()])
-	check(scene.action_at(live["R03"].get_center()) == "go:R03", "the way back answers")
-	var other: Rect2 = scene.room_view.exit_rects()["R09"]
-	check(scene.action_at(other.get_center()) == "", "the other exits are shut on the card")
-	var hs: Array = scene.room_view.c("HOTSPOTS")
-	check(scene.action_at(hs[0][1].get_center()) == hs[0][0], "the hotspots stay live")
+	check(live.has("R03") and scene.action_at(live["R03"].get_center()) == "go:R03", "the way back to the chart room answers")
 	scene.tide_jump(9, "R11")
 	scene.dispatch("go:R12")
-	check(scene.sim.state.room == "R12", "the sim still walks on (chain_test)")
-	check(scene.room_view.live_exit_rects().keys() == ["R11"], "the chamber offers the way back to the stair")
-	var built: RoomView = load("res://game/rooms/R02/R02_view.tscn").instantiate()
-	check(not built.is_skeleton(), "a built room is not a skeleton")
-	built.free()
+	check(scene.sim.state.room == "R12" and not scene.room_view.is_skeleton(), "the chamber is built")
+	check(scene.room_view.live_exit_rects().has("R11"), "the chamber offers the way back to the stair")
 	scene.over.queue_redraw()
 	await process_frame
 	await free_scene(scene)
@@ -1056,29 +1057,23 @@ func test_hint_ladder() -> void:
 		check(lv <= 3, "the hint level stays clamped (%d after %d presses)" % [lv, presses])
 		check(roundtrip(h).state.hint.level == lv, "a save keeps hint.level %d" % lv)
 
-## Unbuilt rooms: marked exits, never offered as work; the build's end is said plainly.
+## Every room is built: no exit is marked, and "Now:" never names the build's end.
 func test_build_end() -> void:
 	var g := GameSim.new()
-	for rid in ["R09", "R10", "R11", "R12"]:
-		check(g.is_unbuilt(rid), "%s is not built yet" % rid)
-	for rid in ["R01", "R02", "R03", "R04", "R05", "R06", "R07", "R08"]:
+	for rid in g.order:
 		check(not g.is_unbuilt(rid), "%s is built" % rid)
 	g = await chain_at("P11")
-	check(g.objective_text() == GameSim.BUILD_END_NOW, "after P11, Now: names the build's end (%s)" % g.objective_text())
-	check(says(g.dispatch("hint")) == GameSim.BUILD_END_HINT, "after P11, the Hint says so too")
-	for rid in g.order:
-		if g.is_unbuilt(rid):
-			check(g.elsewhere(true) != rid, "an unbuilt room is never the work elsewhere")
+	var now := g.objective_text()
+	check(now != GameSim.BUILD_END_NOW and now.begins_with("Dry Stair: "), "after P11, Now: points at the stair (%s)" % now)
+	check(says(g.dispatch("hint")) != GameSim.BUILD_END_HINT, "after P11, the Hint is a real step")
 	g.debug_enter("R11")
-	check(g.objective_text() == GameSim.BUILD_END_NOW, "standing in the stair: the same end")
+	check(g.objective_text() != GameSim.BUILD_END_NOW, "standing in the stair: real work")
 	var scene = new_scene("user://core_unbuilt_test.json")
 	await process_frame
 	scene.tide_jump(2, "R03")
-	var label: String = scene.exit_tab_label("R11")
-	check("not yet built" in label, "the chart room's stair tab says not yet built (%s)" % label)
-	check(not "not yet built" in scene.exit_tab_label("R02"), "a built room's tab is plain")
-	check("not yet built" in scene._hover_label("go:R11") or "locked" in scene._hover_label("go:R11"),
-		"the stair's hover label is marked (%s)" % scene._hover_label("go:R11"))
+	for rid in ["R02", "R04", "R11"]:
+		check(not "not yet built" in scene.exit_tab_label(rid), "the chart room's %s tab is plain (%s)" % [rid, scene.exit_tab_label(rid)])
+	check(not "not yet built" in scene._hover_label("go:R11"), "the stair's hover label is plain (%s)" % scene._hover_label("go:R11"))
 	await free_scene(scene)
 
 ## The tide card waits for the reveal that earned it: P09's chain plays out first.

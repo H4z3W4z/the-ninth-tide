@@ -431,7 +431,8 @@ func dispatch(action: String) -> Array:
 					var held := selected_item
 					selected_item = ""
 					handled = room().use_item(held, action, ev)
-				if not handled and room().local_view == "room":
+				# Exits leave from any base view (R09's rail, R10's catalogue wall), never a close-up.
+				if not handled and not room().is_closeup():
 					_travel(action.substr(3), ev)
 			elif selected_item != "":
 				var item := selected_item

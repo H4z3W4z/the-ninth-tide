@@ -13,6 +13,9 @@ extends "res://tests/rooms/room_test_base.gd"
 ## P02, P03, T1X, P04, P05, P06 (and the service door), P17, P19, P20, P21.
 ## Wave 2 (station interior): R05, R06, R07 and R08 are played too: P07, P08, P09, P10,
 ## P11, P13, P14 and P22.
+## Wave 3 (depths and endings): R09, R10, R11 and R12 are played too: P12, P15, P16, P18,
+## P23, P24, P25, P26 and P27 (SEVER first, then the checkpoint replays to CONTINUE).
+## Every puzzle is now played by its room; GIVES and the flag path stay for a future room.
 
 ## [step, room, prerequisites] in canonical order (flags.md section 2, GDD section 5,
 ## T1X-closure.md: the corridor opens on P01 and T1X waits for tide_done(1)).
@@ -61,11 +64,11 @@ const BAND_AFTER := {"T1X": 0, "P06": 1, "P09": 2, "P12": 3, "P15": 4, "P18": 5,
 
 ## Steps played by their room's real actions (everything else: flags only).
 const PLAYED := ["P01", "P03a", "P02", "P03", "T1X", "P04", "P05", "P06", "P07", "P08", "P09", "P10",
-	"P11", "P13", "P14", "P15", "P17", "P19", "P20", "P21", "P22"]
+	"P11", "P12", "P13", "P14", "P15", "P16", "P17", "P18", "P19", "P20", "P21", "P22", "P23", "P24",
+	"P25", "P26", "P27"]
 
 ## Items a not-yet-built room hands out at its step (flags.md section 4).
-const GIVES := {"P16": ["contact_sheet"], "P18": ["venn_correspondence"],
-	"P23": ["witness_bridge"]}
+const GIVES := {}
 
 ## A capture driver (tools-side, under .panel/) may hand in the scene's own GameSim and an
 ## awaited hook(pid, rid, phase) called on arrival ("at") and after each commit ("done").
@@ -87,6 +90,10 @@ var kitchen: R05Sim
 var bunks: R06Sim
 var lab: R07Sim
 var machine: R08Sim
+var gallery: R09Sim
+var vault: R10Sim
+var stair: R11Sim
+var chamber: R12Sim
 
 func run_tests() -> void:
 	g = external_game if external_game != null else GameSim.new()
@@ -98,6 +105,10 @@ func run_tests() -> void:
 	bunks = g.room("R06")
 	lab = g.room("R07")
 	machine = g.room("R08")
+	gallery = g.room("R09")
+	vault = g.room("R10")
+	stair = g.room("R11")
+	chamber = g.room("R12")
 	check(g.view == "title" or office.view == "title", "the game starts on the title")
 	_qd("begin")
 	check(g.state.started and g.state.room == "R02" and g.tide() == 1 and g.weather_band() == 0,
@@ -459,8 +470,167 @@ func play_p15() -> void:
 	check(gallery.local_view == "room" and gallery.state.reveal_seen, "P15: the sea stood up")
 
 # ---------------------------------------------------------------------------
+# Tide IV: the pressure gate
+# ---------------------------------------------------------------------------
+## R11 P12: the gate's wheel to EQUAL (2), plate O1 in UPPER and C1 in LOWER, OPEN. The
+## gate lifts and she is on the lower landing, under the stopped bell.
+func play_p12() -> void:
+	check(stair.landing == 1, "P12: she comes in on the upper landing, at the gate")
+	_qd("gate")
+	check(stair.local_view != "room", "P12: the gate opens its close-up")
+	var guard := 0
+	while int(stair.state.pressure) != 2 and guard < 8:
+		_qd("wheel_up" if int(stair.state.pressure) < 2 else "wheel_down")
+		guard += 1
+	for i in 2:
+		var want: String = ["o1", "c1"][i]
+		if stair.state.slots[i] != want:
+			if stair.state.slots[i] != "":
+				_qd(["slot_upper", "slot_lower"][i])
+				_qd("plate_" + stair.held_plate)
+			_qd("plate_" + want)
+			_qd(["slot_upper", "slot_lower"][i])
+	check(stair.state.slots == ["o1", "c1"] and int(stair.state.pressure) == 2, "P12: EQUAL, O1 over C1")
+	var ev := _qd("lever_open")
+	check(g.flag("P12") and has_ev(ev, "fx", "tide"), "P12: the gate opens; the Tide V card")
+	check(stair.landing == 2 and stair.local_view == "room", "P12: down on the lower landing")
+	check(g.exit_open("R11", "R07") and g.exit_open("R11", "R09") and not g.exit_open("R11", "R12"),
+		"P12: the laboratory door and the gallery open; the chamber stays shut")
+
+# ---------------------------------------------------------------------------
+# Tides VI-VII: the records vault
+# ---------------------------------------------------------------------------
+## R10 P16: the four loose panels in order B D A C, her clips across them, the cover off.
+func play_p16() -> void:
+	_r10_base("room")
+	_qd("contact_table")
+	check(vault.local_view == "c_contact", "P16: the contact table opens")
+	var order := ["B", "D", "A", "C"]
+	for k in order.size():
+		_qd("loose_" + order[k].to_lower())
+		_qd("slot_%d" % (k + 1))
+	_qd("item:chart_clips")
+	_qd("clip")
+	var ev := _qd("cover")
+	check(g.flag("P16") and g.has_item("contact_sheet") and g.has_item("chart_clips"),
+		"P16: the contact sheet; the clips kept")
+	check(vault.has_seen("contact_sheet_1927"), "P16: the film edge is dated 1927")
+	check(not has_ev(ev, "fx", "tide"), "P16 alone does not close Tide VI")
+	_qd("back")
+
+## R10 P18: her three records in BODY, PLACE and NAME, the dial to 18 OCT 1927, COMPARE.
+## The folders give everything back with Venn's letters.
+func play_p18() -> void:
+	_r10_base("catalogue")
+	_qd("folders")
+	check(vault.local_view == "c_folders", "P18: the folders open")
+	var homes := {"nora_frame": "fold_body", "nora_spatial_strip": "fold_place", "nora_register_card": "fold_name"}
+	for rec in homes:
+		_qd("item:" + rec)
+		_qd(homes[rec])
+	check(vault.state.filed.values() == ["nora_frame", "nora_spatial_strip", "nora_register_card"],
+		"P18: her three records filed")
+	_qd("day_up")
+	for i in 4:
+		_qd("year_dn")
+	check(int(vault.state.day) == 18 and int(vault.state.year) == 1927, "P18: the dial at 18 OCT 1927")
+	var ev := _qd("compare")
+	check(g.flag("P18") and g.has_item("venn_correspondence"), "P18: SUBJECT COMPLETE; Venn's letters")
+	for rec in homes:
+		check(g.has_item(rec), "P18: %s back in hand" % rec)
+	check(has_ev(ev, "fx", "tide"), "P18: Tide VI closes on the folders")
+	_qd("back")
+
+# ---------------------------------------------------------------------------
 # Tide VIII
 # ---------------------------------------------------------------------------
+## R10 P23: the model's shutter open after P21; the lead INPUT to WITNESS, TEST. RECORD OPEN,
+## and the witness bridge comes out of the model.
+func play_p23() -> void:
+	_r10_base("catalogue")
+	_qd("model")
+	check(vault.local_view == "c_model" and vault.shutter_open(), "P23: the model's shutter is open")
+	_qd("t_input")
+	_qd("t_witness")
+	var ev := _qd("test")
+	check(g.flag("P23") and g.has_item("witness_bridge") and vault.state.stamp == "open",
+		"P23: RECORD OPEN; the witness bridge")
+	check(not has_ev(ev, "fx", "tide"), "P23: Tide VIII waits for the lower door")
+	_qd("back")
+
+## Stands in R10's base view `want` ("room" = the shelves, "catalogue"), with no close-up up.
+func _r10_base(want: String) -> void:
+	if vault.is_closeup():
+		_qd("back")
+	if vault.local_view != want:
+		_qd("to_catalogue" if want == "catalogue" else "to_shelves")
+	check(vault.local_view == want, "R10: at the %s" % want)
+
+## R11 P24: down to the lower door; her frame, strip and amended card in BODY, PLACE, NAME,
+## the witness bridge in WITNESS, OPEN ACCESS. Everything comes back; the chamber opens.
+func play_p24() -> void:
+	if stair.landing != 2:
+		_qd("descend")
+	check(stair.landing == 2, "P24: on the lower landing")
+	_qd("lower_door")
+	var mounts := {"nora_frame": "frame_body", "nora_spatial_strip": "frame_place",
+		"amended_nora_card": "frame_name", "witness_bridge": "socket_witness"}
+	for it in mounts:
+		_qd("item:" + it)
+		_qd(mounts[it])
+	check(stair.state.frames == {"BODY": "nora_frame", "PLACE": "nora_spatial_strip", "NAME": "amended_nora_card"}
+		and stair.state.witness == "witness_bridge" and stair.state.copy == "", "P24: three records and the witness")
+	var ev := _qd("lever_access")
+	check(g.flag("P24") and has_ev(ev, "fx", "tide"), "P24: OPEN ACCESS; the Tide IX card")
+	for it in mounts:
+		check(g.has_item(it), "P24: %s back in hand" % it)
+	check(g.exit_open("R11", "R12") and stair.local_view == "room", "P24: the chamber door stands open")
+
+# ---------------------------------------------------------------------------
+# Tide IX: the observation chamber
+# ---------------------------------------------------------------------------
+## R12 P25: TRACE, POSITION and IDENTITY in BODY, PLACE and NAME; the switch to WITNESS; ROUTE.
+func play_p25() -> void:
+	for a in ["to_frames", "frame_body", "rack_trace", "f_body", "rack_position", "f_place",
+			"rack_identity", "f_name", "switch"]:
+		_qd(a)
+	var ev := _qd("route")
+	check(g.flag("P25") and chamber.frames() == R12Sim.SOLUTION_FRAMES and chamber.switch() == "witness",
+		"P25: her record routed to the witness line")
+	check(not has_ev(ev, "fx", "tide"), "P25: no tide past IX")
+
+## Backs out of R12's frames, routing and close-ups to the chamber itself.
+func _r12_room() -> void:
+	var guard := 0
+	while chamber.local_view != "room" and guard < 4:
+		_qd("back")
+		guard += 1
+	check(chamber.local_view == "room", "R12: in the chamber")
+
+## R12 P26: preview both routes, ENDS for SEVER and REMAINS for CONTINUE, CONFIRM. The checkpoint.
+func play_p26() -> void:
+	_r12_room()
+	for a in ["to_routing", "plate_sever", "preview_sever", "preview_continue",
+			"cc_ends", "slot_sever", "cc_remains", "slot_continue"]:
+		_qd(a)
+	_qd("confirm")
+	check(g.flag("P26") and chamber.routes() == R12Sim.SOLUTION_ROUTES, "P26: both routes understood")
+	check(not g.checkpoint.is_empty(), "P26: the pre-ending checkpoint is stored")
+
+## R12 P27, played as SEVER: the yoke across the feed contacts, preview, SEVER; then every
+## page of the ending to the end card. _endings() replays the checkpoint to CONTINUE.
+func play_p27() -> void:
+	_r12_room()   # the P26 glance may already have put the routing close-up down
+	for a in ["to_routing", "contacts", "tray", "contacts", "preview"]:
+		_qd(a)
+	_qd("btn_sever")
+	check(g.flag("P27") and chamber.chosen() == "sever", "P27: SEVER pressed")
+	var guard := 0
+	while g.view != "end" and guard < 20:
+		_qd("ending_next")
+		guard += 1
+	check(g.view == "end" and g.value("ending_choice") == "sever", "P27: the SEVER ending reaches its end card")
+
 ## R06 P22: her card on the record rest, her sketch beside it, NO SURVIVING EFFECTS amended
 ## to REPAIRED CUP, NORA BELL; APPEND with her pencil; the amended card comes off the rest on Back.
 func play_p22() -> void:
@@ -617,11 +787,19 @@ func _check_save(after: String) -> void:
 
 ## P26's checkpoint replays to both endings; endings_seen keeps both.
 func _endings() -> void:
-	g.finish("sever")
 	check(g.value("ending_choice") == "sever" and g.view == "end", "ending: sever")
 	_qd("return_decision")
-	check(g.flag("P26") and g.value("ending_choice") == "", "replay returns to the P26 decision")
-	g.finish("continue")
+	check(g.flag("P26") and not g.flag("P27") and g.value("ending_choice") == "" and g.state.room == "R12",
+		"replay returns to the P26 decision")
+	check(g.has_item("witness_bridge"), "replay: the bridge is back in hand")
+	for a in ["to_routing", "bridge_seat", "bridge_seat", "preview"]:
+		_qd(a)
+	_qd("btn_continue")
+	check(chamber.chosen() == "continue", "ending: CONTINUE pressed")
+	var guard := 0
+	while g.view != "end" and guard < 20:
+		_qd("ending_next")
+		guard += 1
 	var seen: Array = g.value("endings_seen")
 	check(g.value("ending_choice") == "continue" and "sever" in seen and "continue" in seen,
 		"ending: continue; both endings seen (%s)" % [seen])

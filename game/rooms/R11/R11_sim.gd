@@ -1129,7 +1129,7 @@ func debug_jump(n: int) -> void:
 		8:
 			game.debug_tide(8, ID)
 			_grant("R06", "P22")
-			game.set_flag("P23")
+			_grant("R10", "P23")
 			var mounts := {"BODY": "nora_frame", "PLACE": "nora_spatial_strip", "NAME": "amended_nora_card"}
 			for f in FRAMES:
 				game.take(mounts[f])
