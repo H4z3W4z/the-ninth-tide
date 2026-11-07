@@ -619,7 +619,7 @@ func on_sfx(id: String) -> void:
 # ---------------------------------------------------------------------------
 ## Starts glance `id` (p07_spoon: the spoon at the door place lifts; p09_hatch: the kitchen's
 ## hatch stands open). The room view shows over the close-up while it plays. Idempotent.
-func start_glance(id: String) -> void:
+func begin_glance(id: String) -> void:
 	if glance_active() and glance_id == id:
 		return
 	glance_id = id
@@ -644,7 +644,12 @@ func _poll_glance() -> void:
 		var shown: bool = game != null and game.cur_text == _glance_line(id)
 		if shown or time >= float(glance_wait[id]):
 			glance_wait.erase(id)
-			start_glance(id)
+			begin_glance(id)
+
+## The core's glance hook (after the chain, close-up down). The room has already shown its
+## reward on the chain line's cue (begin_glance), so the core draws no brackets of its own.
+func start_glance(_target: String, _rect: Rect2) -> bool:
+	return true
 
 func glance_len() -> float:
 	if glance_id == "p07_spoon":

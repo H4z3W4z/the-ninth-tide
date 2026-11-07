@@ -1013,7 +1013,7 @@ func test_item_on_exit() -> void:
 ## KNOWN lists room items still too long, each a bug for its room team; an entry that has
 ## been fixed fails here too, so the list only shrinks.
 const ITEM_LABEL_MAX := 14
-const ITEM_LABEL_KNOWN := {"token_bunk_half": "R06", "amended_nora_card": "R06"}
+const ITEM_LABEL_KNOWN := {}
 
 func test_item_labels() -> void:
 	var defs := GameSim.new().item_defs()

@@ -1154,7 +1154,7 @@ func test_w2_view() -> void:
 		"exit arrows point to the painted doors")
 	# a glance: the hold's brackets on the socket (in the close-up, on the close layer)
 	r.local_view = "c_tilt_rack"
-	check(v.start_glance(Rect2(716, 318, 130, 362)) and v.hold_active(), "start_glance holds")
+	check(v.start_glance("p10", Rect2(716, 318, 130, 362)) and v.hold_active(), "start_glance holds")
 	check(v.hold_close == Rect2(1110, 380, 240, 400), "in the rack close-up the glance brackets the socket there")
 	v.reset_presentation()
 	r.local_view = "room"

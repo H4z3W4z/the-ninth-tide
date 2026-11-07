@@ -413,7 +413,7 @@ func _tick_glance() -> void:
 	if pending_glance.is_empty() or chain_active() or sim.view != "room" or room_sim() == null:
 		return
 	var tries := 0
-	while room_sim().local_view != "room" and tries < GLANCE_BACKS:
+	while room_sim().is_closeup() and tries < GLANCE_BACKS:
 		dispatch("back")
 		tries += 1
 	var e := pending_glance

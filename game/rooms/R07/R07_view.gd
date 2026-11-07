@@ -497,7 +497,7 @@ func tick(dt: float) -> void:
 	if glance_wait >= 0.0:
 		glance_wait -= dt
 		if glance_wait < 0.0:
-			start_glance(glance_rect)
+			start_glance("", glance_rect)
 	if tip_t >= 0.0:
 		tip_t += dt
 		if tip_t > _tip_len():
@@ -672,7 +672,7 @@ const GLANCE_CLOSE := {
 
 ## A reward is seen: the notice hold's brackets and zoom on `rect` (view A/B space). In a
 ## close-up the brackets go round the same thing there. Motion off: still brackets.
-func start_glance(rect: Rect2) -> bool:
+func start_glance(_target: String, rect: Rect2) -> bool:
 	glance_wait = -1.0
 	if rect.size == Vector2.ZERO:
 		return false
