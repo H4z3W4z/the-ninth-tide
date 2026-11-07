@@ -54,14 +54,14 @@ const NOTE_TEXT := "If it brought you your own room, do not give it your address
 const NOTE_SIGN := "E.V."
 const KEY_TAG := "SERVICE"
 ## After Tide I (tide_done(1)) until band 3 sees it sawn down to a stump.
-const PILINGS_TEN := "Ten pilings now. I counted nine from the launch."
+const PILINGS_TEN := "Ten pilings now. I counted eight from the launch."
 
 const OBSERVATIONS := {
 	"bell": "The mooring bell's lip is under the water. The water round it doesn't move, and it makes no ripple.",
 	"bell_note": "The mooring bell rang once, low. It never moved.",
 	"line": "The mooring line runs straight down into the Sound. Something is tied to it, far below. The water shows no reflection of the line.",
 	"pilings": "Nine pilings under the jetty. From the launch I counted eight.",
-	"pilings_ten": "Ten pilings now: the tenth stands past the end of the jetty, holding nothing up. I counted nine from the launch.",
+	"pilings_ten": "Ten pilings now: the tenth stands past the end of the jetty, holding nothing up. I counted eight from the launch.",
 	"tenth_piling": "The tenth piling is dry, pale oak: no weed line, no barnacles, no reflection. Nothing has ever stood on it.",
 	"sea_out": "After the boat went, the sea went out after it: mud flats to the horizon. The water round the bell stayed, standing level where the sea had been.",
 	"tenth_stump": "A tenth piling stump stands past the end of the jetty. Its reflection comes after the water moves, like all of them now.",
