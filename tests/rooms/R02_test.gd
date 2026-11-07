@@ -152,6 +152,7 @@ func run_tests() -> void:
 	await test_view_b()
 	await test_view_escalation()
 	await test_view_notice_and_board()
+	await test_repaint_pass()
 
 func test_full_playthrough() -> void:
 	var s := new_sim()
@@ -2968,4 +2969,94 @@ func test_view_notice_and_board() -> void:
 	scene.dispatch("photo")
 	check(s.local_view == "photo", "the photograph opens c_photo")
 	check(scene.action_at(Vector2(724, 838)) == "turn_over", "Turn it over")
+	await free_scene(scene)
+
+# ---------------------------------------------------------------------------
+# Art-director repaint pass: chrome off the floor, the lamp behind her, the late states
+# ---------------------------------------------------------------------------
+func test_repaint_pass() -> void:
+	var scene = new_scene("user://office_repaint.json")
+	await process_frame
+	scene.tide_jump(4, "R02")
+	await process_frame
+	var v = scene.room_view
+	var s: R02Sim = scene.room_sim()
+	# The exit bar: hidden while the cursor is on the room, shown on a tab or at the bottom edge.
+	check(not v.exit_bar_live_at(Vector2(700, 500)), "exit bar away while she looks at the room")
+	check(not v.exit_bar_live_at(Rect2(1050, 880, 135, 70).get_center()), "the puddle never calls up the bar")
+	for r in v.exit_rects().values():
+		check(v.exit_bar_live_at(r.get_center()), "the bar shows on a tab")
+	check(v.exit_bar_live_at(v.TURN_RECT.get_center()) and v.exit_bar_live_at(Vector2(10, 1080)),
+		"the bar shows on the turn tab and at the bottom edge")
+	check(scene.action_at(v.TURN_RECT.get_center()) == "turn", "a tap on the turn tab still turns her")
+	# Every new painted file is in the manifest and loaded.
+	for id in ["hook_tags_large", "b_board_strip", "c_note_card", "receipt_fallen", "entry_wall_s4_stain",
+			"entry_wall_shadow", "entry_wall_shadow2", "b_lamp_wedge", "outer_door_pour", "outer_glass_sea",
+			"tide_line_hard", "damp_window_hard", "door_seep_hard", "window_drowned"]:
+		check(v._tex("R02/" + id) != null, "painted %s loads" % id)
+	# The entry wall's light: no lamp and no torch before P01; a warm wedge after, never in sever.
+	scene.room_jump("R02", 0)
+	await process_frame
+	v = scene.room_view
+	s = scene.room_sim()
+	s.facing = "B"
+	v._tick_light(1.0 / 60.0)
+	check(v._back_lamp_target() == 0.0 and not v.torch.visible, "facing B before P01: no lamp, no glow")
+	scene.room_jump("R02", 1)
+	await process_frame
+	v = scene.room_view
+	s = scene.room_sim()
+	s.facing = "B"
+	v._tick_light(1.0 / 60.0)
+	check(v._back_lamp_target() > 0.0 and v._back_lamp_on() and not v.torch.visible, "facing B after P01: the lamp behind her only")
+	check(v.back_lamp.texture == v._tex("R02/b_lamp_wedge"), "the lamp is a wedge, not a pool")
+	check(v.back_lamp.color.r > v.back_lamp.color.b + 0.2, "the lamp is warm")
+	# The entry wall's escalation step, and the glass and clock at band 7.
+	for t in range(2, 10):
+		scene.tide_jump(t, "R02")
+		await process_frame
+		v = scene.room_view
+		check(v._b_step() == t - 2, "tide %d: entry wall step %d" % [t, t - 2])
+		check((v._outer_glass() == "R02/outer_glass_sea") == (t == 9), "tide %d: the sea above the jetty only at band 7" % t)
+	for e in [["sever", -1], ["continue", 7]]:
+		scene.tide_jump(9, "R02")
+		scene.sim.state.ending = e[0]
+		scene._reset_presentation()
+		await process_frame
+		check(scene.room_view._b_step() == e[1], "%s ending: entry wall step %d" % e)
+	# The threshold: lit like the wet seat, and leaning in on the doorway; clicks follow the lean.
+	check(v.THRESHOLD_SHADE.is_equal_approx(v.MODULATE["t1x"]), "the threshold keeps the wet seat's light")
+	scene.room_jump("R02", 4)
+	scene.dispatch("door")
+	await process_frame
+	v = scene.room_view
+	v.zoom_k = 1.0
+	var xf: Transform2D = v._zoom_xform()
+	check(xf.get_scale().x > 1.2, "the threshold leans in")
+	v.continue_ready = true
+	var door_c: Vector2 = xf * Rect2(1188, 128, 255, 780).get_center()
+	var chair_c: Vector2 = xf * Rect2(553, 618, 180, 66).get_center()
+	check(scene.action_at(door_c) == "continue" and scene.action_at(chair_c) == "turn",
+		"leaned in, the doorway and the chair are where they are drawn")
+	check(Rect2(Vector2.ZERO, v.SIZE).has_point(xf * v.DOOR_SLAB.end) and (xf * v.DOOR_SLAB.position).x > 1000.0,
+		"the doorway stays on screen, wider")
+	scene.dispatch("turn")
+	await process_frame
+	v._tick_zoom(5.0)
+	check(scene.room_view.transform == Transform2D.IDENTITY, "she turns round: the lean lets go")
+	# Hover names on the entry wall sit above the object, not on the cursor.
+	scene.tide_jump(8, "R02")
+	await process_frame
+	v = scene.room_view
+	s = scene.room_sim()
+	s.facing = "B"
+	scene.hover_id = "board"
+	check(v.label_for("board") == "" and v._hotspot_label("board") == "Comparison board",
+		"facing B the board's name is anchored, not at the cursor")
+	check(v.label_for("turn") == "Desk wall", "the turn tab keeps its name")
+	scene.hover_id = ""
+	# The hook tags: every word fits its card at a size that reads.
+	for i in v.HOOK_TAGS.size():
+		var w: float = v.serif.get_string_size(v.HOOK_TAGS[i][1], HORIZONTAL_ALIGNMENT_LEFT, -1, 25).x
+		check(w <= v.HOOK_TAG_W - 10.0, "hook %d's figure fits at full size" % (i + 1))
 	await free_scene(scene)

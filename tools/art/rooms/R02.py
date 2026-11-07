@@ -1420,6 +1420,341 @@ def seal_sprite(broken: bool, seed: int) -> Image.Image:
 
 
 # ---------------------------------------------------------------------------
+# REPAINT PASS (art-director round, R02 at 8896cb3): new files only, appended jobs, so
+# every earlier asset keeps its seed and stays byte-identical.
+# ---------------------------------------------------------------------------
+STORM = (26, 40, 56)          # storm navy water
+SEA_GLASS = (92, 132, 126)    # sea-glass green
+WET_WALL = (84, 94, 90)       # matte wet plaster, view A
+TIE = (142, 59, 46)           # brick tie-string (the room's only red)
+
+
+def ragged(rng: random.Random, x0, x1, y, amp, step=6.0, ph=None):
+    """A hard ragged edge: points along y with seeded, flat-graphic notches."""
+    pts = []
+    x = x0
+    ph = rng.uniform(0, 6.28) if ph is None else ph
+    while x <= x1:
+        o = amp * (0.55 * math.sin(x * 0.031 + ph) + 0.3 * math.sin(x * 0.11 + ph * 1.7)) + rng.uniform(-amp, amp) * 0.35
+        pts.append((x, y + o))
+        x += rng.uniform(step * 0.6, step * 1.4)
+    pts.append((x1, y + amp * 0.2))
+    return pts
+
+
+def colour_mask(plate: Image.Image, box, test) -> Image.Image:
+    """An L mask of the pixels inside box whose plate colour passes test(r, g, b)."""
+    m = Image.new("L", (W, H), 0)
+    px, mp = plate.load(), m.load()
+    x0, y0, x1, y1 = box
+    for y in range(y0, y1):
+        for x in range(x0, x1):
+            if test(*px[x, y]):
+                mp[x, y] = 255
+    return m
+
+
+def teal_test(r, g, b):
+    return b - r > 30 and g - r > 18      # wainscot, door and casing teal
+
+
+def hook_tags_large(k: int) -> Image.Image:
+    """Hooks 1-8: a pale card tag per hook, in two staggered rows above the rail, each tied
+    down to its own hook ball with a brick string. Words are set by the game."""
+    rng = random.Random(SEED + k)
+    c = Canvas(W, H, SEED + k, 2)
+    face = mix(CARD, PAPER, 0.4)
+    for i, x in enumerate(HOOKS):
+        top = 132 if i % 2 == 0 else 196
+        bot = top + 56
+        c.line([(x, 262), (x + 0.6, bot - 4)], TIE, 2.6, 0.15)          # the tie, hook ball to eyelet
+        c.circle(x, 263, 3.2, None, TIE, 2.0, 0)                          # its knot round the hook
+        tag = [(x - 25, top + 6), (x - 19, top), (x + 19, top), (x + 25, top + 6), (x + 25, bot), (x - 25, bot)]
+        c.poly(tag, face, INK, 2.2, 0.3)
+        c.line([(x - 19, top + 25), (x + 19, top + 25)], mix(face, INK, 0.45), 1.0, 0.2)   # rule under the word
+        c.circle(x, bot - 6, 3.4, BRASS_D, INK, 1.2, 0)                   # eyelet the tie runs to
+        c.circle(x, top + 5, 2.4, (70, 66, 60), INK, 1.0, 0)              # tack holding it to the wall
+    return grain(c.result(), rng, 0.04)
+
+
+def b_board_strip(k: int) -> Image.Image:
+    """The provenance strip at room scale: aged card, warm off-white two steps down, a navy rule."""
+    rng = random.Random(SEED + k)
+    w, h = 300, 30
+    c = Canvas(w, h, SEED + k, 4)
+    aged = (196, 184, 156)
+    c.box(1, 1, w - 2, h - 2, aged, INK, 2.0, 0.3)
+    c.box(5, 5, w - 10, h - 10, None, mix(INK, aged, 0.25), 1.0, 0.2)
+    im = c.result()
+    stain = noise(rng, w, h, 6, 1.5).point(lambda v: 255 if v > 170 else 0).filter(ImageFilter.GaussianBlur(1.2))
+    im = tint(im, mix(aged, (150, 130, 96), 0.6), mmul(stain, mask_rects([(3, 3, w - 6, h - 6)], (w, h))), 0.35)
+    return grain(im, rng, 0.08)
+
+
+def c_note_card(k: int) -> Image.Image:
+    """The duty card / pencil note blank (800 x 650): the game sets the words in the serif."""
+    rng = random.Random(SEED + k)
+    w, h = 800, 650
+    c = Canvas(w, h, SEED + k, 2)
+    c.box(3, 3, w - 6, h - 6, PAPER, INK, 3.0, 0.5)
+    c.box(24, 24, w - 48, h - 48, None, INK, 1.2, 0.4)
+    c.line([(58, 180), (742, 180)], INK, 2.0, 0.4)
+    im = c.result()
+    foxing = noise(rng, w, h, 30, 6).point(lambda v: 255 if v > 190 else 0).filter(ImageFilter.GaussianBlur(8))
+    im = tint(im, mix(PAPER, (176, 150, 104), 0.5), mmul(foxing, mask_rects([(6, 6, w - 12, h - 12)], (w, h))), 0.3)
+    return grain(im, rng, 0.06)
+
+
+def receipt_fallen(k: int) -> Image.Image:
+    """The mug receipt, slid down the boards and pinned again upside down: torn edge up,
+    tack at the foot. The wall it left is put back by the game from the plate itself."""
+    rng = random.Random(SEED + k)
+    c = Canvas(W, H, SEED + k, 2)
+    x, y, w, h = 420, 628, 80, 104
+    tone = mix(PAPER, (240, 236, 222), 0.25)
+    teeth = [(x + w, y + 4), (x + w - 6, y), (x + w - 13, y + 7), (x + w - 22, y), (x + w - 31, y + 6),
+             (x + w - 40, y), (x + w - 49, y + 7), (x + w - 58, y), (x + w - 67, y + 6), (x + w - 74, y),
+             (x, y + 4)]
+    c.poly(teeth + [(x, y + h), (x + w, y + h)], tone, INK, 2.0, 0.2)
+    for i in range(1, 9):
+        yy = y + h - 11 * i
+        c.line([(x + 8, yy), (x + w - 8, yy)], mix(tone, TEAL, 0.25), 1.0, 0.2)
+    # the printed header, now at the foot: a heavy rule and a block, upside down
+    c.line([(x + 8, y + h - 12), (x + w - 8, y + h - 12)], INK, 2.2, 0.1)
+    c.box(x + w - 46, y + h - 26, 38, 8, mix(tone, INK, 0.55), None, 0)
+    tack(c, x + w / 2, y + h - 6, 5.5)
+    im = c.result().rotate(-2.5, resample=Image.BICUBIC, center=(x + w / 2, y + h - 6))
+    return grain(im, rng, 0.04)
+
+
+def entry_wall_s4_stain(k: int) -> Image.Image:
+    """Band 4: a hard dark wet band rising off the skirting, a flat silhouette ~60 px with a
+    ragged top, on the wainscot only (the doors and the receipt stay dry)."""
+    rng = random.Random(SEED + k)
+    c = Canvas(W, H, SEED + k, 2)
+    for a, b in WAINSCOT_SPANS:
+        top = ragged(rng, a, b, 830, 9, 7.0)
+        # a few taller tongues, flat-topped, where the wet climbs a board
+        pts = [(a, 892)] + top + [(b, 892)]
+        c.poly(pts, (16, 34, 46), None, 0)
+        c.line(top, mix(SALT, (200, 194, 172), 0.3), 2.4, 0.2)
+    im = c.result()
+    a = im.getchannel("A").point(lambda v: int(v * 0.86))
+    im.putalpha(a)
+    return grain(im, rng, 0.03)
+
+
+def ada_silhouette(cx, top, scale=1.0, tall=1.0):
+    """A flat standing woman, head and shoulders down to the knee: [(x, y)], front elevation."""
+    s, t = scale, tall
+    def P(u, v):
+        return (cx + u * s, top + v * s * t)
+    pts = [P(0, 0), P(15, 3), P(25, 14), P(28, 32), P(24, 50), P(16, 62), P(15, 74), P(44, 84), P(62, 96),
+           P(70, 128), P(74, 190), P(78, 260), P(84, 330), P(-84, 330), P(-78, 260), P(-74, 190), P(-70, 128),
+           P(-62, 96), P(-44, 84), P(-15, 74), P(-16, 62), P(-24, 50), P(-28, 32), P(-25, 14), P(-15, 3)]
+    return pts
+
+
+def entry_wall_shadow(k: int) -> Image.Image:
+    """Ada's own shadow on the wainscot, thrown by the desk lamp behind her: flat, hard-edged."""
+    rng = random.Random(SEED + k)
+    c = Canvas(W, H, SEED + k, 2)
+    c.poly(ada_silhouette(728, 612, 0.86), (12, 22, 34), None, 0)
+    # her hair, pinned up: a small knot above the crown
+    c.circle(728 + 14, 612, 10, (12, 22, 34), None, 0, 0)
+    im = c.result()
+    im.putalpha(mmul(im.getchannel("A").point(lambda v: int(v * 0.5)), mask_rects([(0, 0, W, 890)])))
+    return grain(im, rng, 0.02)
+
+
+def entry_wall_shadow2(k: int) -> Image.Image:
+    """Band 5-6: a second shadow standing just behind hers, a head taller, that never moves.
+    No knot of hair; shoulders too narrow for the height. Flat navy."""
+    rng = random.Random(SEED + k)
+    c = Canvas(W, H, SEED + k, 2)
+    c.poly(ada_silhouette(640, 548, 0.8, 1.42), (10, 18, 30), None, 0)
+    im = c.result()
+    im.putalpha(mmul(im.getchannel("A").point(lambda v: int(v * 0.62)), mask_rects([(0, 0, W, 890)])))
+    return grain(im, rng, 0.02)
+
+
+def b_lamp_wedge(k: int) -> Image.Image:
+    """The desk lamp behind her, as a light texture (quarter scale, 362 x 272): a warm wedge
+    from the lower right, hard-ish shade edges, falling off with distance. L only."""
+    w, h = W // 4, H // 4 + 1
+    im = Image.new("L", (w, h), 0)
+    px = im.load()
+    sx, sy = 1560 / 4, 1190 / 4
+    a_lo = math.atan2(1086 / 4 - sy, 120 / 4 - sx)     # toward the floor at the far left
+    a_hi = math.atan2(110 / 4 - sy, 520 / 4 - sx)      # toward the cornice above the barometer
+    lo, hi = sorted((a_lo, a_hi))
+    soft = math.radians(7.0)
+    for y in range(h):
+        for x in range(w):
+            a = math.atan2(y - sy, x - sx)
+            e = min(clamp((a - lo) / soft), clamp((hi - a) / soft))
+            d = math.hypot(x - sx, y - sy) / 400.0
+            px[x, y] = int(255 * e * clamp(1.05 - 0.55 * d))
+    im = im.filter(ImageFilter.GaussianBlur(0.8))
+    return Image.merge("RGBA", (im, im, im, im))
+
+
+def outer_door_pour(k: int) -> Image.Image:
+    """Band 7 / continue: one solid sheet of seawater pouring from under the outer door's
+    glass, hard top edge, a dark wet fan on the boards, two highlight lines. Opaque."""
+    rng = random.Random(SEED + k)
+    c = Canvas(W, H, SEED + k, 2)
+    top = 424
+    sheet = [(158, top), (326, top), (334, 560), (350, 906), (134, 906), (150, 560)]
+    # the fan first, under the sheet: a hard dark wedge spreading on the boards
+    fan = [(134, 904), (352, 904)]
+    for i in range(1, 24):
+        a = math.pi * i / 24
+        fan.append((243 + 236 * math.cos(a) + rng.uniform(-4, 4), 906 + 88 * math.sin(a) + rng.uniform(-3, 3)))
+    c.poly(fan, mix(STORM, (14, 24, 34), 0.45), INK, 2.2, 0.5)
+    c.line([(60, 930), (150, 950), (260, 958), (380, 946), (440, 926)], mix(SEA_GLASS, (226, 232, 226), 0.35), 1.6, 0.4)
+    c.poly(sheet, STORM, INK, 2.4, 0.3)
+    # the water is lighter where it leaves the glass: a flat sea-glass band, then storm navy
+    c.poly([(158, top), (326, top), (329, 470), (154, 486)], mix(SEA_GLASS, STORM, 0.35), None, 0)
+    c.line([(158, top), (326, top)], INK, 2.6, 0.2)
+    c.line([(154, 486), (329, 470)], mix(SEA_GLASS, STORM, 0.6), 1.4, 0.4)
+    c.line([(196, top + 6), (199, 700), (204, 900)], mix(SEA_GLASS, (226, 232, 226), 0.55), 2.2, 0.25)
+    c.line([(288, top + 6), (286, 640)], mix(SEA_GLASS, (226, 232, 226), 0.4), 1.6, 0.25)
+    return grain(c.result(), rng, 0.04)
+
+
+def outer_glass_sea(k: int) -> Image.Image:
+    """Band 7: the outer door's glass with the sea standing above the jetty: a flat storm-navy
+    mass with a pale meniscus, the shed's roof a darker shape under it. 156 x 196."""
+    rng = random.Random(SEED + k)
+    base = Image.open(OUT / "outer_glass_7.png").convert("RGBA")
+    w, h = base.size
+    c = Canvas(w, h, SEED + k, 4)
+    c.im = base.resize((w * 4, h * 4), Image.NEAREST)
+    c.d = ImageDraw.Draw(c.im)
+    level = 62
+    c.box(-2, level, w + 4, h - level + 2, STORM, None, 0)
+    c.poly([(108, h + 2), (108, 150), (128, 134), (150, 150), (150, h + 2)], (14, 22, 32), None, 0)   # the shed, drowned
+    c.box(116, 160, 6, 40, (14, 22, 32), None, 0)
+    c.line([(-2, level), (w + 2, level)], mix(SEA_GLASS, (236, 240, 236), 0.7), 2.4, 0.15)
+    c.line([(-2, level + 3), (w + 2, level + 3)], mix(STORM, SEA_GLASS, 0.4), 1.0, 0.15)
+    # the muntins, back over the water
+    c.box(75, -2, 6, h + 4, TEAL, None, 0)
+    c.box(-2, 95, w + 4, 6, TEAL, None, 0)
+    c.line([(75, 0), (75, h)], INK, 1.2, 0)
+    c.line([(81, 0), (81, h)], INK, 1.2, 0)
+    c.line([(0, 95), (w, 95)], INK, 1.2, 0)
+    c.line([(0, 101), (w, 101)], INK, 1.2, 0)
+    return grain(c.result(), rng, 0.03)
+
+
+def tide_line_hard(k: int) -> Image.Image:
+    """View A, bands 4-7: the high-water mark as a hard line. A crisp navy contour under a
+    4-6 px off-white salt crust, flat matte wet plaster below (replacing office_s3's hazy band),
+    dry wall above. It runs across the flue, window, coat and door without a break."""
+    rng = random.Random(SEED + k)
+    plate = Image.open(ROOT / "assets/stages/office_s3.png").convert("RGB")
+    y_line = 512
+    # wet plaster: every non-object pixel of the s3 band between the line and the dado
+    wall = colour_mask(plate, (0, 500, 1200, 586),
+                       lambda r, g, b: abs(r - g) < 22 and abs(g - b) < 20 and b - r < 16 and r > 48)
+    wall = wall.filter(ImageFilter.MaxFilter(3)).filter(ImageFilter.MinFilter(3))
+    edge = ragged(rng, -4, W + 4, y_line, 1.6, 9.0)
+    below = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(below).polygon([(-4, 590)] + edge + [(W + 4, 590)], fill=255)
+    wet = mmul(wall, below)
+    im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    im.paste(rgba(WET_WALL), (0, 0), wet)
+    # door and coat: the same line, a flat darker tone under it down to the dado line
+    door = colour_mask(plate, (0, 500, W, 586), teal_test)
+    lay = Image.new("RGBA", (W, H), rgba((20, 38, 50)))
+    lay.putalpha(scale_mask(mmul(door, below), 0.42))
+    im.alpha_composite(lay)
+    c = Canvas(W, H, SEED + k, 2)
+    c.im = im.resize((W * 2, H * 2), Image.NEAREST)
+    c.d = ImageDraw.Draw(c.im)
+    crust_top = [(x, y - rng.uniform(4.0, 6.5)) for (x, y) in edge]
+    c.poly(crust_top + edge[::-1], SALT, None, 0)
+    c.line(edge, INK, 2.6, 0.15)
+    c.line(crust_top, mix(SALT, (196, 190, 168), 0.5), 1.0, 0.2)
+    out = c.result()
+    out = grain(out, rng, 0.04)
+    return out
+
+
+def damp_window_hard(k: int) -> Image.Image:
+    """Band 2: the damp under the window as a stark flat shape: a dark wet bib hanging off the
+    sill across the wainscot, ragged drips, a salt rim. Wainscot pixels only (the chair stays)."""
+    rng = random.Random(SEED + k)
+    plate = Image.open(ROOT / "assets/backgrounds/office_arrival.png").convert("RGB")
+    ok = colour_mask(plate, (296, 600, 1020, 720), teal_test)
+    shape = Image.new("L", (W, H), 0)
+    d = ImageDraw.Draw(shape)
+    edge = []
+    x = 300
+    while x <= 1016:
+        mid = 1 - abs(x - 645) / 360.0
+        edge.append((x, 626 + 52 * clamp(mid) + rng.uniform(-6, 6)))
+        x += rng.uniform(8, 16)
+    d.polygon([(300, 602), (1016, 602)] + edge[::-1], fill=255)
+    for _ in range(14):
+        x0 = rng.uniform(310, 1006)
+        L = rng.uniform(30, 70)
+        y0 = 634 + 44 * clamp(1 - abs(x0 - 645) / 360.0)
+        d.polygon([(x0 - 5, y0 - 10), (x0 + 5, y0 - 10), (x0 + 2.5, y0 + L), (x0 - 2.5, y0 + L)], fill=255)
+        d.ellipse((x0 - 4, y0 + L - 4, x0 + 4, y0 + L + 4), fill=255)
+    m = mmul(shape, ok)
+    im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    im.paste(rgba((20, 40, 52)), (0, 0), m)
+    rim = ImageChops.subtract(shape, shape.filter(ImageFilter.MinFilter(5)))
+    rim = mmul(mmul(rim, ok.filter(ImageFilter.MinFilter(7))), mask_rects([(296, 612, 724, 120)]))
+    im.paste(rgba(mix(SALT, (200, 194, 172), 0.3)), (0, 0), scale_mask(rim, 0.8))
+    return grain(im, rng, 0.03)
+
+
+def door_seep_hard(k: int) -> Image.Image:
+    """Band 3 (look-away `door`): seawater from the corridor side, as a flat hard tongue out
+    from under the door across the boards, and the door's foot wet to a hard line."""
+    rng = random.Random(SEED + k)
+    plate = Image.open(ROOT / "assets/backgrounds/office_arrival.png").convert("RGB")
+    c = Canvas(W, H, SEED + k, 2)
+    tongue = [(1232, 893), (1444, 893), (1452, 930), (1380, 952), (1270, 968), (1170, 974), (1096, 962),
+              (1110, 944), (1180, 926)]
+    c.poly(tongue, mix(STORM, (16, 26, 36), 0.5), INK, 2.0, 0.6)
+    c.line([(1150, 954), (1250, 948), (1330, 936)], mix(SEA_GLASS, (226, 232, 226), 0.6), 2.0, 0.4)
+    im = c.result()
+    foot = colour_mask(plate, (1228, 846, W, 893), teal_test)
+    edge = ragged(rng, 1226, W + 2, 852, 3.0, 8.0)
+    m = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(m).polygon([(1226, 893)] + edge + [(W + 2, 893)], fill=255)
+    lay = Image.new("RGBA", (W, H), rgba((14, 28, 38)))
+    lay.putalpha(scale_mask(mmul(m, foot), 0.7))
+    im.alpha_composite(lay)
+    return grain(im, rng, 0.03)
+
+
+def window_drowned(k: int) -> Image.Image:
+    """The continue ending, view A: the sea has risen to the glass. A flat storm-navy mass
+    fills the panes; its meniscus crosses the top row; one pale shape far down."""
+    rng = random.Random(SEED + k)
+    c = Canvas(W, H, SEED + k, 2)
+    level = 196
+    c.box(470, 130, 345, level - 130, (30, 36, 44), None, 0)             # a hand's depth of air
+    c.box(470, level, 345, 560 - level, STORM, None, 0)
+    c.box(470, level, 345, 30, mix(STORM, SEA_GLASS, 0.3), None, 0)     # lighter just under the skin
+    c.line([(470, level), (815, level)], mix(SEA_GLASS, (232, 238, 232), 0.55), 2.4, 0.15)
+    c.line([(470, level + 30), (815, level + 30)], mix(STORM, SEA_GLASS, 0.45), 1.2, 0.3)
+    # one pale shape, far down: long, still, too regular to be weed
+    sh = [(612, 470), (624, 452), (650, 446), (676, 452), (690, 470), (676, 486), (650, 492), (624, 486)]
+    sh = [(706 + (x - 650) * 0.7, 506 + (y - 469) * 0.6) for (x, y) in sh]
+    c.poly(sh, mix(STORM, (214, 220, 216), 0.3), None, 0)
+    c.circle(706, 506, 3.5, mix(STORM, (14, 20, 28), 0.5), None, 0, 0)
+    im = c.result()
+    im.putalpha(ImageChops.multiply(im.getchannel("A"), pane_mask()))
+    return restore_catch(grain(im, rng, 0.03))
+
+
+# ---------------------------------------------------------------------------
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     jobs = [
@@ -1455,6 +1790,21 @@ def main() -> None:
         ("venn_seal", lambda k: wax_seal(k, False)),
         ("venn_seal_broken", lambda k: wax_seal(k, True)),
         ("stamp_ink", stamp_ink),
+        # repaint pass (appended: earlier seeds unchanged)
+        ("hook_tags_large", hook_tags_large),
+        ("b_board_strip", b_board_strip),
+        ("c_note_card", c_note_card),
+        ("receipt_fallen", receipt_fallen),
+        ("entry_wall_s4_stain", entry_wall_s4_stain),
+        ("entry_wall_shadow", entry_wall_shadow),
+        ("entry_wall_shadow2", entry_wall_shadow2),
+        ("b_lamp_wedge", b_lamp_wedge),
+        ("outer_door_pour", outer_door_pour),
+        ("outer_glass_sea", outer_glass_sea),
+        ("tide_line_hard", tide_line_hard),
+        ("damp_window_hard", damp_window_hard),
+        ("door_seep_hard", door_seep_hard),
+        ("window_drowned", window_drowned),
     ]
     for k, (name, fn) in enumerate(jobs):
         im = fn(k)
