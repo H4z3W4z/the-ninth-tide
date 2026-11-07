@@ -307,6 +307,33 @@ func test_p02_p03_orders() -> void:
 		"the office's flags are untouched")
 	check("I haven't been near the chart table yet." in says(ev_a) and "I've already stood at the chart table." in says(ev_b),
 		"only the last line differs")
+	test_p02_chart_table_line()
+
+## "I haven't been near the chart table yet." is said only when it is true: R03 unvisited, or
+## visited without the table's first look ("sheets"). Otherwise the chain ends on the last
+## RECORDING_AFTER line with no trailing gap.
+func test_p02_chart_table_line() -> void:
+	const NOT_YET := "I haven't been near the chart table yet."
+	var last_after: float = R04Sim.RECORDING_AFTER[-1][1]
+	# R03 visited, table looked at, P03 unsolved: the line is omitted.
+	var g := fresh()
+	g.state.visited.append("R03")
+	g.observe("R03", "sheets")
+	var ev := solve_p02(g)
+	check(not NOT_YET in says(ev) and not "I've already stood at the chart table." in says(ev), "seen the table: no chart-table line")
+	var last_say := -1.0
+	for e in ev:
+		if e.type == "say": last_say = maxf(last_say, float(e.get("delay", 0.0)))
+	check(is_equal_approx(last_say, last_after), "seen the table: the chain ends on the last recording-after line")
+	check(R04Sim.RECORDING_AFTER[-1][0] in says(ev), "seen the table: the recording-after chain is intact")
+	# R03 visited but the table never looked at: the line stays.
+	var h := fresh()
+	h.state.visited.append("R03")
+	check(NOT_YET in says(solve_p02(h)), "visited R03 without the table: the line is said")
+	# The observation alone, R03 not visited: the line stays.
+	var k := fresh()
+	k.observe("R03", "sheets")
+	check(NOT_YET in says(solve_p02(k)), "R03 unvisited: the line is said")
 
 # ---------------------------------------------------------------------------------------------
 # (e) save/load mid-P02 and malformed saves
@@ -1108,10 +1135,10 @@ func test_w1_view() -> void:
 	if v == null:
 		await free_scene(scene)
 		return
-	# levels: room tone -8/-12/-10 dB, motor -14 dB
+	# levels: room tone -3/-7/-5 dB, motor -14 dB
 	var t: Dictionary = v.loop_targets()
-	check(is_equal_approx(t.r04_room, db_to_linear(-8.0)) and is_equal_approx(t.r04_motor, db_to_linear(-14.0)),
-		"w1 view: band 0 room tone -8 dB, motor -14 dB")
+	check(is_equal_approx(t.r04_room, db_to_linear(-3.0)) and is_equal_approx(t.r04_motor, db_to_linear(-14.0)),
+		"w1 view: band 0 room tone -3 dB, motor -14 dB")
 	# the grade: eight even steps to (0.80, 0.84, 0.90)
 	check(v.TINT.size() == 8 and v.TINT[0] == Color(1, 1, 1) and v.TINT[7].is_equal_approx(Color(0.80, 0.84, 0.90)),
 		"w1 view: tint grade ends storm-cold")

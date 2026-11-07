@@ -697,7 +697,9 @@ func _play_recording(ev: Array) -> void:
 		_say(ev, r[0], r[1], true)
 	if game.flag("P03"):
 		_say(ev, "I've already stood at the chart table.", 25.6, true)
-	else:
+	elif not ("R03" in game.state.visited and game.has_seen("R03", "sheets")):
+		# Only true if she really hasn't looked at R03's table ("sheets" is its first-look
+		# observation); otherwise the chain simply ends on the last RECORDING_AFTER line.
 		_say(ev, "I haven't been near the chart table yet.", 25.6, true)
 
 # ---------------------------------------------------------------------------------------------

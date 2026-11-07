@@ -452,7 +452,7 @@ func loop_targets() -> Dictionary:
 	var b := _band()
 	var ending := r.ending()
 	var db := {}
-	db["r04_room"] = -8.0 if b <= 2 else (-12.0 if b <= 6 else -10.0)
+	db["r04_room"] = -3.0 if b <= 2 else (-7.0 if b <= 6 else -5.0)
 	if ending == "":
 		if r.state.motor_on:
 			db["r04_motor"] = -14.0
