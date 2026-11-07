@@ -1657,6 +1657,984 @@ def paint_c_ruler(rng):
     return p
 
 
+# ============================================================================= repaint pass (r2)
+# Art direction review of 61cf868. Every repainted asset is a NEW file (suffix _r2); the functions
+# above are left exactly as they were, so a full rerun still writes the earlier files byte for byte.
+#
+# The upright sea is now built in layers the view composes, so the reveal can stand it up:
+#   <v>_surf_<stage>_r2   the standing plane (opaque; b4 keeps the storm sky above its top edge)
+#   vchop_tile_r2         the b3 whitecap dash turned 90 degrees: crests run top to bottom (tileable,
+#                         the view drifts it sideways)
+#   <v>_refl_<stage>_r2   the rooms behind Ada as filled flat silhouettes with a 6 px navy contour
+
+CONTOUR = 6.0               # navy contour on the reflected silhouettes, as on the office props
+REFL_PANE = mix(SEAGLASS_HI, SEAGLASS, 0.35)     # the office window: a sea-glass pane
+REFL_SLAB = STORM_DK                             # doors: storm-navy slabs
+REFL_JAMB = mix(STORM_HI, SEAGLASS, 0.45)
+REFL_PALE = mix(PAPER, SEAGLASS_HI, 0.18)        # the bowl shelf: a paper-pale row
+LAMP_WARM = mix(AMBER, PAPER_HI, 0.25)
+LAMP_COOL = mix(PAPER_HI, AMBER, 0.18)           # band 6: the lamp cooling toward paper-white
+
+
+def surf2_cols(stage):
+    if stage == "b4o":
+        return shade(mix(STORM, STORM_HI, 0.15), 0.9), shade(mix(SEAGLASS, STORM, 0.3), 0.9)
+    if stage == "b6":
+        return mix(STORM, STORM_DK, 0.3), mix(SEAGLASS, STORM, 0.42)
+    if stage == "b7":
+        return mix(STORM_DK, STORM, 0.2), mix(STORM, SEAGLASS, 0.3)
+    return mix(STORM, STORM_HI, 0.15), mix(SEAGLASS, STORM, 0.3)
+
+
+def paint_surf2(rng, view, stage):
+    """The standing plane: matte storm teal, darker at the top, with broad vertical banding."""
+    top = (A_SURF_TOP if view == "a" else B_SURF_TOP) if stage in ("b4", "b4o") else 0
+    bot = 640 if view == "a" else 770
+    p = Pen(W, H, rng, STORM)
+    if top > 0:
+        sky = sea_storm(rng_for(900 + (0 if view == "a" else 1)), view)
+        p.im.paste(sky.im.crop((0, 0, W * SS, int(top * SS))), (0, 0))
+    c0, c1 = surf2_cols(stage)
+    p.vgrad(0, top, W, H, c0, c1, top, bot)
+    # standing water: soft vertical columns, paler and darker, like a sea seen on end
+    lay = p.layer()
+    x = -40.0
+    while x < W + 40:
+        wd = rng.uniform(30, 90)
+        col = PAPER_HI if rng.random() < 0.5 else STORM_DK
+        lay.rect(x, top, x + wd, H, col, None)
+        x += wd + rng.uniform(40, 140)
+    p.put_soft(lay, 18, 0.07 if stage != "b7" else 0.04)
+    if top > 0:
+        # the edge: ruler straight, a cut, then a hairline of light along it
+        p.line([(-4, top), (W + 4, top)], INK, 3.0)
+        p.line([(-4, top + 3), (W + 4, top + 3)], mix(c0, PAPER_HI, 0.45), 1.6)
+    return p
+
+
+def vcrest(p, x, y, ln, ht, light, dark, lean=1):
+    """One b3 whitecap dash turned 90 degrees: the pale back points sideways, the trough runs down."""
+    p.poly([(x, y - ln / 2), (x + lean * ht, y - ln * 0.08), (x, y + ln / 2)], light, None)
+    p.line([(x - lean * 0.9, y - ln * 0.45), (x - lean * 0.9, y + ln * 0.55)], dark, 1.4)
+
+
+def paint_vchop_tile(rng):
+    """Tileable 512x512: the b3 chop rotated so the crests run top to bottom. Each crest keeps the
+    b3 shape (a pale back, a dark trough line) but stands on end; wide enough never to read as rain."""
+    sz = 512
+    lt, dk = Pen(sz, sz, rng), Pen(sz, sz, rng)
+    light, dark = mix(SEAGLASS_HI, STORM_HI, 0.15), mix(STORM_DK, INK, 0.55)
+    for _ in range(46):
+        x, y = rng.uniform(0, sz), rng.uniform(0, sz)
+        ln = rng.uniform(44, 118)
+        ht = rng.uniform(5.5, 10.5)
+        for ox in (-sz, 0, sz):
+            for oy in (-sz, 0, sz):
+                cx, cy = x + ox, y + oy
+                lt.poly([(cx, cy - ln / 2), (cx + ht * 0.55, cy - ln * 0.2), (cx + ht, cy + ln * 0.05),
+                         (cx + ht * 0.4, cy + ln * 0.32), (cx, cy + ln / 2)], light, None)
+                dk.line([(cx - 1.6, cy - ln * 0.46), (cx - 1.6, cy + ln * 0.56)], dark, 2.6)
+    out = Pen(sz, sz, rng)
+    out.put(dk, 0.7)
+    out.put(lt, 0.62)
+    return out
+
+
+# --- the reflections ------------------------------------------------------------------------------
+# Specs in game space. "lamp" is (x, y, colour); "rail_inv" is the gallery rail hung upside down
+# above the real one (band 6, the compressed horizon).
+A_REFL2 = {
+    "window": (110, 250, 330, 410), "lamp": (220, 322, LAMP_WARM),
+    "shelf": (226, 470, 560, 500),
+    "doors": [(1236, 236, 1320, 600), (404, 236, 484, 470)],
+    "floor": (52, 1396, 600),
+}
+A_REFL2_B6 = {
+    "window": (66, 196, 352, 404), "lamp": (209, 300, LAMP_COOL),
+    "shelf": (78, 456, 500, 494),
+    "doors": [(1300, 196, 1392, 640), (402, 222, 494, 484), (958, 210, 1048, 600)],
+    "floor": (52, 1396, 616),
+    "lighthouse": (1196, 176, 2.74),
+    "rail_inv": {"top": 560, "posts": [80 + 168 * k for k in range(9)], "rails": [(548, 560), (516, 524)],
+                 "post_top": 492},
+}
+B_REFL2 = {
+    "window": (760, 230, 1000, 390), "lamp": (880, 304, LAMP_WARM),
+    "shelf": (120, 470, 440, 500),
+    "doors": [(560, 206, 700, 640), (1290, 260, 1370, 520)],
+    "floor": (60, 1388, 690),
+}
+B_REFL2_B6 = {
+    "window": (104, 186, 416, 394), "lamp": (260, 290, LAMP_COOL),
+    "shelf": (96, 468, 472, 506),
+    "doors": [(1236, 188, 1372, 660), (546, 250, 628, 560)],
+    "floor": (60, 1388, 700),
+    "lighthouse": (724, 104, 2.48),
+    "rail_inv": {"top": 610, "posts": [100 + 190 * k for k in range(8)], "rails": [(594, 610), (542, 552)],
+                 "post_top": 476},
+}
+
+
+def refl_window(p, x0, y0, x1, y1, lamp):
+    ink = INK
+    p.rect(x0 - 12, y0 - 12, x1 + 12, y1 + 14, REFL_JAMB, ink, CONTOUR)          # the frame
+    p.rect(x0, y0, x1, y1, REFL_PANE, ink, CONTOUR * 0.8)
+    # a faint paler upper sash, so the pane reads as glass, not a card
+    p.rect(x0 + 4, y0 + 4, x1 - 4, y0 + (y1 - y0) * 0.42, mix(REFL_PANE, PAPER_HI, 0.18), None)
+    for i in (1, 2):
+        xx = x0 + (x1 - x0) * i / 3
+        p.line([(xx, y0), (xx, y1)], ink, 5.0)
+    ym = y0 + (y1 - y0) * 0.45
+    p.line([(x0, ym), (x1, ym)], ink, 6.0)
+    p.line([(x0, y0 + (ym - y0) / 2), (x1, y0 + (ym - y0) / 2)], ink, 3.2)
+    p.line([(x0, ym + (y1 - ym) / 2), (x1, ym + (y1 - ym) / 2)], ink, 3.2)
+    if lamp:
+        lx, ly, col = lamp
+        soft_disc(p, lx, ly, 34, col, 0.45, 10)
+        soft_disc(p, lx, ly, 17, mix(col, PAPER_HI, 0.3), 0.6, 4)
+        p.ell(lx, ly, 10, 10, mix(col, PAPER_HI, 0.35), ink, 2.0)
+
+
+def refl_door(p, x0, y0, x1, y1):
+    p.rect(x0 - 10, y0 - 10, x1 + 10, y1, REFL_JAMB, INK, CONTOUR)
+    p.rect(x0, y0, x1, y1, REFL_SLAB, INK, CONTOUR * 0.8)
+    # two sunk panels and a knob: still a slab at a glance
+    w, h = x1 - x0, y1 - y0
+    p.rect(x0 + w * 0.2, y0 + h * 0.08, x1 - w * 0.2, y0 + h * 0.44, mix(REFL_SLAB, STORM, 0.5), INK, 2.4)
+    p.rect(x0 + w * 0.2, y0 + h * 0.54, x1 - w * 0.2, y1 - h * 0.06, mix(REFL_SLAB, STORM, 0.5), INK, 2.4)
+    p.ell(x1 - w * 0.13, y0 + h * 0.5, max(3.0, w * 0.05), max(3.0, w * 0.05), BRASS, INK, 1.6)
+
+
+def refl_shelf(p, x0, y0, x1, y1):
+    p.rect(x0, y0, x1, y1, REFL_PALE, INK, CONTOUR * 0.8)
+    p.line([(x0 + 4, y0 + 8), (x1 - 4, y0 + 8)], mix(REFL_PALE, INK, 0.3), 1.6)
+    for lx in (x0 + 18, x1 - 18):
+        p.rect(lx - 5, y1, lx + 5, y1 + 60, REFL_PALE, INK, 3.0)
+    step = (x1 - x0) / 10
+    br = min(17, step * 0.44)
+    for i in range(9):
+        bx = x0 + step * (i + 1)
+        # a bowl seen side on sits on the shelf: rim up, so the arc is under the rim line
+        pts = [(bx - br * 1.08, y0 - br * 0.82), (bx + br * 1.08, y0 - br * 0.82)] + \
+              [(bx + br * math.cos(t), y0 - br * 0.82 + br * 0.82 * math.sin(t))
+               for t in [math.pi * k / 14 for k in range(0, 15)]]
+        p.poly(pts, REFL_PALE, INK, 3.0)
+
+
+def refl_rail_inv(p, spec):
+    lay = p.layer()
+    col = mix(STORM_DK, STORM, 0.4)
+    for y0, y1 in spec["rails"]:
+        lay.rect(-4, y0, W + 4, y1, col, INK, 2.0)
+    for x in spec["posts"]:
+        lay.rect(x - 5, spec["post_top"], x + 5, spec["top"], col, INK, 2.0)
+    p.put(lay, 0.62)
+
+
+def paint_refl2(rng, spec, opacity=1.0):
+    p = Pen(W, H, rng)
+    lay = p.layer()
+    fx0, fx1, fy = spec["floor"]
+    lay.line([(fx0, fy), (fx1, fy)], INK, 3.0)
+    for d in spec["doors"]:
+        refl_door(lay, *d)
+    refl_shelf(lay, *spec["shelf"])
+    refl_window(lay, *spec["window"], spec["lamp"])
+    if "rail_inv" in spec:
+        refl_rail_inv(lay, spec["rail_inv"])
+    if "lighthouse" in spec:
+        cx, by, s = spec["lighthouse"]
+        inv_lighthouse2(lay, cx, by, s)
+    p.put(lay, opacity)
+    return p
+
+
+def inv_lighthouse2(p, cx, base_y, s):
+    """The lighthouse hung upside down, filled flat, navy contour; its lantern lit."""
+    lighthouse(p, cx, base_y, s, inv=True, white=mix(PAPER, SEAGLASS_HI, 0.3), band=STORM,
+               glass=mix(STORM, SEAGLASS, 0.35), ink=INK, lw=4.5)
+    ly = base_y + s * (432 - 330.5)
+    soft_disc(p, cx, ly, 12 * s, AMBER, 0.4, 7)
+    p.rect(cx - 5 * s, ly - 5.5 * s, cx + 5 * s, ly + 5.5 * s, AMBER, INK, 2.0)
+    p.rect(cx - 2.2 * s, ly - 3.2 * s, cx + 2.2 * s, ly + 3.2 * s, mix(AMBER, PAPER_HI, 0.5), None)
+
+
+# --- band 7: no edge --------------------------------------------------------------------------------
+
+def paint_b7_2(rng, view):
+    p = paint_surf2(rng, view, "b7")
+    centre, r = (724, 1900), 1500
+    c0, c1 = surf2_cols("b7")
+    base = mix(c0, c1, 0.5)
+    # under the curve: the body of the thing, a shade darker
+    inner = p.layer()
+    inner.ell(centre[0], centre[1], r, r, shade(base, 0.8), None)
+    p.put_soft(inner, 24, 0.9)
+    # concentric rings above: the curvature carries on past the window
+    for k, (dr, a, w) in enumerate(((90, 0.34, 4.0), (200, 0.24, 3.4), (330, 0.16, 3.0))):
+        ring = p.layer()
+        ring.arc(centre[0], centre[1], r + dr, r + dr, 180, 360, mix(SEAGLASS_HI, PAPER, 0.25), w)
+        p.put_soft(ring, 1.4, a)
+    # the arc: a 16 px wet highlight, sea-glass below turning to paper-white along its crest
+    glow = p.layer()
+    glow.arc(centre[0], centre[1], r - 10, r - 10, 180, 360, SEAGLASS_HI, 26)
+    p.put_soft(glow, 10, 0.35)
+    band = p.layer()
+    steps = 16
+    for i in range(steps):
+        t = i / (steps - 1)
+        band.arc(centre[0], centre[1], r - 8 + i, r - 8 + i, 180, 360, mix(SEAGLASS_HI, PAPER_HI, t ** 1.3), 1.6)
+    p.put_soft(band, 0.6, 0.95)
+    p.arc(centre[0], centre[1], r + 8.5, r + 8.5, 180, 360, INK, 2.2)
+    p.arc(centre[0], centre[1], r - 9.5, r - 9.5, 180, 360, mix(INK, SEAGLASS, 0.4), 1.4)
+    if view == "a":
+        lantern_housing(p, A_HOUSING[0], A_HOUSING[1], 56)
+    else:
+        lantern_housing(p, 724, 300, 56)
+    return p
+
+
+# --- view B, band 3: the headland moved clear of the pennant staff -----------------------------------
+
+def paint_b_sea_b3_2(rng, grey=False):
+    """sea_storm(rng, "b") (or its ending-A grey), with the headland moved clear of the staff."""
+    hor = B_HOR
+    if grey:
+        sky0, sky1, sea0, sea1 = GREY_SKY0, GREY_SKY1, GREY_SEA0, GREY_SEA1
+        land = GREY_LAND
+        cloud = mix(GREY_SKY1, PAPER_HI, 0.35)
+        light, dark = mix(GREY_SKY1, PAPER_HI, 0.45), mix(GREY_SEA1, INK, 0.4)
+        white, band, glass = mix(PAPER, GREY_SKY1, 0.25), mix(STORM_HI, GREY_LAND, 0.4), mix(GREY_LAND, GREY_SKY1, 0.4)
+        stone = mix(PAPER, GREY_LAND, 0.45)
+    else:
+        sky0, sky1 = STORM_DK, mix(STORM_HI, SEAGLASS, 0.55)
+        sea0, sea1 = mix(SEAGLASS, STORM, 0.45), mix(STORM, STORM_DK, 0.5)
+        land = mix(STORM_DK, SEAGLASS, 0.18)
+        cloud = mix(STORM_HI, PAPER, 0.32)
+        light, dark = mix(SEAGLASS_HI, PAPER, 0.25), mix(STORM_DK, INK, 0.5)
+        white, band, glass = mix(PAPER, STORM_HI, 0.22), STORM, mix(STORM, SEAGLASS, 0.35)
+        stone = mix(PAPER, STORM, 0.55)
+    p = Pen(W, H, rng, sky0)
+    p.vgrad(0, 0, W, hor, sky0, sky1, 0, hor)
+    clouds(p, rng, 60, hor - 70, cloud, 0.58 if not grey else 0.5, 11)
+    clouds(p, rng, hor - 120, hor - 30, mix(cloud, sky1, 0.4), 0.35, 7, 240, 520)
+    p.vgrad(0, hor, W, H, sea0, sea1, hor, H)
+    lay = p.layer()
+    lay.rect(-4, hor, W + 4, hor + 26, mix(sea0, sky1, 0.5), None)
+    p.put_soft(lay, 8, 0.45)
+    chop(p, rng, 0, W, hor, H, light, dark, 520)
+    dx = -340
+    headland(p, [(1110 + dx, hor), (1150 + dx, hor - 14), (1200 + dx, hor - 24), (1300 + dx, hor - 26),
+                 (1336 + dx, hor - 14), (1372 + dx, hor)], land)
+    lighthouse(p, 1258 + dx, hor - 25, 55 / 140, white=white, band=band, glass=glass, lw=1.4)
+    causeway(p, [(690, 736), (748, 772)], hor + 4, 7, stone, broken_at=690 - 2)
+    p.line([(-4, hor), (W + 4, hor)], mix(INK, sea0, 0.25), 2.0)
+    return p
+
+
+# --- lid band, beads, sparse rain --------------------------------------------------------------------
+
+def paint_lid_band(rng):
+    """An eyelid edge: storm navy with a feathered top and a wet paper-white rim along the bottom.
+    Rim (bottom edge) at y 92 of 100."""
+    w, h = 1344, 100
+    p = Pen(w, h, rng)
+    # feather: the top 40 px fade in
+    alpha = Image.new("L", (1, h * SS))
+    for sy in range(h * SS):
+        y = sy / SS
+        a = 0.0
+        if y < 44:
+            a = max(0.0, (y - 4) / 40.0) ** 1.6
+        elif y <= 92:
+            a = 1.0
+        alpha.putpixel((0, sy), int(255 * a))
+    navy = Image.new("RGBA", (w * SS, h * SS), rgba(STORM_DK))
+    navy.putalpha(alpha.resize((w * SS, h * SS)))
+    p.im.alpha_composite(navy)
+    # a slightly lighter lower half, so it reads as a curved lid, not a slot
+    lid = p.layer()
+    lid.rect(-10, 62, w + 10, 86, mix(STORM_DK, STORM_HI, 0.45), None)
+    p.put_soft(lid, 6, 0.6)
+    # the wet rim
+    p.rect(-10, 85, w + 10, 92, mix(PAPER_HI, SEAGLASS_HI, 0.15), None, 0)
+    p.line([(-10, 86.5), (w + 10, 86.5)], (246, 242, 230), 1.6)
+    p.line([(-10, 92.5), (w + 10, 92.5)], INK, 2.0)
+    # beads along the rim
+    x = rng.uniform(6, 30)
+    while x < w:
+        r = rng.uniform(2.0, 3.4)
+        p.ell(x, 93 + r * 0.7, r, r * 1.2, mix(PAPER_HI, SEAGLASS_HI, 0.2), INK, 1.0)
+        x += rng.uniform(26, 70)
+    return p
+
+
+def paint_beads(rng):
+    """The dry-rail clue: a hard row of hanging drops where the rain stops. Line at y 6 of 26."""
+    w, h = 1344, 26
+    p = Pen(w, h, rng)
+    x = 9.0
+    while x < w - 4:
+        r = rng.uniform(2.2, 2.7)
+        y = 6 + r * 0.9 + rng.uniform(-0.6, 0.6)
+        p.ell(x, y, r, r * 1.18, PAPER_HI, INK, 1.1)
+        p.ell(x - r * 0.35, y - r * 0.35, r * 0.4, r * 0.4, (250, 248, 240), None)
+        if rng.random() < 0.18:
+            ln = rng.uniform(4, 9)
+            p.line([(x, y + r), (x, y + r + ln)], PAPER_HI, 1.2)
+            p.ell(x, y + r + ln + 1.4, 1.5, 1.9, PAPER_HI, INK, 0.8)
+        x += 18 + rng.uniform(-1.5, 1.5)
+    return p
+
+
+def paint_rain_sparse(rng):
+    im = Image.new("RGBA", (512 * SS, 512 * SS), (0, 0, 0, 0))
+    for _ in range(85):
+        x = rng.uniform(0, 512)
+        y = rng.uniform(0, 512)
+        ln = rng.uniform(18, 60)
+        dx = ln * 0.08
+        a = rng.randint(60, 110)
+        wd = rng.choice((1, 1, 1.5, 2))
+        lay = Image.new("RGBA", im.size, (0, 0, 0, 0))
+        d = ImageDraw.Draw(lay)
+        for ox in (-512, 0, 512):
+            for oy in (-512, 0, 512):
+                d.line([((x + ox) * SS, (y + oy) * SS), ((x + ox + dx) * SS, (y + oy + ln) * SS)],
+                       fill=PAPER_HI + (a,), width=max(1, int(wd * SS)))
+        im.alpha_composite(lay)
+    return im.resize((512, 512), Image.LANCZOS)
+
+
+# --- the lens, band 5 on: the standing surface, inverted -------------------------------------------
+
+def lens2(p, rng, stage):
+    """lens() with the panes in its inverted gallery showing the standing surface."""
+    cx, cy = LENS_C
+    inner = p.layer()
+    inner.vgrad(cx - LENS_IN, cy - LENS_IN, cx + LENS_IN, cy + LENS_IN,
+                mix(IRON, SEAGLASS, 0.35), mix(SEAGLASS, COPPER_DK, 0.4))
+    k = 0.37
+
+    def ly(y):
+        return cy + (543 - y) * k
+
+    def lx(x):
+        return cx + (x - 724) * k
+
+    inner.rect(cx - 220, ly(1086), cx + 220, ly(900), IRON, None)
+    for i in range(10):
+        yy = ly(900) - 6 - i * 7
+        if yy > ly(1086):
+            inner.line([(cx - 220, yy), (cx + 220, yy)], IRON_HI, 1.2)
+    inner.rect(cx - 220, ly(900), cx + 220, ly(644), mix(STORM, SEAGLASS, 0.2), None)
+    inner.rect(cx - 220, ly(644), cx + 220, ly(628), BRASS_LO, None)
+    # the panes: the standing surface, upside down, darker at the bottom now
+    s0, s1 = surf2_cols(stage)
+    inner.vgrad(cx - 220, ly(628), cx + 220, ly(162), s1, s0)
+    # inverted reflections inside it: the shelf hangs from its line, the window under it, the lamp
+    pale, ink = REFL_PALE, INK
+    inner.rect(cx - 150, 404, cx + 70, 410, pale, ink, 1.6)
+    for i in range(7):
+        bx = cx - 135 + i * 30
+        inner.d.chord(((bx - 10) * SS, (410 - 9) * SS, (bx + 10) * SS, (410 + 9) * SS), 0, 180, fill=rgba(pale))
+    inner.rect(cx + 40, 440, cx + 118, 498, REFL_PANE, ink, 2.2)
+    inner.line([(cx + 66, 440), (cx + 66, 498)], ink, 1.8)
+    inner.line([(cx + 92, 440), (cx + 92, 498)], ink, 1.8)
+    inner.line([(cx + 40, 472), (cx + 118, 472)], ink, 2.2)
+    inner.rect(cx - 112, 430, cx - 78, 520, REFL_SLAB, ink, 2.0)
+    for bx in A_BARS:
+        inner.rect(lx(bx - 12), ly(628), lx(bx + 12), ly(162), BRASS_LO, None)
+    inner.rect(cx - 220, ly(162), cx + 220, ly(150), BRASS_LO, None)
+    inner.rect(cx - 220, ly(150), cx + 220, ly(0) + 40, COPPER_LO, None)
+    inner.rect(lx(470), ly(830), lx(978), ly(650), IRON, None)
+    inner.rect(lx(470), ly(800), lx(978), ly(650), BRASS_LO, None)
+    for (px, py) in PORTS:
+        inner.ell(lx(px), ly(py), PORT_R * k, PORT_R * k, IRON_LO, None)
+    inner.ell(cx, ly(392), LENS_R * k, LENS_R * k, mix(SEAGLASS, IRON, 0.4), None)
+    inner.im = inner.im.filter(ImageFilter.GaussianBlur(0.8 * SS))
+    # the warm point, crisp, after the blur
+    lamp = LAMP_COOL if stage == "b6" else LAMP_WARM
+    soft_disc(inner, cx + 79, 486, 14, AMBER, 0.55, 5)
+    inner.ell(cx + 79, 486, 5.5, 5.5, lamp, None)
+    disc = circle_mask((W, H), (cx, cy), LENS_IN)
+    lay = p.layer()
+    lay.ell(cx, cy, LENS_IN, LENS_IN, mix(SEAGLASS, STORM, 0.35), None)
+    p.put(lay)
+    p.put(inner, 0.8, disc)
+    bounds = [200, 172, 144, 116, 88, 60, 32]
+    facets = p.layer()
+    for r in bounds:
+        facets.arc(cx, cy, r - 7, r - 7, 200, 340, SEAGLASS_HI, 3.2)
+        facets.arc(cx, cy, r - 5, r - 5, 30, 150, IRON_LO, 3.0)
+    facets.ell(cx - 9, cy - 10, 10, 6, PAPER_HI, None)
+    p.put(facets, 0.36, disc)
+    for r in bounds[1:]:
+        p.ell(cx, cy, r, r, None, BRASS_LO, 4.4)
+        p.ell(cx, cy, r, r, None, INK, 1.2)
+        p.arc(cx, cy, r + 1.4, r + 1.4, 200, 330, BRASS_HI, 1.2)
+
+
+def paint_lens_surf(rng, stage):
+    full = Pen(W, H, rng)
+    lens2(full, rng, stage)
+    im = full.done().crop((504, 172, 944, 612))
+    m = circle_mask((440, 440), (220, 220), 201, 1)
+    im.putalpha(ImageChops.multiply(im.getchannel("A"), m))
+    return im
+
+
+def paint_lens_ada_inv2(rng):
+    """The sever image: exactly the band-7 silhouette, flipped top to bottom."""
+    return paint_lens_ada(rng_for(24), False).done().transpose(Image.FLIP_TOP_BOTTOM)
+
+
+# --- view A room: side-elevation scope, painted incident on the dado and grating --------------------
+
+def scope2(p):
+    """The scope in side elevation on its arm: a level brass tube, eyepiece toward the left."""
+    # wall bracket
+    p.rect(60, 560, 110, 700, IRON, INK, 2.6, r=4)
+    p.line([(66, 566), (66, 694)], IRON_HI, 1.6)
+    for y in (576, 684):
+        screw(p, 85, y, 4.2, IRON_HI)
+    # the arm: a flat iron bar out from the bracket, a forked cradle under the tube
+    p.rect(104, 652, 318, 666, IRON, INK, 2.4)
+    p.line([(108, 656), (314, 656)], IRON_HI, 1.4)
+    p.poly([(96, 640), (132, 652), (132, 676), (96, 690)], IRON, INK, 2.4)        # gusset
+    p.rect(262, 640, 306, 654, IRON, INK, 2.2)
+    for x in (266, 302):
+        p.rect(x - 4, 628, x + 4, 642, IRON, INK, 1.8)
+    screw(p, 284, 659, 3.6, IRON_HI)
+    # the tube
+    y0, y1 = 598, 642
+    p.rect(150, y0, 440, y1, BRASS, INK, 2.8)
+    p.line([(154, y0 + 6), (436, y0 + 6)], BRASS_HI, 2.2)
+    p.line([(154, y1 - 6), (436, y1 - 6)], BRASS_LO, 2.6)
+    for x in (226, 336):
+        p.rect(x - 7, y0 - 4, x + 7, y1 + 4, BRASS_LO, INK, 2.2)
+        p.line([(x - 3, y0 - 1), (x - 3, y1 + 1)], BRASS_HI, 1.2)
+    # objective hood, right: wider, a dark ring at its mouth
+    p.rect(440, 588, 484, 652, BRASS_LO, INK, 2.8)
+    p.line([(444, 594), (480, 594)], BRASS, 2.0)
+    p.rect(480, 592, 488, 648, IRON_LO, INK, 2.0)
+    # eyepiece, left: a narrower draw tube and a rubber eye cup
+    p.rect(118, 606, 152, 634, IRON, INK, 2.4)
+    p.line([(120, 611), (150, 611)], IRON_HI, 1.4)
+    p.rect(100, 602, 120, 638, IRON_LO, INK, 2.4, r=4)
+    # the clamp on top, jaws open, empty; its saddle riveted to the tube
+    p.rect(176, 584, 364, 598, BRASS, INK, 2.4)
+    p.line([(180, 588), (360, 588)], BRASS_HI, 1.4)
+    for x in (190, 350):
+        rivet(p, x, 591, 2.8, BRASS_HI)
+    for x0, x1, tip in ((184, 202, 1), (338, 356, -1)):
+        p.rect(x0, 548, x1, 584, BRASS, INK, 2.4)
+        tx = x1 if tip > 0 else x0
+        p.poly([(tx, 548), (tx + 14 * tip, 548), (tx + 14 * tip, 556), (tx, 560)], BRASS_HI, INK, 2)
+    p.rect(214, 568, 326, 576, BRASS_DK, INK, 1.8)
+    screw(p, 270, 580, 4.4)
+
+
+def dado_incident_a(p, rng):
+    """Restrained painted incident below the glass, clear of every hotspot rect."""
+    # a riveted seam across the dado
+    p.line([(-4, 772), (W + 4, 772)], STORM_DK, 3.0)
+    p.line([(-4, 775), (W + 4, 775)], STORM_HI, 1.2)
+    for x in range(20, W, 34):
+        rivet(p, x, 782, 2.3)
+    # brass handrail on iron standoffs, left of the pedestal
+    for x in (36, 176, 316, 444):
+        p.rect(x - 6, 812, x + 6, 838, IRON, INK, 2.0)
+        p.ell(x, 838, 8, 4, IRON, INK, 1.8)
+    p.rect(-4, 800, 460, 814, BRASS, INK, 2.4, r=6)
+    p.line([(0, 804), (456, 804)], BRASS_HI, 1.8)
+    p.ell(460, 807, 7, 7, BRASS_LO, INK, 2.0)
+    # a horn cleat with the halyard coiled and hung on it
+    cx, cy = 384, 742
+    p.rect(cx - 8, cy - 4, cx + 8, cy + 10, BRASS_LO, INK, 2.0)
+    p.poly([(cx - 34, cy - 2), (cx - 24, cy - 8), (cx + 24, cy - 8), (cx + 34, cy - 2), (cx + 30, cy + 2),
+            (cx - 30, cy + 2)], BRASS, INK, 2.2)
+    rope, rope_dk = mix(PAPER, TIMBER, 0.35), mix(TIMBER, INK, 0.25)
+    coil = p.layer()
+    for k, (ox, rw, rh) in enumerate(((-6, 30, 66), (2, 34, 72), (8, 30, 68), (-2, 26, 62))):
+        coil.ell(cx + ox, cy + 64, rw, rh, None, INK, 9.0)
+        coil.ell(cx + ox, cy + 64, rw, rh, None, rope if k % 2 == 0 else mix(rope, rope_dk, 0.4), 5.6)
+    # the tail hanging straight down past the coil, whipped at the end
+    coil.line([(cx + 26, cy + 4), (cx + 30, cy + 70), (cx + 28, cy + 154)], INK, 8.0)
+    coil.line([(cx + 26, cy + 4), (cx + 30, cy + 70), (cx + 28, cy + 154)], rope, 4.6)
+    coil.rect(cx + 23, cy + 146, cx + 33, cy + 156, mix(STORM_DK, INK, 0.3), INK, 1.4)
+    p.put(coil)
+    # the turns around the cleat horn
+    p.line([(cx - 22, cy - 6), (cx - 8, cy + 6)], INK, 7)
+    p.line([(cx - 22, cy - 6), (cx - 8, cy + 6)], rope, 3.6)
+    # a vertical seam with rivets right of the diagram plate
+    p.line([(1404, 652), (1404, A_FLOOR - 2)], STORM_DK, 3)
+    for y in range(668, A_FLOOR - 10, 28):
+        rivet(p, 1418, y, 2.3)
+
+
+def grating_incident_a(p):
+    """A brass inspection plate let into the grating, and a drain scupper."""
+    x0, y0, x1, y1 = 1050, 950, 1290, 1046
+    sh = p.layer()
+    sh.rect(x0 + 4, y0 + 6, x1 + 4, y1 + 6, SHADOW, None)
+    p.put_soft(sh, 4, 0.4)
+    p.rect(x0, y0, x1, y1, BRASS_LO, INK, 2.6, r=3)
+    p.rect(x0 + 10, y0 + 10, x1 - 10, y1 - 10, IRON, INK, 2.0)
+    for i in range(1, 6):
+        xx = x0 + 10 + (x1 - x0 - 20) * i / 6
+        p.line([(xx, y0 + 12), (xx, y1 - 12)], IRON_HI, 2.0)
+    for sx, sy in ((x0 + 6, y0 + 6), (x1 - 6, y0 + 6), (x0 + 6, y1 - 6), (x1 - 6, y1 - 6)):
+        screw(p, sx, sy, 3.6)
+    p.rect(x0 + 96, y0 - 6, x0 + 144, y0 + 8, BRASS, INK, 2.0, r=3)              # lifting ring
+    # scupper in the far right corner of the floor
+    p.rect(1350, 1000, 1430, 1040, IRON_LO, INK, 2.4, r=6)
+    for x in range(1360, 1424, 12):
+        p.line([(x, 1006), (x, 1034)], IRON_HI, 2.0)
+
+
+def paint_a_room2(rng):
+    p = Pen(W, H, rng)
+    soffit(p, 150, rng)
+    brass_bar(p, -4, 150, W + 4, 162, vertical=False)
+    iron_post(p, -4, 150, 52, 644)
+    iron_post(p, 1396, 150, W + 4, 644)
+    p.line([(48, 162), (48, 628)], BRASS, 6)
+    p.line([(1400, 162), (1400, 628)], BRASS, 6)
+    for bx in A_BARS:
+        brass_bar(p, bx - 12, 162, bx + 12, 628)
+    brass_bar(p, -4, 628, W + 4, 644, vertical=False)
+    wall_a(p, rng)
+    dado_incident_a(p, rng)
+    grating(p, A_FLOOR, H)
+    grating_incident_a(p)
+    x0, y0, x1, y1 = DIAGRAM
+    sh = p.layer()
+    sh.rect(x0 + 6, y0 + 8, x1 + 6, y1 + 8, SHADOW, None)
+    p.put_soft(sh, 6, 0.4)
+    p.rect(x0 - 8, y0 - 8, x1 + 8, y1 + 8, BRASS_LO, INK, 2.6, r=4)
+    p.rect(x0, y0, x1, y1, ENAMEL, mix(INK, BRASS_LO, 0.5), 1.6, r=2)
+    for sx, sy in ((x0 + 12, y0 + 12), (x1 - 12, y0 + 12), (x0 + 12, y1 - 12), (x1 - 12, y1 - 12)):
+        screw(p, sx, sy, 5)
+    p.cut(rect_mask((W, H), A_PANES))
+    pedestal(p)
+    lens(p, rng)
+    scope2(p)
+    keep = Image.new("L", (W, H), 0)
+    kd = ImageDraw.Draw(keep)
+    kd.ellipse((LENS_C[0] - LENS_R - 2, LENS_C[1] - LENS_R - 2, LENS_C[0] + LENS_R + 2, LENS_C[1] + LENS_R + 2), fill=255)
+    kd.rectangle((56, 530, 500, 720), fill=255)
+    kd.rectangle((650, 600, 800, 630), fill=255)
+    return clear_panes(p.done(), A_PANES, keep)
+
+
+# --- view B room and rail -------------------------------------------------------------------------
+
+def paint_b_room2(rng):
+    p = Pen(W, H, rng)
+    soffit(p, 88, rng)
+    brass_bar(p, -4, 88, W + 4, 100, vertical=False)
+    iron_post(p, -4, 88, 60, 760)
+    iron_post(p, 1388, 88, W + 4, 760)
+    p.line([(56, 100), (56, 760)], BRASS, 6)
+    p.line([(1392, 100), (1392, 760)], BRASS, 6)
+    for bx in B_BARS:
+        brass_bar(p, bx - 14, 100, bx + 14, 760)
+    p.rect(-4, 760, W + 4, 840, TIMBER, INK, 3)
+    p.rect(-4, 756, W + 4, 772, TIMBER_HI, INK, 2.6)
+    p.line([(-4, 760), (W + 4, 760)], mix(TIMBER_HI, PAPER, 0.4), 1.6)
+    for y in (796, 818):
+        p.line([(-4, y), (W + 4, y)], TIMBER_DK, 1.2)
+    p.rect(-4, 834, W + 4, 844, TIMBER_DK, INK, 2.2)
+    p.rect(-4, 844, W + 4, H + 4, SEAGLASS, None)
+    lay = p.layer()
+    for _ in range(10):
+        lay.ell(rng.uniform(0, W), rng.uniform(880, 1080), rng.uniform(60, 160), rng.uniform(20, 40), mix(SEAGLASS, STORM, 0.3), None)
+    p.put_soft(lay, 18, 0.25)
+    for x in range(30, W, 58):
+        if B_CLEAR[0] - 12 < x < B_CLEAR[2] + 12:
+            continue
+        p.line([(x, 846), (x, H + 4)], mix(SEAGLASS, INK, 0.45), 2.2)
+        p.line([(x + 3, 846), (x + 3, H + 4)], SEAGLASS_HI, 1.0)
+    px0, px1 = B_CLEAR[0] - 8, B_CLEAR[2] + 8
+    p.line([(px0, 846), (px0, H + 4)], mix(SEAGLASS, INK, 0.45), 2.6)
+    p.line([(px0 + 4, 846), (px0 + 4, H + 4)], SEAGLASS_HI, 1.2)
+    p.line([(px1, 846), (px1, H + 4)], mix(SEAGLASS, INK, 0.45), 2.6)
+    p.line([(px1 - 4, 846), (px1 - 4, H + 4)], mix(SEAGLASS, STORM, 0.3), 1.2)
+    b_incident(p, rng)
+    p.cut(rect_mask((W, H), B_PANES))
+    return clear_panes(p.done(), B_PANES)
+
+
+def b_incident(p, rng):
+    """A wiper cloth over the sill, a tally slate on a nail, a halyard coiled on a cleat."""
+    # wiper cloth, folded over the sill's front edge (x 150-330), clear of the ruler
+    cloth, cloth_dk = mix(PAPER, SEAGLASS_HI, 0.25), mix(PAPER, STORM_HI, 0.45)
+    sh = p.layer()
+    sh.poly([(158, 772), (338, 772), (334, 862), (300, 878), (250, 868), (204, 884), (162, 866)], SHADOW, None)
+    p.put_soft(sh, 5, 0.4)
+    p.poly([(146, 752), (326, 750), (332, 760), (140, 762)], cloth, INK, 2.4)              # on the sill top
+    p.poly([(140, 762), (332, 760), (328, 852), (296, 868), (252, 858), (206, 876), (160, 858), (150, 820)],
+           cloth, INK, 2.6)
+    for x0, x1 in ((190, 196), (236, 246), (286, 292)):
+        p.line([(x0, 766), (x1, 852)], cloth_dk, 2.0)
+    p.line([(146, 770), (330, 768)], cloth_dk, 1.6)
+    p.line([(150, 840), (174, 846)], mix(cloth, STORM_HI, 0.5), 1.4)
+    # a halyard coiled on a cleat on the panelling (x 100-260)
+    cx, cy = 180, 896
+    p.poly([(cx - 34, cy - 2), (cx - 24, cy - 8), (cx + 24, cy - 8), (cx + 34, cy - 2), (cx + 30, cy + 2),
+            (cx - 30, cy + 2)], BRASS, INK, 2.2)
+    p.rect(cx - 8, cy - 4, cx + 8, cy + 10, BRASS_LO, INK, 2.0)
+    rope, rope_dk = mix(PAPER, TIMBER, 0.35), mix(TIMBER, INK, 0.25)
+    coil = p.layer()
+    for k, (ox, rw, rh) in enumerate(((-6, 32, 70), (2, 36, 76), (8, 32, 72), (-2, 28, 66))):
+        coil.ell(cx + ox, cy + 68, rw, rh, None, INK, 9.0)
+        coil.ell(cx + ox, cy + 68, rw, rh, None, rope if k % 2 == 0 else mix(rope, rope_dk, 0.4), 5.6)
+    coil.line([(cx + 26, cy + 4), (cx + 30, cy + 74), (cx + 28, cy + 170)], INK, 8.0)
+    coil.line([(cx + 26, cy + 4), (cx + 30, cy + 74), (cx + 28, cy + 170)], rope, 4.6)
+    p.put(coil)
+    p.line([(cx - 22, cy - 6), (cx - 8, cy + 6)], INK, 7)
+    p.line([(cx - 22, cy - 6), (cx - 8, cy + 6)], rope, 3.6)
+    # the tally slate on a nail (x 1160-1320): chalk strokes in fives, the last group unfinished
+    x0, y0, x1, y1 = 1160, 900, 1320, 1010
+    p.line([(1240, 868), (x0 + 20, y0 + 2)], INK, 2.2)
+    p.line([(1240, 868), (x1 - 20, y0 + 2)], INK, 2.2)
+    p.ell(1240, 866, 4, 4, BRASS_LO, INK, 1.6)
+    sh = p.layer()
+    sh.rect(x0 + 5, y0 + 7, x1 + 5, y1 + 7, SHADOW, None)
+    p.put_soft(sh, 4, 0.45)
+    p.rect(x0, y0, x1, y1, TIMBER, INK, 2.6, r=3)
+    p.rect(x0 + 9, y0 + 9, x1 - 9, y1 - 9, mix(SOOT, STORM_DK, 0.5), INK, 1.8)
+    chalk = mix(PAPER_HI, SEAGLASS_HI, 0.2)
+    gx = x0 + 22
+    for g, n in enumerate((5, 5, 4)):
+        gy = y0 + 28 + (g // 2) * 40
+        if g == 2:
+            gx = x0 + 22
+        for i in range(min(n, 4)):
+            p.line([(gx + i * 11, gy), (gx + i * 11 + 2, gy + 26)], chalk, 2.4)
+        if n == 5:
+            p.line([(gx - 4, gy + 22), (gx + 40, gy + 4)], chalk, 2.4)
+        gx += 64
+
+
+def rail_b2(rng):
+    """rail_b, dry, with a matte dry top on the rail: the rain has never touched it."""
+    p = rail_b(rng, False)
+    top = p.layer()
+    top.rect(-4, 610, W + 4, 616, mix(STORM_HI, PAPER, 0.32), INK, 0)
+    p.put(top, 0.85)
+    p.line([(-4, 616.5), (W + 4, 616.5)], mix(STORM_DK, INK, 0.5), 1.4)
+    return p
+
+
+# --- the close-ups ---------------------------------------------------------------------------------
+
+QUAD_PIVOT = (310, 515)
+QUAD_R = 200
+
+
+def paint_c_scope2(rng):
+    p = Pen(W, H, rng, STORM)
+    backboard(p, rng)
+
+    def shadow(x0, y0, x1, y1, r=0):
+        sh = p.layer()
+        sh.rect(x0 + 6, y0 + 8, x1 + 6, y1 + 8, SHADOW, None, r=r)
+        p.put_soft(sh, 6, 0.45)
+
+    # the scope body in side elevation: a level brass tube running into the eyepiece housing
+    ty0, ty1 = 470, 560
+    shadow(20, ty0, 640, ty1)
+    p.rect(40, ty0, 640, ty1, BRASS, INK, 3)
+    p.line([(44, ty0 + 9), (636, ty0 + 9)], BRASS_HI, 3)
+    p.line([(44, ty0 + 20), (636, ty0 + 20)], mix(BRASS, BRASS_HI, 0.5), 1.6)
+    p.line([(44, ty1 - 12), (636, ty1 - 12)], BRASS_LO, 5)
+    for x in (150, 470):
+        p.rect(x - 12, ty0 - 8, x + 12, ty1 + 8, BRASS_LO, INK, 2.6)
+        p.line([(x - 6, ty0 - 4), (x - 6, ty1 + 4)], BRASS_HI, 1.6)
+        for y in (ty0 + 8, ty1 - 8):
+            rivet(p, x, y, 3.2, BRASS_HI)
+    # objective hood at the left end
+    p.rect(14, ty0 - 22, 58, ty1 + 22, BRASS_LO, INK, 3)
+    p.line([(20, ty0 - 16), (52, ty0 - 16)], BRASS, 2.4)
+    p.rect(6, ty0 - 16, 16, ty1 + 16, IRON_LO, INK, 2.2)
+    # the clamp, riveted to the tube: a cradle on two saddles, jaws on screw rods
+    shadow(90, 150, 530, 480, 8)
+    for x in (130, 490):
+        p.rect(x - 20, 452, x + 20, ty0 + 14, BRASS, INK, 2.6)                 # saddle
+        p.line([(x - 16, 456), (x + 16, 456)], BRASS_HI, 1.4)
+        rivet(p, x - 10, ty0 + 6, 3.0, BRASS_HI)
+        rivet(p, x + 10, ty0 + 6, 3.0, BRASS_HI)
+    p.rect(98, 178, 522, 444, BRASS_LO, INK, 2.8, r=6)                          # cradle back
+    p.rect(110, 186, 510, 434, mix(STORM_DK, SOOT, 0.4), INK, 2.4, r=4)
+    for x, y in ((104, 184), (516, 184), (104, 438), (516, 438)):
+        rivet(p, x, y, 3.0, BRASS_HI)
+    p.rect(104, 152, 516, 172, BRASS, INK, 2.4, r=3)                            # top jaw, raised
+    p.line([(108, 156), (512, 156)], BRASS_HI, 1.6)
+    p.rect(104, 440, 516, 460, BRASS, INK, 2.4, r=3)                            # bottom jaw
+    p.line([(108, 444), (512, 444)], BRASS_HI, 1.6)
+    for x in (130, 490):
+        p.rect(x - 6, 140, x + 6, 452, BRASS_DK, INK, 1.8)
+        for y in range(150, 446, 10):
+            p.line([(x - 5, y), (x + 5, y + 4)], BRASS, 1.0)
+        p.ell(x, 136, 13, 9, BRASS, INK, 2.2)                                   # thumb nuts
+        p.line([(x - 9, 134), (x + 9, 134)], BRASS_HI, 1.2)
+    # the selector: a lever quadrant hung from the tube, a detent notch for each position
+    cx, cy = QUAD_PIVOT
+    a0, a1 = -60, 60          # degrees from straight down
+
+    def qp(r, deg):
+        a = math.radians(deg)
+        return (cx + r * math.sin(a), cy + r * math.cos(a))
+
+    for deg in (-52, 52):                                                       # hangers
+        hx0, hy0 = qp(70, deg)
+        hx1, hy1 = qp(160, deg)
+        p.line([(hx0, hy0), (hx1, hy1)], INK, 14)
+        p.line([(hx0, hy0), (hx1, hy1)], BRASS_LO, 9)
+        rivet(p, hx1, hy1, 3.4, BRASS_HI)
+    outer = [qp(236, a0 + (a1 - a0) * i / 48) for i in range(49)]
+    inner = [qp(150, a1 - (a1 - a0) * i / 48) for i in range(49)]
+    sh = p.layer()
+    sh.poly([(x + 6, y + 8) for x, y in outer + inner], SHADOW, None)
+    p.put_soft(sh, 6, 0.45)
+    p.poly(outer + inner, BRASS, INK, 3)
+    p.line([qp(230, a0 + (a1 - a0) * i / 48) for i in range(49)], BRASS_HI, 1.8)
+    p.line([qp(158, a0 + (a1 - a0) * i / 48) for i in range(49)], BRASS_LO, 2.2)
+    # the slot the lever runs in, and three detent notches cut into its outer edge
+    slot_o = [qp(QUAD_R + 9, -50 + 100 * i / 48) for i in range(49)]
+    slot_i = [qp(QUAD_R - 9, 50 - 100 * i / 48) for i in range(49)]
+    p.poly(slot_o + slot_i, GLASS_DK, INK, 2.2)
+    for deg in (-48.6, 0, 48.6):
+        nx, ny = qp(QUAD_R + 12, deg)
+        p.ell(nx, ny, 9, 9, GLASS_DK, INK, 2.0)
+        p.arc(nx, ny, 12.5, 12.5, 0, 360, BRASS_HI, 1.0)
+    # engraved index arcs between the notches
+    for deg in range(-56, 57, 8):
+        p.line([qp(218, deg), qp(228, deg)], BRASS_DK, 1.4)
+    for x, y in (qp(196, -58), qp(196, 58), qp(170, -40), qp(170, 40)):
+        screw(p, x, y, 3.8)
+    # the pivot boss on the tube
+    p.ell(cx, cy, 22, 22, BRASS_LO, INK, 2.6)
+    p.ell(cx, cy, 12, 12, BRASS, INK, 2.0)
+    p.line([(cx - 8, cy - 8), (cx + 8, cy + 8)], BRASS_DK, 2)
+    for x0, x1 in ((100, 220), (250, 370), (400, 520)):
+        plate(p, x0, 760, x1, 792)
+    # eyepiece housing: an iron collar with bolts, a black interior; the tube runs into it
+    ecx, ecy = EYE_C
+    sh = p.layer()
+    sh.ell(ecx + 8, ecy + 10, 376, 376, SHADOW, None)
+    p.put_soft(sh, 10, 0.5)
+    p.ell(ecx, ecy, 374, 374, IRON, INK, 3)
+    p.ell(ecx, ecy, 366, 366, None, IRON_HI, 1.6)
+    for a in range(0, 360, 30):
+        x, y = polar((ecx, ecy), 357, a + 15)
+        screw(p, x, y, 5, IRON_HI)
+    p.ell(ecx, ecy, 344, 344, BRASS_LO, INK, 2.4)
+    p.ell(ecx, ecy, EYE_R, EYE_R, INK, INK, 2)
+    plate(p, 630, 104, 1250, 148)
+    # a riveted base rail the key, slot and plate are bolted to
+    p.rect(60, 942, W - 60, 962, IRON, INK, 2.6)
+    p.line([(64, 947), (W - 64, 947)], IRON_HI, 1.4)
+    for x in range(80, W - 60, 40):
+        rivet(p, x, 954, 2.4, IRON_HI)
+    shadow(620, 820, 920, 930, 6)
+    p.rect(620, 820, 920, 930, BRASS_LO, INK, 3, r=6)
+    p.rect(632, 830, 908, 920, mix(SOOT, STORM_DK, 0.5), INK, 2.2, r=6)
+    p.line([(636, 834), (904, 834)], IRON_LO, 3)
+    shadow(940, 820, 1260, 930, 6)
+    p.rect(940, 820, 1260, 930, BRASS, INK, 3, r=6)
+    p.line([(946, 826), (1254, 826)], BRASS_HI, 1.8)
+    p.rect(956, 850, 1250, 910, BRASS_LO, INK, 2.0, r=4)
+    p.rect(946, 858, 954, 902, GLASS_DK, INK, 1.8, r=2)
+    p.line([(947, 860), (947, 900)], IRON_LO, 1.4)
+    for x in (700, 840, 1020, 1180):
+        p.rect(x - 8, 930, x + 8, 944, BRASS_LO, INK, 1.8)                     # feet onto the rail
+    shadow(90, 820, 530, 930, 4)
+    p.rect(84, 814, 536, 936, BRASS_LO, INK, 2.6, r=4)
+    p.rect(90, 820, 530, 930, ENAMEL, mix(INK, BRASS_LO, 0.5), 1.6, r=2)
+    for x, y in ((98, 828), (522, 828), (98, 922), (522, 922)):
+        screw(p, x, y, 3.6)
+    return p
+
+
+def thumbscrew(p, cx, top):
+    """A brass thumb-screw knob in side elevation: knurled head, neck, threaded boss."""
+    sh = p.layer()
+    sh.rect(cx - 50 + 5, top + 7, cx + 50 + 5, top + 66 + 7, SHADOW, None, r=12)
+    p.put_soft(sh, 5, 0.45)
+    p.rect(cx - 60, top + 74, cx + 60, top + 88, BRASS_LO, INK, 2.4, r=3)        # boss plate
+    p.rect(cx - 16, top + 62, cx + 16, top + 76, BRASS_DK, INK, 2.2)              # neck
+    for y in range(int(top) + 65, int(top) + 75, 4):
+        p.line([(cx - 15, y), (cx + 15, y + 2)], BRASS, 1.0)
+    p.rect(cx - 50, top, cx + 50, top + 64, BRASS, INK, 2.8, r=12)                # knurled head
+    for k in range(-44, 45, 8):
+        p.line([(cx + k, top + 5), (cx + k, top + 59)], BRASS_LO, 2.2)
+        p.line([(cx + k + 2.4, top + 6), (cx + k + 2.4, top + 58)], BRASS_HI, 1.0)
+    p.line([(cx - 44, top + 8), (cx + 44, top + 8)], BRASS_HI, 2.0)
+    p.rect(cx - 50, top, cx + 50, top + 64, None, INK, 2.8, r=12)
+    for x in (cx - 50, cx + 50):
+        screw(p, x, top + 81, 3.4)
+
+
+def paint_c_ruler2(rng):
+    p = Pen(W, H, rng, TIMBER)
+    p.vgrad(0, 0, W, H, TIMBER_HI, TIMBER_DK)
+    lay = p.layer()
+    for _ in range(90):
+        y = rng.uniform(0, H)
+        x = rng.uniform(-200, W)
+        ln = rng.uniform(200, 700)
+        lay.line([(x, y), (x + ln * 0.5, y + rng.uniform(-3, 3)), (x + ln, y)], TIMBER_DK, rng.uniform(1, 2.4))
+    p.put(lay, 0.45)
+    p.line([(-4, 330), (W + 4, 330)], TIMBER_DK, 3)
+    p.line([(-4, 334), (W + 4, 334)], mix(TIMBER_HI, PAPER, 0.3), 1.6)
+    sh = p.layer()
+    sh.rect(108, 430, 1356, 572, SHADOW, None, r=4)
+    p.put_soft(sh, 8, 0.5)
+    p.rect(100, 420, 1348, 560, BOXWOOD, INK, 3, r=4)
+    p.vgrad(104, 424, 1344, 556, mix(BOXWOOD, PAPER_HI, 0.4), mix(BOXWOOD, BOXWOOD_DK, 0.5))
+    for _ in range(14):
+        y = rng.uniform(470, 552)
+        p.line([(rng.uniform(130, 1200), y), (rng.uniform(1210, 1320), y + rng.uniform(-1, 1))],
+               mix(BOXWOOD, BOXWOOD_DK, 0.7), 1.0)
+    p.rect(100, 420, 1348, 560, None, INK, 3, r=4)
+    ruler_ticks(p, 140, 1292, 422, 96, 64, 2.2)
+    burr = p.layer()
+    for i in range(12 * 8 + 1):
+        x = 140 + i * 12
+        if i % 8:
+            burr.line([(x - 1.6, 424), (x - 1.6, 440)], mix(BOXWOOD_DK, INK, 0.5), 1.0)
+    p.put(burr, 0.6)
+    for x0, x1 in ((100, 130), (1318, 1348)):
+        p.rect(x0, 416, x1, 564, BRASS, INK, 2.6, r=3)
+        p.line([(x0 + 5, 422), (x0 + 5, 558)], BRASS_HI, 1.8)
+        screw(p, (x0 + x1) / 2, 490, 4.4)
+    # magnifier well (the view paints the magnified rule inside it at every zoom)
+    cx, cy, r = 560, 760, 180
+    sh = p.layer()
+    sh.ell(cx + 6, cy + 8, r + 16, r + 16, SHADOW, None)
+    p.put_soft(sh, 8, 0.5)
+    p.ell(cx, cy, r + 14, r + 14, BRASS_LO, INK, 3)
+    p.ell(cx, cy, r + 9, r + 9, None, BRASS_HI, 1.4)
+    p.ell(cx, cy, r, r, BOXWOOD, INK, 2.6)
+    # the two thumb-screws, each with a blank enamel tag under it
+    for kx in (1080, 1260):
+        thumbscrew(p, kx, 704)
+        plate(p, kx - 72, 796, kx + 72, 822, ENAMEL, BRASS_LO, 2.0)
+    return p
+
+
+# --- aperture scenes ------------------------------------------------------------------------------
+
+def paint_view_station2(rng):
+    p = Pen(620, 620, rng)
+    hor = 330
+    aperture_base(p, mix(STORM_DK, STORM, 0.4), mix(STORM, SEAGLASS, 0.4), mix(SEAGLASS, STORM, 0.55), STORM_DK, hor)
+    chop(p, rng, 0, 620, hor, 620, mix(SEAGLASS_HI, STORM, 0.35), mix(STORM_DK, INK, 0.5), 160, 0.6, 1.5)
+    p.line([(-4, hor), (624, hor)], mix(SEAGLASS_HI, PAPER, 0.3), 2.4)
+    station_reflection(p, rng)
+    # Ada's reflected head and shoulder, lower left: a stark angular back-of-head profile, a hard
+    # hair line, a turned-up collar. The skull's right edge passes (230, 330), where the horizon
+    # emerges.
+    head = [(64, 296), (128, 262), (190, 268), (222, 300), (232, 330), (228, 384), (212, 420), (186, 440),
+            (160, 446), (110, 448), (72, 432), (44, 392), (40, 344)]
+    neck = [(112, 440), (164, 440), (168, 512), (106, 516)]
+    body = [(-10, 566), (40, 534), (96, 514), (182, 508), (232, 540), (256, 600), (266, 640), (-10, 640)]
+    # a stiff collar, turned up: two hard wedges either side of the nape
+    collar_l = [(40, 540), (86, 470), (112, 492), (114, 528), (70, 548)]
+    collar_r = [(164, 490), (196, 460), (226, 534), (186, 540), (168, 524)]
+    dk = STORM_DK
+    neck_c = mix(STORM, SEAGLASS, 0.5)
+    collar_c = mix(PAPER, STORM_HI, 0.45)
+    p.poly(body, dk, INK, 3.0)
+    p.poly(neck, neck_c, INK, 2.8)
+    p.line([(136, 450), (138, 508)], mix(neck_c, INK, 0.35), 2.0)
+    p.poly(collar_l, collar_c, INK, 3.0)
+    p.poly(collar_r, collar_c, INK, 3.0)
+    p.poly(head, dk, INK, 3.0)
+    # hard hair line where the hair stops at the nape (cut square), and the parting
+    p.line([(72, 432), (110, 448), (160, 446), (186, 440)], INK, 3.4)
+    p.line([(128, 262), (118, 330), (104, 410)], mix(dk, INK, 0.5), 2.4)
+    p.line([(166, 272), (150, 340), (148, 420)], mix(dk, STORM_HI, 0.4), 1.6)
+    # rim light from the window along the right planes
+    rim = p.layer()
+    rim.line([(190, 268), (222, 300), (232, 330), (228, 384), (210, 424)], mix(PAPER, SEAGLASS_HI, 0.4), 3.0)
+    rim.line([(232, 540), (256, 600), (266, 640)], mix(PAPER, SEAGLASS_HI, 0.4), 2.4)
+    p.put(rim, 0.7)
+    p.clip(circle_mask((620, 620), VIEW_C, 310))
+    return p
+
+
+def paint_view_surface2(rng):
+    """After the bearing: the dark standing surface, its reflections, and the lid crossing."""
+    p = Pen(620, 620, rng)
+    p.vgrad(0, 0, 620, 620, mix(STORM, SEAGLASS, 0.2), mix(STORM, SEAGLASS, 0.5))
+    light, dark = mix(SEAGLASS_HI, PAPER, 0.3), mix(STORM_DK, INK, 0.5)
+    lt, dk = p.layer(), p.layer()
+    for _ in range(26):
+        x, y = rng.uniform(0, 620), rng.uniform(0, 620)
+        ln, ht = rng.uniform(30, 90), rng.uniform(3, 6)
+        lt.poly([(x, y - ln / 2), (x + ht, y - ln * 0.08), (x, y + ln / 2)], light, None)
+        dk.line([(x - 1.2, y - ln * 0.45), (x - 1.2, y + ln * 0.55)], dark, 1.8)
+    p.put(dk, 0.5)
+    p.put(lt, 0.45)
+    refl = p.layer()
+    refl_door(refl, 80, 120, 170, 330)
+    refl_shelf(refl, 140, 352, 470, 372)
+    refl_window(refl, 380, 130, 540, 262, (460, 200, LAMP_WARM))
+    p.put(refl, 0.9)
+    # the lid, crossing the eyepiece: storm navy, feathered above, a wet paper rim along its edge
+    fea = p.layer()
+    fea.rect(-10, 360, 630, 430, mix(STORM_DK, INK, 0.6), None)
+    p.put_soft(fea, 14, 0.95)
+    lid = p.layer()
+    lid.rect(-10, 400, 630, 476, mix(STORM_DK, INK, 0.6), None)
+    p.put_soft(lid, 2, 1.0)
+    lo = p.layer()
+    lo.rect(-10, 446, 630, 468, mix(STORM_DK, STORM_HI, 0.5), None)
+    p.put_soft(lo, 5, 0.6)
+    p.rect(-10, 470, 630, 477, mix(PAPER_HI, SEAGLASS_HI, 0.15), None)
+    p.line([(-10, 471.5), (630, 471.5)], (246, 242, 230), 1.4)
+    p.line([(-10, 478), (630, 478)], INK, 2.0)
+    p.clip(circle_mask((620, 620), VIEW_C, 310))
+    return p
+
+
+ASSETS_R2 = [
+    ("a_room_r2", 100, paint_a_room2, False, True),
+    ("b_room_r2", 101, paint_b_room2, False, True),
+    ("b_rail_r2", 50, rail_b2, False, False),
+    ("a_surf_b4_r2", 110, lambda r: paint_surf2(r, "a", "b4"), True, True),
+    ("a_surf_b4o_r2", 110, lambda r: paint_surf2(r, "a", "b4o"), True, True),
+    ("a_surf_b5_r2", 111, lambda r: paint_surf2(r, "a", "b5"), True, True),
+    ("a_surf_b6_r2", 112, lambda r: paint_surf2(r, "a", "b6"), True, True),
+    ("a_sea_b7_r2", 113, lambda r: paint_b7_2(r, "a"), True, True),
+    ("b_sea_b3_r2", 114, paint_b_sea_b3_2, True, True),
+    ("b_sea_sever_r2", 134, lambda r: paint_b_sea_b3_2(r, grey=True), True, True),
+    ("b_surf_b4_r2", 115, lambda r: paint_surf2(r, "b", "b4"), True, True),
+    ("b_surf_b5_r2", 116, lambda r: paint_surf2(r, "b", "b5"), True, True),
+    ("b_surf_b6_r2", 117, lambda r: paint_surf2(r, "b", "b6"), True, True),
+    ("b_sea_b7_r2", 118, lambda r: paint_b7_2(r, "b"), True, True),
+    ("vchop_tile_r2", 119, paint_vchop_tile, False, False),
+    ("a_refl_b4_r2", 120, lambda r: paint_refl2(r, A_REFL2), False, False),
+    ("a_refl_b6_r2", 121, lambda r: paint_refl2(r, A_REFL2_B6), False, False),
+    ("b_refl_b4_r2", 122, lambda r: paint_refl2(r, B_REFL2), False, False),
+    ("b_refl_b6_r2", 123, lambda r: paint_refl2(r, B_REFL2_B6), False, False),
+    ("a_lid_band_r2", 124, paint_lid_band, False, False),
+    ("beads_r2", 125, paint_beads, False, False),
+    ("rain_sparse_r2", 126, paint_rain_sparse, False, False),
+    ("a_lens_surf_b5_r2", 127, lambda r: paint_lens_surf(r, "b5"), False, False),
+    ("a_lens_surf_b6_r2", 128, lambda r: paint_lens_surf(r, "b6"), False, False),
+    ("a_lens_ada_inv_r2", 129, paint_lens_ada_inv2, False, False),
+    ("c_scope_r2", 130, paint_c_scope2, True, True),
+    ("c_ruler_r2", 131, paint_c_ruler2, True, True),
+    ("c_view_station_r2", 132, paint_view_station2, False, True),
+    ("c_view_surface_r2", 133, paint_view_surface2, False, True),
+]
+
+
 # ----------------------------------------------------------------------------- the table
 
 ASSETS = [  # name, seed index, painter, opaque, grain
@@ -1711,7 +2689,7 @@ ASSETS = [  # name, seed index, painter, opaque, grain
 
 def main(argv):
     pats = argv or ["*"]
-    for name, k, fn, opaque, gr in ASSETS:
+    for name, k, fn, opaque, gr in ASSETS + ASSETS_R2:
         if not any(fnmatch.fnmatch(name, pat) for pat in pats):
             continue
         rng = rng_for(k)

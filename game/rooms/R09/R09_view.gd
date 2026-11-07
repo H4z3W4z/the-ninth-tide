@@ -14,8 +14,15 @@ extends RoomView
 ## Painted plates: assets/rooms/R09/*.png (tools/art/rooms/R09.py). They carry no text: every
 ## label, numeral, diagram and printed line is drawn here, so the clues stay exact.
 ##
-## The dry rail is the room's first clue: in view A the rain stops at y 536, the rail sits at
-## y 560, and the gap between is left empty on purpose. Only the sever ending lets it reach.
+## The dry rail is the room's first clue: in view A the rain stops at y 510 on a hard row of
+## hanging beads, the rail sits at y 560, and the gap between is left empty on purpose (view B:
+## beads at y 578, a dry matte top on the rail). Only the sever ending lets it reach.
+##
+## The upright sea (bands 4-6) is composed here from layers (repaint r2): the standing plane
+## `<v>_surf_<band>_r2`, the b3 whitecaps turned on end (`vchop_tile_r2`, drifting sideways) and
+## the rooms behind Ada as filled silhouettes (`<v>_refl_<band>_r2`). The reveal stands it up:
+## the b3 horizon rises to the surface's top edge, the sea below it stretching upward in its
+## wake, and the reflections wipe in behind it.
 
 const DIR := "res://assets/rooms/R09/%s.png"
 
@@ -100,7 +107,8 @@ const TINT := [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 
 # --- view A geometry ----------------------------------------------------------------------
 const A_GLASS := Rect2(52, 162, 1344, 466)         # the panes, y 162..628
-const A_RAIN := Rect2(52, 162, 1344, 374)          # rain stops at y 536: the dry gap above the rail
+const A_RAIN := Rect2(52, 162, 1344, 348)          # rain stops at y 510: the dry gap above the rail
+const A_BEADS := Vector2(52, 504)                  # beads_r2: its bead line (y 6) on the stop line
 const A_RAIN_SEVER := Rect2(52, 162, 1344, 466)    # sever: down to y 628, onto the rail
 const PORTS := [Vector2(560, 708), Vector2(724, 708), Vector2(888, 708)]
 const A_PLATES := [Rect2(500, 758, 120, 34), Rect2(664, 758, 120, 34), Rect2(828, 758, 120, 34)]
@@ -117,6 +125,11 @@ const RAIN_SEVER := 600.0
 # --- view B geometry ----------------------------------------------------------------------
 const B_RAIN := Rect2(60, 100, 1328, 480)
 const B_RAIN_SEVER := Rect2(60, 100, 1328, 660)
+const B_BEADS := Vector2(60, 572)
+const B_GLASS := Rect2(60, 100, 1328, 660)
+const B_SURF_TOP := 140.0
+## The whitecaps on end drift sideways (px/s); still under Motion off.
+const CREST_DRIFT := 7.0
 const PENNANT_ANCHOR := Vector2(1190, 270)
 const PENNANT_FLAP := 0.18
 const B_RULER_AT := Vector2(850, 782)
@@ -128,8 +141,11 @@ const EYE_R := 300.0
 const VIEW_AT := Vector2(630, 160)
 const RING_AT := Vector2(600, 130)
 const CAPTION := Rect2(630, 104, 620, 44)
-const KNOB_X := [160.0, 310.0, 460.0]
-const KNOB_Y := 705.0
+## The selector is a lever quadrant: the lever hangs from a boss on the tube and its knob sits in a
+## detent notch per position (degrees from straight down; knob x 160 / 310 / 460).
+const QUAD_PIVOT := Vector2(310, 515)
+const QUAD_R := 200.0
+const KNOB_ANG := [-48.6, 0.0, 48.6]
 const KNOB_TIME := 0.25
 const SEL_PLATES := [Rect2(100, 760, 120, 32), Rect2(250, 760, 120, 32), Rect2(400, 760, 120, 32)]
 const FRAME_AT := Vector2(110, 170)
@@ -161,7 +177,8 @@ const ZOOM_PITCH := 32.0
 const ZOOM_WORD := ["×1", "×10", "×100", "×1000"]
 
 # --- the reveal (fx reveal_upright) -------------------------------------------------------
-const RISE_END := 4.0
+const RISE_END := 3.5
+const B3_HORIZON := 400.0
 const SHUT_END := 6.5
 const LID_START := 7.0
 const LID_END := 13.0
@@ -200,7 +217,7 @@ var tint := 1.0
 var reveal_t := -1.0            # seconds into the standing-up of the sea, -1 = none
 var iris_t := -1.0              # seconds into the iris tween, -1 = settled
 var iris_prev := 0              # the port whose iris is closing
-var knob_from := 0.0
+var knob_from := 0.0            # lever angle (degrees) the knob is leaving
 var knob_to := 2                # the aperture the knob (and the open iris) is heading to
 var knob_t := -1.0
 var key_t := 0.0                # the RECORD key held down
@@ -268,12 +285,27 @@ func _stage_band() -> int:
 	var s := stage()
 	return 0 if s == "sever" else int(s.substr(1))
 
-## View A's sea plate for the stage (bands 4+ each have their own plate; b4 is the opened one).
-func sea_plate(side: String) -> String:
+## The sea behind the glass for the stage, as layers: [plate, reflections, reflection alpha,
+## whitecaps-on-end alpha, top of the standing plane]. b3, b7 and sever are single plates.
+func sea_layers(side: String) -> Array:
 	var s := stage()
-	if s == "sever":
-		return side + "_sea_sever"
-	return side + "_sea_" + s
+	var top := SURF_TOP if side == "a" else B_SURF_TOP
+	match s:
+		"sever":
+			return ["a_sea_sever" if side == "a" else "b_sea_sever_r2", "", 0.0, 0.0, 0.0]
+		"b3":
+			return ["a_sea_b3" if side == "a" else "b_sea_b3_r2", "", 0.0, 0.0, 0.0]
+		"b4":
+			return [side + ("_surf_b4o_r2" if side == "a" else "_surf_b4_r2"), side + "_refl_b4_r2", 1.0, 0.8, top]
+		"b5":
+			return [side + "_surf_b5_r2", side + "_refl_b4_r2", 0.85, 0.8, 0.0]
+		"b6":
+			return [side + "_surf_b6_r2", side + "_refl_b6_r2", 1.0, 0.75, 0.0]
+	return [side + "_sea_b7_r2", "", 0.0, 0.3, 0.0]
+
+## The main plate of the stage (for tests and review tools).
+func sea_plate(side: String) -> String:
+	return sea_layers(side)[0]
 
 func rain_speed() -> float:
 	if not motion:
@@ -298,11 +330,15 @@ func lid_y() -> float:
 		return -1.0
 	return lerpf(SURF_TOP, SURF_BOTTOM, clampf((reveal_t - LID_START) / (LID_END - LID_START), 0.0, 1.0))
 
-func knob_x() -> float:
-	var target: float = KNOB_X[clampi(knob_to, 1, 3) - 1]
+func knob_angle() -> float:
+	var target: float = KNOB_ANG[clampi(knob_to, 1, 3) - 1]
 	if knob_t < 0.0 or not motion:
 		return target
 	return lerpf(knob_from, target, smoothstep(0.0, 1.0, knob_t / KNOB_TIME))
+
+func knob_pos() -> Vector2:
+	var a := deg_to_rad(knob_angle())
+	return QUAD_PIVOT + Vector2(sin(a), cos(a)) * QUAD_R
 
 ## 0..1 of the strip shown (fed out), -1 when no strip is drawn.
 func strip_k() -> float:
@@ -411,7 +447,7 @@ func play_fx(id: String, e: Dictionary) -> void:
 			hold_t = 0.0   # the reveal is the notice; no zoom on top of it
 		"aim":
 			var n := clampi(int(e.get("aperture", r.state.aperture)), 1, 3)
-			knob_from = knob_x()
+			knob_from = knob_angle()
 			iris_prev = knob_to if knob_to != n else 0
 			knob_to = n
 			iris_t = 0.0 if motion else -1.0
@@ -677,23 +713,50 @@ func _wave(c: CanvasItem, x0: float, x1: float, y: float, col: Color, w := 2.0) 
 		pts.append(Vector2(x, y + 3.0 * sin(float(i) / n * TAU * 2.0)))
 	c.draw_polyline(pts, col, w, true)
 
-## Rain from rain_tile, scrolled down and clipped to `clip`.
-func _rain(c: CanvasItem, clip: Rect2) -> void:
-	var t := _tex("rain_tile")
-	if t == null:
+## A tileable sprite repeated over `clip`, shifted by `off` (wrapped to the tile).
+func _tile(c: CanvasItem, id: String, clip: Rect2, off: Vector2, a := 1.0) -> void:
+	var t := _tex(id)
+	if t == null or a <= 0.0 or clip.size.x <= 0.0 or clip.size.y <= 0.0:
 		return
 	var ts := t.get_size()
-	var off := fmod(time * rain_speed(), ts.y) if rain_speed() > 0.0 else 0.0
-	var y := clip.position.y - ts.y + off
+	var y := clip.position.y - ts.y + fposmod(off.y, ts.y)
 	while y < clip.end.y:
-		var x := clip.position.x
+		var x := clip.position.x - ts.x + fposmod(off.x, ts.x)
 		while x < clip.end.x:
 			var tile := Rect2(Vector2(x, y), ts)
 			var dst := tile.intersection(clip)
 			if dst.size.x > 0.0 and dst.size.y > 0.0:
-				c.draw_texture_rect_region(t, dst, Rect2(dst.position - tile.position, dst.size))
+				c.draw_texture_rect_region(t, dst, Rect2(dst.position - tile.position, dst.size), Color(1, 1, 1, a))
 			x += ts.x
 		y += ts.y
+
+## Rain, scrolled down and clipped to `clip`. Bands 6-7 thin it by half so the surface shows.
+func _rain(c: CanvasItem, clip: Rect2) -> void:
+	var sparse := not _sever() and _stage_band() >= 6
+	var off := time * rain_speed() if rain_speed() > 0.0 else 0.0
+	_tile(c, "rain_sparse_r2" if sparse else "rain_tile", clip, Vector2(0, off))
+
+## The standing plane's layers for rows y0..y1 of `glass`: plate, whitecaps on end, reflections.
+func _surface_rows(c: CanvasItem, glass: Rect2, surf: String, refl: String, refl_a: float, crest_a: float,
+		y0: float, y1: float) -> void:
+	_band_of(c, surf, y0, y1)
+	var drift := time * CREST_DRIFT if motion else 0.0
+	var clip := Rect2(glass.position.x, maxf(y0, glass.position.y), glass.size.x, minf(y1, glass.end.y) - maxf(y0, glass.position.y))
+	_tile(c, "vchop_tile_r2", clip, Vector2(drift, 0), crest_a)
+	if refl != "":
+		_band_of(c, refl, y0, y1, refl_a)
+
+func _draw_sea(c: CanvasItem, side: String) -> void:
+	var L := sea_layers(side)
+	var glass := A_GLASS if side == "a" else B_GLASS
+	var top: float = L[4]
+	if top > 0.0:
+		_band_of(c, L[0], 0.0, top)
+	_surface_rows(c, glass, L[0], L[1], L[2], L[3], top, SIZE.y)
+
+func _beads(c: CanvasItem, at: Vector2) -> void:
+	if not _sever():
+		_sprite(c, "beads_r2", at)
 
 # ---------------------------------------------------------------------------
 # drawing: view A and view B (world)
@@ -709,13 +772,19 @@ func _draw_room() -> void:
 func _draw_view_a(c: CanvasItem) -> void:
 	_draw_sea_a(c)
 	_rain(c, A_RAIN_SEVER if _sever() else A_RAIN)
+	_beads(c, A_BEADS)
 	_full(c, "a_rail_wet" if r.rail_wet() else "a_rail")
-	_full(c, "a_room")
+	_full(c, "a_room_r2")
 	match r.lens_reflection():
 		"ada":
 			_sprite(c, "a_lens_ada", LENS_AT)
 		"ada_inv":
-			_sprite(c, "a_lens_ada_inv", LENS_AT)
+			_sprite(c, "a_lens_ada_inv_r2", LENS_AT)
+		_:
+			# from band 5 the lens carries the standing surface, upside down, its warm point
+			if not reveal_running() and stage() in ["b5", "b6"]:
+				_sprite(c, "a_lens_surf_%s_r2" % stage(), LENS_AT)
+	_lens_lid(c)
 	# irises: the open one on the aperture's port, the other two shut
 	var ap := knob_to if iris_t >= 0.0 else int(r.state.aperture)
 	for k in 3:
@@ -740,33 +809,100 @@ func _draw_view_a(c: CanvasItem) -> void:
 ## The sea behind view A's glass, or the standing-up of it while the reveal runs.
 func _draw_sea_a(c: CanvasItem) -> void:
 	if not reveal_running():
-		_full(c, sea_plate("a"))
+		_draw_sea(c, "a")
 		return
+	var shut := ["a_surf_b4_r2", "a_refl_b4_r2", 1.0, 0.8]
+	var opened := ["a_surf_b4o_r2", "a_refl_b4_r2", 1.0, 0.8]
 	if not motion:
-		_full(c, "a_sea_b4_shut")
-		_band_of(c, "a_sea_b4", 0.0, STILL_LID_Y)
-		_lid_line(c, STILL_LID_Y)
+		# Motion off: cut straight to the standing surface; the lid holds still on it
+		_band_of(c, "a_surf_b4_r2", 0.0, SURF_TOP)
+		_surface_rows(c, A_GLASS, opened[0], opened[1], opened[2], opened[3], SURF_TOP, SIZE.y)
+		_lid_band(c, STILL_LID_Y)
 		return
 	var t := reveal_t
 	if t < RISE_END:
-		# the surface rises like a wall from the rail; its top edge stays straight
-		_full(c, "a_sea_b3")
-		var top := lerpf(SURF_BOTTOM, SURF_TOP, smoothstep(0.0, 1.0, t / RISE_END))
-		_band_of(c, "a_sea_b4_bare", top, SURF_BOTTOM)
+		_draw_rise(c, smoothstep(0.0, 1.0, t / RISE_END))
 		return
-	if t < LID_START:
-		_full(c, "a_sea_b4_bare")
-		_full(c, "a_sea_b4_shut", clampf((t - RISE_END) / (SHUT_END - RISE_END), 0.0, 1.0))
-		return
-	_full(c, "a_sea_b4_shut")
+	_band_of(c, "a_surf_b4_r2", 0.0, SURF_TOP)
+	_surface_rows(c, A_GLASS, shut[0], shut[1], shut[2], shut[3], SURF_TOP, SIZE.y)
 	var ly := lid_y()
-	_band_of(c, "a_sea_b4", 0.0, ly)
-	_lid_line(c, ly)
+	if ly < 0.0:
+		return
+	# behind the lid the surface has opened
+	_surface_rows(c, A_GLASS, opened[0], opened[1], opened[2], opened[3], SURF_TOP, ly)
+	_lid_band(c, ly)
 
-func _lid_line(c: CanvasItem, y: float) -> void:
-	var t := _tex("a_lid_line")
+## The standing-up, k 0..1: the b3 horizon rises to the surface's top edge; the sea under it
+## stretches upward (the whitecaps slide up in its wake) and turns into the standing plane, and
+## the reflections wipe in from the rail behind it.
+func _draw_rise(c: CanvasItem, k: float) -> void:
+	_full(c, "a_sea_b3")
+	var hy := lerpf(B3_HORIZON, SURF_TOP, k)
+	var t := _tex("a_sea_b3")
 	if t:
-		c.draw_texture(t, Vector2(A_GLASS.position.x, y - t.get_size().y / 2.0))
+		c.draw_texture_rect_region(t, Rect2(0, hy, SIZE.x, SURF_BOTTOM - hy),
+			Rect2(0, B3_HORIZON, SIZE.x, SURF_BOTTOM - B3_HORIZON))
+	var stand := smoothstep(0.25, 0.95, k)
+	_band_of(c, "a_surf_b4_r2", hy, SURF_BOTTOM, stand)
+	var drift := Vector2(0, -60.0 * (1.0 - k))
+	_tile(c, "vchop_tile_r2", Rect2(A_GLASS.position.x, hy, A_GLASS.size.x, SURF_BOTTOM - hy), drift, 0.8 * stand)
+	# the reflections, revealed by a front that climbs from the rail to the edge
+	var fy := lerpf(SURF_BOTTOM, hy, smoothstep(0.1, 1.0, k))
+	var feather := 24.0
+	_band_of(c, "a_refl_b4_r2", fy + feather, SURF_BOTTOM)
+	for i in 3:
+		var y0 := fy + feather * i / 3.0
+		_band_of(c, "a_refl_b4_r2", y0, y0 + feather / 3.0, (i + 1) / 4.0)
+	# the horizon itself: crisp, level, rising
+	c.draw_line(Vector2(A_GLASS.position.x, hy), Vector2(A_GLASS.end.x, hy), INK, 3.0)
+	c.draw_line(Vector2(A_GLASS.position.x, hy + 3.0), Vector2(A_GLASS.end.x, hy + 3.0), Color(PAPER_HI, 0.55), 1.6)
+
+## The lid: a storm-navy band, feathered above, its wet paper rim (the eyelid edge) at `y`.
+func _lid_band(c: CanvasItem, y: float) -> void:
+	var t := _tex("a_lid_band_r2")
+	if t == null:
+		return
+	var sz := t.get_size()
+	var top := y - 92.0
+	var cut := maxf(0.0, SURF_TOP - top)       # never over the sky above the surface's edge
+	if cut >= sz.y:
+		return
+	c.draw_texture_rect_region(t, Rect2(A_GLASS.position.x, top + cut, sz.x, sz.y - cut), Rect2(0, cut, sz.x, sz.y - cut))
+
+## The lid, inverted, through the lens: it climbs while the real one falls, rim on top.
+func _lens_lid(c: CanvasItem) -> void:
+	var ly := lid_y()
+	if ly < 0.0:
+		return
+	var k := clampf((ly - SURF_TOP) / (SURF_BOTTOM - SURF_TOP), 0.0, 1.0)
+	var R := 198.0
+	var y := lerpf(LENS_C.y + R + 20.0, LENS_C.y - R - 40.0, k)
+	_chord(c, y + 4.0, y + 36.0, Color(STORM.darkened(0.25), 0.88))
+	for i in 4:
+		_chord(c, y + 36.0 + i * 6.0, y + 42.0 + i * 6.0, Color(STORM.darkened(0.25), 0.66 - i * 0.15))
+	_chord(c, y - 1.0, y + 4.0, Color(PAPER_HI, 0.92))
+	_chord(c, y - 3.0, y - 1.0, INK)
+
+const LENS_C := Vector2(724, 392)
+
+## Fill the slice y0..y1 of the lens disc.
+func _chord(c: CanvasItem, y0: float, y1: float, col: Color) -> void:
+	var R := 198.0
+	var a := maxf(y0, LENS_C.y - R)
+	var b := minf(y1, LENS_C.y + R)
+	if b <= a:
+		return
+	var left := PackedVector2Array()
+	var right := PackedVector2Array()
+	var n := 6
+	for i in n + 1:
+		var yy := lerpf(a, b, float(i) / n)
+		var dx := sqrt(maxf(0.0, R * R - pow(yy - LENS_C.y, 2)))
+		left.append(Vector2(LENS_C.x - dx, yy))
+		right.append(Vector2(LENS_C.x + dx, yy))
+	right.reverse()
+	left.append_array(right)
+	c.draw_colored_polygon(left, col)
 
 ## The reference plate: its title, the rule and the schematic. Every symbol has its word.
 func _draw_diagram(c: CanvasItem) -> void:
@@ -807,9 +943,10 @@ func _draw_diagram(c: CanvasItem) -> void:
 	_ctext(c, "BOUNDARY", (wx0 + wx1) / 2.0, frame.end.y + 34, 12, INK, narrow_reg)
 
 func _draw_view_b(c: CanvasItem) -> void:
-	_full(c, sea_plate("b"))
+	_draw_sea(c, "b")
 	_rain(c, B_RAIN_SEVER if _sever() else B_RAIN)
-	_full(c, "b_rail_wet" if r.rail_wet() else "b_rail")
+	_beads(c, B_BEADS)
+	_full(c, "b_rail_wet" if r.rail_wet() else "b_rail_r2")
 	match r.pennant_mode():
 		"dead":
 			_sprite(c, "b_pennant_dead", PENNANT_ANCHOR - Vector2(6, 4))
@@ -818,7 +955,7 @@ func _draw_view_b(c: CanvasItem) -> void:
 		_:
 			var k := (int(time / PENNANT_FLAP) % 2) if motion else 0
 			_sprite(c, "b_pennant_flap_%d" % (k + 1), PENNANT_ANCHOR - Vector2(226, 4))
-	_full(c, "b_room")
+	_full(c, "b_room_r2")
 	if r.ruler_shown():
 		_sprite(c, "b_ruler", B_RULER_AT)
 	_tab(c, LENS_TAB, "THE LENS")
@@ -836,8 +973,9 @@ func _draw_close() -> void:
 # --- c_scope ------------------------------------------------------------------------------
 func _draw_scope(c: CanvasItem) -> void:
 	var st: Dictionary = r.state
-	_full(c, "c_scope")
-	_sprite(c, "c_view_" + r.scope_scene(), VIEW_AT)
+	_full(c, "c_scope_r2")
+	var scene := r.scope_scene()
+	_sprite(c, "c_view_" + scene + ("_r2" if scene in ["station", "surface"] else ""), VIEW_AT)
 	if r.patch_shown():
 		_sprite_c(c, "c_loupe_ring", EYE_C, 300.0 / 380.0)
 		_sprite_c(c, "c_patch", EYE_C)
@@ -866,7 +1004,7 @@ func _draw_scope(c: CanvasItem) -> void:
 	# the selector
 	for k in 3:
 		_rtext(c, R09Sim.APERTURES[k + 1], SEL_PLATES[k], 20, INK)
-	_sprite_c(c, "c_sel_knob", Vector2(knob_x(), KNOB_Y))
+	_draw_lever(c)
 	# the clamp and her frame
 	if frame_in_clamp():
 		_draw_frame(c, FRAME_AT, 1.0)
@@ -880,6 +1018,17 @@ func _draw_scope(c: CanvasItem) -> void:
 	_draw_strip(c)
 	_para(c, R09Sim.DIAGRAM_TEXT, REF_TEXT.position + Vector2(14, 30), 20, INK, REF_TEXT.size.x - 28)
 
+## The selector lever: from its boss on the tube down to the knob in the quadrant's slot.
+func _draw_lever(c: CanvasItem) -> void:
+	var kp := knob_pos()
+	var d := (kp - QUAD_PIVOT).normalized()
+	c.draw_line(QUAD_PIVOT, kp - d * 20.0, INK, 17.0)
+	c.draw_line(QUAD_PIVOT, kp - d * 20.0, Color("9c7e46"), 11.0)
+	c.draw_line(QUAD_PIVOT + d.orthogonal() * 3.0, kp - d * 22.0 + d.orthogonal() * 3.0, Color("c9a869"), 2.0)
+	c.draw_circle(QUAD_PIVOT, 9.0, INK)
+	c.draw_circle(QUAD_PIVOT, 6.5, Color("c9a869"))
+	_sprite_c(c, "c_sel_knob", kp)
+
 func _draw_steam(c: CanvasItem) -> void:
 	var base := EYE_C + Vector2(-60, -140 - 120)
 	if not motion:
@@ -888,11 +1037,15 @@ func _draw_steam(c: CanvasItem) -> void:
 	var k := fmod(time, STEAM_LOOP) / STEAM_LOOP
 	_sprite(c, "c_steam", base - Vector2(0, STEAM_RISE * k), sin(PI * k))
 
+## The land stays in view (a light wash, about 60% through); the mark and arrow ride on halos.
 func _draw_no_subject(c: CanvasItem) -> void:
-	c.draw_circle(EYE_C, EYE_R, Color(PAPER_HI, 0.92))
+	c.draw_circle(EYE_C, EYE_R, Color(PAPER_HI, 0.4))
 	var y := EYE_C.y - 30
-	_rel_mark(c, Vector2(EYE_C.x - 210, y), 32, VIOLET, 4.0)
+	_rel_mark_halo(c, Vector2(EYE_C.x - 210, y), 32, VIOLET, 4.0)
+	var lab := Rect2(EYE_C.x - 256, y + 26, 92, 24)
+	c.draw_rect(lab, Color(PAPER_HI, 0.88))
 	_ctext(c, "RELATION", EYE_C.x - 210, y + 44, 18, INK)
+	_arrow(c, Vector2(EYE_C.x - 170, y), Vector2(EYE_C.x - 60, y), Color(PAPER_HI, 0.9), 7.0)
 	_arrow(c, Vector2(EYE_C.x - 170, y), Vector2(EYE_C.x - 60, y), INK, 3.0)
 
 ## Drawn over the reticle, so its lines never seem to sit inside the empty bracket.
@@ -900,9 +1053,14 @@ func _no_subject_marks(c: CanvasItem) -> void:
 	var y := EYE_C.y - 30
 	c.draw_rect(Rect2(EYE_C.x - 46, y - 34, 132, 64), PAPER_HI)
 	_ctext(c, "[      ]", EYE_C.x + 20, y + 14, 40, INK)
-	var cap := Rect2(EYE_C.x - 200, EYE_C.y + 60, 400, 44)
-	c.draw_rect(cap, PAPER_HI)
+	# the ink stamp, struck a little askew over the land
+	var cap := Rect2(-206, -30, 412, 60)
+	c.draw_set_transform(EYE_C + Vector2(0, 92), deg_to_rad(-4.0))
+	c.draw_rect(cap, Color(PAPER_HI, 0.82))
+	c.draw_rect(cap, INK, false, 4.0)
+	c.draw_rect(cap.grow(-7), INK, false, 1.6)
 	_rtext(c, "NO SUBJECT ON BEARING", cap, 30, INK)
+	c.draw_set_transform(Vector2.ZERO, 0.0)
 
 ## Nora's frame face-on: her breath trace, the name tab, the relation strip and the label.
 func _draw_frame(c: CanvasItem, at: Vector2, a: float) -> void:
@@ -955,11 +1113,12 @@ func _draw_strip(c: CanvasItem) -> void:
 
 # --- c_ruler ------------------------------------------------------------------------------
 func _draw_ruler(c: CanvasItem) -> void:
-	_full(c, "c_ruler")
+	_full(c, "c_ruler_r2")
 	for i in 13:
 		_ctext(c, str(i), 140 + i * 96, 404, 24, INK, Ink.serif())
-	_rtext(c, "BACK OUT", Rect2(1012, 712, 136, 96), 22, INK)
-	_rtext(c, "CLOSER", Rect2(1192, 712, 136, 96), 22, INK)
+	# the thumb-screws' tags (painted blank)
+	_rtext(c, "BACK OUT", Rect2(1008, 796, 144, 26), 21, INK)
+	_rtext(c, "CLOSER", Rect2(1188, 796, 144, 26), 21, INK)
 	_draw_magnifier(c)
 	_sprite_c(c, "c_loupe_ring", MAG_C)
 
@@ -971,10 +1130,6 @@ static func _jit(z: int, i: int, salt: int) -> float:
 func _draw_magnifier(c: CanvasItem) -> void:
 	var z := r.ruler_zoom
 	var sever := _sever()
-	if z <= 0:
-		c.draw_circle(MAG_C, MAG_R, PAPER_HI)
-		_ctext(c, "×1", MAG_C.x, MAG_C.y + 14, 40, INK)
-		return
 	c.draw_circle(MAG_C, MAG_R, BOXWOOD)
 	var edge := MAG_C.y - 70.0          # the rule's top edge, magnified
 	var half := MAG_R - 8.0
@@ -995,6 +1150,19 @@ func _draw_magnifier(c: CanvasItem) -> void:
 		cap.append(Vector2(q.x, minf(q.y, edge)))
 	c.draw_colored_polygon(cap, Color("675d51"))
 	c.draw_line(Vector2(MAG_C.x - tdx, edge), Vector2(MAG_C.x + tdx, edge), INK, 3.0)
+	if z <= 0:
+		# x1: the rule as it lies, eighths 12 px apart, an inch mark at the centre
+		var ticks := PackedVector2Array()
+		for i in range(-14, 15):
+			var x := MAG_C.x + i * 12.0
+			if absf(x - MAG_C.x) > half:
+				continue
+			var hh := 64.0 if i % 8 == 0 else 46.0 if i % 4 == 0 else 33.0 if i % 2 == 0 else 23.0
+			ticks.append(Vector2(x, edge))
+			ticks.append(Vector2(x, edge + hh))
+		c.draw_multiline(ticks, INK, 2.2)
+		_zoom_tag(c, ZOOM_WORD[0])
+		return
 	if sever:
 		# eighths only: three marks, ten times apart, and the grain
 		for i in 3:
