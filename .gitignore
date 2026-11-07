@@ -13,3 +13,6 @@ export_credentials.cfg
 *.p12
 *.mobileprovision
 .DS_Store
+
+# playtest-panel scratch drivers (inside res:// so Godot can run them)
+.panel/
