@@ -10,6 +10,14 @@ extends SceneTree
 ##   - R02's "door" is the corridor exit (go:R03);
 ##   - an unbuilt room offers only the way back, so exits to or from one (none since Wave 3);
 ##   - "Back" with no close-up open (a sim no-op the chain script sends to be sure).
+##
+## Two modes, both run by default: clicks alone, and pointer mode, where before every probe
+## and click the pointer is moved to the point first (GameView.hover(), the mouse-motion
+## handler's own update, with a simulated pointer), so controls that only show or answer
+## under a hovering pointer are tested as a real pointer sees them. One mode only:
+##   godot --headless --path . --script tests/click_chain_test.gd -- --mode=click|pointer
+## Also: close-up controls act in the press that advances a story chain, and the HUD's
+## Plan button (after P05) opens the notebook on the plan.
 ## Run after an import:
 ##   godot --headless --path . --script tests/click_chain_test.gd
 
@@ -25,35 +33,109 @@ var clicked := 0
 var reading := 0
 var conveniences := {}
 var cur_pid := ""
+var pointer_mode := false
+var plan_checked := false
 
 func _initialize() -> void:
 	call_deferred("run")
 
+## The modes to run: both, unless `-- --mode=click` or `-- --mode=pointer` names one.
+static func modes() -> Array:
+	for a in OS.get_cmdline_user_args():
+		if a == "--mode=click":
+			return [false]
+		if a == "--mode=pointer":
+			return [true]
+	return [false, true]
+
 func run() -> void:
-	GameView.remove_saves(SAVE)
-	A = load("res://game/core/game.tscn").instantiate()
-	A.save_path = SAVE
-	A.migrate_slice_save = false
-	root.add_child(A)
-	await process_frame
-	var chain = load("res://tests/chain_test.gd").new()
-	chain.external_game = A.sim
-	chain.clicker = self
-	chain.step_hook = func(pid: String, _rid: String, _phase: String) -> void: cur_pid = pid
-	await chain.run_tests()
-	for f in chain.failures:
-		failures.append("chain: " + f)
-	chain.free()
-	check(clicked + _sum(conveniences) == total, "every action was clicked or is a listed convenience")
-	GameView.remove_saves(SAVE)
-	A.queue_free()
-	await process_frame
-	var summary := "%d actions, %d clicked, %d reading clicks, conveniences %s" % [total, clicked, reading, conveniences]
+	var summaries := []
+	for mode in modes():
+		summaries.append(await run_mode(mode))
+	await test_closeup_click_acts()
+	var summary := "; ".join(summaries)
 	if failures.is_empty():
 		print("PASS: click_chain_test — " + summary)
 	else:
 		print("FAIL click_chain_test (%d): %s\n  %s" % [failures.size(), "; ".join(failures), summary])
 	quit(0 if failures.is_empty() else 1)
+
+func new_game_scene() -> GameView:
+	GameView.remove_saves(SAVE)
+	var scene: GameView = load("res://game/core/game.tscn").instantiate()
+	scene.save_path = SAVE
+	scene.migrate_slice_save = false
+	root.add_child(scene)
+	return scene
+
+## The whole chain, by clicks, in one mode. Returns its summary.
+func run_mode(pointer: bool) -> String:
+	pointer_mode = pointer
+	total = 0
+	clicked = 0
+	reading = 0
+	conveniences = {}
+	plan_checked = false
+	var before := failures.size()
+	A = new_game_scene()
+	A.sim_pointer_on = pointer
+	await process_frame
+	var chain = load("res://tests/chain_test.gd").new()
+	chain.external_game = A.sim
+	chain.clicker = self
+	chain.step_hook = func(pid: String, _rid: String, phase: String) -> void:
+		cur_pid = pid
+		plan_hook(pid, phase)
+	await chain.run_tests()
+	for f in chain.failures:
+		failures.append("chain: " + f)
+	chain.free()
+	var tag := "pointer" if pointer else "click"
+	check(clicked + _sum(conveniences) == total, "[%s] every action was clicked or is a listed convenience" % tag)
+	check(plan_checked, "[%s] the Plan button was clicked after P05" % tag)
+	for i in range(before, failures.size()):
+		failures[i] = "[%s] %s" % [tag, failures[i]]
+	GameView.remove_saves(SAVE)
+	A.queue_free()
+	await process_frame
+	return "%s mode: %d actions, %d clicked, %d reading clicks, conveniences %s" % [tag, total, clicked, reading, conveniences]
+
+## The HUD's Plan button: not there before P05; after it, one click opens the notebook on
+## the plan, and Back returns to the room as it was.
+func plan_hook(pid: String, phase: String) -> void:
+	if phase != "at":
+		return
+	if pid == "P05":
+		check(find("plan").x < 0, "no Plan button before P05")
+	elif pid == "P06" and not plan_checked:
+		var room_before: String = A.sim.state.room
+		var p := find("plan")
+		check(p.x >= 0, "the Plan button is on the HUD after P05")
+		if p.x < 0:
+			return
+		A.click(p)
+		check(A.sim.view == "notebook" and A._nb_page() == "plan", "one click on Plan: the notebook on the plan")
+		var b := find("back")
+		check(b.x >= 0, "the notebook's Back is clickable")
+		A.click(b)
+		check(A.sim.view == "room" and A.sim.state.room == room_before, "Back from the plan: the room as it was")
+		wait(STEP)
+		plan_checked = true
+
+## Moves the pointer to `p` in pointer mode (the mouse-motion handler's own update).
+func point(p: Vector2) -> void:
+	if pointer_mode:
+		A.hover(p)
+
+## Under the pointer (pointer mode: moved there first), the action at `p`.
+func probe(p: Vector2) -> String:
+	point(p)
+	return A.action_at(p)
+
+## Click at `p`, the pointer moved there first in pointer mode.
+func press(p: Vector2) -> void:
+	point(p)
+	A.click(p)
 
 func check(cond: bool, msg: String) -> void:
 	if not cond:
@@ -87,7 +169,7 @@ func find(action: String) -> Vector2:
 	for slot in A._inv_layout():
 		if slot[1] == action:
 			guesses.append(slot[0])
-	for b in GameView.HUD_BUTTONS:
+	for b in A.hud_buttons():
 		if b[0] == action:
 			guesses.append(b[1])
 	if action == "back":
@@ -96,11 +178,11 @@ func find(action: String) -> Vector2:
 		if b[0] == action:
 			guesses.append(b[1])
 	for r in guesses:
-		if r.size != Vector2.ZERO and A.action_at(r.get_center()) == action:
+		if r.size != Vector2.ZERO and probe(r.get_center()) == action:
 			return r.get_center()
 	for y in range(GRID / 2, 1086, GRID):
 		for x in range(GRID / 2, 1448, GRID):
-			if A.action_at(Vector2(x, y)) == action:
+			if probe(Vector2(x, y)) == action:
 				return Vector2(x, y)
 	return Vector2(-1, -1)
 
@@ -127,7 +209,7 @@ func qd(action: String) -> Array:
 			var pg := find("inv_page")
 			if pg.x < 0:
 				break
-			A.click(pg)
+			press(pg)
 			p = find(action)
 			if p.x >= 0:
 				break
@@ -149,7 +231,7 @@ func qd(action: String) -> Array:
 	var t := 0.0
 	while t <= WAIT_MAX:
 		var id0: int = A.click_id
-		A.click(p)
+		press(p)
 		if A.click_id != id0:
 			clicked += 1
 			wait(STEP)
@@ -157,9 +239,44 @@ func qd(action: String) -> Array:
 		reading += 1
 		wait(STEP)
 		t += STEP
-		if A.action_at(p) != action:
+		if probe(p) != action:
 			var q := find(action)
 			if q.x >= 0:
 				p = q
 	check(false, "[%s] a click on '%s' never landed in %s" % [cur_pid, action, ctx()])
 	return []
+
+## A close-up control clicked while a story line is still typing acts in that press: R03's
+## chart-sheet rotate turns the sheet once (the chain advances in the same press).
+func test_closeup_click_acts() -> void:
+	pointer_mode = false
+	A = new_game_scene()
+	await process_frame
+	A.room_jump("R03", 1)
+	var r: RoomSim = A.room_sim()
+	A.dispatch("sheet_table")
+	check(r.local_view == "c_registration", "R03: the registration close-up is open (%s)" % r.local_view)
+	A.dispatch("item:venn_tide_sheet")
+	A.dispatch("reg_table")
+	check(bool(r.state.reg_laid), "R03: his sheet is laid on the table")
+	wait(6.0)
+	A._show_line("The sheet is a stranger's handwriting over a chart I know.", true)
+	A._queue_line("And one more line after it.", 0.8, true)
+	A.time += 0.5   # past the double-click swallow, the line still typing
+	check(A.chain_active(), "a story line is typing over the close-up")
+	var rot := int(r.state.reg_rot)
+	var p := find("reg_rot_cw")
+	check(p.x >= 0, "the rotate control is clickable during the line")
+	A.click(p)
+	check(int(r.state.reg_rot) == posmod(rot + 1, 4), "one click on rotate turns the sheet once (%d -> %d)" % [rot, int(r.state.reg_rot)])
+	check(A.cur_text == "And one more line after it.", "and the chain advanced in the same press (%s)" % A.cur_text)
+	# A click on empty space during a chain only advances it.
+	A._show_line("Another story line.", true)
+	A._queue_line("Its follow-up.", 0.8, true)
+	A.time += 0.5
+	var before := JSON.stringify(r.state)
+	A.click(Vector2(724, 1040))   # the subtitle bar
+	check(JSON.stringify(r.state) == before and A.cur_text == "Its follow-up.", "a subtitle-bar click only advances the chain")
+	GameView.remove_saves(SAVE)
+	A.queue_free()
+	await process_frame

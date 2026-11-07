@@ -25,7 +25,7 @@ extends RefCounted
 var game: GameSim
 var state := {}
 ## Where the room is looking: "room", or a room-local close-up id. Never saved: a load
-## always lands in "room".
+## lands in resume_view() ("room" unless the room overrides it).
 var local_view := "room"
 
 ## The combined view, for tests and drivers: the room's own view while the game shows the
@@ -114,11 +114,21 @@ func back(_ev: Array) -> void:
 func on_core_return(_from: String, _ev: Array) -> void:
 	pass
 
+## The local view a load lands in; default room. Called on the current room only, after
+## load_state() and reconcile(), so it may read its restored state (R12 resumes its ending).
+func resume_view() -> String:
+	return "room"
+
 func is_closeup(v := local_view) -> bool:
 	return v != "room"
 
 ## The current objective id (a key of OBJECTIVES and HINTS), or "" for none.
 func objective() -> String:
+	return ""
+
+## The puzzle id ("P07") the current objective works toward, or "" (the core then reads a
+## "pNN" objective id, or its own table). Optional: "Now:" uses it to point at open puzzles.
+func objective_puzzle() -> String:
 	return ""
 
 func objective_text() -> String:

@@ -43,20 +43,49 @@ const TIDE_TITLES := ["The Last Shift", "The Boat at the Window", "Supper for th
 const NUMERALS := ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"]
 
 ## The two endings (GDD section 9). Ids are the cards' `ending_choice` values. The chamber
-## room (R12) calls finish(); the core shows the end card. Lines are placeholders until R12's
-## team writes the scene.
+## room (R12) calls finish(); the core shows the end card. `still` is an optional painted
+## plate drawn faintly under the card (a missing file draws nothing).
 const ENDINGS := {
 	"sever": {"title": "The Unrecorded Shore", "lines": [
-		"The instruments fall silent in sequence.",
+		"I write eight names. Then his.",
 		"\"I cannot certify their absence.\"",
-	]},
+	], "still": "res://assets/rooms/R12/end_a_page.png"},
 	"continue": {"title": "The Last Observer", "lines": [
 		"\"Subject Bell possesses no surviving personal effects.\"",
 		"\"Nora Bell took her tea without sugar. Begin there.\"",
-	]},
+	], "still": "res://assets/rooms/R12/end_b_field.png"},
 }
 
 const GENERIC_WRONG_USE := "That isn't what it's for."
+
+## Items whose last use is the puzzle named: when that flag is set and she holds the item, it
+## leaves the bar and is filed in the notebook (state.retired), never to be handed back.
+## Only items with no later use anywhere (puzzle cards and room sims, checked Wave 3):
+## inspection_lens is still wanted after P15 (R10's photographs and frame glass give evidence
+## under it), so it stays in her hands; contact_sheet waits for both P17 and P18.
+## A list means all of them: the contact sheet serves P17 and P18, in either order.
+const ITEM_RETIRES_AFTER := {"chart_clips": "P16", "contact_sheet": ["P17", "P18"],
+	"venn_correspondence": "P20", "pencil": "P22"}
+const FILED_LINE := "Filed in the notebook."
+
+## Each puzzle's prerequisites (flags.md section 2; tests/chain_test.gd GRAPH): a puzzle is
+## open when every one is set.
+const PUZZLE_REQUIRES := {
+	"P01": [], "P02": ["P01"], "P03": ["P01"],
+	"P04": ["P02", "P03", "closure_report_filed", "t1x_threshold_crossed"], "P05": ["P04"],
+	"P06": ["P05"], "P07": ["P06"], "P08": ["P06"], "P09": ["P07", "P08"], "P10": ["P09"],
+	"P11": ["P09"], "P12": ["P10", "P11"], "P13": ["P12"], "P14": ["P13"], "P15": ["P14"],
+	"P16": ["P15"], "P17": ["P16"], "P18": ["P16"], "P19": ["P17", "P18"], "P20": ["P17", "P18"],
+	"P21": ["P19", "P20"], "P22": ["P21"], "P23": ["P21"], "P24": ["P22", "P23"], "P25": ["P24"],
+	"P26": ["P25"], "P27": ["P26"],
+}
+## Room objective ids that name a puzzle without spelling it "pNN..." (see objective_puzzle()).
+const OBJECTIVE_PUZZLES := {
+	"R01": {"inspect": "P06", "signal": "P06"},
+	"R02": {"lamp": "P01", "log": "P03", "changed": "P03", "drawer": "P03", "board": "P20"},
+	"R03": {"sheet_missing": "P03", "register": "P03", "calibrate": "P04", "record": "P05", "plan": "P21"},
+	"R12": {"frames": "P25", "routing": "P26", "decide": "P27", "finale": "P27"},
+}
 
 static var _room_scripts := {}   # dir -> {rid: Script}, discovered once per run
 
@@ -103,7 +132,7 @@ func reset(keep_settings := true) -> void:
 	state = {
 		"schema": SCHEMA, "started": false, "room": start_room, "visited": [],
 		"flags": {}, "inventory": [], "notebook": [], "movement_events": [], "p05_trace": [],
-		"hint": {"for": "", "level": 0}, "rooms": {}, "ending": "",
+		"hint": {"for": "", "level": 0}, "rooms": {}, "ending": "", "retired": [],
 	}
 	for rid in order:
 		var r: RoomSim = rooms[rid]
@@ -158,6 +187,44 @@ func solve(pid: String, ev: Array) -> void:
 	var after := tide()
 	if after != before:
 		ev.append({"type": "fx", "id": "tide", "tide": after})
+
+## True when every flag that ends `item`'s use (ITEM_RETIRES_AFTER) is set.
+func _spent(item: String) -> bool:
+	var after = ITEM_RETIRES_AFTER[item]
+	for f in (after if after is Array else [after]):
+		if not flag(f):
+			return false
+	return true
+
+## Which retirable items are spent right now: {item: bool}, taken before an action.
+func _spent_snapshot() -> Dictionary:
+	var out := {}
+	for item in ITEM_RETIRES_AFTER:
+		out[item] = _spent(item)
+	return out
+
+## Files every held item whose use ended during this action (its flags became true since
+## `before`, a _spent_snapshot()), after the room is done with it, and says so once, after
+## the last line of the chain. A state that already had the flags (a debug jump, an old
+## save) keeps what she holds.
+func _file_spent(before: Dictionary, ev: Array) -> void:
+	var any := false
+	for item in ITEM_RETIRES_AFTER:
+		if not before.get(item, true) and _spent(item) and has_item(item) and not item in state.retired:
+			take(item)
+			state.retired.append(item)
+			any = true
+	if not any:
+		return
+	var last := 0.0
+	for e in ev:
+		if e.type == "say":
+			last = maxf(last, float(e.delay))
+	ev.append({"type": "say", "text": FILED_LINE, "delay": last + 0.5 if last > 0.0 else 0.0, "story": false})
+
+## Items filed in the notebook after their last use, in the order they went.
+func retired() -> Array:
+	return state.retired.duplicate()
 
 ## Puzzle ids of tide n (1..9): P(3n-2)..P(3n).
 static func tide_puzzles(n: int) -> Array:
@@ -247,8 +314,9 @@ func item_defs() -> Dictionary:
 			out[k] = d
 	return out
 
+## Hands her `item`. A retired item (filed in the notebook after its last use) never comes back.
 func give(item: String, ev: Array = []) -> void:
-	if not has_item(item):
+	if not has_item(item) and not item in state.retired:
 		state.inventory.append(item)
 		ev.append({"type": "fx", "id": "item_added", "item": item})
 
@@ -298,6 +366,13 @@ func exits(rid := "") -> Array:
 	var r := room(rid)
 	return r.c("EXITS", []) if r else []
 
+## True when `from` lists a way out to `to` (open or not).
+func _is_exit(from: String, to: String) -> bool:
+	for e in exits(from):
+		if e[0] == to:
+			return true
+	return false
+
 ## True when the exit from `from` to `to` is unlocked right now (ignores exit_block).
 func exit_open(from: String, to: String) -> bool:
 	if not rooms.has(to):
@@ -328,6 +403,8 @@ func _travel(to: String, ev: Array, fast := false) -> void:
 	var from: String = state.room
 	if to == from or not rooms.has(to):
 		return
+	if not fast and not _is_exit(from, to):
+		return   # not a way out of this room at all: nothing to say, nowhere to go
 	var block := room().exit_block(to)
 	if block != "":
 		ev.append({"type": "say", "text": block, "delay": 0.0, "story": false})
@@ -354,6 +431,13 @@ func _enter(to: String, ev: Array) -> void:
 # actions
 # ---------------------------------------------------------------------------
 func dispatch(action: String) -> Array:
+	var spent := _spent_snapshot()
+	var ev := _dispatch(action)
+	_file_spent(spent, ev)
+	# The single exit point: a say with no text never reaches a view.
+	return ev.filter(func(e): return e.type != "say" or str(e.get("text", "")) != "")
+
+func _dispatch(action: String) -> Array:
 	var ev: Array = []
 	if view == "title":
 		match action:
@@ -491,24 +575,38 @@ func _hint(ev: Array) -> void:
 	ev.append({"type": "say", "text": text, "delay": 0.0, "story": false})
 	state.hint["level"] = mini(level + 1, 3)
 
-## The Hint's ladder toward room `away`: where (the way in, for a room she hasn't been in;
-## "Something ... has changed" for one she has), then that room's own ladder. A step that
-## repeats the one before it is dropped, so no press says the same thing twice.
+## The Hint's ladder toward room `away`, then that room's own ladder. For a room she hasn't
+## been in, a where-step first: "The <room> is through the <neighbour>." when a room that
+## leads there is one she knows, else its WAY_IN_HINT. For a room she has been in, no
+## where-step (the Now: line already names it) and none of its own "Something in the ...
+## has changed." tiers. No line is said twice.
 func _elsewhere_ladder(away: String) -> Array:
 	var there := room(away)
 	var title := str(there.c("TITLE", away)).to_lower()
-	var first: String
-	if not away in state.visited:
-		first = there.c("WAY_IN_HINT", "The way into the %s is open now." % title)
-	else:
-		first = "Something in the %s has changed." % title
-	var steps := [first, there.hint_line(0), there.hint_line(1), there.hint_line(2)]
-	if away in state.visited and _changed_line(steps[1]):
-		steps.pop_front()   # the room's own first step already says where: start there
+	var steps := []
+	var visited: bool = away in state.visited
+	if not visited:
+		var first: String = there.c("WAY_IN_HINT", "The way into the %s is open now." % title)
+		for rid in order:
+			if rid != away and rid in state.visited and _is_exit(rid, away):
+				first = "The %s is through the %s." % [title, str(rooms[rid].c("TITLE", rid)).to_lower()]
+				break
+		steps.append(first)
+	for level in 3:
+		var line := there.hint_line(level)
+		if not (visited and _changed_line(line)):
+			steps.append(line)
 	var ladder := []
 	for line in steps:
-		if line != "" and (ladder.is_empty() or _hint_key(line) != _hint_key(ladder[-1])):
+		if line == "" or line == NOTHING_HERE:
+			continue
+		var dup := false
+		for l in ladder:
+			dup = dup or _hint_key(l) == _hint_key(line)
+		if not dup:
 			ladder.append(line)
+	if ladder.is_empty():
+		ladder.append(there.objective_text() if there.objective_text() != "" else NOTHING_HERE)
 	return ladder
 
 ## A "Something in the <room> has changed." line (the where-step of a ladder).
@@ -592,6 +690,16 @@ func work_elsewhere() -> String:
 ## waiting. "" if there is nowhere.
 func elsewhere(survey := true) -> String:
 	var reach := reachable()
+	# First: a room whose goal is a puzzle that is open now and not yet solved, in room order.
+	for rid in order:
+		if rid == state.room or not rid in reach or not room_open(rid) or is_unbuilt(rid):
+			continue
+		var r: RoomSim = rooms[rid]
+		var o := r.objective()
+		if o == "" or _idle(o) or r.objective_text() == "":
+			continue
+		if puzzle_open(objective_puzzle(rid)):
+			return rid
 	var ids: Array = [start_room]
 	for rid in order:
 		if not rid in ids:
@@ -608,6 +716,31 @@ func elsewhere(survey := true) -> String:
 				continue
 			return rid
 	return ""
+
+## The puzzle (P01..P27) room `rid`'s current objective works toward, or "": the room's
+## own RoomSim.objective_puzzle() if it names one, else its id's "pNN" prefix, else
+## OBJECTIVE_PUZZLES.
+func objective_puzzle(rid: String) -> String:
+	var r := room(rid)
+	if r == null:
+		return ""
+	var own := r.objective_puzzle()
+	if own != "":
+		return own
+	var o := r.objective()
+	if o.length() >= 3 and o.begins_with("p") and o.substr(1, 2).is_valid_int() \
+			and (o.length() == 3 or o[3] == "_"):
+		return "P" + o.substr(1, 2)
+	return OBJECTIVE_PUZZLES.get(rid, {}).get(o, "")
+
+## True when puzzle `pid` is open (every prerequisite set) and not yet solved.
+func puzzle_open(pid: String) -> bool:
+	if not PUZZLE_REQUIRES.has(pid) or flag(pid):
+		return false
+	for f in PUZZLE_REQUIRES[pid]:
+		if not flag(f):
+			return false
+	return true
 
 ## The notebook's "Now:" line. Never empty: when this room has nothing to do it names the
 ## room that has ("<TITLE>: <its objective>").
@@ -687,9 +820,13 @@ func from_dict(d: Variant) -> bool:
 			if k is String and d.flags[k] is bool and d.flags[k] and _valid_flag(k):
 				state.flags[k] = true
 	var defs := item_defs()
+	if d.get("retired") is Array:
+		for it in d.retired:
+			if it is String and ITEM_RETIRES_AFTER.has(it) and not it in state.retired:
+				state.retired.append(it)
 	if d.get("inventory") is Array:
 		for it in d.inventory:
-			if it is String and defs.has(it) and not it in state.inventory:
+			if it is String and defs.has(it) and not it in state.inventory and not it in state.retired:
 				state.inventory.append(it)
 	if d.get("visited") is Array:
 		for v in d.visited:
@@ -726,6 +863,10 @@ func from_dict(d: Variant) -> bool:
 	elif not state.room in state.visited:
 		state.visited.append(state.room)
 	view = "room" if state.started else "title"
+	# Only the room she stands in may resume a view of its own; every other room is at "room".
+	if state.started:
+		var rv := room().resume_view()
+		room().local_view = rv if rv != "" else "room"
 	var ending = d.get("ending")
 	if state.started and ending is String and ENDINGS.has(ending) and tide_done(8):
 		state.ending = ending
@@ -766,7 +907,7 @@ static func migrate_slice(d: Dictionary) -> Dictionary:
 		"progress": {
 			"schema": SCHEMA, "started": started, "room": "R02", "visited": ["R02"] if started else [],
 			"flags": flags, "inventory": [], "notebook": notebook, "movement_events": [], "p05_trace": [],
-			"hint": {"for": "", "level": 0}, "rooms": {"R02": local}, "ending": "",
+			"hint": {"for": "", "level": 0}, "rooms": {"R02": local}, "ending": "", "retired": [],
 		},
 		"settings": {"motion": d.get("motion", true), "soft_audio": d.get("soft_audio", false)},
 	}

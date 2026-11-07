@@ -144,6 +144,10 @@ func run_tests() -> void:
 		check(g.tide() == tide, "after %s: tide %d (got %d)" % [pid, tide, g.tide()])
 		check(g.weather_band() == band, "after %s: weather band %d (got %d)" % [pid, band, g.weather_band()])
 		check(g.plan_unlocked() == g.flag("P05"), "after %s: the plan follows P05" % pid)
+		check(g.state.inventory.size() <= 6, "after %s: at most six items in hand (%s)" % [pid, g.state.inventory])
+		for item in GameSim.ITEM_RETIRES_AFTER:
+			if g._spent(item):
+				check(not g.has_item(item), "after %s: spent %s is off the bar" % [pid, item])
 		var open_p := false
 		for p in GameSim.tide_puzzles(g.tide()):
 			open_p = open_p or not g.flag(p)
@@ -512,8 +516,9 @@ func play_p16() -> void:
 	_qd("item:chart_clips")
 	_qd("clip")
 	var ev := _qd("cover")
-	check(g.flag("P16") and g.has_item("contact_sheet") and g.has_item("chart_clips"),
-		"P16: the contact sheet; the clips kept")
+	check(g.flag("P16") and g.has_item("contact_sheet") and not g.has_item("chart_clips")
+		and "chart_clips" in g.retired(), "P16: the contact sheet; the spent clips filed in the notebook")
+	check(says(ev).ends_with(GameSim.FILED_LINE), "P16: 'Filed in the notebook.' ends the chain (%s)" % says(ev))
 	check(vault.has_seen("contact_sheet_1927"), "P16: the film edge is dated 1927")
 	check(not has_ev(ev, "fx", "tide"), "P16 alone does not close Tide VI")
 	_qd("back")
@@ -651,7 +656,9 @@ func play_p22() -> void:
 		"P22: the record amended, the card still on the rest")
 	check(not has_ev(ev, "fx", "tide"), "P22: Tide VIII waits for the witness bridge")
 	_qd("back")
-	check(g.has_item("amended_nora_card") and g.has_item("pencil"), "P22: Back takes the amended card; the pencil stays")
+	check(not g.has_item("pencil") and "pencil" in g.retired() and says(ev).ends_with(GameSim.FILED_LINE),
+		"P22: the pencil's last use: filed in the notebook (%s)" % says(ev))
+	check(g.has_item("amended_nora_card"), "P22: Back takes the amended card")
 
 # ---------------------------------------------------------------------------
 # Tides VI-VII
