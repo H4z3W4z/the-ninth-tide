@@ -49,6 +49,30 @@ const BACKLOG_SQUEEZE := 0.6  # read-time factor for older story lines when a ne
 const TIDE_CARD_TIME := 3.0
 const TIDE_CARD_FADE := 0.5
 const TIDE_CARD_STILL := 2.5  # Motion off: the card is simply there this long
+const TIDE_CARD_QUIET := 1.0  # the card waits this long after the last story line's hold
+## In a close-up the card sits in the band above the subtitles, or the nearest band clear
+## of the close-up's controls (a slimmer card if no full one fits).
+const TIDE_CARD_CLOSEUP_RECT := Rect2(324, 860, 800, 110)
+const TIDE_CARD_SLIM_H := 84.0
+const TIDE_CARD_CLOSEUP_ALPHA := 0.85
+const TRAVEL_DEBOUNCE := 0.4  # an exit or plan click this soon after arriving is ignored
+## The glance: corner brackets that show where a commit's reward is (when the room has no
+## glance of its own). Storm navy, on the HUD layer.
+const GLANCE_TIME := 2.5
+const GLANCE_EASE := 0.3
+const GLANCE_ARM := 48.0
+const GLANCE_THICK := 4.0
+const GLANCE_BACKS := 4       # at most this many Backs to put a close-up down for a glance
+## A hovered target taller than this (or any close-up control) puts its label above it.
+const HOVER_TALL := 120.0
+const HOVER_H := 34.0
+const HOVER_SIZE := 20
+const HOVER_MARGIN := 8.0
+const HOVER_BAR_Y := 980.0    # last resort: the label sits in the row above the subtitles
+## Actions a click always carries out, even while a story chain plays (the chain advances
+## first). Room hotspots and close-up controls only advance a playing chain.
+const ALWAYS_ACT_PREFIXES := ["go:", "item:"]
+const ALWAYS_ACT_NOTEBOOK := ["tab:", "plan:", "nbpage:"]
 const TRAVEL_DIP := 0.25      # storm-navy dip between rooms (Motion on)
 const TRAVEL_DIP_COLOR := Color("1b2a36")
 const MIXER_FADE := 0.4       # the old room's loops fade out this long after she leaves
@@ -98,6 +122,14 @@ var intrusion_written := false
 var intrusion_t := 0.0
 var tide_card_t := 99.0
 var tide_card_n := 0
+var tide_card_pending := 0     # a tide card waiting for the reveal before it to finish
+var tide_card_closeup := false # the card started over a close-up: it sits low
+var tide_card_closeup_rect := TIDE_CARD_CLOSEUP_RECT
+var story_end := -INF          # when the last story line's hold ended (or ends)
+var arrived_at := -INF         # when she last arrived in a room (travel debounce)
+var pending_glance := {}       # a glance fx waiting for its chain to finish
+var glance_t := 99.0
+var glance_rect := Rect2()
 var end_t := 0.0
 var last_checkpoint := ""
 var inv_page := 0              # the inventory page on show (presentation only)
@@ -307,6 +339,8 @@ static func remove_saves(path: String) -> void:
 func _process(dt: float) -> void:
 	time += dt
 	_tick_lines(dt)
+	if cur_story and cur_text != "":
+		story_end = cur_since + cur_hold
 	_tick_sfx(dt)
 	if room_view:
 		room_view.tick(dt)
@@ -315,6 +349,9 @@ func _process(dt: float) -> void:
 	if sim.view == "end":
 		end_t += dt
 	tide_card_t += dt
+	glance_t += dt
+	_tick_tide_card()
+	_tick_glance()
 	_tick_fading_mixers(dt)
 	_refresh_hover_on_view_change()
 	_keep_inv_page()
@@ -325,15 +362,96 @@ func _process(dt: float) -> void:
 		card.queue_redraw()
 	hud.queue_redraw()
 
+## The reveal finishes before the tide card: a pending card starts once no story chain is
+## playing and the last story line has been readable for TIDE_CARD_QUIET.
+func _tick_tide_card() -> void:
+	if tide_card_pending <= 0 or chain_active() or time < story_end + TIDE_CARD_QUIET:
+		return
+	_start_tide_card()
+
+func _start_tide_card() -> void:
+	tide_card_n = tide_card_pending
+	tide_card_pending = 0
+	tide_card_t = 0.0
+	tide_card_closeup = room_sim() != null and sim.view == "room" and room_sim().is_closeup()
+	if tide_card_closeup:
+		tide_card_closeup_rect = _closeup_card_rect()
+	card.queue_redraw()
+
+## The close-up band for the card: TIDE_CARD_CLOSEUP_RECT if no control is under it, else
+## the lowest clear band (scanning up from the subtitles), full height first, then slim.
+func _closeup_card_rect() -> Rect2:
+	var avoid := []
+	if room_view:
+		for h in room_view.control_rows():
+			avoid.append(h[1])
+	var base := TIDE_CARD_CLOSEUP_RECT
+	for h in [base.size.y, TIDE_CARD_SLIM_H]:
+		var ys := [base.position.y]
+		var y: float = 994.0 - h - 4.0
+		while y >= 84.0:
+			ys.append(y)
+			y -= 6.0
+		for cy in ys:
+			var r := Rect2(base.position.x, cy, base.size.x, h)
+			if r.end.y > 994.0:
+				continue
+			var clear := true
+			for a in avoid:
+				clear = clear and not r.intersects(a)
+			if clear:
+				return r
+	return base
+
+## True while a tide card is waiting or on screen (rooms that hold their own beat for it).
+func tide_card_busy() -> bool:
+	return tide_card_pending > 0 or tide_card_alpha() > 0.0
+
+## A glance waits for its chain; then the close-up is put down (by the sim's own Back) and
+## the room shows where the reward is, or the core brackets it.
+func _tick_glance() -> void:
+	if pending_glance.is_empty() or chain_active() or sim.view != "room" or room_sim() == null:
+		return
+	var tries := 0
+	while room_sim().local_view != "room" and tries < GLANCE_BACKS:
+		dispatch("back")
+		tries += 1
+	var e := pending_glance
+	pending_glance = {}
+	var rect := glance_rect_of(e.get("rect"))
+	if room_view == null or not room_view.start_glance(str(e.get("target", "")), rect):
+		glance_rect = rect
+		glance_t = 0.0
+
+## A glance fx's rect: [x, y, w, h] (the sim's JSON-safe form) or a Rect2.
+static func glance_rect_of(v: Variant) -> Rect2:
+	if v is Rect2:
+		return v
+	if v is Array and v.size() == 4:
+		return Rect2(float(v[0]), float(v[1]), float(v[2]), float(v[3]))
+	return Rect2()
+
+## 0..1: the core's glance brackets. Motion on they ease in over GLANCE_EASE; off, they are
+## simply there for GLANCE_TIME.
+func glance_alpha() -> float:
+	if glance_rect.size == Vector2.ZERO or glance_t >= GLANCE_TIME:
+		return 0.0
+	if not sim.settings.motion:
+		return 1.0
+	return smoothstep(0.0, GLANCE_EASE, glance_t) * clampf((GLANCE_TIME - glance_t) / GLANCE_EASE, 0.0, 1.0)
+
 ## A view change (a close-up opening, the notebook) re-reads what is under the pointer, so
 ## a label from the view she left never hangs over the new one.
 func _refresh_hover_on_view_change() -> void:
 	var lv: String = room_sim().local_view if room_sim() else ""
 	if sim.view == seen_game_view and lv == seen_local_view:
 		return
-	seen_game_view = sim.view
-	seen_local_view = lv
+	_mark_view_seen()
 	hover_id = _hover_at(get_global_mouse_position())
+
+func _mark_view_seen() -> void:
+	seen_game_view = sim.view
+	seen_local_view = room_sim().local_view if room_sim() else ""
 
 func _tick_sfx(dt: float) -> void:
 	for i in range(pending_sfx.size() - 1, -1, -1):
@@ -456,21 +574,53 @@ func advance() -> void:
 	_show_line(next.text, true, next.hold, next.click)
 
 ## A click (or tap) at `p`, exactly as the mouse handler does it. Drivers and tests use it.
-## The HUD always answers; anywhere else, a playing chain is advanced, not interrupted.
+## Clicks are never eaten: the HUD always answers, and exits, Back, the inventory and the
+## notebook's tabs, plan rows and pages always act (a playing chain advances first, in the
+## same press). Only a room hotspot or close-up control click is spent advancing a chain.
+## The room sees its click first (consume_click: skipping its own hold).
 func click(p: Vector2) -> void:
-	var a := action_at(p)
+	var a := _core_action_at(p)
+	if a == "" and _room_takes_click():
+		if room_view.consume_click(p):
+			return
+		a = room_view.action_at(p)
 	if a in ["notebook", "hint", "menu"]:
-		dispatch(a)
+		if not _cinematic():
+			dispatch(a)
+		return
+	if (a.begins_with("go:") or a.begins_with("plan:")) and time - arrived_at < TRAVEL_DEBOUNCE:
+		return   # a double click on an exit moves one room, not two
+	if always_acts(a):
+		if _chain_gates() and chain_active():
+			advance()
+		if not _local_action(a):
+			dispatch(a)
 		return
 	if _local_action(a):
 		return
 	if _chain_gates() and chain_active():
 		advance()
-		if a == "back":
-			dispatch(a)   # Back is one click: the line finishes and she steps back together
 		return
 	if a != "":
 		dispatch(a)
+
+## True for the actions a click always carries out, even during a story chain: exits,
+## Back, the inventory, and in the notebook its tabs, plan rows and page turners.
+func always_acts(a: String) -> bool:
+	if a == "back" or a == "inv_page":
+		return true
+	for pre in ALWAYS_ACT_PREFIXES:
+		if a.begins_with(pre):
+			return true
+	if sim.view == "notebook":
+		for pre in ALWAYS_ACT_NOTEBOOK:
+			if a.begins_with(pre):
+				return true
+	return false
+
+## A full-screen room moment (an interlude card): no notebook, hint or menu from the HUD.
+func _cinematic() -> bool:
+	return sim.view == "room" and room_view != null and room_view.hud_hidden()
 
 ## Presentation-only controls (inventory and notebook pages): never sent to the sim.
 func _local_action(a: String) -> bool:
@@ -496,12 +646,16 @@ func _chain_gates() -> bool:
 	return room_view == null or sim.view != "room" or room_view.chain_gates()
 
 func _show_line(text: String, story: bool, hold := -1.0, from_click := -1) -> void:
+	if cur_story and cur_text != "":
+		story_end = cur_since + minf(cur_hold, time - cur_since)   # the story line it replaces
 	cur_text = text
 	cur_story = story
 	cur_click = click_id if from_click < 0 else from_click
 	cur_since = time
 	cur_hold = min_read(text) if hold < 0.0 else hold
 	line_t = 0.0
+	if story:
+		story_end = cur_since + cur_hold
 	subtitle.text = text
 	shown_log.append(text)
 	subtitle.add_theme_font_size_override("font_size", 24 if text.length() > 90 else 27)
@@ -558,6 +712,8 @@ func dispatch(action: String) -> void:
 	_mount_room()
 	var after_room := room_sim().view if room_sim() else ""
 	if before_room != after_room or before_game != sim.view:
+		hover_id = ""   # the label of what she was pointing at stays with the view she left
+		_mark_view_seen()
 		_on_view_changed(before_game, before_room)
 	if sim.nb_tab != before_tab:
 		nb_page = -1
@@ -583,6 +739,7 @@ func play_events(ev: Array, chain_was := false) -> void:
 		lines = lines.filter(func(l): return l.story)   # older chatter gives way to a reveal
 	var beat_id := click_id if beat else 0
 	var spoke_now := false
+	card_offered = false
 	for e in ev:
 		match e.type:
 			"say":
@@ -599,7 +756,24 @@ func play_events(ev: Array, chain_was := false) -> void:
 					_play_sfx_now(e.id)
 			"fx":
 				_play_fx(e)
+	_settle_card_offer()
 
+## While one event list plays, a new tide card is offered to the room as "just started"
+## (tide_card_t = 0): a room view that times the card to its own beat takes it over from its
+## play_fx by setting tide_card_t to 99 and releasing it later (R01's withdrawal). After the
+## list, a card no room took goes back to waiting for the reveal.
+var card_offered := false
+
+func _settle_card_offer() -> void:
+	if not card_offered:
+		return
+	card_offered = false
+	if tide_card_pending <= 0:
+		return   # it started already (she travelled)
+	if tide_card_t >= 99.0:
+		tide_card_pending = 0   # the room holds it
+	else:
+		tide_card_t = 99.0
 func _play_fx(e: Dictionary) -> void:
 	match e.id:
 		"travel":
@@ -611,11 +785,24 @@ func _play_fx(e: Dictionary) -> void:
 				subtitle.text = ""
 			pending_sfx.clear()
 			hover_id = ""
+			arrived_at = time
+			pending_glance = {}
+			glance_t = 99.0
 			came_from = str(e.get("from", ""))
 			_mount_room(e.get("from", "") != "")
+			# A tide card still waiting for the old room's reveal plays on arrival instead.
+			if tide_card_pending > 0:
+				_start_tide_card()
 		"tide":
-			tide_card_n = int(e.get("tide", sim.tide()))
+			# The card waits for the reveal that earned it (_tick_tide_card), after the room
+			# has had the chance to take it over (_settle_card_offer).
+			tide_card_pending = int(e.get("tide", sim.tide()))
+			tide_card_n = tide_card_pending
 			tide_card_t = 0.0
+			tide_card_closeup = false
+			card_offered = true
+		"glance":
+			pending_glance = e.duplicate()
 		"item_added":
 			_show_item_page(str(e.get("item", "")))
 		_:
@@ -685,6 +872,14 @@ func _reset_presentation() -> void:
 	intrusion_written = false
 	intrusion_t = 0.0
 	tide_card_t = 99.0
+	tide_card_pending = 0
+	tide_card_closeup = false
+	tide_card_closeup_rect = TIDE_CARD_CLOSEUP_RECT
+	story_end = -INF
+	arrived_at = -INF
+	pending_glance = {}
+	glance_t = 99.0
+	glance_rect = Rect2()
 	end_t = 0.0
 	travel_dip_t = 99.0
 	inv_page = 0
@@ -777,17 +972,20 @@ func _unhandled_input(event: InputEvent) -> void:
 					dispatch("menu")
 				elif sim.view == "room":
 					var esc := room_view.esc_action() if room_view else "menu"
-					if esc == "back" and _chain_gates() and chain_active():
+					if always_acts(esc) and _chain_gates() and chain_active():
 						advance()   # Back is one press: the line finishes and she steps back
-						dispatch(esc)
-					elif esc != "":
+					if esc != "":
 						dispatch(esc)
 				elif sim.view in ["notebook", "menu"]:
+					if _chain_gates() and chain_active():
+						advance()
 					dispatch("back")
 			KEY_N:
-				dispatch("notebook")
+				if not _cinematic():
+					dispatch("notebook")
 			KEY_H:
-				dispatch("hint")
+				if not _cinematic():
+					dispatch("hint")
 			KEY_F1:
 				if OS.is_debug_build():
 					dev = not dev
@@ -829,6 +1027,18 @@ func _exit_at(p: Vector2) -> String:
 
 ## Maps a screen point to an action for the current view. "" = nothing.
 func action_at(p: Vector2) -> String:
+	var a := _core_action_at(p)
+	if a == "" and _room_takes_click():
+		return room_view.action_at(p)
+	return a
+
+## A point the core resolved to nothing goes to the room (its hotspots and close-ups).
+func _room_takes_click() -> bool:
+	return sim.view == "room" and room_view != null
+
+## Everything the core answers itself: the title, end card and menu, the HUD, the
+## inventory, the notebook, Back and the exits. "" leaves the point to the room.
+func _core_action_at(p: Vector2) -> String:
 	match sim.view:
 		"title":
 			return "begin"
@@ -871,10 +1081,7 @@ func action_at(p: Vector2) -> String:
 		return ""
 	if room_view.back_visible() and BACK_RECT.has_point(p):
 		return "back"
-	var ex := _exit_at(p)
-	if ex != "":
-		return ex
-	return room_view.action_at(p)
+	return _exit_at(p)
 
 func _hud_shown() -> bool:
 	return sim.view == "notebook" or (sim.view == "room" and (room_view == null or not room_view.hud_hidden()))
@@ -1220,17 +1427,25 @@ func tide_card_alpha() -> float:
 
 const TIDE_CARD_RECT := Rect2(324, 120, 800, 110)
 
+## Where the card on show sits: high on the room, or low (above the subtitles, a little
+## lighter) when it started over a close-up, so it never covers the close-up's controls.
+func tide_card_rect() -> Rect2:
+	return tide_card_closeup_rect if tide_card_closeup else TIDE_CARD_RECT
+
 func _draw_card() -> void:
 	var a := tide_card_alpha()
 	if a <= 0.0:
 		return
-	var r := TIDE_CARD_RECT
+	if tide_card_closeup:
+		a *= TIDE_CARD_CLOSEUP_ALPHA
+	var r := tide_card_rect()
 	card.draw_rect(r, Color(Ink.INK, 0.88 * a))
 	card.draw_rect(r, Color(Ink.BRASS, 0.8 * a), false, 2)
-	Ink.text(card, "TIDE " + GameSim.NUMERALS[tide_card_n - 1], r.position + Vector2(0, 48), 36,
-		Color(Ink.PAPER, a), serif, r.size.x)
-	Ink.text(card, GameSim.TIDE_TITLES[tide_card_n - 1], r.position + Vector2(0, 90), 26,
-		Color(Ink.PAPER, 0.8 * a), hand, r.size.x)
+	var slim := r.size.y < TIDE_CARD_RECT.size.y
+	Ink.text(card, "TIDE " + GameSim.NUMERALS[tide_card_n - 1], r.position + Vector2(0, 38 if slim else 48),
+		30 if slim else 36, Color(Ink.PAPER, a), serif, r.size.x)
+	Ink.text(card, GameSim.TIDE_TITLES[tide_card_n - 1], r.position + Vector2(0, 70 if slim else 90),
+		22 if slim else 26, Color(Ink.PAPER, 0.8 * a), hand, r.size.x)
 
 # ---------------------------------------------------------------------------
 # drawing: HUD
@@ -1249,21 +1464,22 @@ func _draw_hud() -> void:
 		c.draw_string(serif, Vector2(1392, 1040), "▸", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(Ink.PAPER, 0.55 * pulse))
 	for b in HUD_BUTTONS:
 		Ink.button(c, b[1], b[2], false, 21)
-	if sim.view == "notebook" or room_view and room_view.back_visible():
-		Ink.button(c, BACK_RECT, "Back", false, 21)
 	if sim.view == "notebook":
+		Ink.button(c, BACK_RECT, "Back", false, 21)
 		return
+	if room_view and room_view.back_visible():
+		Ink.button(c, BACK_RECT, room_view.back_label(), false, 21)
+	_draw_glance(c)
 	_draw_inventory(c)
 	_draw_exits(c)
 	if room_view:
 		room_view.draw_hud(c)
 	if hover_id != "" and sim.view == "room":
 		var label := _hover_label(hover_id)
-		if label != "":
-			var p := get_global_mouse_position() + Vector2(22, 34)
-			var w := serif.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x + 20
-			c.draw_rect(Rect2(p - Vector2(10, 24), Vector2(w, 34)), Color(0.03, 0.06, 0.08, 0.8))
-			c.draw_string(serif, p, label, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Ink.PAPER)
+		var box := hover_label_rect(hover_id, get_global_mouse_position())
+		if label != "" and box.size != Vector2.ZERO:
+			c.draw_rect(box, Color(0.03, 0.06, 0.08, 0.8))
+			c.draw_string(serif, box.position + Vector2(10, 24), label, HORIZONTAL_ALIGNMENT_LEFT, -1, HOVER_SIZE, Ink.PAPER)
 	if sim.selected_item != "":
 		var name: String = sim.item_defs().get(sim.selected_item, {}).get("name", sim.selected_item)
 		var p := get_global_mouse_position() + Vector2(22, -14)
@@ -1271,12 +1487,56 @@ func _draw_hud() -> void:
 	if dev:
 		_draw_dev(c)
 
+## The hover label's box for `id` with the pointer at `mouse` (pure: drawing and tests).
+## Small room hotspots and exits: beside the pointer. A close-up control, or anything
+## taller than HOVER_TALL: just above its rect, else just below it, else in the row above
+## the subtitles, so the label never covers the clue it names. Always on screen.
+func hover_label_rect(id: String, mouse: Vector2) -> Rect2:
+	var label := _hover_label(id)
+	if label == "":
+		return Rect2()
+	var w := serif.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, HOVER_SIZE).x + 20.0
+	var target := hover_target_rect(id)
+	var closeup: bool = room_sim() != null and room_sim().is_closeup()
+	var box: Rect2
+	if target.size != Vector2.ZERO and (closeup or target.size.y > HOVER_TALL):
+		# Text baseline at (x, y); the box runs 24 above it to 10 below.
+		box = _hover_box(Vector2(target.position.x, target.position.y - 10.0), w)
+		if box.position.y < 0.0:
+			box = _hover_box(Vector2(target.position.x, target.end.y + 34.0), w)
+		if box.end.y > SIZE.y or box.intersects(target):
+			box = _hover_box(Vector2(target.position.x, HOVER_BAR_Y), w)
+	else:
+		box = _hover_box(mouse + Vector2(22, 34), w)
+	box.position.x = clampf(box.position.x, HOVER_MARGIN, SIZE.x - w - HOVER_MARGIN)
+	box.position.y = clampf(box.position.y, 0.0, SIZE.y - HOVER_H)
+	return box
+
+static func _hover_box(baseline: Vector2, w: float) -> Rect2:
+	return Rect2(baseline - Vector2(10, 24), Vector2(w, HOVER_H))
+
+## The rect of what `id` names: an exit tab, an inventory slot, or the room's hotspot or
+## close-up control (RoomView.control_rect). Rect2() when unknown.
+func hover_target_rect(id: String) -> Rect2:
+	if room_view == null:
+		return Rect2()
+	if id.begins_with("go:"):
+		return room_view.live_exit_rects().get(id.substr(3), Rect2())
+	if id.begins_with("item:") or id == "inv_page":
+		for slot in _inv_layout():
+			if slot[1] == id:
+				return slot[0]
+		return Rect2()
+	return room_view.control_rect(id)
+
 func _hover_label(id: String) -> String:
 	if id.begins_with("go:"):
 		var to := id.substr(3)
 		for e in sim.exits():
 			if e[0] == to:
-				return ("%s ▸" % e[1]) if sim.exit_open(sim.state.room, to) else "%s (locked)" % e[1]
+				if not sim.exit_open(sim.state.room, to):
+					return "%s (locked)" % e[1]
+				return "%s ▸" % _exit_text(to, e[1])
 		return ""
 	if id.begins_with("item:"):
 		var item := id.substr(5)
@@ -1309,8 +1569,53 @@ func _draw_exits(c: Node2D) -> void:
 			continue
 		var r: Rect2 = rects[e[0]]
 		var open := sim.exit_open(sim.state.room, e[0])
-		var label: String = ("◂ " + e[1]) if r.get_center().x < SIZE.x / 2.0 else (e[1] + " ▸")
-		Ink.button(c, r, label, hover_id == "go:" + e[0], 19, not open)
+		# Locked, or a room not built yet: dimmed (an unbuilt room's tab still answers).
+		Ink.button(c, r, exit_tab_label(e[0]), hover_id == "go:" + e[0], 19, not open or sim.is_unbuilt(e[0]))
+
+## The text on the tab of the exit to `to`: its name (marked when the room beyond is not
+## built yet), arrowed the way the room says (RoomView.exit_arrow), else toward the side of
+## the screen the tab sits on.
+func exit_tab_label(to: String) -> String:
+	var name := ""
+	for e in sim.exits():
+		if e[0] == to:
+			name = e[1]
+	var text := _exit_text(to, name)
+	var side: String = room_view.exit_arrow(to) if room_view else ""
+	if side == "":
+		var r: Rect2 = room_view.live_exit_rects().get(to, room_view.exit_rects().get(to, Rect2())) if room_view else Rect2()
+		side = "left" if r.get_center().x < SIZE.x / 2.0 else "right"
+	match side:
+		"left":
+			return "◂ " + text
+		"down":
+			return "▾ " + text
+	return text + " ▸"
+
+## An exit's name, marked when the room beyond is not built yet.
+func _exit_text(to: String, label: String) -> String:
+	return label + " (not yet built)" if sim.is_unbuilt(to) else label
+
+## Four storm-navy corner brackets round the glance rect (a room without its own glance).
+func _draw_glance(c: Node2D) -> void:
+	var a := glance_alpha()
+	if a <= 0.0 or sim.view != "room":
+		return
+	var out := (1.0 - a) * 24.0 if sim.settings.motion else 0.0   # they close in as they ease in
+	var r := glance_rect.grow(6.0 + out)
+	var arm := minf(GLANCE_ARM, minf(r.size.x, r.size.y) * 0.5)
+	var halo := Color(Ink.PAPER, 0.55 * a)
+	var navy := Color(Ink.STORM, a)
+	for k in [[r.position, Vector2(1, 1)], [Vector2(r.end.x, r.position.y), Vector2(-1, 1)],
+			[Vector2(r.position.x, r.end.y), Vector2(1, -1)], [r.end, Vector2(-1, -1)]]:
+		var p: Vector2 = k[0]
+		var d: Vector2 = k[1]
+		for pass_n in 2:
+			var col := halo if pass_n == 0 else navy
+			var wdt := GLANCE_THICK + 4.0 if pass_n == 0 else GLANCE_THICK
+			var h := wdt * 0.5   # square corners: each arm runs half a stroke past the corner
+			c.draw_line(p - Vector2(d.x * h, 0), p + Vector2(d.x * arm, 0), col, wdt)
+			c.draw_line(p - Vector2(0, d.y * h), p + Vector2(0, d.y * arm), col, wdt)
 
 func _draw_dev(c: Node2D) -> void:
 	c.draw_rect(Rect2(20, 90, 620, 190), Color(0, 0, 0, 0.75))

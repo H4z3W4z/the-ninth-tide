@@ -144,7 +144,16 @@ func placeholder_exit() -> String:
 			return e[0]
 	return exits[0][0] if not exits.is_empty() else ""
 
+## The room sees a click that the core did not take (after the HUD, Back and the exits)
+## before anything else. Return true to use it up: e.g. a click that skips the room's own
+## hold and does nothing more. The default takes nothing.
+func consume_click(_p: Vector2) -> bool:
+	return false
+
 ## The room action under `p` for the room's current local view. "" = nothing.
+## action_at and hover_at are pure hit-tests: the core calls them for hover, drivers and
+## tests at any point, any number of times, so they must not change anything (a hold skip
+## belongs in consume_click).
 func action_at(p: Vector2) -> String:
 	if sim.local_view == "room":
 		for h in c("HOTSPOTS", []):
@@ -171,6 +180,47 @@ func hotspot_rect(id: String) -> Rect2:
 		if h[0] == id:
 			return h[1]
 	return Rect2()
+
+## The rect of hotspot or close-up control `id` in the current view (the hover label keeps
+## clear of it). Looks in the view's closeup_controls(local_view) and _controls() when it
+## has them ([id, Rect2, label] rows), then hotspot_rect(). Rect2() when unknown.
+func control_rect(id: String) -> Rect2:
+	for h in control_rows():
+		if h[0] == id:
+			return h[1]
+	return hotspot_rect(id)
+
+## The current view's [id, Rect2, label] rows, from closeup_controls(local_view) and
+## _controls() when the view has them (the core keeps the tide card and labels clear).
+func control_rows() -> Array:
+	var out := []
+	var tables := []
+	if sim and has_method("closeup_controls"):
+		tables.append(call("closeup_controls", sim.local_view))
+	if has_method("_controls"):
+		tables.append(call("_controls"))
+	for t in tables:
+		if not t is Array:
+			continue
+		for h in t:
+			if h is Array and h.size() >= 2 and h[1] is Rect2:
+				out.append(h)
+	return out
+
+## The text on the Back button (e.g. "Stand up" in a close-up that isn't a box on a table).
+func back_label() -> String:
+	return "Back"
+
+## Which way exit `to_rid`'s tab points: "" (by the tab's side of the screen), "left",
+## "right" or "down".
+func exit_arrow(_to_rid: String) -> String:
+	return ""
+
+## A glance fx (the sim's `_fx(ev, "glance", {"rect": [x, y, w, h], "target": id})`) after its
+## chain, with the close-up already put down. Return true if the room shows the reward
+## itself; false and the core brackets `rect` for GameView.GLANCE_TIME.
+func start_glance(_target: String, _rect: Rect2) -> bool:
+	return false
 
 func dev_rects() -> Array:
 	var out := []

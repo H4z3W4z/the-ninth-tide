@@ -5,11 +5,14 @@ extends RoomSim
 ## docs/dev/room-contract.md. Until then every hotspot says one line and notes it.
 
 const ID := "R11"
+## Not built yet: the core marks its exit tabs "(not yet built)" and never sends her here
+## for work (GameSim.is_unbuilt). The room team deletes this line with its first real act().
+const SKELETON := true
 const TITLE := "Dry Stair"
 const REQUIRES := ["P04"]
 const LOCKED := "The observation hatch is shut."
 const RESUME := "Back in the dry stair."
-const ARRIVAL := "There is water on the other side of that wall. There is not room for both."
+const ARRIVAL := "The pressure gate holds at 2. This is as far as the station goes, for now."
 ## [to, label, extra flags]: the ways out. The target's REQUIRES also apply.
 const EXITS := [
 	["R03", "Chart room", []],
@@ -37,9 +40,9 @@ const OBJECTIVES := {
 }
 const HINTS := {
 	"explore": [
-		"Everything in this room can be looked at.",
-		"Each thing I look at goes into the notebook.",
-		"Look at each object in the room.",
+		"This is as far as the station goes, for now. The way back is behind me.",
+		"This is as far as the station goes, for now. The way back is behind me.",
+		"This is as far as the station goes, for now. The way back is behind me.",
 	],
 }
 const ITEMS := {}

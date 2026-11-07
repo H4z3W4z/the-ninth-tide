@@ -88,8 +88,20 @@ func run() -> void:
 	await test_travel_fade()
 	await test_card_and_slab()
 	await test_placeholder()
+	test_item_on_exit()
+	test_item_labels()
+	await test_hint_ladder()
+	await test_build_end()
+	await test_tide_card_waits()
+	await test_tide_card_closeup()
+	await test_clicks_never_eaten()
+	await test_hover_label_rects()
+	await test_glance()
+	await test_consume_click()
+	await test_room_hooks()
+	await test_cinematic_keys()
 	if failures.is_empty():
-		print("PASS: core — discovery, topology, gates per tide, tides and weather, travel, latched office, inventory, notebook, hints, saves, slice migration, debug jumps, plan travel, endings, events, objective elsewhere, objective every tide, plan from a close-up, load behind a gate, scene rooms, scene saves, inventory paging, notebook pages, hover and back, travel fade, card and slab, placeholder")
+		print("PASS: core — discovery, topology, gates per tide, tides and weather, travel, latched office, inventory, notebook, hints, saves, slice migration, debug jumps, plan travel, endings, events, objective elsewhere, objective every tide, plan from a close-up, load behind a gate, scene rooms, scene saves, inventory paging, notebook pages, hover and back, travel fade, card and slab, placeholder, item on exit, item labels, hint ladder, build end, tide card waits, tide card in a close-up, clicks never eaten, hover labels, glance, consume_click, room hooks, cinematic keys")
 	else:
 		print("FAIL (%d): %s" % [failures.size(), "; ".join(failures)])
 	for i in 10:
@@ -614,6 +626,7 @@ func test_scene_rooms() -> void:
 	var ev: Array = []
 	scene.sim.solve("P03", ev)
 	scene.play_events(ev)
+	scene._process(0.05)
 	check(scene.tide_card_n == 2 and scene.tide_card_t < scene.TIDE_CARD_TIME, "the tide card shows tide II")
 	# Inventory slots (no room hands out items yet: the HUD is ready for them).
 	check(scene._inv_rect(0) == Rect2(20, 22, 140, 50) and not scene._inv_rect(5).intersects(scene.BACK_RECT), "inventory slots clear of Back")
@@ -957,3 +970,444 @@ func free_scene(scene: Node) -> void:
 	GameView.remove_saves(scene.save_path)
 	scene.queue_free()
 	await process_frame
+
+# ---------------------------------------------------------------------------
+# wave 2 core fixes
+# ---------------------------------------------------------------------------
+## The state real play leaves after chain step `pid` (tests/chain_test.gd stopped there).
+func chain_at(pid: String) -> GameSim:
+	var ch = load("res://tests/chain_test.gd").new()
+	ch.stop_after = pid
+	await ch.run_tests()
+	check(ch.failures.is_empty(), "the chain plays to %s (%s)" % [pid, ch.failures])
+	var g: GameSim = ch.g
+	ch.free()
+	return g
+
+## A scene whose sim is `g` (a played state), with clean presentation.
+func scene_with(path: String, g: GameSim) -> Node:
+	var scene = new_scene(path)
+	await process_frame
+	scene.sim.from_dict(JSON.parse_string(JSON.stringify(g.to_dict())))
+	scene._mount_room()
+	scene._reset_presentation()
+	return scene
+
+## An item in hand on an exit tab: the room may take it; else she puts it away and goes.
+func test_item_on_exit() -> void:
+	var g := GameSim.new(FIXTURES)
+	g.dispatch("begin")
+	g.dispatch("shelf")
+	g.dispatch("item:key")
+	var ev := g.dispatch("go:Z02")
+	check(g.state.room == "Z01" and g.selected_item == "" and not has_ev(ev, "fx", "travel")
+		and says(ev) == "The key is for the box, not the door.", "the room takes the key at its exit: no travel, item put away")
+	var o := GameSim.new()
+	o.debug_tide(2, "R02")
+	o.give("pencil")
+	o.dispatch("item:pencil")
+	o.dispatch("go:R01")
+	check(o.state.room == "R01" and o.selected_item == "", "an item the room doesn't take: put away, and she goes")
+
+## Inventory slots stay legible: every item's slot label (short, else name) is 14 or fewer.
+## KNOWN lists room items still too long, each a bug for its room team; an entry that has
+## been fixed fails here too, so the list only shrinks.
+const ITEM_LABEL_MAX := 14
+const ITEM_LABEL_KNOWN := {"token_bunk_half": "R06", "amended_nora_card": "R06"}
+
+func test_item_labels() -> void:
+	var defs := GameSim.new().item_defs()
+	for id in defs:
+		var d: Dictionary = defs[id]
+		var label: String = d.get("short", d.get("name", id))
+		var ok := label.length() <= ITEM_LABEL_MAX
+		if ITEM_LABEL_KNOWN.has(id):
+			check(not ok, "%s's slot label is short now: drop it from ITEM_LABEL_KNOWN" % id)
+			if not ok:
+				print("ROOM BUG (%s): item %s's slot label '%s' is %d characters (max %d)" % [d.room, id, label, label.length(), ITEM_LABEL_MAX])
+		else:
+			check(ok, "%s (%s): slot label '%s' is %d characters (max %d)" % [id, d.room, label, label.length(), ITEM_LABEL_MAX])
+
+## The way into a room she hasn't been in; no step says the same thing twice; saves keep the level.
+func test_hint_ladder() -> void:
+	var g: GameSim = await chain_at("P06")
+	check(g.work_elsewhere() == "R05" and not "R05" in g.state.visited, "after P06 the work is in the unvisited kitchen")
+	var r5: RoomSim = g.room("R05")
+	var want: String = r5.c("WAY_IN_HINT", "The way into the %s is open now." % str(r5.c("TITLE")).to_lower())
+	var ev := g.dispatch("hint")
+	check(says(ev) == want, "an unvisited room: its way in (%s)" % says(ev))
+	g = await chain_at("P03")
+	g.debug_enter("R04")
+	var lines := []
+	for i in 4:
+		lines.append(says(g.dispatch("hint")))
+	for i in 3:
+		check(lines[i] == lines[-1] or GameSim._hint_key(lines[i]) != GameSim._hint_key(lines[i + 1]),
+			"after P03 in R04: hint %d and %d differ (%s)" % [i, i + 1, lines])
+	check(not ("Something in the intake office has changed." in lines and "Something in the office has changed." in lines),
+		"the ladder says where once (%s)" % [lines])
+	for presses in [1, 2, 3, 6]:
+		var h := GameSim.new()
+		h.debug_tide(1, "R02")
+		h.dispatch("begin")
+		for i in presses:
+			h.dispatch("hint")
+		var lv: int = h.state.hint.level
+		check(lv <= 3, "the hint level stays clamped (%d after %d presses)" % [lv, presses])
+		check(roundtrip(h).state.hint.level == lv, "a save keeps hint.level %d" % lv)
+
+## Unbuilt rooms: marked exits, never offered as work; the build's end is said plainly.
+func test_build_end() -> void:
+	var g := GameSim.new()
+	for rid in ["R09", "R10", "R11", "R12"]:
+		check(g.is_unbuilt(rid), "%s is not built yet" % rid)
+	for rid in ["R01", "R02", "R03", "R04", "R05", "R06", "R07", "R08"]:
+		check(not g.is_unbuilt(rid), "%s is built" % rid)
+	g = await chain_at("P11")
+	check(g.objective_text() == GameSim.BUILD_END_NOW, "after P11, Now: names the build's end (%s)" % g.objective_text())
+	check(says(g.dispatch("hint")) == GameSim.BUILD_END_HINT, "after P11, the Hint says so too")
+	for rid in g.order:
+		if g.is_unbuilt(rid):
+			check(g.elsewhere(true) != rid, "an unbuilt room is never the work elsewhere")
+	g.debug_enter("R11")
+	check(g.objective_text() == GameSim.BUILD_END_NOW, "standing in the stair: the same end")
+	var scene = new_scene("user://core_unbuilt_test.json")
+	await process_frame
+	scene.tide_jump(2, "R03")
+	var label: String = scene.exit_tab_label("R11")
+	check("not yet built" in label, "the chart room's stair tab says not yet built (%s)" % label)
+	check(not "not yet built" in scene.exit_tab_label("R02"), "a built room's tab is plain")
+	check("not yet built" in scene._hover_label("go:R11") or "locked" in scene._hover_label("go:R11"),
+		"the stair's hover label is marked (%s)" % scene._hover_label("go:R11"))
+	await free_scene(scene)
+
+## The tide card waits for the reveal that earned it: P09's chain plays out first.
+func test_tide_card_waits() -> void:
+	var g: GameSim = await chain_at("P08")
+	var scene = await scene_with("user://core_card_wait_test.json", g)
+	var sim: GameSim = scene.sim
+	var k: R05Sim = sim.room("R05")
+	for a in ["go:R05", "to_kitchen"]:
+		sim.dispatch(a)
+	check(sim.state.room == "R05", "in the kitchen for P09")
+	for half in ["pantry", "bunk"]:
+		sim.dispatch("item:token_%s_half" % half)
+		sim.dispatch("shift_board" if k.local_view != "c_service_board" else "socket_" + half)
+	sim.dispatch("socket_turn")
+	var want: Dictionary = R05Sim.SOLUTION_AMEND
+	for i in 8:
+		if k.state.amend.count != want.count: sim.dispatch("f_count")
+	sim.dispatch("tile_%d" % R05Sim.NAME_TILES.find(want.name))
+	for i in 8:
+		if k.state.amend.status != want.status: sim.dispatch("f_status")
+	sim.dispatch("seal_3")
+	scene._mount_room()
+	scene._reset_presentation()
+	scene.dispatch("stamp")
+	check(sim.flag("P09") and sim.tide() == 4, "the stamp solves P09 (Tide IV)")
+	check(scene.tide_card_alpha() == 0.0 and scene.tide_card_pending == 4, "the card waits")
+	var bolts_at := -1.0
+	var chain_end := -1.0
+	var card_at := -1.0
+	var early := false
+	for i in 400:
+		scene._process(0.1)
+		var shown := false
+		for l in scene.shown_log:
+			shown = shown or "bolts drew back" in l
+		if shown and bolts_at < 0.0:
+			bolts_at = scene.time
+		if not shown and scene.tide_card_alpha() > 0.0:
+			early = true
+		if shown and not scene.chain_active() and chain_end < 0.0:
+			chain_end = scene.time
+		if scene.tide_card_alpha() > 0.0 and card_at < 0.0:
+			card_at = scene.time
+	check(bolts_at > 0.0, "the hatch line went up")
+	check(not early, "no tide card before 'bolts drew back' is on screen")
+	check(chain_end > 0.0 and card_at > 0.0 and card_at >= chain_end
+		and card_at <= chain_end + GameView.TIDE_CARD_QUIET + GameView.TIDE_CARD_FADE + 0.11,
+		"the card follows the chain (chain ends %.1f, card %.1f)" % [chain_end, card_at])
+	check(scene.tide_card_n == 4, "it is the Tide IV card")
+	# Travel starts a waiting card at once; a reset clears it.
+	scene.play_events([{"type": "say", "text": "A long story line that is still being read.", "delay": 0.0, "story": true},
+		{"type": "fx", "id": "tide", "tide": 5}])
+	check(scene.tide_card_pending == 5 and scene.tide_card_alpha() == 0.0, "a new card waits behind its line")
+	scene.play_events([{"type": "fx", "id": "travel", "from": "R05", "to": "R05"}])
+	check(scene.tide_card_pending == 0 and scene.tide_card_n == 5 and scene.tide_card_t == 0.0, "travel starts it on arrival")
+	scene.play_events([{"type": "say", "text": "Another line.", "delay": 0.0, "story": true}, {"type": "fx", "id": "tide", "tide": 6}])
+	scene._reset_presentation()
+	check(scene.tide_card_pending == 0 and scene.tide_card_alpha() == 0.0, "a reset drops a waiting card")
+	await free_scene(scene)
+
+## A tide card over a close-up sits in the band above the subtitles, clear of its controls.
+func test_tide_card_closeup() -> void:
+	var scene = new_scene("user://core_card_cu_test.json")
+	await process_frame
+	scene.tide_jump(5, "R07")
+	var v: RoomView = scene.room_view
+	check(v.has_method("closeup_controls"), "the laboratory lists its close-up controls")
+	for cid in R07Sim.CLOSEUPS:
+		scene.room_sim().local_view = cid
+		scene._reset_presentation()
+		scene.room_sim().local_view = cid
+		scene.play_events([{"type": "fx", "id": "tide", "tide": 6}])
+		scene._process(0.05)
+		scene._process(0.05)
+		check(scene.tide_card_alpha() > 0.0 and scene.tide_card_closeup, "%s: the card starts, low" % cid)
+		var r: Rect2 = scene.tide_card_rect()
+		check(r.position.x == GameView.TIDE_CARD_CLOSEUP_RECT.position.x and r.end.y <= 994.0 and r.position.y >= 84.0,
+			"%s: a band clear of the HUD and the subtitles (%s)" % [cid, r])
+		for h in v.closeup_controls(cid):
+			check(not r.intersects(h[1]), "%s: the card clears %s" % [cid, h[0]])
+	scene.room_sim().local_view = "room"
+	scene._reset_presentation()
+	scene.play_events([{"type": "fx", "id": "tide", "tide": 6}])
+	scene._process(0.05)
+	scene._process(0.05)
+	check(scene.tide_card_rect() == GameView.TIDE_CARD_RECT, "in the room the card sits high")
+	# A close-up with nothing under the band keeps the band itself (R02's lamp repair).
+	scene.tide_jump(1, "R02")
+	scene.dispatch("lamp")
+	scene.play_events([{"type": "fx", "id": "tide", "tide": 2}])
+	scene._process(0.05)
+	scene._process(0.05)
+	var free_band := true
+	for h in scene.room_view.control_rows():
+		free_band = free_band and not GameView.TIDE_CARD_CLOSEUP_RECT.intersects(h[1])
+	check(not free_band or scene.tide_card_rect() == GameView.TIDE_CARD_CLOSEUP_RECT, "a clear close-up keeps the band above the subtitles")
+	await free_scene(scene)
+
+func key(scene: Node, code: Key) -> void:
+	var k := InputEventKey.new()
+	k.keycode = code
+	k.pressed = true
+	scene._unhandled_input(k)
+
+## Exits, Back, the inventory and the notebook's rows always act, chain or no chain.
+func test_clicks_never_eaten() -> void:
+	var scene = new_scene("user://core_clicks_test.json")
+	await process_frame
+	scene.tide_jump(8, "R04")
+	scene.click(scene.room_view.hotspot_rect("printer").get_center())
+	check(scene.chain_active(), "the printer's transcript is a story chain")
+	key(scene, KEY_N)
+	check(scene.sim.view == "notebook", "N opens the notebook during the chain")
+	var tab := Rect2()
+	for t in scene._notebook_tabs():
+		if t[0] == "plan":
+			tab = t[1]
+	scene.click(tab.get_center())
+	check(scene.sim.nb_tab == "plan", "one click on the plan tab during the chain")
+	var row := Rect2()
+	for r in scene._plan_rows():
+		if r[0] == "R02":
+			row = r[1]
+	check(scene.chain_active(), "the chain is still playing")
+	scene.click(row.get_center())
+	check(scene.sim.state.room == "R02" and scene.sim.view == "room", "one click on the Office row travels (%s)" % scene.sim.state.room)
+	# A double click on an exit moves one room.
+	scene.tide_jump(2, "R02")
+	var tab_r: Rect2 = scene.room_view.live_exit_rects()["R04"]
+	scene.click(tab_r.get_center())
+	check(scene.sim.state.room == "R04", "the exit click travels")
+	scene.time += 0.1
+	scene.click(tab_r.get_center())
+	var exits: Dictionary = scene.room_view.live_exit_rects()
+	var p: Vector2 = exits[exits.keys()[0]].get_center()
+	scene.click(p)
+	check(scene.sim.state.room == "R04", "a second exit click within 0.4 s is ignored")
+	scene.time += 0.5
+	scene.click(p)
+	check(scene.sim.state.room != "R04", "after 0.4 s the exits answer again")
+	# Back right after opening a close-up, chain or not, is one click.
+	for c in [[2, "R03", "recorder"], [2, "R04", "spindle"], [2, "R03", "plate_rack"], [5, "R03", "recorder"]]:
+		scene.tide_jump(c[0], c[1])
+		scene.dispatch(c[2])
+		check(scene.room_sim().is_closeup(), "%s %s opens its close-up" % [c[1], c[2]])
+		scene.click(scene.BACK_RECT.get_center())
+		check(scene.room_sim().local_view == "room", "%s %s: Back works on the first click" % [c[1], c[2]])
+		scene.dispatch(c[2])
+		scene._show_line("A story line still being read on the screen.", true)
+		scene._queue_line("And one more after it.", 0.5, true)
+		scene.click(scene.BACK_RECT.get_center())
+		check(scene.room_sim().local_view == "room", "%s %s: Back during a chain is one click" % [c[1], c[2]])
+	# An item slot during a chain: the chain advances and the item is in hand.
+	scene.tide_jump(3, "R02")
+	scene._show_line("A story line still being read on the screen.", true)
+	scene._queue_line("And one more after it.", 0.5, true)
+	scene.time += 1.0
+	var slot: Array = scene._inv_layout()[0]
+	scene.click(slot[0].get_center())
+	check(scene.sim.selected_item == slot[1].substr(5), "an inventory click during a chain selects the item")
+	await free_scene(scene)
+
+## Hover labels sit clear of the controls they name.
+func test_hover_label_rects() -> void:
+	var scene = new_scene("user://core_hover_rects_test.json")
+	await process_frame
+	for c in [[4, "R05", "c_service_board"], [4, "R05", "c_ledger"], [3, "R06", "c_lockers"], [5, "R07", "c_frame"]]:
+		scene.tide_jump(c[0], c[1])
+		scene.room_sim().local_view = c[2]
+		var v: RoomView = scene.room_view
+		var rows: Array = v.closeup_controls(c[2]) if v.has_method("closeup_controls") else v.call("_controls")
+		check(not rows.is_empty(), "%s %s has controls" % [c[1], c[2]])
+		for h in rows:
+			var r: Rect2 = h[1]
+			check(scene.hover_target_rect(h[0]) == r, "%s %s: %s's rect is found" % [c[1], c[2], h[0]])
+			for m in [r.get_center(), r.position + Vector2(2, 2), r.end - Vector2(2, 2)]:
+				var box: Rect2 = scene.hover_label_rect(h[0], m)
+				if box.size == Vector2.ZERO:
+					continue
+				check(not box.intersects(r), "%s %s: %s's label clears it" % [c[1], c[2], h[0]])
+				check(GameView.SIZE.x - box.end.x >= GameView.HOVER_MARGIN - 0.01 and box.position.x >= GameView.HOVER_MARGIN - 0.01
+					and box.position.y >= 0.0 and box.end.y <= GameView.SIZE.y, "%s %s: %s's label is on screen" % [c[1], c[2], h[0]])
+	# An exit label near the right edge stays on screen.
+	scene.tide_jump(2, "R02")
+	for to in scene.room_view.live_exit_rects():
+		var box: Rect2 = scene.hover_label_rect("go:" + to, Vector2(1440, 960))
+		check(box.end.x <= GameView.SIZE.x - GameView.HOVER_MARGIN + 0.01 and box.end.y <= GameView.SIZE.y,
+			"the %s exit label stays on screen" % to)
+	# Travel clears the hover.
+	scene.hover_id = "go:R01"
+	scene.dispatch("go:R01")
+	check(scene.hover_id == "", "travel clears the hover label")
+	await free_scene(scene)
+
+const SPY_VIEW := """extends RoomView
+var glances := []
+var consume := false
+var own_glance := true
+func start_glance(id: String, r: Rect2) -> bool:
+	glances.append([id, r])
+	return own_glance
+func consume_click(_p: Vector2) -> bool:
+	return consume
+func back_label() -> String:
+	return "Stand up"
+func exit_arrow(to: String) -> String:
+	return "down" if to == "R01" else ""
+var asked := 0
+var answer := ""
+func action_at(p: Vector2) -> String:
+	asked += 1
+	return answer if answer != "" else super(p)
+"""
+
+## A spy view standing in for the current room's own (same sim, same rid).
+func spy_view(scene: Node) -> RoomView:
+	var s := GDScript.new()
+	s.source_code = SPY_VIEW
+	s.reload()
+	var v: RoomView = s.new()
+	var old: RoomView = scene.room_view
+	v.game = scene
+	v.rid = old.rid
+	v.sim = old.sim
+	scene.world.remove_child(old)
+	old.queue_free()
+	scene.world.add_child(v)
+	scene.room_view = v
+	return v
+
+## The glance: after its chain, the close-up is put down and the reward is shown.
+func test_glance() -> void:
+	var scene = new_scene("user://core_glance_test.json")
+	await process_frame
+	scene.dispatch("begin")
+	scene.dispatch("lamp")
+	check(scene.room_sim().local_view == "repair", "in the lamp close-up")
+	var v := spy_view(scene)
+	var ev: Array = []
+	var fake := RoomSim.new()
+	fake._say(ev, "The drawer is deeper than the desk.", 0.0, true)
+	fake._say(ev, "It goes on under the floor.", 1.0, true)
+	fake._fx(ev, "glance", {"rect": [200, 300, 240, 160], "id": "drawer"})
+	check(ev[-1].get("target") == "drawer" and ev[-1].id == "glance" and ev[-1].rect == [200, 300, 240, 160],
+		"RoomSim._fx carries extras (an extra id as target)")
+	scene.play_events(ev)
+	for i in 3:
+		scene._process(0.1)
+	check(scene.chain_active() and v.glances.is_empty() and scene.room_sim().local_view == "repair",
+		"no glance while the chain plays")
+	for i in 100:
+		scene._process(0.1)
+	check(scene.room_sim().local_view == "room", "after the chain the close-up is put down")
+	check(v.glances.size() == 1 and v.glances[0] == ["drawer", Rect2(200, 300, 240, 160)], "start_glance once, with the rect (%s)" % [v.glances])
+	check(scene.glance_alpha() == 0.0, "the room showed it: no core brackets")
+	# A room without a glance of its own: the core's brackets.
+	v.own_glance = false
+	scene.play_events([{"type": "fx", "id": "glance", "rect": [10, 20, 30, 40], "target": "x"}])
+	scene._process(0.1)
+	scene._process(0.1)
+	check(scene.glance_rect == Rect2(10, 20, 30, 40) and scene.glance_alpha() > 0.0, "the core brackets the rect")
+	scene.sim.settings.motion = false
+	check(scene.glance_alpha() == 1.0, "Motion off: the brackets are simply there")
+	scene.sim.settings.motion = true
+	for i in 30:
+		scene._process(0.1)
+	check(scene.glance_alpha() == 0.0, "gone after GLANCE_TIME")
+	scene.play_events([{"type": "fx", "id": "glance", "rect": [10, 20, 30, 40], "target": "x"},
+		{"type": "fx", "id": "travel", "from": "R02", "to": "R02"}])
+	check(scene.pending_glance.is_empty(), "travel drops a waiting glance")
+	await free_scene(scene)
+
+## The room sees its click first; action_at stays pure.
+func test_consume_click() -> void:
+	var scene = new_scene("user://core_consume_test.json")
+	await process_frame
+	scene.dispatch("begin")
+	var lamp: Vector2 = scene.room_view.hotspot_rect("lamp").get_center()
+	var v := spy_view(scene)
+	check(RoomView.new().consume_click(Vector2.ZERO) == false, "consume_click takes nothing by default")
+	v.consume = true
+	v.answer = "lamp"
+	var id0: int = scene.click_id
+	scene.click(lamp)
+	check(scene.click_id == id0 and scene.room_sim().local_view == "room" and v.asked == 0,
+		"a consumed click does nothing more (the room's action_at is not even asked)")
+	scene.click(GameView.HUD_BUTTONS[0][1].get_center())
+	check(scene.sim.view == "notebook", "the HUD answers before the room sees the click")
+	scene.dispatch("back")
+	v.consume = false
+	scene.click(lamp)
+	check(scene.room_sim().local_view == "repair", "an unconsumed click reaches the hotspot")
+	scene.click(scene.BACK_RECT.get_center())
+	check(scene.room_sim().local_view == "room", "Back")
+	await free_scene(scene)
+
+## back_label and exit_arrow; their defaults.
+func test_room_hooks() -> void:
+	var base := RoomView.new()
+	check(base.back_label() == "Back" and base.exit_arrow("R01") == "" and not base.start_glance("", Rect2()),
+		"the RoomView defaults")
+	base.free()
+	var scene = new_scene("user://core_hooks_test.json")
+	await process_frame
+	scene.tide_jump(2, "R02")
+	var plain: String = scene.exit_tab_label("R01")
+	check(plain.begins_with("◂ ") or plain.ends_with(" ▸"), "the default arrow follows the tab's side (%s)" % plain)
+	var v := spy_view(scene)
+	check(scene.exit_tab_label("R01").begins_with("▾ "), "exit_arrow down (%s)" % scene.exit_tab_label("R01"))
+	check(v.back_label() == "Stand up", "back_label")
+	scene.hud.queue_redraw()
+	await process_frame
+	await free_scene(scene)
+
+## A full-screen moment (R02's Tide I end card): no notebook, hint or menu from keys or the HUD.
+func test_cinematic_keys() -> void:
+	var scene = new_scene("user://core_cine_test.json")
+	await process_frame
+	scene.room_jump("R02", 5)
+	scene.room_sim().local_view = "end"
+	check(scene.room_view.hud_hidden(), "the end view hides the HUD")
+	var sub: String = scene.subtitle.text
+	key(scene, KEY_N)
+	key(scene, KEY_H)
+	check(scene.sim.view == "room" and scene.room_sim().local_view == "end" and scene.subtitle.text == sub
+		and scene.cur_text == "" , "N and H do nothing during the end card")
+	for b in GameView.HUD_BUTTONS:
+		scene.click(b[1].get_center())
+		check(scene.sim.view == "room" and scene.room_sim().local_view == "end", "the hidden HUD's %s does nothing" % b[0])
+	scene.room_sim().local_view = "room"
+	await free_scene(scene)

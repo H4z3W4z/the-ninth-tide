@@ -68,7 +68,7 @@ The original P01 assembly preview (`intake_preview.tscn`) remains for asset revi
 | `docs/design/` | Full game design and research |
 | `docs/` | Art direction, production limits, validation and GitHub setup |
 | `tools/` | Rebuild, manifest and asset-check scripts |
-| `tests/` | `core_test.gd` (core), `rooms/<rid>_test.gd` (each room; R02 holds every slice test), `p01_smoke.gd` |
+| `tests/` | `core_test.gd` (core), `chain_test.gd` (the whole chain on the sim), `click_chain_test.gd` (the whole chain as real clicks on the game scene), `rooms/<rid>_test.gd` (each room; R02 holds every slice test), `p01_smoke.gd` |
 | `.github/workflows/` | Asset integrity check for pushes and pull requests |
 
 ## Rebuild and validate
@@ -81,8 +81,11 @@ python3 tools/build_manifest.py
 python3 tools/validate_assets.py
 godot --headless --path . --editor --import
 godot --headless --path . --script tests/core_test.gd
+godot --headless --path . --script tests/chain_test.gd
+godot --headless --path . --script tests/click_chain_test.gd
 for f in tests/rooms/R*_test.gd; do godot --headless --path . --script "$f"; done
 godot --headless --path . --script tests/p01_smoke.gd
+python3 tools/validate_assets.py
 ```
 
 `tests/core_test.gd` covers room discovery, the GDD topology and the reachable rooms at every tide, tides and weather, travel, inventory and item use, the notebook, hints, saves (schema, tampering, the slice-save migration, settings kept apart, the fallback to the previous save), debug jumps, plan travel, both ending cards and the game scene hosting every room. Each `tests/rooms/<rid>_test.gd` checks its room's registration, gates, arrival, hotspots, exits and view rects. `tests/rooms/R02_test.gd` is the slice's suite, ported, and covers the whole office headless: the full playthrough and determinism, P01, the drawer, the tide rhythm and every near miss, the log rewrite and the history rows, the closure report gate (every field combination, the evening-tide dials and their near misses, misses written in her hand, the unlatch on Back), soundings and contours, look-away, every revisit line, the knock, the threshold (stillness, fallback, phase lock), both endings and the end card, saves and tamper handling, the notebook keeping every observation, the chain scheduler (click-to-advance, sounds before their lines, hints after the chain, no lost or interleaved story lines), a one-click-per-second driver from the title to the end card, the breath envelope, the knock's hush, the dial digits, the two-step restart and the voice cap. `tests/p01_smoke.gd` covers the original P01 preview.

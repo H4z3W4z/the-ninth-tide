@@ -71,6 +71,12 @@ const GIVES := {"P15": ["nora_spatial_strip"], "P16": ["contact_sheet"], "P18": 
 ## awaited hook(pid, rid, phase) called on arrival ("at") and after each commit ("done").
 var external_game: GameSim = null
 var step_hook := Callable()
+## tests/click_chain_test.gd hands in an object whose qd(action) -> Array carries each action
+## out as a real click on the game scene. Without one, actions go straight to the sim.
+var clicker: Object = null
+## Tests that need the state real play leaves after a step set this to stop there (run_tests
+## then returns with `g` standing where that step left her).
+var stop_after := ""
 
 var g: GameSim
 var office: R02Sim
@@ -93,7 +99,7 @@ func run_tests() -> void:
 	lab = g.room("R07")
 	machine = g.room("R08")
 	check(g.view == "title" or office.view == "title", "the game starts on the title")
-	g.dispatch("begin")
+	_qd("begin")
 	check(g.state.started and g.state.room == "R02" and g.tide() == 1 and g.weather_band() == 0,
 		"begin: in the office, tide I, band 0")
 	_check_reach("")
@@ -135,6 +141,8 @@ func run_tests() -> void:
 			check(now != "" and now != GameSim.NOTHING_HERE, "after %s: Now: is never empty (%s)" % [pid, now])
 		_check_reach(pid)
 		_check_save(pid)
+		if pid == stop_after:
+			return
 	_endings()
 
 # ---------------------------------------------------------------------------
@@ -142,44 +150,44 @@ func run_tests() -> void:
 # ---------------------------------------------------------------------------
 ## R02 P01, played: supply OFF, curved C refused, straight B fitted, supply ON.
 func play_p01() -> void:
-	var ev := g.dispatch("go:R03")
+	var ev := _qd("go:R03")
 	check(g.state.room == "R02" and says(ev) == "The corridor is pitch black. Light first.",
 		"before P01: the corridor is dark")
-	office.dispatch("papers")
-	office.dispatch("read_contract")
-	office.dispatch("back")
-	office.dispatch("lamp")
+	_qd("papers")
+	_qd("read_contract")
+	_qd("back")
+	_qd("lamp")
 	check(office.view == "repair", "P01: the lamp opens the repair")
-	office.dispatch("toggle_supply")
-	office.dispatch("select_c")
-	office.dispatch("fit")
+	_qd("toggle_supply")
+	_qd("select_c")
+	_qd("fit")
 	check(not g.flag("P01"), "P01: the curved spare is refused")
-	office.dispatch("select_b")
-	office.dispatch("fit")
-	office.dispatch("toggle_supply")
+	_qd("select_b")
+	_qd("fit")
+	_qd("toggle_supply")
 	check(g.flag("P01") and office.view == "room", "P01: supply on with B seated")
 	check(not g.room_open("R05") and not g.room_open("R11"), "P01 opens nothing past the corridor")
 	check(g.exit_open("R02", "R03") and g.exit_open("R02", "R04"), "P01 unlocks the corridor exits")
 	check(office.exit_block("R03") == "" and office.exit_block("R04") == "",
 		"P01: the office no longer holds the corridor (T1X re-time)")
-	ev = g.dispatch("go:R05")
+	ev = _qd("go:R05")
 	check(g.state.room == "R02" and says(ev) == R02Sim.SERVICE_NO_KEY, "the service door stays shut before P06")
 
 ## R02 drawer (P03 part 1): log, prints, 1852; the sheet and lens. The log waits for Tide I.
 func play_p03a() -> void:
-	office.dispatch("logbook")
-	office.dispatch("back")
-	office.dispatch("puddle")
-	office.dispatch("drawer")
+	_qd("logbook")
+	_qd("back")
+	_qd("puddle")
+	_qd("drawer")
 	_turn(office, "drawer_dial", "dial_", [1, 8, 5, 2])
-	office.dispatch("try_drawer")
+	_qd("try_drawer")
 	check(office.state.drawer_open, "drawer: 1852 opens it")
-	office.dispatch("back")
+	_qd("back")
 	check(g.has_item("venn_tide_sheet") and g.has_item("inspection_lens"), "drawer: his tide sheet and the lens")
-	office.dispatch("logbook")
-	office.dispatch("back")
+	_qd("logbook")
+	_qd("back")
 	check(not office.state.log_rewritten, "drawer: the log does not rewrite before Tide I's instruments")
-	office.dispatch("chair")
+	_qd("chair")
 	check(not office.state.seat_wet, "drawer: the chair stays dry before Tide I's instruments")
 
 func _done_p03a() -> bool:
@@ -187,105 +195,105 @@ func _done_p03a() -> bool:
 
 ## R04 P02: the cylinder bands C-A-B at I, III, II, then PLAY.
 func play_p02() -> void:
-	g.dispatch("spindle")
+	_qd("spindle")
 	for b in ["C", "A", "B"]:
-		g.dispatch("tray_" + b)
+		_qd("tray_" + b)
 	var rots := {"C": 0, "A": 2, "B": 1}
 	for b in ["C", "A", "B"]:
 		var k: int = listen.state.spindle.find(b)
 		for i in posmod(int(rots[b]) - int(listen.state.band_rot[b]), 3):
-			g.dispatch("rot_up_%d" % k)
-	var ev := g.dispatch("play")
+			_qd("rot_up_%d" % k)
+	var ev := _qd("play")
 	check(g.flag("P02") and listen.has_seen("calibration_zero"), "P02: the recording gives the zero")
 	check(not has_ev(ev, "fx", "tide"), "P02 alone does not finish Tide I")
-	g.dispatch("back")
+	_qd("back")
 
 ## R03 P03 part 2: Venn's sheet registered on base 17, north up, lighthouse; clipped.
 func play_p03() -> void:
-	var ev := g.dispatch("recorder")
-	ev = g.dispatch("rec_calibrate")
+	var ev := _qd("recorder")
+	ev = _qd("rec_calibrate")
 	check(not g.flag("P04") and says(ev) == "It won't pull. Not with his seal across it.",
 		"P04 before the threshold: sealed")
-	g.dispatch("back")
-	ev = g.dispatch("clip_tin")
+	_qd("back")
+	ev = _qd("clip_tin")
 	check(g.has_item("chart_clips"), "P03: the clips from the tin")
-	g.dispatch("sheet_table")
-	ev = g.dispatch("reg_table")
+	_qd("sheet_table")
+	ev = _qd("reg_table")
 	check(not chart.state.reg_laid and says(ev) == R03Sim.REG_HAS_SHEET,
 		"P03: a bare click on the table says the sheet is in her pocket")
-	g.dispatch("item:venn_tide_sheet")
-	g.dispatch("reg_table")
+	_qd("item:venn_tide_sheet")
+	_qd("reg_table")
 	check(chart.state.reg_laid, "P03: his sheet is laid by using it on the table")
-	g.dispatch("reg_base_17")
+	_qd("reg_base_17")
 	var guard := 0
 	while int(chart.state.reg_rot) != 0 and guard < 8:
-		g.dispatch("reg_rot_cw")
+		_qd("reg_rot_cw")
 		guard += 1
-	g.dispatch("reg_snap_lighthouse")
-	ev = g.dispatch("reg_clip")
+	_qd("reg_snap_lighthouse")
+	ev = _qd("reg_clip")
 	check(not g.flag("P03") and says(ev) == R03Sim.REG_HAS_CLIPS, "P03: the bare rail is empty")
-	g.dispatch("item:chart_clips")
-	ev = g.dispatch("reg_clip")
+	_qd("item:chart_clips")
+	ev = _qd("reg_clip")
 	check(g.flag("P03") and g.tide_done(1), "P03: the composite closes Tide I's instruments")
 	check(not g.has_item("venn_tide_sheet") and g.has_item("chart_clips"), "P03: sheet taken, clips kept")
 	check(R03Sim.RECONCILE_LINE in says(ev), "P03: the office line")
 	check(g.tide() == 1, "P03: tide I holds until the threshold")
-	g.dispatch("back")
+	_qd("back")
 
 ## R02 T1X, played: reread, chair, closure report, threshold, Go on.
 func play_t1x() -> void:
 	check(not g.flag("closure_report_filed"), "T1X: the report is not filed yet")
-	var ev := office.dispatch("logbook")
+	var ev := _qd("logbook")
 	check(office.state.log_rewritten, "T1X: with Tide I done the log rewrites itself")
-	office.dispatch("back")
-	office.dispatch("chair")
+	_qd("back")
+	_qd("chair")
 	check(office.state.seat_wet, "T1X: the chair is wet")
-	ev = office.dispatch("door")
+	ev = _qd("door")
 	check("Latched" in says(ev) and g.state.room == "R02", "T1X: the room keeps her before the report")
-	ev = g.dispatch("go:R03")
+	ev = _qd("go:R03")
 	check(g.state.room == "R02", "T1X: no way out to the chart room during the report")
-	office.dispatch("papers")
+	_qd("papers")
 	check(office.view == "report", "T1X: the papers open the closure report (view %s)" % office.view)
 	_turn(office, "report_fields", "field_", R02Sim.REPORT_ANSWER)
 	_turn(office, "report_time", "rtime_", R02Sim.REPORT_TIME_ANSWER)
-	office.dispatch("file_report")
+	_qd("file_report")
 	check(g.flag("closure_report_filed"), "T1X: the closure report is filed")
 	check(g.tide() == 1, "T1X: tide I holds until the threshold")
-	office.dispatch("back")
-	office.dispatch("door")
+	_qd("back")
+	_qd("door")
 	check(office.view == "threshold", "T1X: the corridor door opens on the threshold")
-	office.dispatch("continue")
+	_qd("continue")
 	check(not g.flag("t1x_turned"), "T1X: held still")
-	ev = office.dispatch("end_continue")
+	ev = _qd("end_continue")
 	check(g.flag("t1x_threshold_crossed") and has_ev(ev, "fx", "tide"), "T1X: crossed; the Tide II card")
 	check(g.state.room == "R03", "T1X: Go on lands her in the chart room")
 
 ## R03 P04: zero 4 (from the recording), interval 3 (from the composite), pull.
 func play_p04() -> void:
-	g.dispatch("recorder")
-	g.dispatch("rec_seal")
+	_qd("recorder")
+	_qd("rec_seal")
 	_wheel("zero", "rec_zero_down", R03Sim.ZERO_ANSWER)
 	_wheel("interval", "rec_int_up", R03Sim.INTERVAL_ANSWER)
-	var ev := g.dispatch("rec_calibrate")
+	var ev := _qd("rec_calibrate")
 	check(g.flag("P04") and has_ev(ev, "fx", "drum_turn"), "P04: the drum turns")
 	check(g.exit_open("R03", "R11"), "P04: the hatch exit opens")
-	g.dispatch("back")
+	_qd("back")
 
 ## R03 P05: look down the stair, then BOUNDARY, RELATION, OBSERVER, RECORD.
 func play_p05() -> void:
-	g.dispatch("hatch")
-	g.dispatch("back")
-	g.dispatch("recorder")
+	_qd("hatch")
+	_qd("back")
+	_qd("recorder")
 	var order := ["boundary", "relation", "observer"]
 	for i in 3:
-		g.dispatch("rec_plate_" + order[i])
-		g.dispatch("rec_slot_%d" % i)
-	g.dispatch("rec_record")
+		_qd("rec_plate_" + order[i])
+		_qd("rec_slot_%d" % i)
+	_qd("rec_record")
 	check(g.flag("P05"), "P05: recorded")
 	check(g.value("p05_trace") == ["interval_set", "hatch_opened", "stair_looked"],
 		"P05 freezes the golden-path trace (%s)" % [g.value("p05_trace")])
 	check(chart.strip_lines()[-1] == "COLLECTION ANSWERS. ATTEND JETTY.", "P05: the strip sends her to the jetty")
-	g.dispatch("back")
+	_qd("back")
 
 # ---------------------------------------------------------------------------
 # Tide II
@@ -294,22 +302,22 @@ func play_p05() -> void:
 ## kitchen key at the office's service door.
 func play_p06() -> void:
 	for a in ["launch", "item:inspection_lens", "launch", "peer", "back", "panel", "tally_unverified"]:
-		g.dispatch(a)
+		_qd(a)
 	check(not g.flag("P06"), "P06: not before the bell")
-	var ev := g.dispatch("bell_2")
+	var ev := _qd("bell_2")
 	check(g.flag("P06") and has_ev(ev, "fx", "tide"), "P06: the boat withdraws; the Tide III card")
 	for a in ["back", "line", "cap", "key", "note", "back"]:
-		g.dispatch(a)
+		_qd(a)
 	check(g.has_item("service_key") and jetty.has_seen("venn_address_note"), "P06: the key and Venn's note")
 	check(g.has_item("inspection_lens"), "the lens is durable")
 	_walk_to("R02")
-	ev = g.dispatch("go:R05")
+	ev = _qd("go:R05")
 	check(g.state.room == "R02" and says(ev).begins_with("Locked."), "the service door: locked with the key held")
-	office.dispatch("turn")
-	office.dispatch("item:service_key")
-	office.dispatch("service_door")
+	_qd("turn")
+	_qd("item:service_key")
+	_qd("service_door")
 	check(not g.has_item("service_key") and office.state.service_unlocked, "the key is spent at the service door")
-	office.dispatch("turn")
+	_qd("turn")
 	_walk_to("R01")
 
 # ---------------------------------------------------------------------------
@@ -319,112 +327,113 @@ func play_p06() -> void:
 ## work card and the service drawer's pantry half.
 func play_p07() -> void:
 	check(not g.exit_open("R05", "R07") and not g.exit_open("R05", "R08"), "P07: the hatch is shut")
-	g.dispatch("bowl_stack")
+	_qd("bowl_stack")
 	check(kitchen.local_view == "c_table", "P07: the bowl stack opens the table")
 	for k in 9:
-		g.dispatch("slot_%d" % R05Sim.RACK_HOME.find(R05Sim.SOLUTION[k]))
-		g.dispatch("place_%d" % (k + 1))
+		_qd("slot_%d" % R05Sim.RACK_HOME.find(R05Sim.SOLUTION[k]))
+		_qd("place_%d" % (k + 1))
 	var guard := 0
 	while int(kitchen.state.tally) != R05Sim.SOLUTION_TALLY and guard < 30:
-		g.dispatch("tally_up" if int(kitchen.state.tally) < R05Sim.SOLUTION_TALLY else "tally_down")
+		_qd("tally_up" if int(kitchen.state.tally) < R05Sim.SOLUTION_TALLY else "tally_down")
 		guard += 1
-	var ev := g.dispatch("compare")
+	var ev := _qd("compare")
 	check(g.flag("P07") and kitchen.has_seen("headcount_nine"), "P07: the table for nine")
 	check(not has_ev(ev, "fx", "tide"), "P07 does not end a tide")
-	g.dispatch("back")
+	_qd("back")
 	for a in ["to_kitchen", "ledger", "back", "work_card"]:
-		g.dispatch(a)
+		_qd(a)
 	check(kitchen.has_seen("nora_ledger") and kitchen.has_seen("nora_work_card"), "P07: her book and her work card")
-	g.dispatch("service_drawer")
+	_qd("service_drawer")
 	check(g.has_item("token_pantry_half") and kitchen.has_seen("drawer_note"), "P07: the pantry half")
-	g.dispatch("to_mess")
+	_qd("to_mess")
 
 ## R06 P08: each belonging home on its owner's shelf; the bunk half from the compartment.
 func play_p08() -> void:
-	g.dispatch("belongings_shelf")
+	_qd("belongings_shelf")
 	check(bunks.local_view == "c_lockers", "P08: the belongings shelf opens the lockers")
 	var ev: Array = []
 	for o in R06Sim.OWNER:
-		g.dispatch("obj_" + o)
-		ev = g.dispatch("shelf_" + R06Sim.OWNER[o])
+		_qd("obj_" + o)
+		ev = _qd("shelf_" + R06Sim.OWNER[o])
 	check(g.flag("P08") and g.has_item("token_bunk_half"), "P08: the bunk half")
 	check(bunks.has_seen("venn_seal"), "P08: Venn's seal, three cuts")
 	check(not has_ev(ev, "fx", "tide") and not g.flag("P09"), "P08 alone does not finish Tide III")
-	g.dispatch("back")
+	_qd("back")
 
 ## R05 P09: both halves in the socket, turned; +1 VENN present under seal 3; STAMP.
 func play_p09() -> void:
-	g.dispatch("to_kitchen")
-	for item in ["token_pantry_half", "token_bunk_half"]:
-		g.dispatch("item:" + item)
-		g.dispatch("shift_board")
-	g.dispatch("socket_turn")
+	_qd("to_kitchen")
+	for half in ["pantry", "bunk"]:
+		_qd("item:token_%s_half" % half)
+		# The first half opens the board; the second goes in its own socket there.
+		_qd("shift_board" if kitchen.local_view != "c_service_board" else "socket_" + half)
+	_qd("socket_turn")
 	check(kitchen.local_view == "c_service_board", "P09: the shift board is open")
 	var want: Dictionary = R05Sim.SOLUTION_AMEND
 	var guard := 0
 	while kitchen.state.amend.count != want.count and guard < 8:
-		g.dispatch("f_count")
+		_qd("f_count")
 		guard += 1
-	g.dispatch("tile_%d" % R05Sim.NAME_TILES.find(want.name))
+	_qd("tile_%d" % R05Sim.NAME_TILES.find(want.name))
 	guard = 0
 	while kitchen.state.amend.status != want.status and guard < 8:
-		g.dispatch("f_status")
+		_qd("f_status")
 		guard += 1
-	g.dispatch("seal_3")
-	var ev := g.dispatch("stamp")
+	_qd("seal_3")
+	var ev := _qd("stamp")
 	check(g.flag("P09") and has_ev(ev, "fx", "tide"), "P09: the amendment stands; the Tide IV card")
 	check(not g.has_item("token_pantry_half") and not g.has_item("token_bunk_half"), "P09: both halves spent")
 	check(kitchen.has_seen("eight_retained"), "P09: eight retained, one witnessing")
 	check(g.exit_open("R05", "R07") and g.exit_open("R05", "R08"), "P09: the hatch opens the lab and the machine room")
-	g.dispatch("back")
-	g.dispatch("to_mess")
+	_qd("back")
+	_qd("to_mess")
 
 ## R07 P10: tilt the rack, rest jar C, tip, seat it in the reference socket.
 func play_p10() -> void:
 	for a in ["tilt_rack", "rest_c", "tip", "seat"]:
-		g.dispatch(a)
+		_qd(a)
 	check(g.flag("P10") and lab.has_seen("datum_target"), "P10: jar C seats; stair pressure 2")
-	g.dispatch("back")
+	_qd("back")
 	check(lab.has_seen("lean"), "P10: the water leaned")
 	check(not g.flag("P12"), "P10 alone does not open the stair work")
 
 ## R08 P11: SUPPLY, GATE, RETURN open, INDEX shut; the pump.
 func play_p11() -> void:
-	g.dispatch("valve_board")
+	_qd("valve_board")
 	for v in R08Sim.SOLUTION:
 		if machine.state.toggles[v] != R08Sim.SOLUTION[v]:
-			g.dispatch("tog_" + v.to_lower())
-	g.dispatch("pump")
+			_qd("tog_" + v.to_lower())
+	_qd("pump")
 	check(g.flag("P11"), "P11: the gate loop runs")
-	g.dispatch("back")
+	_qd("back")
 
 ## R07 P13: the N sample addressed to BELL, released, recorded; her register card.
 func play_p13() -> void:
-	g.dispatch("to_bench")
-	var ev := g.dispatch("balance")
+	_qd("to_bench")
+	var ev := _qd("balance")
 	check(lab.beam_unlocked(), "P13: P12's stair pressure frees the beam")
 	for a in ["smp_n", "reg_bell", "key_address", "key_release", "key_record"]:
-		ev = g.dispatch(a)
+		ev = _qd(a)
 	check(g.flag("P13") and g.has_item("nora_register_card"), "P13: her mass recorded; her card")
 	check(lab.has_seen("thumb"), "P13: the thumb in the felt")
-	g.dispatch("back")
+	_qd("back")
 
 ## R07 P14: short, pause, long (her work card); her name tab; the strip; SEAL.
 func play_p14() -> void:
-	g.dispatch("frame_stand")
+	_qd("frame_stand")
 	check(lab.local_view == "c_frame", "P14: P13 opens the frame")
 	for k in 3:
-		g.dispatch("sec_" + R07Sim.SOLUTION_SLOTS[k])
-		g.dispatch("slot_%d" % k)
-	g.dispatch("item:nora_register_card")
-	g.dispatch("name_tab")
-	g.dispatch("strip_clip")
-	var ev := g.dispatch("seal")
+		_qd("sec_" + R07Sim.SOLUTION_SLOTS[k])
+		_qd("slot_%d" % k)
+	_qd("item:nora_register_card")
+	_qd("name_tab")
+	_qd("strip_clip")
+	var ev := _qd("seal")
 	check(g.flag("P14") and g.has_item("nora_frame") and g.has_item("nora_register_card"),
 		"P14: her frame sealed; the card kept")
 	check(not has_ev(ev, "fx", "tide"), "P14: Tide V waits for the bearing")
-	g.dispatch("back")
-	g.dispatch("back")
+	_qd("back")
+	_qd("back")
 	check(lab.local_view == "room", "P14: back in the laboratory")
 
 # ---------------------------------------------------------------------------
@@ -433,93 +442,94 @@ func play_p14() -> void:
 ## R06 P22: her card on the record rest, her sketch beside it, NO SURVIVING EFFECTS amended
 ## to REPAIRED CUP, NORA BELL; APPEND.
 func play_p22() -> void:
-	g.dispatch("slope")
-	g.dispatch("item:nora_register_card")
-	g.dispatch("rest_record")
-	g.dispatch("rest_evidence")
+	_qd("slope")
+	_qd("item:nora_register_card")
+	_qd("rest_record")
+	_qd("rest_evidence")
 	check(bunks.state.card_on_rest and bunks.state.sketch_on_rest, "P22: card and sketch on the rests")
 	var names := ["fin_next", "obj_next", "own_next"]
 	for i in 3:
 		var guard := 0
 		while int(bunks.state.wheels[i]) != int(R06Sim.WHEEL_SOLUTION[i]) and guard < 8:
-			g.dispatch(names[i])
+			_qd(names[i])
 			guard += 1
-	var ev := g.dispatch("append")
+	var ev := _qd("append")
 	check(g.flag("P22") and g.has_item("amended_nora_card") and not g.has_item("nora_register_card"),
 		"P22: the record amended; the card swapped")
 	check(not has_ev(ev, "fx", "tide"), "P22: Tide VIII waits for the witness bridge")
-	g.dispatch("back")
+	_qd("back")
 
 # ---------------------------------------------------------------------------
 # Tides VI-VII
 # ---------------------------------------------------------------------------
 ## R04 P17: the session spool on the mixer, offset -2, each voice alone.
 func play_p17() -> void:
-	g.dispatch("to_board")
-	g.dispatch("mixer")
+	_qd("to_board")
+	_qd("mixer")
 	check(listen.local_view == "c_mixer", "P17: P16 and the contact sheet open the mixer")
 	while int(listen.state.offset) > -2:
-		g.dispatch("off_left")
+		_qd("off_left")
 	while int(listen.state.offset) < -2:
-		g.dispatch("off_right")
-	g.dispatch("play")
+		_qd("off_right")
+	_qd("play")
 	check(not g.flag("P17"), "P17: the combined sentence never commits")
 	_solo(true, false)
-	g.dispatch("play")
+	_qd("play")
 	_solo(false, true)
-	g.dispatch("play")
+	_qd("play")
 	check(g.flag("P17") and listen.has_seen("witness_procedure"), "P17: both voices alone")
-	g.dispatch("back")
-	g.dispatch("back")
+	_qd("back")
+	_qd("back")
 
 func _solo(venn: bool, nora: bool) -> void:
 	if listen.state.venn_on != venn:
-		g.dispatch("toggle_venn")
+		_qd("toggle_venn")
 	if listen.state.nora_on != nora:
-		g.dispatch("toggle_nora")
+		_qd("toggle_nora")
 
 ## R04 P19: motor off, A and B closed, C open, WITNESS; the three questions.
 func play_p19() -> void:
-	g.dispatch("to_board")
-	g.dispatch("witness_key")
-	if listen.state.motor_on: g.dispatch("motor")
-	if listen.state.ch_open.A: g.dispatch("key_a")
-	if listen.state.ch_open.B: g.dispatch("key_b")
-	if not listen.state.ch_open.C: g.dispatch("key_c")
-	g.dispatch("witness")
+	_qd("to_board")
+	_qd("witness_key")
+	if listen.state.motor_on: _qd("motor")
+	if listen.state.ch_open.A: _qd("key_a")
+	if listen.state.ch_open.B: _qd("key_b")
+	if not listen.state.ch_open.C: _qd("key_c")
+	_qd("witness")
 	check(listen.state.witness_open and not g.flag("P19"), "P19: channel C opens; not yet solved")
 	for q in R04Sim.QUESTIONS:
-		g.dispatch(q)
+		_qd(q)
 	check(g.flag("P19"), "P19: three questions answered")
-	g.dispatch("back")
-	g.dispatch("back")
+	_qd("back")
+	_qd("back")
 
 ## R02 P20: his letters on the board, the contract's name thread, REQUESTED BY VENN.
 func play_p20() -> void:
-	office.dispatch("turn")
-	office.dispatch("item:venn_correspondence")
-	office.dispatch("board")
+	_qd("turn")
+	_qd("item:venn_correspondence")
+	_qd("board")
 	check(office.state.board_loaded, "P20: the letters go on the board")
-	office.dispatch("board")
+	if office.local_view != "board":
+		_qd("board")
 	for m in R02Sim.BOARD_ANSWER:
-		office.dispatch(m)
-	office.dispatch(R02Sim.BOARD_STAMP)
-	var ev := office.dispatch("provenance")
+		_qd(m)
+	_qd(R02Sim.BOARD_STAMP)
+	var ev := _qd("provenance")
 	check(g.flag("P20") and office.has_seen("why_ada"), "P20: the thread and stamp")
 	check(not has_ev(ev, "fx", "tide"), "P20: Tide VII waits for the plan")
-	office.dispatch("back")
-	office.dispatch("turn")
+	_qd("back")
+	_qd("turn")
 
 ## R03 P21: the station plan, four tiles placed, FIX.
 func play_p21() -> void:
-	g.dispatch("plan_wall")
+	_qd("plan_wall")
 	for t in R03Sim.TILES:
-		g.dispatch("plan_tile_" + t)
-		g.dispatch("plan_zone_" + R03Sim.PLAN_ANSWER[t])
-	var ev := g.dispatch("plan_fix")
+		_qd("plan_tile_" + t)
+		_qd("plan_zone_" + R03Sim.PLAN_ANSWER[t])
+	var ev := _qd("plan_fix")
 	check(g.flag("P21") and has_ev(ev, "fx", "tide"), "P21: the plan resolves; the Tide VIII card")
 	check("ADA MERCER" in says(ev), "P21: her name in the witness frame")
-	g.dispatch("back")
+	_qd("back")
 
 # ---------------------------------------------------------------------------
 # helpers
@@ -527,7 +537,7 @@ func play_p21() -> void:
 func _wheel(key: String, action: String, want: int) -> void:
 	var guard := 0
 	while int(chart.state[key]) != want and guard < 10:
-		g.dispatch(action)
+		_qd(action)
 		guard += 1
 
 ## Clicks control <prefix><i> until state[key][i] reads want[i] (each wraps within 10).
@@ -535,7 +545,7 @@ func _turn(s: R02Sim, key: String, prefix: String, want: Array) -> void:
 	for i in want.size():
 		var guard := 0
 		while int(s.state[key][i]) != int(want[i]) and guard < 10:
-			s.dispatch("%s%d" % [prefix, i])
+			_qd("%s%d" % [prefix, i])
 			guard += 1
 
 func _done(pid: String) -> bool:
@@ -547,7 +557,7 @@ func _done(pid: String) -> bool:
 
 func _walk_to(rid: String) -> void:
 	for hop in _path(g, g.state.room, rid):
-		g.dispatch("go:" + hop)
+		_qd("go:" + hop)
 
 ## Every room opens exactly at its step: reachable now iff its opening step is behind her.
 func _check_reach(after: String) -> void:
@@ -558,21 +568,42 @@ func _check_reach(after: String) -> void:
 		check((rid in reach) == should, "after %s: %s %s" % [after if after != "" else "begin", rid,
 			"reachable" if should else "still shut"])
 
-## Each step survives a save: flags, tide, band, room and inventory come back identical.
+## Each step survives a save: the whole saved state (flags, tide, band, room, inventory,
+## notebook, every room's local state) comes back byte-identical, and so do tide and band.
 func _check_save(after: String) -> void:
 	var t := GameSim.new()
-	check(t.from_dict(JSON.parse_string(JSON.stringify(g.to_dict()))), "after %s: the save loads" % after)
-	check(JSON.stringify(t.state.flags) == JSON.stringify(g.state.flags) and t.tide() == g.tide()
-		and t.weather_band() == g.weather_band() and t.state.room == g.state.room
-		and t.state.inventory == g.state.inventory, "after %s: the save round-trips the story" % after)
+	var saved := JSON.stringify(g.to_dict())
+	check(t.from_dict(JSON.parse_string(saved)), "after %s: the save loads" % after)
+	check(t.tide() == g.tide() and t.weather_band() == g.weather_band(), "after %s: tide and band survive a save" % after)
+	var again := JSON.stringify(t.to_dict())
+	if again != saved:
+		var a: Dictionary = JSON.parse_string(saved)
+		var b: Dictionary = JSON.parse_string(again)
+		var diff := []
+		for k in a:
+			if k == "rooms":
+				for rid in a.rooms:
+					if JSON.stringify(a.rooms[rid]) != JSON.stringify(b.rooms.get(rid)):
+						for f in a.rooms[rid]:
+							if JSON.stringify(a.rooms[rid][f]) != JSON.stringify(b.rooms.get(rid, {}).get(f)):
+								diff.append("%s.%s" % [rid, f])
+			elif JSON.stringify(a[k]) != JSON.stringify(b.get(k)):
+				diff.append(k)
+		check(false, "after %s: the save round-trips byte-identical (differs in %s)" % [after, diff])
 
 ## P26's checkpoint replays to both endings; endings_seen keeps both.
 func _endings() -> void:
 	g.finish("sever")
 	check(g.value("ending_choice") == "sever" and g.view == "end", "ending: sever")
-	g.dispatch("return_decision")
+	_qd("return_decision")
 	check(g.flag("P26") and g.value("ending_choice") == "", "replay returns to the P26 decision")
 	g.finish("continue")
 	var seen: Array = g.value("endings_seen")
 	check(g.value("ending_choice") == "continue" and "sever" in seen and "continue" in seen,
 		"ending: continue; both endings seen (%s)" % [seen])
+
+## One action: a real click when a clicker drives the scene, else straight to the sim.
+func _qd(action: String) -> Array:
+	if clicker != null:
+		return clicker.qd(action)
+	return g.dispatch(action)

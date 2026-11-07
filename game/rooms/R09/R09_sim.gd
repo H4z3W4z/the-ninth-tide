@@ -5,11 +5,14 @@ extends RoomSim
 ## docs/dev/room-contract.md. Until then every hotspot says one line and notes it.
 
 const ID := "R09"
+## Not built yet: the core marks its exit tabs "(not yet built)" and never sends her here
+## for work (GameSim.is_unbuilt). The room team deletes this line with its first real act().
+const SKELETON := true
 const TITLE := "Lantern Gallery"
 const REQUIRES := ["P12"]
 const LOCKED := "The gallery stair goes up from the dry stair's first landing. That way isn't open."
 const RESUME := "Back in the lantern gallery."
-const ARRIVAL := "The lantern gallery. The rain has stopped touching the rail."
+const ARRIVAL := "The lantern gallery. The rain has stopped touching the rail. This is as far as the station goes, for now."
 ## [to, label, extra flags]: the ways out. The target's REQUIRES also apply.
 const EXITS := [
 	["R11", "Stair", []],
@@ -34,14 +37,14 @@ const OBJECTIVES := {
 }
 const HINTS := {
 	"explore": [
-		"Everything in this room can be looked at.",
-		"Each thing I look at goes into the notebook.",
-		"Look at each object in the room.",
+		"This is as far as the station goes, for now. The way back is behind me.",
+		"This is as far as the station goes, for now. The way back is behind me.",
+		"This is as far as the station goes, for now. The way back is behind me.",
 	],
 }
 ## Items this room hands out (docs/design/puzzle-cards/flags.md section 4).
 const ITEMS := {
-	"nora_spatial_strip": {"name": "Bearing strip: N. Bell", "desc": "A bearing strip recorded through the gallery scope."},
+	"nora_spatial_strip": {"name": "Bearing strip: N. Bell", "short": "Bearing strip", "desc": "A bearing strip recorded through the gallery scope."},
 }
 
 func initial_state() -> Dictionary:
