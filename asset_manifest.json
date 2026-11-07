@@ -187,6 +187,258 @@
       "source_svg": "assets/puzzle/switch_on.svg"
     },
     {
+      "id": "R04/a_bulge",
+      "path": "assets/rooms/R04/a_bulge.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "b80d945f4c08cc120359b30c61e5e6f67c46f0595bd29e25c7e1b2780818d515",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/a_condensation",
+      "path": "assets/rooms/R04/a_condensation.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "447eaf23941957b58e66eb04d66709b5c93178007b6e5952acffe86caa30b5f8",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/a_mounted",
+      "path": "assets/rooms/R04/a_mounted.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "0ab951dcf361224d48b90cc1562e55017b75ae754b80c3dc578fa73429d8b47b",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/a_seat_rings",
+      "path": "assets/rooms/R04/a_seat_rings.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "8e626b60c7f477f09e723395410a53d3a1454e78e7b2261a52bb972db45f152c",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/a_tag5",
+      "path": "assets/rooms/R04/a_tag5.png",
+      "width": 96,
+      "height": 48,
+      "sha256": "a1516b6c5ff8192220cb2385704eebd7e4172fec25e0fa574cd0417f9b98b3e8",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/a_transcript",
+      "path": "assets/rooms/R04/a_transcript.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "9b503b8cdcfab744550a65a74c335c878afe6b4f278deffd21f951f3d03c2516",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/b_bulge",
+      "path": "assets/rooms/R04/b_bulge.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "ae35afc9e47028249f3d174587d19287c48271ac470d4206406107a16481323c",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/b_condensation",
+      "path": "assets/rooms/R04/b_condensation.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "7487d5fad04e6bc9046a17b04f7585142e28311782baf61053422751df1b7254",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/b_key_closed",
+      "path": "assets/rooms/R04/b_key_closed.png",
+      "width": 110,
+      "height": 90,
+      "sha256": "1a03d5e2f85d671f0d23ea07660a991d0e1abf32537a960234c06cf368279320",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/b_key_open",
+      "path": "assets/rooms/R04/b_key_open.png",
+      "width": 110,
+      "height": 90,
+      "sha256": "50b6b56f63fb446590e82c26778b4e7b268221d6411663354c7d8653521afeb1",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/b_lamp_lit",
+      "path": "assets/rooms/R04/b_lamp_lit.png",
+      "width": 72,
+      "height": 72,
+      "sha256": "bd4c9fcfc5e04859fb9bff02c879e7bedd594d58b29f5be53feadd5bc19a55e3",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/b_mixer_aligned",
+      "path": "assets/rooms/R04/b_mixer_aligned.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "37ed7d0bcdd01301453b0ef74427880369eb261053137a65dcc4849d1a676cde",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/b_motor_off",
+      "path": "assets/rooms/R04/b_motor_off.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "d59ccc4991c3b3bf7ad746fe787b23be20b532eedd45286f700e016cf8459b41",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/b_needle",
+      "path": "assets/rooms/R04/b_needle.png",
+      "width": 10,
+      "height": 76,
+      "sha256": "a54ba1bdfa85d6f6a94b54e4866e06447d525f7eb842b225e432ca9511b00de6",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/b_speaker_wet",
+      "path": "assets/rooms/R04/b_speaker_wet.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "85807e857a583817b9d37badab966328c65995e58c204079ac7474a22e8d2775",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/b_spool",
+      "path": "assets/rooms/R04/b_spool.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "7da9aa9579e431c6f700c414df5e1c7728c7033bddff8c90dad20a49bbd15a73",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/c_band",
+      "path": "assets/rooms/R04/c_band.png",
+      "width": 320,
+      "height": 220,
+      "sha256": "dd23880598d970a10e5a8f6441e9108779de1e319d511a7a72a0eb6ec5ee50c4",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/c_channels",
+      "path": "assets/rooms/R04/c_channels.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "a54c7194fc5ec4532af3c34a5a45002fce155c1d6a6a0a5fd556612a84ad3843",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/c_lamp_lit",
+      "path": "assets/rooms/R04/c_lamp_lit.png",
+      "width": 96,
+      "height": 96,
+      "sha256": "d1d04c23dbb2d398fb6e52165aa9b221d66ade693ebe71902a252147c0258718",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/c_lever_down",
+      "path": "assets/rooms/R04/c_lever_down.png",
+      "width": 150,
+      "height": 300,
+      "sha256": "5bead41ee7a8bbe58d0a02a01631864fdd4eb7ed9caddd1225c9618152e21979",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/c_lever_up",
+      "path": "assets/rooms/R04/c_lever_up.png",
+      "width": 150,
+      "height": 300,
+      "sha256": "54e025ecd044dac8526a33f013433fec13be8503f1c9220c0b49437394c10ff5",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/c_mixer",
+      "path": "assets/rooms/R04/c_mixer.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "ae016500ed85651b8792eb211f451bfbd62854898252d71d5d59f240847462a8",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/c_needle_arm",
+      "path": "assets/rooms/R04/c_needle_arm.png",
+      "width": 260,
+      "height": 120,
+      "sha256": "0341080286e795f86cf115f679a9963d15a68b41cc240b7135077a3dc7116b87",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/c_spindle",
+      "path": "assets/rooms/R04/c_spindle.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "c55d76e2831e08a60e368d5bf6d8ec940ed335b8df17a558abcde839d265357a",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/c_witness_down",
+      "path": "assets/rooms/R04/c_witness_down.png",
+      "width": 220,
+      "height": 260,
+      "sha256": "0c468dc4a8677d1e8795f7681c9f51dea344768654ae31a85f74cfb9d05ae18e",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/view_a",
+      "path": "assets/rooms/R04/view_a.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "a616ce969f1e323f4d70537497397cb48fcd32694908ee2fd2b35ccc7be28e34",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/view_a_turned",
+      "path": "assets/rooms/R04/view_a_turned.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "3e0f1c01cc6b2c76d4560bb3565cac609d48b467f342534243f7e533bb4520c2",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R04/view_b",
+      "path": "assets/rooms/R04/view_b.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "29c4d450345413ba2a15b9e85633f6eff755462a627f2b1c575c2c7a74ff0938",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "away_coat",
       "path": "assets/stages/away_coat.png",
       "width": 1448,
