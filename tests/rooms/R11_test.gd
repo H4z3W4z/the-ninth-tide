@@ -11,8 +11,8 @@ const OPEN_TIDE := 3
 
 ## Reference tables, written out independently of R11Sim.
 const REF_P_ONLY := {
-	"unequal": "Pressure not equal. The black needle's off the brass one.",
-	"noref": "No reference. The brass needle has nothing to read from.",
+	"unequal": "Pressure not equal. The needle's on the wrong tick.",
+	"noref": "No reference. The gate has nothing to measure the line against.",
 }
 const REF_L_ONLY := {
 	"none": "NO CORRESPONDING LANDING.",
@@ -28,6 +28,8 @@ const REF_LOCKED := "The glass is locked down. Stencilled under it: AWAITING PRE
 const NORA := ["nora_frame", "nora_spatial_strip", "amended_nora_card"]
 const NORA_CAT := {"nora_frame": "BODY", "nora_spatial_strip": "PLACE", "amended_nora_card": "NAME"}
 const FRAME_T := {"BODY": "frame_body", "PLACE": "frame_place", "NAME": "frame_name"}
+## Plates naming a landing the chart room plan doesn't mark: '[ 2' (no closing plate) and landing 3.
+const FALSE_SET := ["o2", "o3", "c3"]
 const DOOR_ITEMS := ["nora_frame", "nora_spatial_strip", "amended_nora_card", "witness_bridge", "nora_register_card"]
 
 func run_tests() -> void:
@@ -37,6 +39,8 @@ func run_tests() -> void:
 	test_p12_no_reference()
 	test_p12_exhaustive()
 	test_p12_false_landing()
+	test_p12_landing_three()
+	test_p12_flags_blank()
 	test_p12_success()
 	test_p12_idempotent()
 	test_p12_parallel_pair()
@@ -56,6 +60,7 @@ func run_tests() -> void:
 	test_p24_success()
 	test_p24_bridge_forced()
 	test_p24_save_load()
+	test_p24_preview_live()
 	test_p24_reachability()
 	test_closeup_exit()
 	test_room_lines()
@@ -69,6 +74,7 @@ func run_tests() -> void:
 		await test_view_p12_clicks()
 		await test_view_p24_clicks()
 		await test_view_presentation()
+		await test_view_gauge_and_bell()
 	else:
 		print("SKIP: R11 view_checks: the R11 view does not yet declare rects for every sim hotspot (view team)")
 
@@ -142,7 +148,7 @@ func use(g: GameSim, item: String, target: String) -> Array:
 func ref_flags(pressure: int, slots: Array) -> Dictionary:
 	var p := "equal" if pressure == 2 else "unequal"
 	var l := "ok"
-	if slots[0] == "o2" or slots[1] == "o2":
+	if slots[0] in FALSE_SET or slots[1] in FALSE_SET:
 		l = "none"
 	elif slots[0] == "" or slots[1] == "":
 		l = "incomplete"
@@ -157,11 +163,11 @@ func ref_line(p: String, l: String) -> String:
 		return REF_P_ONLY[p]
 	return REF_L_ONLY[l]
 
-## Every UPPER x LOWER placement: each in {"", o1, c1, o2}, non-empty ones distinct.
+## Every UPPER x LOWER placement: each in {"", o1, c1, o3, c3, o2}, non-empty ones distinct.
 func placements() -> Array:
 	var out := []
-	for a in ["", "o1", "c1", "o2"]:
-		for b in ["", "o1", "c1", "o2"]:
+	for a in ["", "o1", "c1", "o3", "c3", "o2"]:
+		for b in ["", "o1", "c1", "o3", "c3", "o2"]:
 			if a != "" and a == b:
 				continue
 			out.append([a, b])
@@ -302,7 +308,8 @@ func test_p12_no_reference() -> void:
 	grant(g, "R08", "P11")
 	var r := r11(g)
 	var ev := g.dispatch("gauge")
-	check(says(ev) == "Live now. The black needle follows the wheel. The brass one lies on NO REFERENCE.", "powered gauge line")
+	check(says(ev) == "Live now. The black needle follows the wheel, a tick a turn. Four ticks. No numbers.", "powered gauge line")
+	check(not "2" in says(ev) and not "REFERENCE" in says(ev), "the powered gauge gives no number")
 	check(r.has_seen("gauge_powered") and not r.has_seen("gauge_reference"), "gauge_powered noted")
 	ev = g.dispatch("wheel_up")
 	check(has_ev(ev, "sfx", "r11_wheel_click") and says(ev) == "", "live wheel clicks")
@@ -341,7 +348,7 @@ func test_p12_exhaustive() -> void:
 			check(JSON.stringify(g.state.inventory) == inv and JSON.stringify(g.state.flags) == flags, "%d %s: no flag or item change" % [p, pl])
 			if g.flag("P12"):
 				solving.append([p, pl])
-	check(cases == 6 * 13 - 1, "all %d other cases covered (%d)" % [6 * 13 - 1, cases])
+	check(placements().size() == 31 and cases == 6 * 31 - 1, "all %d other cases covered (%d)" % [6 * 31 - 1, cases])
 	check(solving.is_empty(), "nothing else solves (%s)" % [solving])
 	# The only solution.
 	wheel_to(g, 2)
@@ -357,7 +364,7 @@ func test_p12_false_landing() -> void:
 	g.dispatch("gate")
 	var stories := 0
 	for pl in placements():
-		if not "o2" in pl:
+		if not (pl[0] in FALSE_SET or pl[1] in FALSE_SET):
 			continue
 		for p in [2, 4]:
 			wheel_to(g, p)
@@ -514,11 +521,11 @@ func test_plate_grammar() -> void:
 	var g := gate_game()
 	var r := r11(g)
 	g.dispatch("plates")
-	check(r.local_view == "c_gate" and r.rack_plates() == ["o1", "c1", "o2"], "all three on the rack")
+	check(r.local_view == "c_gate" and r.rack_plates() == ["o1", "c1", "o3", "c3", "o2"], "all five on the rack")
 	var ev := g.dispatch("slot_upper")
 	check(says(ev) == "An empty slot.", "empty slot")
 	ev = g.dispatch("plate_o1")
-	check(r.held_plate == "o1" and has_ev(ev, "sfx", "r11_plate_pick") and r.rack_plates() == ["c1", "o2"], "pick o1")
+	check(r.held_plate == "o1" and has_ev(ev, "sfx", "r11_plate_pick") and r.rack_plates() == ["c1", "o3", "c3", "o2"], "pick o1")
 	g.dispatch("plate_o1")
 	check(r.held_plate == "", "the same plate toggles back")
 	g.dispatch("plate_o1")
@@ -535,7 +542,7 @@ func test_plate_grammar() -> void:
 	g.dispatch("plate_o1")
 	check(r.state.slots == ["", ""] and r.held_plate == "o1", "picking a slotted plate lifts it out")
 	g.dispatch("back")
-	check(r.local_view == "room" and r.held_plate == "" and r.rack_plates().size() == 3, "Back drops the hand")
+	check(r.local_view == "room" and r.held_plate == "" and r.rack_plates().size() == 5, "Back drops the hand")
 
 # ---------------------------------------------------------------------------------------------
 # landings
@@ -940,8 +947,8 @@ func test_room_lines() -> void:
 	check(says(g.dispatch("water_plane")) == "Flat to the jambs. Not a drop over the edge.", "water plane again")
 	check(says(use(g, "inspection_lens", "water_plane")).begins_with("Through the lens there's no surface"), "lens on the plane")
 	ev = g.dispatch("plates")
-	check(says(ev).begins_with("Three landing plates. '[ 1', '] 1', '[ 2'. There's no '] 2'."), "plates")
-	check(g.has_seen("R03", "plan") == ("pairs its landings" in says(ev)), "the plan echo follows R03's notebook")
+	check(says(ev) == "Five landing plates. Brackets, and numbers.", "plates (%s)" % says(ev))
+	check(R11Sim.OBSERVATIONS.plates == "Five landing plates in a rack: '[ 1', '] 1', '[ 2', '[ 3', '] 3', each bracket printed with the word BOUNDARY.", "plates observation")
 	ev = g.dispatch("placard")
 	check(r.has_seen("placard") and r.local_view == "c_gate", "placard")
 	check(says(g.dispatch("placard_read")) == says(ev), "placard read")
@@ -952,7 +959,11 @@ func test_room_lines() -> void:
 	var s := game_at(5, ROOM)
 	check(says(s.dispatch("water_plane")) == "The flat one still stops my hand. The one in the gateway doesn't.", "the plane after P12")
 	check(says(s.dispatch("gate")) == "Up in the lintel. The water stands where the bars were.", "the open gate")
-	check(says(s.dispatch("gauge")) == "The brass needle's come up to 2. The laboratory jar's reading.", "referenced gauge")
+	var gl := says(s.dispatch("gauge"))
+	check(gl == "The line's steady now: the laboratory's on it too. Four ticks, no numbers. The number's somewhere else.", "referenced gauge")
+	check(not "2" in gl, "the referenced gauge gives no number")
+	for o in ["gauge", "gauge_powered", "gauge_reference"]:
+		check(not "2" in R11Sim.OBSERVATIONS[o] and not "brass" in R11Sim.OBSERVATIONS[o].to_lower(), "%s notes no number and no brass needle" % o)
 	r11(s).state.notices = []   # quiet the next landing
 	s.dispatch("descend")
 	var rs := r11(s)
@@ -1296,12 +1307,12 @@ func test_view_presentation() -> void:
 	var r := scene.room_sim() as R11Sim
 	var t: Dictionary = v.audio_targets()
 	check(t.r11_air == 0.55 and t.r11_line_pulse == 0.35 and t.r11_glass == 0.0, "gate landing, powered: the line pulses")
-	check(v.status_text() == "NO REFERENCE" and v.ref_deg() == -140.0, "no reference: the brass needle at rest")
+	check(v.status_text() == "", "no reference: the window is blank")
 	scene.room_jump(ROOM, 2)
 	check(v.status_text() == "NO PRESSURE", "unpowered: NO PRESSURE")
 	scene.room_jump(ROOM, 5)
 	v = scene.room_view
-	check(v.status_text() == "REFERENCE 2" and is_equal_approx(v.ref_deg(), -24.0), "referenced: the brass needle on 2")
+	check(v.status_text() == "", "referenced: still no number on the face")
 	# Holds: a notice holds the room; a click skips it.
 	v.play_fx("notice", {"notice": "n_tide1"})
 	check(v.holding() and v.action_at(v.HOTSPOTS[0][1].get_center()) == "" and not v.exits_active(), "a notice holds the room")
@@ -1338,4 +1349,176 @@ func test_view_presentation() -> void:
 	t = v.audio_targets()
 	check(t.r11_bell_below == 0.6 and t.r11_bell_above == 0.0 and t.r11_pressure == 0.4, "band 7 below: the bell below, pressure")
 	check(is_equal_approx(v.shade_value(), 0.78), "band 7 lower landing at 0.78")
+	await free_scene(scene)
+
+# ---------------------------------------------------------------------------------------------
+# w3 fixes
+# ---------------------------------------------------------------------------------------------
+## Landing 3 has no mark on the chart room plan: '[ 3' over '] 3' is refused like '[ 2', and
+## with the pressure wrong too the composed line says there's no landing for those plates.
+func test_p12_landing_three() -> void:
+	var g := gate_game()
+	var r := r11(g)
+	g.dispatch("gate")
+	check(R11Sim.PLATES == ["o1", "c1", "o3", "c3", "o2"], "five plates in rack order")
+	check(R11Sim.PLATE_TEXT.o3 == "[ 3" and R11Sim.PLATE_TEXT.c3 == "] 3", "the landing-3 plates")
+	check("plate_o3" in R11Sim.GATE_CONTROLS and "plate_c3" in R11Sim.GATE_CONTROLS, "both are gate controls")
+	wheel_to(g, 4)
+	lay_plates(g, ["o3", "c3"])
+	check(r.state.slots == ["o3", "c3"], "'[ 3' over '] 3' set")
+	var ev := g.dispatch("lever_open")
+	check(r.gate_note == {"p": "unequal", "l": "none"}, "landing 3: no corresponding landing (%s)" % [r.gate_note])
+	check(says(ev).begins_with("The pressure's not equal, and there's no landing for those plates."), "BOTH_L none (%s)" % says(ev))
+	wheel_to(g, 2)
+	ev = g.dispatch("lever_open")
+	check(says(ev).begins_with("NO CORRESPONDING LANDING.") and not g.flag("P12"), "landing 3 at pressure 2 refused")
+	check(has_ev(ev, "fx", "false_landing"), "landing 3 shows the false landing too")
+	for pl in [["o1", "c3"], ["o3", "c1"], ["c3", "o3"]]:
+		lay_plates(g, pl)
+		g.dispatch("lever_open")
+		check(r.gate_note.l == "none" and not g.flag("P12"), "%s: no corresponding landing" % [pl])
+	# The new plates load from a save; the old solution still stands alone.
+	lay_plates(g, ["o3", "c3"])
+	var t := roundtrip(g)
+	check(r11(t).state.slots == ["o3", "c3"], "o3/c3 survive a save")
+	var bad := GameSim.new()
+	var d: Dictionary = JSON.parse_string(JSON.stringify(g.to_dict()))
+	d.rooms[ROOM].slots = ["o3", "o3"]
+	bad.from_dict(d)
+	check(r11(bad).state.slots == ["", ""], "a doubled o3 is rejected on load")
+	wheel_to(g, 2)
+	lay_plates(g, ["o1", "c1"])
+	g.dispatch("lever_open")
+	check(g.flag("P12"), "pressure 2 with '[ 1' over '] 1' still opens")
+
+## The flag windows show nothing until OPEN is pulled, only that pull's verdict, and go blank
+## when the arrangement changes. The success line appears only on a correct OPEN.
+func test_p12_flags_blank() -> void:
+	var g := gate_game()
+	var r := r11(g)
+	g.dispatch("gate")
+	check(r.flags_shown() == {"p": "", "l": ""} and R11Sim.flag_text(r.flags_shown()) == "", "blank before any pull")
+	wheel_to(g, 2)
+	lay_plates(g, ["o1", "c1"])
+	check(R11Sim.flag_text(r.flags_shown()) == "", "the right arrangement, unpulled: still blank")
+	check(says(g.dispatch("flags")) == "Blank until I pull.", "the flags say nothing")
+	g.dispatch("wheel_up")
+	g.dispatch("lever_open")
+	check(R11Sim.flag_text(r.flags_shown()) == "PRESSURE NOT EQUAL. LANDING 1 CORRESPONDS.", "a refused pull shows its verdict")
+	g.dispatch("wheel_down")
+	check(R11Sim.flag_text(r.flags_shown()) == "", "turning the wheel blanks the flags")
+	g.dispatch("lever_open")
+	check(g.flag("P12"), "the correct pull opens")
+	check(R11Sim.flag_text(r.flags_shown()) == "PRESSURE EQUAL. LANDING 1 CORRESPONDS.", "the success shows after the correct OPEN")
+	# A plate moved after a refusal blanks them too.
+	var h := gate_game()
+	var rh := r11(h)
+	h.dispatch("gate")
+	lay_plates(h, ["o2", "c1"])
+	h.dispatch("lever_open")
+	check(rh.flags_shown().l == "none", "refused: NO CORRESPONDING LANDING")
+	h.dispatch("slot_upper")
+	check(rh.flags_shown() == {"p": "", "l": ""}, "lifting a plate out blanks the flags")
+	# Nothing else ever printed the success before a correct OPEN.
+	for pr in range(0, 6):
+		for pl in placements():
+			if pr == 2 and pl == ["o1", "c1"]:
+				continue
+			wheel_to(h, pr)
+			lay_plates(h, pl)
+			h.dispatch("lever_open")
+			check(R11Sim.flag_text(rh.flags_shown()) != "PRESSURE EQUAL. LANDING 1 CORRESPONDS.", "%d %s: no success flags" % [pr, pl])
+
+## The preview strip is live: once printed, it reprints whenever a mount changes, so it never
+## says a frame is empty after that frame has been filled.
+func test_p24_preview_live() -> void:
+	var g := door_game()
+	var r := r11(g)
+	use(g, "nora_frame", "frame_body")
+	use(g, "nora_spatial_strip", "frame_place")
+	use(g, "witness_bridge", "socket_witness")
+	g.dispatch("lever_access")
+	check(r.door_preview() == "RECORD INCOMPLETE: NAME" and r.frame_results.NAME == "EMPTY", "NAME empty: incomplete")
+	g.dispatch("frame_body")
+	check(r.door_preview() == "RECORD INCOMPLETE: BODY, NAME", "unmounting reprints it (%s)" % r.door_preview())
+	use(g, "nora_frame", "frame_name")
+	check(r.door_preview() == "RECORD INCOMPLETE: BODY", "NAME filled: reprinted (%s)" % r.door_preview())
+	check(not r.door_preview().contains("NAME"), "never INCOMPLETE: NAME with NAME filled")
+	check(r.frame_results.NAME == "NOT A NAME RECORD" and r.frame_results.BODY == "EMPTY", "the frame tags follow")
+	check(says(g.dispatch("preview")) == "RECORD INCOMPLETE: BODY", "PREVIEW reads the live strip")
+	g.dispatch("frame_name")
+	use(g, "nora_frame", "frame_body")
+	check(r.door_preview() == "RECORD INCOMPLETE: NAME", "back to NAME empty (%s)" % r.door_preview())
+	use(g, "amended_nora_card", "frame_name")
+	check(r.door_preview() == "" and says(g.dispatch("preview")) == "Blank.", "a record that would open: the strip goes blank")
+	g.dispatch("frame_name")
+	use(g, "amended_nora_card", "port_copy")
+	check(r.door_preview() == "WOULD FINALIZE SUBJECT", "COPY loaded: reprinted (%s)" % r.door_preview())
+	g.dispatch("port_copy")
+	use(g, "amended_nora_card", "frame_name")
+	g.dispatch("lever_access")
+	check(g.flag("P24") and r.door_preview() == "RECORD VALID. RECORD OPEN.", "the lever still opens it")
+	# Before any pull the strip stays blank while mounting.
+	var h := door_game()
+	use(h, "nora_frame", "frame_body")
+	check(r11(h).door_preview() == "", "unpulled: blank")
+
+## The gauge faces carry no number and no reference; the plates' new hooks; the bell's ring.
+func test_view_gauge_and_bell() -> void:
+	var scene = await view_scene(5)
+	var v = scene.room_view
+	var r := scene.room_sim() as R11Sim
+	for id in ["pane_slab", "pane_files", "bell_frozen", "stairwell_fill", "c_gauge_face", "L1_gauge_face"]:
+		check(v.textures.has(id), "texture %s loads" % id)
+	check(v.status_text() == "" and r.referenced(), "referenced: no REFERENCE 2 on the face")
+	check(not v.has_method("ref_deg"), "no reference needle")
+	check(v.GATE_HOOKS.o1 == Vector2(659, 716) and v.GATE_HOOKS.c1 == Vector2(859, 716) and v.GATE_HOOKS.o2 == Vector2(1059, 716),
+		"the first three hooks have not moved")
+	check(v.GATE_HOOKS.has("o3") and v.GATE_HOOKS.has("c3") and v.L1_HOOKS.has("o3") and v.L1_HOOKS.has("c3"), "hooks for landing 3")
+	r.local_view = "c_gate"
+	for pid in ["o3", "c3"]:
+		check(v.action_at(v.control_rect("plate_" + pid).get_center()) == "plate_" + pid, "plate_%s clickable" % pid)
+	r.local_view = "room"
+	# The bell: one ring per sounding, expanding (Motion on) or still (Motion off), 1.5 s.
+	scene.room_jump(ROOM, 6)
+	await process_frame
+	v = scene.room_view
+	r = scene.room_sim() as R11Sim
+	check(r.landing == 2 and r.bell_dir() == "above" and not v.bell_mirrored(), "tide V: the bell tips toward the office")
+	v.ring_t = -1.0
+	check(v.ring_now().is_empty(), "no ring before it sounds")
+	v.on_sfx("r11_bell_up")
+	var r0: Array = v.ring_now()
+	scene._process(0.75)
+	var r1: Array = v.ring_now()
+	check(not r0.is_empty() and not r1.is_empty() and r1[0] > r0[0] and r1[1] < r0[1], "the ring expands and fades (%s -> %s)" % [r0, r1])
+	scene._process(0.8)
+	check(v.ring_now().is_empty(), "gone after 1.5 s")
+	scene.sim.settings.motion = false
+	v.on_sfx("r11_bell_up")
+	scene._process(0.5)
+	var s0: Array = v.ring_now()
+	scene._process(0.5)
+	check(not s0.is_empty() and s0 == v.ring_now() and s0[0] == v.RING_STILL_R, "Motion off: one still ring")
+	scene._process(0.6)
+	check(v.ring_now().is_empty(), "Motion off: held 1.5 s")
+	# The toll in the bell loop rings it too, with Motion on or off. (Headless, the loops'
+	# playback never advances: stop them so the view's own 16 s clock keeps the toll.)
+	for id in ["r11_bell_above", "r11_bell_below"]:
+		if v.mixer.players.has(id):
+			v.mixer.players[id].stop()
+	v.ring_t = -1.0
+	var rang := false
+	for i in 200:
+		scene._process(0.1)
+		if not v.ring_now().is_empty():
+			rang = true
+			break
+	check(rang, "the bell's toll draws a ring (Motion off)")
+	scene.sim.settings.motion = true
+	scene.tide_jump(9, ROOM)
+	v = scene.room_view
+	r = scene.room_sim() as R11Sim
+	r.landing = 2
+	check(v.bell_mirrored() and v.bell_centre().x > v.BELL_PIVOT.x, "band 7: the same bell, tipped toward the lower door")
 	await free_scene(scene)

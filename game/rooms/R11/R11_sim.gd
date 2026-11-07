@@ -31,15 +31,19 @@ const HOTSPOTS := ["gauge", "plates", "placard", "water_plane", "steps", "gate"]
 const L2_HOTSPOTS := ["shoes", "bell_sound", "ceiling", "return_door", "upper_stair", "lower_door"]
 const CLOSEUPS := ["c_gate", "c_chamber_door"]
 const GATE_CONTROLS := ["wheel_down", "wheel_up", "gauge_face", "flags", "slot_upper", "slot_lower", "port",
-	"plate_o1", "plate_c1", "plate_o2", "placard_read", "lever_open"]
+	"plate_o1", "plate_c1", "plate_o2", "plate_o3", "plate_c3", "placard_read", "lever_open"]
 const DOOR_CONTROLS := ["frame_body", "frame_place", "frame_name", "socket_witness", "port_copy", "preview",
 	"door_plate", "lever_access"]
 ## Moving between the landings.
 const NAV := ["descend", "ascend"]
 
 # --- P12: the pressure gate ------------------------------------------------------------------
-const PLATES := ["o1", "c1", "o2"]
-const PLATE_TEXT := {"o1": "[ 1", "c1": "] 1", "o2": "[ 2"}
+## The rack's plates. Only landing 1 is marked on the chart room plan ('[ 1' above '] 1');
+## landing 2 has no closing plate and landing 3 has no plan mark, so both are false landings.
+const PLATES := ["o1", "c1", "o3", "c3", "o2"]
+const PLATE_TEXT := {"o1": "[ 1", "c1": "] 1", "o2": "[ 2", "o3": "[ 3", "c3": "] 3"}
+## Plates naming a landing the plan does not have.
+const FALSE_PLATES := ["o2", "o3", "c3"]
 const PRESSURE_MAX := 5
 const PRESSURE_TARGET := 2
 ## Slot index 0 = UPPER, 1 = LOWER.
@@ -52,8 +56,8 @@ const FLAG_L_TEXT := {"incomplete": "NO LANDING SELECTED", "none": "NO CORRESPON
 	"reversed": "WRONG WAY ACROSS BOUNDARY", "ok": "LANDING 1 CORRESPONDS"}
 ## Refusal lines: one reason, or both composed.
 const REFUSE_P := {
-	"unequal": "Pressure not equal. The black needle's off the brass one.",
-	"noref": "No reference. The brass needle has nothing to read from.",
+	"unequal": "Pressure not equal. The needle's on the wrong tick.",
+	"noref": "No reference. The gate has nothing to measure the line against.",
 }
 const REFUSE_L := {
 	"none": "NO CORRESPONDING LANDING.",
@@ -68,9 +72,9 @@ const OPEN_LEAVE := "Open. I'm leaving it as it is."
 const PORT_REAL := "The port shows the landing below. The real one."
 const FALSE_LANDING_LINE := "Through the port: steps going down to a landing that ends in a wall of water. No door."
 const GAUGE_DEAD := "The gauge is dead. No pressure in the line."
-const GAUGE_POWERED := "Live now. The black needle follows the wheel. The brass one lies on NO REFERENCE."
-const GAUGE_REFERENCED := "The brass needle's come up to 2. The laboratory jar's reading."
-const PLACARD_LINE := "The gate placard. Equalise to the reference; choose a landing whose marks correspond across the boundary; pull OPEN. Its example: '[ 7' above the line, '] 7' below."
+const GAUGE_POWERED := "Live now. The black needle follows the wheel, a tick a turn. Four ticks. No numbers."
+const GAUGE_REFERENCED := "The line's steady now: the laboratory's on it too. Four ticks, no numbers. The number's somewhere else."
+const PLACARD_LINE := "The gate placard. Equalise to the stair's target pressure; choose a landing whose marks correspond across the boundary; pull OPEN. Its example: '[ 7' above the line, '] 7' below."
 const GATE_SHUT := "The gate's down across the stair."
 const BELOW_GATE := "That's below the gate. I can't get down there."
 const GLANCE_BELL := [366, 334, 220, 170]
@@ -120,16 +124,16 @@ const NOTICE_SFX := {
 const TIDE_LINES := [0, 1, 2, 2, 3, 3, 4, 5]
 
 const OBSERVATIONS := {
-	"steps": "Limewashed steps go down through a sheet of water lying across the stairwell. Below it they are tinted green and perfectly dry.",
+	"steps": "Limewashed steps go down through a slab of water lying across the stairwell. Above it they are dark and wet. Below it they are bone dry.",
 	"stair_marks": "Cut into the gateway's right jamb, top to bottom: a bracket, two linked strokes, a hollow circle. The same three marks as the hatch frame above.",
-	"water_plane": "The water lies across the stairwell like a pane, flat to the jambs. It doesn't drip, doesn't spill, makes no sound. My hand stops at it.",
+	"water_plane": "The water lies across the stairwell like a pane, flat to the jambs, its edge hard as a ruled line. It doesn't drip, doesn't spill, makes no sound. My hand stops at it.",
 	"gate": "A pressure gate across the gateway: iron grille, a lock-box with two plate slots, UPPER and LOWER, a brass line between them marked BOUNDARY, and a lever marked OPEN.",
-	"gauge": "The gate gauge reads 0 to 5: a black PRESSURE needle on the wheel, and a brass REFERENCE needle fed from somewhere else in the station.",
-	"gauge_powered": "With the machine room's pump running, the PRESSURE needle follows the wheel. The brass REFERENCE needle lies at NO REFERENCE.",
-	"gauge_reference": "The brass REFERENCE needle stands at 2: the laboratory's jar C, read through the stair circuit.",
-	"plates": "Three landing plates in a rack: '[ 1', '] 1' and '[ 2', each bracket printed with the word BOUNDARY. There is no '] 2'.",
-	"placard": "The gate placard: 'PRESSURE GATE, DRY STAIR. 1. EQUALISE: turn the wheel until the PRESSURE needle lies on the REFERENCE needle. 2. SELECT A STABLE LANDING: its marks must correspond across the boundary. Example: [ 7 above the line, ] 7 below it. 3. PULL OPEN.'",
-	"false_landing": "Through the gate's sight port, with '[ 2' set: steps down to a landing that ends in a standing wall of water. No door. Nothing corresponds to it.",
+	"gauge": "The gate gauge: one black PRESSURE needle on the wheel, over a ring of four ticks with no numbers. Nothing on the face says what pressure the gate wants.",
+	"gauge_powered": "With the machine room's pump running, the PRESSURE needle follows the wheel, one tick a turn from its stop. The gate still has no reference.",
+	"gauge_reference": "With the laboratory's jar seated, the stair circuit has its reference. The face still shows no number: the target is the laboratory's.",
+	"plates": "Five landing plates in a rack: '[ 1', '] 1', '[ 2', '[ 3', '] 3', each bracket printed with the word BOUNDARY.",
+	"placard": "The gate placard: 'PRESSURE GATE, DRY STAIR. 1. EQUALISE: turn the wheel until the PRESSURE needle stands at the stair's target pressure. 2. SELECT A STABLE LANDING: its marks must correspond across the boundary. Example: [ 7 above the line, ] 7 below it. 3. PULL OPEN.'",
+	"false_landing": "Through the gate's sight port, with plates set for a landing the plan doesn't mark: steps down to a landing that ends in a standing wall of water. No door. Nothing corresponds to it.",
 	"gate_opened": "Gate opened at pressure 2, landing 1. The water across the gate stands up like glass.",
 	"bell": "A bell on the lower landing, stopped halfway through a swing. No clapper. It rings anyway, and the sound comes up the stair.",
 	"ceiling": "Overhead, the underside of the floor is clear as water, and through it is the office: the desk, the lamp, the chair.",
@@ -201,6 +205,8 @@ var landing := 1
 var held_plate := ""
 var gate_note := {"p": "", "l": ""}
 var door_note := ""
+## The preview strip has printed since the close-up opened: from then on it stays live.
+var preview_live := false
 var frame_results := {"BODY": "", "PLACE": "", "NAME": ""}
 
 func initial_state() -> Dictionary:
@@ -301,6 +307,11 @@ func rack_plates() -> Array:
 		if not p in state.slots and p != held_plate:
 			out.append(p)
 	return out
+
+## The flag windows are blank until OPEN is pulled, and blank again once the arrangement changes:
+## they only ever report the pull that was made. After P12 they keep the success.
+func _blank_flags() -> void:
+	gate_note = {"p": "", "l": ""}
 
 ## The gate's flag pair {p, l} ("" = blank).
 func flags_shown() -> Dictionary:
@@ -503,7 +514,7 @@ func _l1(action: String, ev: Array) -> void:
 				var marks := "Cut down the jamb beside them: a bracket, two linked strokes, a hollow circle. Top to bottom."
 				if game.has_seen("R03", "scratches"):
 					marks += " The same marks as the hatch frame."
-				_say(ev, "Limewashed steps, going down through the water. Under it they're green, and dry.")
+				_say(ev, "Limewashed steps, going down through the water. Above it they're dark and wet. Under it, bone dry.")
 				_say(ev, marks, 2.2)
 			else:
 				_say(ev, "The marks again, down the jamb: bracket, linked strokes, circle.")
@@ -542,10 +553,7 @@ func _l1(action: String, ev: Array) -> void:
 				_observe("gauge_powered")
 		"plates":
 			local_view = "c_gate"
-			var line := "Three landing plates. '[ 1', '] 1', '[ 2'. There's no '] 2'."
-			if game.has_seen("R03", "plan"):
-				line += " The chart room plan pairs its landings the same way."
-			_say(ev, line)
+			_say(ev, "Five landing plates. Brackets, and numbers.")
 			_observe("plates")
 		"placard":
 			local_view = "c_gate"
@@ -616,6 +624,7 @@ func _gate(action: String, ev: Array) -> void:
 				_say(ev, "It's at the stop.")
 				return
 			state.pressure = p
+			_blank_flags()
 			if powered():
 				_sfx(ev, "r11_wheel_click")
 			else:
@@ -628,7 +637,7 @@ func _gate(action: String, ev: Array) -> void:
 		"flags":
 			var t := flag_text(flags_shown())
 			_say(ev, t if t != "" else "Blank until I pull.")
-		"plate_o1", "plate_c1", "plate_o2":
+		"plate_o1", "plate_c1", "plate_o2", "plate_o3", "plate_c3":
 			_pick_plate(action.substr(6), ev)
 		"slot_upper", "slot_lower":
 			_use_slot(SLOT_ACTIONS[action], ev)
@@ -655,6 +664,7 @@ func _pick_plate(p: String, ev: Array) -> void:
 		var i: int = state.slots.find(p)
 		if i >= 0:
 			state.slots[i] = ""
+			_blank_flags()
 		held_plate = p
 	_sfx(ev, "r11_plate_pick")
 
@@ -663,10 +673,12 @@ func _use_slot(i: int, ev: Array) -> void:
 	if held_plate != "":
 		state.slots[i] = held_plate   # a plate already there goes back to the rack
 		held_plate = ""
+		_blank_flags()
 		_sfx(ev, "r11_plate_set")
 	elif state.slots[i] != "":
 		held_plate = state.slots[i]
 		state.slots[i] = ""
+		_blank_flags()
 		_sfx(ev, "r11_plate_pick")
 	else:
 		_say(ev, "An empty slot.")
@@ -679,7 +691,7 @@ func gate_check() -> Dictionary:
 	elif int(state.pressure) != PRESSURE_TARGET:
 		p = "unequal"
 	var l := "ok"
-	if "o2" in state.slots:
+	if state.slots.any(func(s): return s in FALSE_PLATES):
 		l = "none"
 	elif "" in state.slots:
 		l = "incomplete"
@@ -750,6 +762,16 @@ func _open_gate(ev: Array) -> void:
 # c_chamber_door: P24
 # ---------------------------------------------------------------------------------------------
 func _door(action: String, ev: Array) -> void:
+	var before := _mount_key()
+	_door_action(action, ev)
+	if _mount_key() != before:
+		_refresh_preview()
+
+## The door's mounts, as one comparable value.
+func _mount_key() -> String:
+	return JSON.stringify([state.frames, state.witness, state.copy])
+
+func _door_action(action: String, ev: Array) -> void:
 	if state.p24_complete:
 		_say(ev, "It's open.")
 		return
@@ -774,6 +796,7 @@ func _door(action: String, ev: Array) -> void:
 			else:
 				_say(ev, "COPY. AUTOMATIC. Its shutter is sprung open.")
 		"preview":
+			_refresh_preview()
 			_say(ev, door_note if door_note != "" else "Blank.")
 		"door_plate":
 			_say(ev, "INDEX ACCESS. A record is admitted when its frames agree. Witness: a person present. Copy: automatic acknowledgement.")
@@ -798,41 +821,61 @@ func _access(ev: Array) -> void:
 		_say(ev, "The lever's locked. AWAITING PREPARED RECORD.")
 		return
 	_sfx(ev, "r11_access_lever")
+	preview_live = true
+	frame_results = door_frame_results()
+	var verdict := door_verdict()
+	if verdict.is_empty():
+		_open_door(ev)
+		return
+	door_note = verdict[0]
+	_refuse_door(ev, verdict[1])
+	if state.copy != "":
+		_observe("copy_refusal")
+
+## Each frame's tag for the current mounts: EMPTY, ACCEPTED or NOT A <frame> RECORD.
+func door_frame_results() -> Dictionary:
+	var out := {}
 	for f in FRAMES:
 		var it: String = state.frames[f]
 		if it == "":
-			frame_results[f] = "EMPTY"
+			out[f] = "EMPTY"
 		elif RECORD_CATEGORY.get(it, "") == f:
-			frame_results[f] = "ACCEPTED"
+			out[f] = "ACCEPTED"
 		else:
-			frame_results[f] = "NOT A %s RECORD" % f
+			out[f] = "NOT A %s RECORD" % f
+	return out
+
+## What OPEN ACCESS would print for the current mounts, [preview note, refusal line], in the
+## card's order; [] when it would open. Pure.
+func door_verdict() -> Array:
 	if state.copy != "":
-		door_note = "WOULD FINALIZE SUBJECT"
-		_refuse_door(ev, "WOULD FINALIZE SUBJECT. The lever won't move while anything's in COPY.")
-		_observe("copy_refusal")
-		return
+		return ["WOULD FINALIZE SUBJECT", "WOULD FINALIZE SUBJECT. The lever won't move while anything's in COPY."]
 	var empty := []
 	for f in FRAMES:
 		if state.frames[f] == "":
 			empty.append(f)
 	if not empty.is_empty():
-		door_note = "RECORD INCOMPLETE: " + ", ".join(empty)
-		_refuse_door(ev, "Incomplete. Every frame wants a record.")
-		return
+		return ["RECORD INCOMPLETE: " + ", ".join(empty), "Incomplete. Every frame wants a record."]
 	for f in FRAMES:
 		if RECORD_CATEGORY.get(state.frames[f], "") != f:
-			door_note = "%s FRAME: NOT A %s RECORD" % [f, f]
-			_refuse_door(ev, WANT_LINES[f])
-			return
+			return ["%s FRAME: NOT A %s RECORD" % [f, f], WANT_LINES[f]]
 	if state.witness == "":
-		door_note = "NO WITNESS. RECORD WILL CLOSE."
-		_refuse_door(ev, "Nothing in the witness socket. It would close on its own.")
-		return
+		return ["NO WITNESS. RECORD WILL CLOSE.", "Nothing in the witness socket. It would close on its own."]
 	if state.frames.NAME == COMPLETE_CARD:
-		door_note = "RECORD COMPLETE. ACCESS DENIED TO COMPLETE RECORDS."
-		_refuse_door(ev, "RECORD COMPLETE. ACCESS DENIED TO COMPLETE RECORDS. It won't open for a finished record.")
+		return ["RECORD COMPLETE. ACCESS DENIED TO COMPLETE RECORDS.",
+			"RECORD COMPLETE. ACCESS DENIED TO COMPLETE RECORDS. It won't open for a finished record."]
+	return []
+
+## The preview strip stays live: once it has printed, every change to the door's mounts
+## reprints it (and the frame tags) for what is mounted now, so it never reports a frame that
+## has since been filled or emptied. A record that would now open leaves the strip blank:
+## only the lever says RECORD OPEN.
+func _refresh_preview() -> void:
+	if not preview_live or state.p24_complete or not door_live():
 		return
-	_open_door(ev)
+	var verdict := door_verdict()
+	door_note = "" if verdict.is_empty() else verdict[0]
+	frame_results = door_frame_results()
 
 func _refuse_door(ev: Array, line: String) -> void:
 	_sfx(ev, "r11_preview_print", 0.2)
@@ -903,6 +946,13 @@ func use_item(item: String, target: String, ev: Array) -> bool:
 	return false
 
 func _door_item(item: String, target: String, ev: Array) -> bool:
+	var before := _mount_key()
+	var used := _door_item_use(item, target, ev)
+	if _mount_key() != before:
+		_refresh_preview()
+	return used
+
+func _door_item_use(item: String, target: String, ev: Array) -> bool:
 	if not state.p12_complete:
 		_say(ev, BELOW_GATE)
 		return true
@@ -985,6 +1035,7 @@ func _clear_transient() -> void:
 	held_plate = ""
 	gate_note = {"p": "", "l": ""}
 	door_note = ""
+	preview_live = false
 	frame_results = {"BODY": "", "PLACE": "", "NAME": ""}
 
 func load_state(d: Variant) -> void:
