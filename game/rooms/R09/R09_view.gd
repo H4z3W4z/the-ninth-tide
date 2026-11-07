@@ -22,7 +22,11 @@ extends RoomView
 ## `<v>_surf_<band>_r2`, the b3 whitecaps turned on end (`vchop_tile_r2`, drifting sideways) and
 ## the rooms behind Ada as filled silhouettes (`<v>_refl_<band>_r2`). The reveal stands it up:
 ## the b3 horizon rises to the surface's top edge, the sea below it stretching upward in its
-## wake, and the reflections wipe in behind it.
+## wake. From then on (reveal_seen) view A shows `surface_standing` (b6: `surface_standing_b6`,
+## the lighthouse hung in it) in place of those layers: one flat sea-glass plane edge to edge,
+## the station's rooms upside down in it as a stark cutaway, the pennant straight out, and its
+## own painted rain stopping dead 60 px above the rail. The lid (a dark navy band) crosses the
+## glass once on the reveal, then rests half-lowered along the glass's top edge for good.
 
 const DIR := "res://assets/rooms/R09/%s.png"
 
@@ -76,8 +80,8 @@ const RULER_CONTROLS := [
 ]
 
 ## One-shot levels (dB) and the sudden ones "Soften sudden sounds" turns down.
-## lid_pass is written 18 dB under deep_tone in its file (tools/audio/rooms/R09.py), so it
-## takes deep_tone's gain here; any further cut would lose it under the tone.
+## lid_pass is written 6 dB under deep_tone in its file (tools/audio/rooms/R09.py, -9 dBFS peak
+## against -3), so it takes deep_tone's gain here, and deep_tone is ducked under it (DEEP_DUCK_*).
 const SFX_DB := {
 	"sel_click": -4.0, "iris_turn": -6.0, "scope_creak": -8.0, "mount_clamp": -3.0, "clamp_release": -4.0,
 	"mount_tap": -6.0, "record_key": -2.0, "key_refuse": -4.0, "strip_feed": -5.0, "nosubject_print": -6.0,
@@ -90,9 +94,9 @@ const LOOPS := ["r09_room", "r09_clockwork", "r09_wind", "r09_sea_far", "r09_rai
 	"r09_pressure", "r09_flap"]
 ## Loop levels (dB) per sea stage; a loop not listed is silent.
 const LOOP_DB := {
-	"b3": {"r09_room": -14.0, "r09_clockwork": -20.0, "r09_wind": -10.0, "r09_sea_far": -16.0, "r09_rain_glass": -18.0},
-	"b4": {"r09_room": -14.0, "r09_clockwork": -20.0, "r09_wind": -12.0, "r09_rain_glass": -20.0, "r09_surface": -24.0},
-	"b5": {"r09_room": -14.0, "r09_clockwork": -22.0, "r09_surface": -21.0},
+	"b3": {"r09_room": -14.0, "r09_clockwork": -20.0, "r09_wind": -3.0, "r09_sea_far": -16.0, "r09_rain_glass": -13.0},
+	"b4": {"r09_room": -14.0, "r09_clockwork": -20.0, "r09_wind": -5.0, "r09_rain_glass": -20.0, "r09_surface": -24.0},
+	"b5": {"r09_room": -10.0, "r09_clockwork": -22.0, "r09_surface": -21.0},
 	"b6": {"r09_room": -14.0, "r09_surface": -18.0, "r09_pressure": -24.0},
 	"b7": {"r09_room": -16.0, "r09_surface": -16.0, "r09_pressure": -14.0},
 	"sever": {"r09_room": -14.0, "r09_clockwork": -20.0, "r09_wind": -8.0, "r09_sea_far": -12.0,
@@ -101,6 +105,12 @@ const LOOP_DB := {
 ## The deep sounds the loops duck under (6 dB).
 const DUCK_IDS := ["deep_tone", "lid_pass", "glass_hum"]
 const LOOP_RATE := 0.11        # linear units / s: about a 1.5 s fade at these levels
+## While lid_pass plays, deep_tone is ducked DEEP_DUCK_DB from DEEP_DUCK_FROM to DEEP_DUCK_TO
+## seconds after the lid_pass cue starts, ramped in and out over DEEP_DUCK_RAMP.
+const DEEP_DUCK_DB := -8.0
+const DEEP_DUCK_FROM := 2.0
+const DEEP_DUCK_TO := 8.0
+const DEEP_DUCK_RAMP := 0.3
 
 ## Ambient per weather band: held at full (owner rule: the painted art must show).
 const TINT := [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
@@ -179,11 +189,21 @@ const ZOOM_WORD := ["×1", "×10", "×100", "×1000"]
 # --- the reveal (fx reveal_upright) -------------------------------------------------------
 const RISE_END := 3.5
 const B3_HORIZON := 400.0
-const SHUT_END := 6.5
+## After the rise the standing plate fades in over the composed surface.
+const PLATE_FADE := 1.0
+## The lid: a dark navy band across the whole glass. It crosses once, top to bottom, from
+## LID_START over LID_CROSS seconds, then fades in at rest, half-lowered along the glass's top
+## edge, where it stays for the rest of the game. Motion off: only the resting band.
 const LID_START := 7.0
-const LID_END := 13.0
+const LID_CROSS := 4.0
+const LID_END := LID_START + LID_CROSS
+const REST_FADE := 0.8
 const STILL_TIME := 4.0
-const STILL_LID_Y := 420.0
+const LID_H := 120.0
+const LID_REST := LID_H / 2.0
+const LID_COL := Color("0f1d27")
+## The lens overlay's opacity once the sea has stood up: the plate behind must lead.
+const LENS_AFTER_REVEAL := 0.35
 
 ## Notice holds: focus rects in view A.
 const HOLD_TIME := 1.5
@@ -192,7 +212,7 @@ const NOTICE_FOCUS := {
 	"dry_rail": Rect2(52, 520, 1344, 108),
 	"upright": Rect2(52, 162, 1344, 466),
 	"no_sky": Rect2(52, 162, 1344, 120),
-	"lighthouse_inverted": Rect2(1090, 170, 280, 330),
+	"lighthouse_inverted": Rect2(944, 236, 112, 300),
 	"no_edge": Rect2(504, 172, 440, 440),
 }
 
@@ -225,6 +245,7 @@ var eject_t := -1.0             # seconds into the frame lifting out, -1 = none
 var eject_wait := -1.0          # seconds waited for clamp_release, -1 = none
 var strip_t := -1.0             # seconds into the strip feeding out, -1 = settled
 var strip_wait := -1.0          # seconds waited for strip_feed, -1 = none
+var lid_cue_t := -1.0           # seconds since the lid_pass cue started, -1 = none
 
 func _ready() -> void:
 	narrow = SystemFont.new()
@@ -318,17 +339,56 @@ func reveal_running() -> bool:
 	return reveal_t >= 0.0 and reveal_t < reveal_len()
 
 func reveal_len() -> float:
-	return LID_END if motion else STILL_TIME
+	return LID_END + REST_FADE if motion else STILL_TIME
 
-## Where the lid line is now (view A y), or -1 when none is drawn.
+## The standing plate view A shows from the reveal on ("" before it, at band 7 and after the
+## sever ending, which keep their own plates).
+func standing_plate() -> String:
+	if not r.state.reveal_seen or _sever():
+		return ""
+	match stage():
+		"b7":
+			return ""
+		"b6":
+			return "surface_standing_b6"
+	return "surface_standing"
+
+## 0..1: how far the standing plate has come in (1 when settled).
+func plate_k() -> float:
+	if standing_plate() == "":
+		return 0.0
+	if not reveal_running() or not motion:
+		return 1.0
+	return smoothstep(RISE_END, RISE_END + PLATE_FADE, reveal_t)
+
+## 0..1 opacity of the resting lid along the glass's top edge (0 before the reveal).
+func lid_rest_k() -> float:
+	if not r.state.reveal_seen or _sever():
+		return 0.0
+	if not reveal_running() or not motion:
+		return 1.0
+	return clampf((reveal_t - LID_END) / REST_FADE, 0.0, 1.0)
+
+## Where the crossing lid's lower rim is now (view A y), or -1 when it is not crossing. It enters
+## above the glass and leaves below the rail, so it crosses the whole glass once.
 func lid_y() -> float:
-	if not reveal_running():
+	if not reveal_running() or not motion or reveal_t < LID_START or reveal_t >= LID_END:
 		return -1.0
-	if not motion:
-		return STILL_LID_Y
-	if reveal_t < LID_START:
-		return -1.0
-	return lerpf(SURF_TOP, SURF_BOTTOM, clampf((reveal_t - LID_START) / (LID_END - LID_START), 0.0, 1.0))
+	var k := smoothstep(0.0, 1.0, (reveal_t - LID_START) / LID_CROSS)
+	return lerpf(A_GLASS.position.y, A_GLASS.end.y + LID_H, k)
+
+## deep_tone's duck (dB) `t` seconds after the lid_pass cue: 0 outside DEEP_DUCK_FROM..TO,
+## DEEP_DUCK_DB inside, with linear ramps of DEEP_DUCK_RAMP at either end.
+static func deep_duck_db(t: float) -> float:
+	if t < 0.0:
+		return 0.0
+	var k := minf(clampf((t - DEEP_DUCK_FROM) / DEEP_DUCK_RAMP, 0.0, 1.0),
+		clampf((DEEP_DUCK_TO + DEEP_DUCK_RAMP - t) / DEEP_DUCK_RAMP, 0.0, 1.0))
+	return DEEP_DUCK_DB * k
+
+## The lens overlay's opacity.
+func lens_alpha() -> float:
+	return LENS_AFTER_REVEAL if r.state.reveal_seen and not _sever() else 1.0
 
 func knob_angle() -> float:
 	var target: float = KNOB_ANG[clampi(knob_to, 1, 3) - 1]
@@ -399,6 +459,11 @@ func tick(dt: float) -> void:
 		strip_t += dt
 		if strip_t >= STRIP_TIME or not motion:
 			strip_t = -1.0
+	if lid_cue_t >= 0.0:
+		lid_cue_t += dt
+		_duck_deep_tone()
+		if lid_cue_t > DEEP_DUCK_TO + DEEP_DUCK_RAMP:
+			lid_cue_t = -1.0
 	var tt: float = TINT[_band()]
 	tint = move_toward(tint, tt, dt * 0.2)
 	shade.color = Color(tint, tint, tint)
@@ -427,6 +492,15 @@ func loop_targets() -> Dictionary:
 			v -= 6.0
 		out[id] = db_to_linear(v)
 	return out
+
+## Sets every live deep_tone player to its level plus the duck for the lid_pass cue's clock.
+func _duck_deep_tone() -> void:
+	if game == null:
+		return
+	var level: float = game.sfx_db("deep_tone") + deep_duck_db(lid_cue_t)
+	for p in game.oneshots:
+		if is_instance_valid(p) and p.get_meta("sfx_id", "") == "deep_tone":
+			p.volume_db = level
 
 func _tick_audio(dt: float) -> void:
 	var rates := {}
@@ -470,6 +544,8 @@ func on_sfx(id: String) -> void:
 			_start_strip()
 		"clamp_release":
 			_start_eject()
+		"lid_pass":
+			lid_cue_t = 0.0
 
 func _start_strip() -> void:
 	if strip_wait < 0.0:
@@ -527,6 +603,7 @@ func reset_presentation() -> void:
 	eject_wait = -1.0
 	strip_t = -1.0
 	strip_wait = -1.0
+	lid_cue_t = -1.0
 
 func redraw() -> void:
 	room.queue_redraw()
@@ -731,10 +808,10 @@ func _tile(c: CanvasItem, id: String, clip: Rect2, off: Vector2, a := 1.0) -> vo
 		y += ts.y
 
 ## Rain, scrolled down and clipped to `clip`. Bands 6-7 thin it by half so the surface shows.
-func _rain(c: CanvasItem, clip: Rect2) -> void:
+func _rain(c: CanvasItem, clip: Rect2, a := 1.0) -> void:
 	var sparse := not _sever() and _stage_band() >= 6
 	var off := time * rain_speed() if rain_speed() > 0.0 else 0.0
-	_tile(c, "rain_sparse_r2" if sparse else "rain_tile", clip, Vector2(0, off))
+	_tile(c, "rain_sparse_r2" if sparse else "rain_tile", clip, Vector2(0, off), a)
 
 ## The standing plane's layers for rows y0..y1 of `glass`: plate, whitecaps on end, reflections.
 func _surface_rows(c: CanvasItem, glass: Rect2, surf: String, refl: String, refl_a: float, crest_a: float,
@@ -771,19 +848,23 @@ func _draw_room() -> void:
 
 func _draw_view_a(c: CanvasItem) -> void:
 	_draw_sea_a(c)
-	_rain(c, A_RAIN_SEVER if _sever() else A_RAIN)
-	_beads(c, A_BEADS)
+	# the standing plate carries its own rain, stopped 60 px above the rail
+	var tile_a := 1.0 - plate_k()
+	_rain(c, A_RAIN_SEVER if _sever() else A_RAIN, tile_a)
+	if tile_a > 0.0:
+		_beads(c, A_BEADS)
 	_full(c, "a_rail_wet" if r.rail_wet() else "a_rail")
 	_full(c, "a_room_r2")
+	var la := lens_alpha()
 	match r.lens_reflection():
 		"ada":
-			_sprite(c, "a_lens_ada", LENS_AT)
+			_sprite(c, "a_lens_ada", LENS_AT, la)
 		"ada_inv":
-			_sprite(c, "a_lens_ada_inv_r2", LENS_AT)
+			_sprite(c, "a_lens_ada_inv_r2", LENS_AT, la)
 		_:
 			# from band 5 the lens carries the standing surface, upside down, its warm point
 			if not reveal_running() and stage() in ["b5", "b6"]:
-				_sprite(c, "a_lens_surf_%s_r2" % stage(), LENS_AT)
+				_sprite(c, "a_lens_surf_%s_r2" % stage(), LENS_AT, la)
 	_lens_lid(c)
 	# irises: the open one on the aperture's port, the other two shut
 	var ap := knob_to if iris_t >= 0.0 else int(r.state.aperture)
@@ -806,31 +887,26 @@ func _draw_view_a(c: CanvasItem) -> void:
 	_draw_diagram(c)
 	_tab(c, RAIL_TAB, "THE RAIL")
 
-## The sea behind view A's glass, or the standing-up of it while the reveal runs.
+## The sea behind view A's glass, or the standing-up of it while the reveal runs; then the lid.
 func _draw_sea_a(c: CanvasItem) -> void:
-	if not reveal_running():
+	var plate := standing_plate()
+	if reveal_running() and motion and plate != "":
+		if reveal_t < RISE_END:
+			_draw_rise(c, smoothstep(0.0, 1.0, reveal_t / RISE_END))
+		else:
+			_band_of(c, "a_surf_b4_r2", 0.0, SURF_TOP)
+			_surface_rows(c, A_GLASS, "a_surf_b4_r2", "a_refl_b4_r2", 1.0, 0.8, SURF_TOP, SIZE.y)
+			_full(c, plate, plate_k())
+	elif plate != "":
+		_full(c, plate)
+	else:
 		_draw_sea(c, "a")
-		return
-	var shut := ["a_surf_b4_r2", "a_refl_b4_r2", 1.0, 0.8]
-	var opened := ["a_surf_b4o_r2", "a_refl_b4_r2", 1.0, 0.8]
-	if not motion:
-		# Motion off: cut straight to the standing surface; the lid holds still on it
-		_band_of(c, "a_surf_b4_r2", 0.0, SURF_TOP)
-		_surface_rows(c, A_GLASS, opened[0], opened[1], opened[2], opened[3], SURF_TOP, SIZE.y)
-		_lid_band(c, STILL_LID_Y)
-		return
-	var t := reveal_t
-	if t < RISE_END:
-		_draw_rise(c, smoothstep(0.0, 1.0, t / RISE_END))
-		return
-	_band_of(c, "a_surf_b4_r2", 0.0, SURF_TOP)
-	_surface_rows(c, A_GLASS, shut[0], shut[1], shut[2], shut[3], SURF_TOP, SIZE.y)
 	var ly := lid_y()
-	if ly < 0.0:
-		return
-	# behind the lid the surface has opened
-	_surface_rows(c, A_GLASS, opened[0], opened[1], opened[2], opened[3], SURF_TOP, ly)
-	_lid_band(c, ly)
+	if ly >= 0.0:
+		_lid_band(c, ly)
+	var rk := lid_rest_k()
+	if rk > 0.0:
+		_lid_band(c, A_GLASS.position.y + LID_REST, rk)
 
 ## The standing-up, k 0..1: the b3 horizon rises to the surface's top edge; the sea under it
 ## stretches upward (the whitecaps slide up in its wake) and turns into the standing plane, and
@@ -857,17 +933,18 @@ func _draw_rise(c: CanvasItem, k: float) -> void:
 	c.draw_line(Vector2(A_GLASS.position.x, hy), Vector2(A_GLASS.end.x, hy), INK, 3.0)
 	c.draw_line(Vector2(A_GLASS.position.x, hy + 3.0), Vector2(A_GLASS.end.x, hy + 3.0), Color(PAPER_HI, 0.55), 1.6)
 
-## The lid: a storm-navy band, feathered above, its wet paper rim (the eyelid edge) at `y`.
-func _lid_band(c: CanvasItem, y: float) -> void:
-	var t := _tex("a_lid_band_r2")
-	if t == null:
+## The lid: a flat dark navy band LID_H tall across the whole glass, its lower rim (a wet paper
+## line under an ink edge) at `y`; clipped to the glass.
+func _lid_band(c: CanvasItem, y: float, a := 1.0) -> void:
+	var g := A_GLASS
+	var band := Rect2(g.position.x, y - LID_H, g.size.x, LID_H).intersection(g)
+	if band.size.y <= 0.0:
 		return
-	var sz := t.get_size()
-	var top := y - 92.0
-	var cut := maxf(0.0, SURF_TOP - top)       # never over the sky above the surface's edge
-	if cut >= sz.y:
-		return
-	c.draw_texture_rect_region(t, Rect2(A_GLASS.position.x, top + cut, sz.x, sz.y - cut), Rect2(0, cut, sz.x, sz.y - cut))
+	c.draw_rect(band, Color(LID_COL, a))
+	for rim in [[y - 6.0, 3.0, INK], [y - 3.0, 3.0, PAPER_HI]]:
+		var rr := Rect2(g.position.x, rim[0], g.size.x, rim[1]).intersection(g)
+		if rr.size.y > 0.0:
+			c.draw_rect(rr, Color(rim[2], a * (0.9 if rim[2] == PAPER_HI else 1.0)))
 
 ## The lid, inverted, through the lens: it climbs while the real one falls, rim on top.
 func _lens_lid(c: CanvasItem) -> void:
@@ -971,15 +1048,26 @@ func _draw_close() -> void:
 			_draw_ruler(close)
 
 # --- c_scope ------------------------------------------------------------------------------
+const SCOPE_SCENES := {"land": "c_view_land_r3", "sea": "c_view_sea_r3", "station": "c_view_station_r2",
+	"surface": "c_view_surface_r2"}
+const RIM_SPRITES := {"square": "c_patch", "round": "c_rim_round", "crack": "c_rim_crack"}
+## The relation mark's dark state: ink, not violet. It lights only on a confirmed subject.
+const MARK_DARK := Color("2b3238")
+
+func mark_col() -> Color:
+	return VIOLET if r.relation_lit() else MARK_DARK
+
 func _draw_scope(c: CanvasItem) -> void:
 	var st: Dictionary = r.state
 	_full(c, "c_scope_r2")
-	var scene := r.scope_scene()
-	_sprite(c, "c_view_" + scene + ("_r2" if scene in ["station", "surface"] else ""), VIEW_AT)
-	if r.patch_shown():
+	_sprite(c, SCOPE_SCENES[r.scope_scene()], VIEW_AT)
+	var rim := r.rim_shown()
+	if rim != "":
+		# the lens on the rim at the cross: each bowl's mending, or none
 		_sprite_c(c, "c_loupe_ring", EYE_C, 300.0 / 380.0)
-		_sprite_c(c, "c_patch", EYE_C)
-		_draw_steam(c)
+		_sprite_c(c, RIM_SPRITES[rim], EYE_C)
+		if rim == "square":
+			_draw_steam(c)
 	if r.last_record == "nosubject":
 		_draw_no_subject(c)
 	# the reticle, open at the centre
@@ -991,11 +1079,12 @@ func _draw_scope(c: CanvasItem) -> void:
 	if r.last_record == "nosubject":
 		_no_subject_marks(c)
 	if st.frame_mounted and r.last_record != "nosubject":
-		# her mark in the reticle: the bearing has to carry it to a subject
-		_rel_mark_halo(c, EYE_C, 26, VIOLET, 3.5)
+		# her mark in the reticle: dark until the lens confirms a subject on the bearing
+		var mc := mark_col()
+		_rel_mark_halo(c, EYE_C, 26, mc, 3.5)
 		var chip := Rect2(EYE_C + Vector2(26, 8), Vector2(74, 22))
 		c.draw_rect(chip, Color(PAPER_HI, 0.88))
-		c.draw_string(narrow, chip.position + Vector2(5, 17), "RELATION", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, VIOLET)
+		c.draw_string(narrow, chip.position + Vector2(5, 17), "RELATION", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, mc)
 	_sprite(c, "c_eyepiece_ring", RING_AT)
 	# the caption plate sits over the ring's top edge
 	c.draw_rect(CAPTION, ENAMEL)
@@ -1041,7 +1130,7 @@ func _draw_steam(c: CanvasItem) -> void:
 func _draw_no_subject(c: CanvasItem) -> void:
 	c.draw_circle(EYE_C, EYE_R, Color(PAPER_HI, 0.4))
 	var y := EYE_C.y - 30
-	_rel_mark_halo(c, Vector2(EYE_C.x - 210, y), 32, VIOLET, 4.0)
+	_rel_mark_halo(c, Vector2(EYE_C.x - 210, y), 32, mark_col(), 4.0)
 	var lab := Rect2(EYE_C.x - 256, y + 26, 92, 24)
 	c.draw_rect(lab, Color(PAPER_HI, 0.88))
 	_ctext(c, "RELATION", EYE_C.x - 210, y + 44, 18, INK)
@@ -1082,7 +1171,7 @@ func _draw_frame(c: CanvasItem, at: Vector2, a: float) -> void:
 		Ink.handwriting(c, name, name.length(), at + Vector2(24, 238), 22, 7, false, Ink.BLUE_INK)
 	else:
 		c.draw_string(narrow, at + Vector2(24, 238), name, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(Ink.BLUE_INK, a))
-	_rel_mark(c, at + Vector2(176, 233), 16, Color(VIOLET, a), 3.0)
+	_rel_mark(c, at + Vector2(176, 233), 16, Color(mark_col(), a), 3.0)
 	c.draw_string(narrow, at + Vector2(190, 240), "RELATION", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, ink)
 	_ctext(c, "CATEGORY:", at.x + 329, at.y + 220, 15, ink)
 	_ctext(c, "BODY", at.x + 329, at.y + 242, 18, ink)

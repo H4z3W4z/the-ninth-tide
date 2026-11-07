@@ -462,10 +462,23 @@ func play_p15() -> void:
 	_qd("item:nora_frame")
 	_qd("mount")
 	check(gallery.state.frame_mounted and not g.has_item("nora_frame"), "P15: her frame in the clamp")
-	_qd("sel_3")
+	# every aperture holds a bowl; the lens reads each rim, and only STATION 3's is the square patch
+	_qd("sel_1")
 	_qd("item:inspection_lens")
 	_qd("scope_view")
-	check(gallery.state.patch_confirmed, "P15: the square patch under the lens")
+	check(gallery.rim_shown() == "round" and not gallery.state.patch_confirmed, "P15: LAND 1's bowl has a round patch")
+	_qd("sel_2")
+	_qd("item:inspection_lens")
+	_qd("scope_view")
+	check(gallery.rim_shown() == "crack" and not gallery.state.patch_confirmed, "P15: SEA 2's bowl has a crack, no patch")
+	_qd("sel_3")
+	var refused := _qd("record")
+	check(not g.flag("P15") and R09Sim.NO_SUBJECT in says(refused) and not gallery.relation_lit(),
+		"P15: RECORD before the lens prints NO SUBJECT; the mark stays dark")
+	_qd("item:inspection_lens")
+	_qd("scope_view")
+	check(gallery.state.patch_confirmed and gallery.rim_shown() == "square" and gallery.relation_lit(),
+		"P15: the square riveted patch under the lens")
 	var ev := _qd("record")
 	check(g.flag("P15") and g.has_item("nora_spatial_strip") and g.has_item("nora_frame"),
 		"P15: her bearing recorded; the strip printed; her frame back")

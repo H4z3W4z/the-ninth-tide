@@ -9,9 +9,12 @@ extends RoomSim
 ## BEARING) and c_ruler (the boxwood rule, after P15).
 ##
 ## P15: mount Nora's frame, aim at STATION 3 (a reflection of the rooms behind her), confirm
-## the square-patched bowl with the inspection lens, RECORD BEARING. LAND and SEA print NO
-## SUBJECT; STATION 3 unconfirmed is refused by the contract rule. The frame always comes
-## back. The upright-sea reveal plays on leaving the scope (or on the next arrival or return
+## the square-patched bowl with the inspection lens, RECORD BEARING. Every aperture holds a bowl
+## (LAND 1 a tin bowl wedged on the causeway, SEA 2 one floating in open water, STATION 3 the
+## mess-table bowl), and only the lens tells them apart: a round patch, a bare crack, the square
+## riveted patch of P07. The lens on STATION 3 is the deduction; RECORD without it prints NO
+## SUBJECT ON BEARING, wherever it is aimed. After P15 the selector is locked. The frame always
+## comes back. The upright-sea reveal plays on leaving the scope (or on the next arrival or return
 ## from the notebook), once.
 ##
 ## Node-free and deterministic. The weather comes from game.weather_band(), never a clock.
@@ -41,7 +44,20 @@ const DIAGRAM_TEXT := "Bearing follows the recorded subject's location, not the 
 const STRIP_LINES := ["BEARING  STATION 3", "SUBJECT  BELL, N.", "RELATION  CONFIRMED"]
 const NO_SUBJECT := "NO SUBJECT ON BEARING."
 const CONTRACT_RULE := "Do not certify an observation you have not made."
-const UNCONFIRMED := "It looks like the bowl. I'd want to see the patch before I record it."
+## The lens on STATION 3: the only line that sets patch_confirmed.
+const PATCH_LINE := "A square patch, riveted. A bowl, at the cross."
+## The lens on the other two rims ([text, observation]).
+const RIM_LINES := {
+	1: ["A round patch, soldered over the rim. Tin.", "rim_land"],
+	2: ["A crack down the rim. No patch.", "rim_sea"],
+}
+## What selecting an aperture names: only what is in view.
+const SEL_LINES := {
+	1: "Land, aperture one. The causeway, and a tin bowl wedged in the break.",
+	2: "Sea, aperture two. Open water, and a bowl floating in it.",
+	3: "Station, aperture three. The mess table.",
+}
+const SEL_LOCKED := "The bearing's recorded. I leave it where it is."
 const RECORD_REFUSED := "The key won't go down. The clamp is empty."
 const FRAME_IN_CLAMP := "Her frame's still in the clamp."
 ## The view A glass, where the reward (the standing sea) is seen.
@@ -77,8 +93,9 @@ const SEVER_LINES := {
 	"glass": "Grey water, grey sky, and a line between them.",
 }
 const MISS_LINES := {
-	1: ["The causeway. Nothing of hers on it.", "Land. The diagram wants the subject, not the coast."],
-	2: ["Open water. The diagram says the bearing follows the subject, not the water.", "Sea again. Nothing of hers is out there."],
+	1: ["A bowl on the causeway. The key won't take it on my word.", "Land. The diagram wants the subject, not the coast."],
+	2: ["A bowl in open water. The diagram says the bearing follows the subject, not the water.", "Sea again. A bowl isn't a subject until I've looked at it."],
+	3: [CONTRACT_RULE, "The mess table. I haven't looked at a single rim."],
 }
 const FRAME_TARGETS := ["lens", "aperture_1", "aperture_2", "aperture_3", "diagram", "glass", "rail", "horizon",
 	"pennant", "ruler", "sel_1", "sel_2", "sel_3", "scope_view", "record"]
@@ -90,11 +107,13 @@ const OBSERVATIONS := {
 	"apertures": "Three apertures in the lantern housing, each with an iris and an enamel plate: LAND 1, SEA 2, STATION 3. The scope sights through whichever iris is open.",
 	"scope": "A sighting scope on a brass arm: a clamp for a specimen frame, a three-position aperture selector, and a key, RECORD BEARING.",
 	"diagram": "Reference plate by the scope: 'Bearing follows the recorded subject's location, not the water. Match the relation mark.' The drawing joins a FRAME to a SUBJECT by the relation mark, two linked strokes, printed RELATION. The water is bracketed off: BOUNDARY.",
-	"view_land": "Through LAND 1: the headland, and the old causeway breaking off short of it. Nothing of anyone's on it.",
-	"view_sea": "Through SEA 2: open water all the way to the horizon. Nothing on it.",
-	"view_station": "Through STATION 3 the scope looks back through the glass at the rooms behind me, one behind another: the office lamp, the mess table, a bowl at the cross. The horizon runs behind my reflected shoulder.",
-	"bowl_patch": "Under the lens, the bowl in the STATION 3 reflection has a square patch riveted over a crack: Nora's mending, the ninth bowl. There is soup in it, steaming.",
-	"no_subject": "RECORD BEARING on LAND or SEA prints an empty diagram: NO SUBJECT ON BEARING.",
+	"view_land": "Through LAND 1: the headland, and the old causeway breaking off short of it. A tin bowl is wedged in the break.",
+	"view_sea": "Through SEA 2: open water all the way to the horizon, and one bowl floating in it.",
+	"view_station": "Through STATION 3 the scope looks back through the glass at the rooms behind me, one behind another: the office lamp, the mess table and its bowls. The horizon runs behind my reflected shoulder.",
+	"rim_land": "Under the lens, the tin bowl on the causeway has a round patch soldered over its rim.",
+	"rim_sea": "Under the lens, the bowl floating through SEA 2 has a crack down its rim, and no patch.",
+	"bowl_patch": "Under the lens, the mess-table bowl at the cross of STATION 3 has a square patch riveted over a crack: the same mending as the ninth bowl. There is soup in it, steaming.",
+	"no_subject": "RECORD BEARING prints an empty diagram, NO SUBJECT ON BEARING, until the lens has confirmed what the bearing is on. Every aperture has a bowl in it.",
 	"nora_bearing": "Nora Bell's bearing is not out at sea. It is inside the station: STATION 3, the bowl with the square patch.",
 	"upright": "After the bearing printed, the sea outside the glass stood up: a flat surface on end, carrying the rooms behind me, the office lamp a warm point in it. A slow line passed across the whole of it, like a lid opening. It has not closed.",
 	"glass": "Rain runs down outside the lantern glass, slower than rain should.",
@@ -141,8 +160,10 @@ const ITEMS := {
 const SAVED_BOOLS := ["frame_mounted", "patch_confirmed", "p15_complete", "reveal_seen", "scope_seen", "rail_seen"]
 
 ## Transient (never saved): what the last RECORD printed, for the scope overlay
-## ("" | "nosubject" | "recorded"), and the ruler loupe level 0..3.
+## ("" | "nosubject" | "recorded"), the aperture whose rim the lens is on (0 none; STATION 3's
+## square patch is state, patch_confirmed), and the ruler loupe level 0..3.
 var last_record := ""
+var lens_rim := 0
 var ruler_zoom := 0
 
 func initial_state() -> Dictionary:
@@ -175,6 +196,19 @@ func scope_scene() -> String:
 
 func patch_shown() -> bool:
 	return int(state.aperture) == 3 and state.patch_confirmed and not state.p15_complete
+
+## The rim under the lens in the eyepiece: "square" (STATION 3, confirmed), "round" (LAND 1),
+## "crack" (SEA 2) or "".
+func rim_shown() -> String:
+	if patch_shown():
+		return "square"
+	if state.p15_complete or lens_rim != int(state.aperture):
+		return ""
+	return {1: "round", 2: "crack"}.get(lens_rim, "")
+
+## The frame's relation mark lights only once the lens has confirmed the subject.
+func relation_lit() -> bool:
+	return patch_shown()
 
 func pennant_mode() -> String:
 	if _sever():
@@ -323,6 +357,7 @@ func _room(action: String, ev: Array) -> void:
 ## Into the scope close-up. The first look sees SEA 2 (the default aperture).
 func _open_scope(ev: Array) -> void:
 	local_view = "c_scope"
+	lens_rim = 0
 	_sfx(ev, "scope_creak")
 	_observe("scope")
 	if int(state.aperture) == 2 and not state.p15_complete:
@@ -442,36 +477,32 @@ func _unmount(ev: Array) -> void:
 	_fx(ev, "frame_eject")
 	_say(ev, "I take her frame off the clamp.")
 
+## After P15 the selector is locked on STATION 3, so the live state always matches the
+## arrangement a load gives (_set_done) and a save round-trips byte-identical.
 func _select(n: int, ev: Array) -> void:
+	if state.p15_complete:
+		_say(ev, SEL_LOCKED)
+		return
 	if int(state.aperture) == n:
 		_say(ev, APERTURES[n] + ". It's already there.")
 		return
 	state.aperture = n
 	state.patch_confirmed = false
 	last_record = ""
+	lens_rim = 0
 	_sfx(ev, "sel_click")
 	_sfx(ev, "iris_turn", 0.25)
 	_fx(ev, "aim", {"aperture": n})
-	if state.p15_complete:
-		_say(ev, APERTURES[n] + ". The surface. Every bearing finds it now.")
-		return
-	if not n in state.seen_views:
-		state.seen_views.append(n)
-		match n:
-			1:
-				_say(ev, "LAND 1. The headland, and the causeway breaking off short of it.")
-				_observe("view_land")
-			2:
-				_say(ev, "SEA 2. Open water, all the way out. Nothing on it.")
-				_observe("view_sea")
-			3:
-				_sfx(ev, "glass_hum", 0.6)
-				_say(ev, "STATION 3. It isn't pointing out. It's looking back through the glass.", 0.4, true)
-				_say(ev, "The rooms behind me, one behind another. The office lamp. The mess table. A bowl, at the cross.", 3.0, true)
-				_say(ev, "And my own shoulder. The horizon runs behind it. Behind me, not behind the glass.", 6.4, true)
-				_observe("view_station")
+	var first: bool = not n in state.seen_views
+	_add_seen_view(n)
+	_observe(["", "view_land", "view_sea", "view_station"][n])
+	if n == 3 and first:
+		_sfx(ev, "glass_hum", 0.6)
+		_say(ev, SEL_LINES[3], 0.4, true)
+		_say(ev, "It isn't pointing out. It's looking back through the glass, at the rooms behind me.", 3.0, true)
+		_say(ev, "And my own shoulder. The horizon runs behind it. Behind me, not behind the glass.", 6.4, true)
 	else:
-		_say(ev, ["", "LAND 1.", "SEA 2.", "STATION 3. The rooms behind me."][n])
+		_say(ev, SEL_LINES[n])
 
 func _scope_view(ev: Array) -> void:
 	if state.p15_complete:
@@ -479,16 +510,16 @@ func _scope_view(ev: Array) -> void:
 		return
 	match int(state.aperture):
 		1:
-			_say(ev, "The headland, and the causeway breaking off short of it.")
+			_say(ev, "The causeway breaks off short. A tin bowl's wedged in the break. I can't make out its rim from here.")
 			_observe("view_land")
 		2:
-			_say(ev, "Open water, all the way out.")
+			_say(ev, "Open water, and a bowl floating in it, turning. I can't make out its rim from here.")
 			_observe("view_sea")
 		_:
 			if state.patch_confirmed:
-				_say(ev, "Her bowl. The square patch, riveted. Soup in it, steaming.")
+				_say(ev, "The square patch, riveted. Soup in it, steaming.")
 			else:
-				_say(ev, "The bowl's at the cross. It looks like hers. I can't see the patch from here.")
+				_say(ev, "The mess table, in the glass. Bowls along it. I can't make out a rim from here.")
 			_observe("view_station")
 
 ## RECORD BEARING: the commit.
@@ -502,7 +533,9 @@ func _record(ev: Array) -> void:
 		_say(ev, RECORD_REFUSED)
 		return
 	var a := int(state.aperture)
-	if a == 1 or a == 2:
+	if not (a == 3 and state.patch_confirmed):
+		# Nothing confirmed on the bearing, wherever it points: the diagram prints empty and the
+		# frame's relation mark stays dark.
 		_sfx(ev, "record_key")
 		_sfx(ev, "nosubject_print", 0.3)
 		_fx(ev, "no_subject")
@@ -511,11 +544,6 @@ func _record(ev: Array) -> void:
 		_say(ev, MISS_LINES[a][int(state.record_miss) % 2], 1.8)
 		state.record_miss = mini(int(state.record_miss) + 1, 99)
 		_observe("no_subject")
-		return
-	if not state.patch_confirmed:
-		# The contract rule: the key is not pressed, so no key sound.
-		_say(ev, UNCONFIRMED, 0.0)
-		_say(ev, CONTRACT_RULE, 2.2)
 		return
 	_set_done()   # the same arrangement a load gives, so a save round-trips byte-identical
 	last_record = "recorded"
@@ -579,6 +607,7 @@ func back(ev: Array) -> void:
 			if state.frame_mounted:
 				_unmount(ev)
 			last_record = ""
+			lens_rim = 0
 			local_view = "room"
 			if reveal_due():
 				_reveal(ev)
@@ -647,18 +676,21 @@ func _use_lens(target: String, ev: Array) -> bool:
 				return false
 			_sfx(ev, "lens_slide")
 			last_record = ""
+			var a := int(state.aperture)
 			if state.p15_complete:
 				_say(ev, "The surface has a grain under the lens. It isn't water.")
-			elif int(state.aperture) == 1:
-				_say(ev, "The causeway's end, under the lens. Nothing on it.")
-			elif int(state.aperture) == 2:
-				_say(ev, "Water. Under the lens it's still only water.")
+			elif a != 3:
+				lens_rim = a
+				_fx(ev, "lens_rim", {"aperture": a})
+				_say(ev, RIM_LINES[a][0])
+				_observe(RIM_LINES[a][1])
 			elif state.patch_confirmed:
-				_say(ev, "The square patch. Four rivets. It's hers.")
+				_say(ev, "The square patch. Four rivets.")
 			else:
 				state.patch_confirmed = true
+				lens_rim = 3
 				_fx(ev, "lens_patch")
-				_say(ev, "Under the lens: a square patch, riveted over a crack. Nora's mending. The ninth bowl.", 0.2, true)
+				_say(ev, PATCH_LINE, 0.2, true)
 				_say(ev, "There's soup in it. Still steaming.", 2.8, true)
 				_observe("bowl_patch")
 			return true
@@ -717,6 +749,7 @@ func objective() -> String:
 # ---------------------------------------------------------------------------------------------
 func _clear_transient() -> void:
 	last_record = ""
+	lens_rim = 0
 	ruler_zoom = 0
 
 func load_state(d: Variant) -> void:
