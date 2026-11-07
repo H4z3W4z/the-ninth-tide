@@ -48,7 +48,18 @@ static func button(c: CanvasItem, rect: Rect2, label: String, active := false, s
 	style.set_corner_radius_all(5)
 	c.draw_style_box(style, rect)
 	var f := serif()
+	# Long labels (item names in a narrow inventory slot) shrink, then end in an ellipsis,
+	# so they never spill into the next button.
+	var room_x := rect.size.x - 12.0
 	var ts := f.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, size)
+	while ts.x > room_x and size > 13:
+		size -= 1
+		ts = f.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, size)
+	if ts.x > room_x:
+		while label.length() > 1 and f.get_string_size(label + "…", HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > room_x:
+			label = label.substr(0, label.length() - 1)
+		label = label.strip_edges() + "…"
+		ts = f.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, size)
 	c.draw_string(f, rect.position + Vector2((rect.size.x - ts.x) / 2.0, rect.size.y / 2.0 + size * 0.36),
 		label, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(PAPER, 1.0 if not dim else 0.6))
 

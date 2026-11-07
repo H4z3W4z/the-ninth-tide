@@ -298,7 +298,9 @@ func test_malformed_saves() -> void:
 
 func test_debug_prepare() -> void:
 	var g := game_at(3, ROOM)
-	check(g.flag("P06") and r01(g).capsule_state() == "open" and g.has_item("service_key"), "13: tide III")
+	# Integrated (Wave 1): R02's debug_prepare spends the key at the service door from Tide III.
+	check(g.flag("P06") and r01(g).capsule_state() == "open" and not g.has_item("service_key")
+		and "R05" in g.reachable("R02"), "13: tide III, key spent at the service door")
 	g = game_at(4, ROOM)
 	check(g.flag("P06") and not g.has_item("service_key"), "13: tide IV, key spent")
 	check(r01(game_at(9, ROOM)).jetty_state() == "s7", "13: tide IX s7")
@@ -358,7 +360,9 @@ func test_hints() -> void:
 	var c := lensed_game()
 	ring(c, "unverified", 2)
 	games["capsule"] = c
-	games["after"] = game_at(3, ROOM)
+	var after := game_at(3, ROOM)
+	after.give("service_key")  # one step earlier: the key in hand, the service door still shut
+	games["after"] = after
 	games["done"] = game_at(5, ROOM)
 	for o in R01Sim.HINTS:
 		var g: GameSim = games[o]

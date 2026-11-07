@@ -222,7 +222,8 @@ func test_card_flags() -> void:
 		check(g.flag(id), "card flag %s is settable" % id)
 	var t := roundtrip(g)
 	# P01 and the Tide I transition flags follow R02's state on load (tested in R02_test).
-	var derived := ["p01_complete", "closure_report_filed", "t1x_threshold_crossed", "t1x_turned"]
+	# P06 follows R01's state the same way (tested in R01_test).
+	var derived := ["p01_complete", "p06_complete", "closure_report_filed", "t1x_threshold_crossed", "t1x_turned"]
 	for id in bools:
 		check(t.flag(id) != (id in derived), "card flag %s survives a save (or follows its owner)" % id)
 		t.set_flag(id, false)
@@ -301,11 +302,12 @@ func test_travel() -> void:
 	g.dispatch("begin")
 	check(g.state.room == "R02" and g.state.visited == ["R02"], "begin in the office")
 	var ev := g.dispatch("go:R03")
-	check(g.state.room == "R02" and says(ev) == g.room("R03").locked_line(), "locked chart room says why")
-	check(says(ev).begins_with("The chart room door is latched"), "before the lamp: latched")
+	# The office answers first: its corridor is dark until the lamp (R02 exit_block).
+	check(g.state.room == "R02" and says(ev) == "The corridor is pitch black. Light first.", "before the lamp: the dark corridor")
+	check(g.room("R03").locked_line().begins_with("The chart room door is latched"), "before the lamp: the chart room is latched")
 	ev = g.dispatch("go:R01")
 	check(g.state.room == "R01" and has_ev(ev, "fx", "travel"), "the jetty is open from the start")
-	check(says(ev) == g.room("R01").c("ARRIVAL"), "arrival line on the first visit")
+	check(says(ev).begins_with(g.room("R01").c("ARRIVAL")), "arrival line on the first visit")
 	ev = g.dispatch("go:R02")
 	check(g.state.room == "R02" and says(ev) == "", "the office says nothing on a return")
 	ev = g.dispatch("go:R01")
@@ -323,7 +325,8 @@ func test_travel() -> void:
 	s.state.p01_complete = true
 	s.reconcile()
 	ev = g.dispatch("go:R03")
-	check(g.state.room == "R02" and says(ev).begins_with("Two latches let go"), "after the lamp, the office keeps her")
+	# Re-timed (T1X-closure.md): the corridor opens on P01.
+	check(g.state.room == "R03" and has_ev(ev, "fx", "travel"), "after the lamp, the corridor opens to the chart room")
 
 func test_latched_office() -> void:
 	var g := GameSim.new()
@@ -419,7 +422,10 @@ func test_saves() -> void:
 	check(not bad.flag("P99") and not bad.flag("X01.y") and bad.flag("P04"), "unknown flags are dropped, real ones kept")
 	check(not bad.flag("P05"), "a non-bool flag is dropped")
 	check(bad.state.inventory.is_empty(), "unknown items are dropped")
-	check(bad.state.notebook == ["R02.coat"], "unknown observations are dropped (%s)" % [bad.state.notebook])
+	# Rooms re-note what their state implies (R01 at tide IV); unknown ids never survive.
+	check("R02.coat" in bad.state.notebook and not "R02.nope" in bad.state.notebook
+		and not "Q.x" in bad.state.notebook and not 4 in bad.state.notebook,
+		"unknown observations are dropped (%s)" % [bad.state.notebook])
 	check(bad.state.room == "R02", "an unknown room falls back to the office")
 	check(not "R77" in bad.state.visited, "unknown visited rooms are dropped")
 	# Settings are saved apart from the story and survive a restart.

@@ -2448,6 +2448,7 @@ func test_service_door() -> void:
 	s.dispatch("turn")
 	check(says(s.dispatch("service_door")) == R02Sim.SERVICE_NO_KEY, "the service door without P06")
 	var k := with_flags(["P01", "P06"])
+	k.room("R01").state.p06_complete = true  # P06 follows R01's state on load
 	var o := office(k)
 	k.give("service_key")
 	check(o.service_locked(), "locked with the key held")
