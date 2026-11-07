@@ -2,8 +2,8 @@
 config_version=5
 
 [application]
-config/name="The Ninth Tide - Intake Office Asset Preview"
-run/main_scene="res://intake_preview.tscn"
+config/name="The Ninth Tide"
+run/main_scene="res://game/intake_office.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 
 [display]
