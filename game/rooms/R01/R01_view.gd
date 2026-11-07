@@ -43,7 +43,8 @@ const LOOPS := ["sea_jetty", "sea_slap", "sea_thin", "wind_jetty", "wind_whistle
 const MIX := {
 	"arrival": {"sea_jetty": 1.0, "wind_jetty": 0.6},
 	"boat": {"sea_jetty": 1.0, "wind_jetty": 0.6},
-	"s1": {"sea_jetty": 1.0, "wind_jetty": 0.7, "wind_whistle": 0.5},
+	## The sea is out past the causeway: only its thin far edge, and the wind.
+	"s1": {"sea_thin": 0.6, "wind_jetty": 0.7, "wind_whistle": 0.5},
 	"s2": {"sea_jetty": 0.9, "wind_jetty": 0.7, "wind_whistle": 0.5, "rain_planks": 0.8},
 	"s3": {"sea_slap": 0.9, "wind_jetty": 0.6, "wind_whistle": 0.4, "rain_planks": 0.8},
 	"s4": {"sea_thin": 0.7, "wind_jetty": 0.5, "wind_whistle": 0.3, "rain_planks": 0.7},
@@ -56,7 +57,10 @@ const MIX := {
 const CLOSEUP_MIX := 0.7
 
 ## The first visit is dusk (back_b0_dusk): a flat banded overcast, the lighthouse dark.
-const BACKDROP := {"arrival": "back_b0_dusk", "boat": "back_b0_dusk", "s1": "back_b1", "s2": "back_b2",
+## Bands 1-2 are darker than that, not friendlier: storm-navy matte overcast, the lighthouse
+## unlit. Band 1 is the mud flats (the sea went out after the boat; back_b1_sea stands in
+## while it withdraws); band 2 the sea back, high and rain-pocked (with high_water).
+const BACKDROP := {"arrival": "back_b0_dusk", "boat": "back_b0_dusk", "s1": "back_b1_mud", "s2": "back_b2_high",
 	"s3": "back_b3", "s4": "back_b4", "s5": "back_b5", "s6": "back_b5", "s7": "back_b7",
 	"A": "back_end_a"}
 ## Foreground modulate (fg_jetty, gangway, boat, line, capsule). Never below 0.85: every
@@ -120,6 +124,10 @@ const WATERLINE := 870.0
 const WITHDRAW_END := 15.0
 const LOOP_CUT := 2.6
 const FIGURE_FADE := 0.8
+## Band 1: the sea goes out after the TIDE III card is up (it waits for the knock), so the
+## capsule rises out of water and the player watches the mud come up under the card.
+const DRAIN_AT := 16.0
+const DRAIN_TIME := 4.0
 const PULL_TIME := 0.4
 
 # --- close-up controls ------------------------------------------------------------------
@@ -129,10 +137,18 @@ const PANEL_RECTS := {
 	"placard": Rect2(324, 520, 800, 210),
 }
 const PEER_RECT := Rect2(404, 280, 640, 400)
+## First match wins. Closed, the screw cap is the drum on the capsule's mouth; once it is off
+## it hangs on its chain at the right, so the cap's rect shrinks to that cup and the rolled
+## note (standing where the drum was) is checked first.
 const CAPSULE_RECTS := {
 	"cap": Rect2(592, 230, 264, 100),
 	"key": Rect2(586, 160, 134, 140),
 	"note": Rect2(728, 160, 96, 140),
+}
+const CAPSULE_RECTS_OPEN := {
+	"note": Rect2(728, 160, 96, 140),
+	"key": Rect2(586, 160, 134, 140),
+	"cap": Rect2(866, 400, 120, 140),
 }
 const HEADER_RECT := Rect2(300, 140, 848, 64)
 const TALLY_LABEL_RECTS := {"verified": Rect2(344, 420, 320, 50), "unverified": Rect2(784, 420, 320, 50)}
@@ -363,6 +379,19 @@ func boat_alpha() -> float:
 	var k := (withdraw_t - BOAT_GO) / BOAT_TRAVEL
 	return clampf((1.0 - k) / 0.12, 0.0, 1.0)
 
+## Band 1's drain, 0 with the sea still in (through the withdrawal) to 1 gone out; 1 at rest,
+## on a revisit and on a load. Motion off: a cut at DRAIN_AT.
+func drain_k() -> float:
+	if withdraw_t < DRAIN_AT:
+		return 0.0
+	if not motion:
+		return 1.0
+	return clampf((withdraw_t - DRAIN_AT) / DRAIN_TIME, 0.0, 1.0)
+
+## The capsule close-up's control rects for the current state, in match order.
+func capsule_rects() -> Dictionary:
+	return CAPSULE_RECTS_OPEN if jetty.state.capsule_opened else CAPSULE_RECTS
+
 ## The capsule's y offset while it rises, 0 at rest, -1 hidden.
 func capsule_dy() -> float:
 	if jetty.capsule_state() == "none":
@@ -388,18 +417,31 @@ func layer_stack() -> Array:
 	var pm := minf(1.0, m * PROP_LIFT) if early else m
 	var prop := Color(pm, pm, pm)
 	var out := []
-	out.append([BACKDROP[s], Vector2.ZERO, Color.WHITE, -1.0])
+	# Band 1: the sea is in while the boat withdraws, then goes out (wet 1 -> 0).
+	var wet := (1.0 - drain_k()) if s == "s1" else 1.0
+	if s == "s1" and wet > 0.0:
+		out.append(["back_b1_sea", Vector2.ZERO, Color.WHITE, -1.0])
+		out.append(["back_b1_mud", Vector2.ZERO, Color(1, 1, 1, 1.0 - wet), -1.0])
+	else:
+		out.append([BACKDROP[s], Vector2.ZERO, Color.WHITE, -1.0])
 	if early:
 		# Every piling has its reflection; the boat, laid over them, has none.
 		out.append(["reflections_dusk", Vector2.ZERO, Color.WHITE, -1.0])
+	elif s == "s1" or s == "s2":
+		# The storm sea's own dark-toned marks (the bright band-0 ones would lift it).
+		if wet > 0.0:
+			out.append(["reflections_dusk", Vector2.ZERO, Color(1, 1, 1, wet), -1.0])
 	elif mid and r <= 4:
 		var rdx := Vector2(reflection_dx(s), 0)
 		out.append(["reflections", rdx, Color.WHITE, -1.0])
 		if r >= 3:
 			# Laid twice when they lag: under the rain the faint plate alone doesn't read.
 			out.append(["reflections", rdx, Color.WHITE, -1.0])
-	if early:
+	if early or s == "s2":
 		out.append(["waves_dusk_%d" % wave_frame(s), Vector2.ZERO, Color.WHITE, -1.0])
+	elif s == "s1":
+		if wet > 0.0:
+			out.append(["waves_dusk_%d" % wave_frame(s), Vector2.ZERO, Color(1, 1, 1, wet), -1.0])
 	elif mid and r <= 6:
 		var a := 1.0 if r <= 2 else (0.8 if r <= 4 else 0.5)
 		if s == "s4":
@@ -421,6 +463,11 @@ func layer_stack() -> Array:
 	if receding:
 		_boat_layers(out, s, prop)
 	out.append(["fg_jetty", Vector2.ZERO, fg, -1.0])
+	# After Tide I a tenth piling stands past the end, whole and dry; from band 3 it's a stump.
+	if r < 3 and gsim().tide_done(1):
+		out.append(["tenth_piling", Vector2.ZERO, Color.WHITE, -1.0])
+	if s == "s2":
+		out.append(["high_water", Vector2.ZERO, Color.WHITE, -1.0])
 	# The office window is painted in fg_jetty, so its lamp and figure sit just above it.
 	if gsim().flag("P01") and s != "A":
 		out.append(["station_lamp", Vector2.ZERO, Color.WHITE, -1.0])
@@ -715,7 +762,7 @@ func label_for(id: String) -> String:
 		"launch":
 			return "Launch" if s == "A" else ("Boat" if s == "boat" else "Open water")
 		"stump":
-			if R01Sim.rank(s) >= 3:
+			if R01Sim.rank(s) >= 3 or gsim().tide_done(1):
 				return "Tenth piling"
 		"roof_light":
 			if s == "s6":
@@ -746,8 +793,9 @@ func action_at(p: Vector2) -> String:
 			if note_open:
 				note_open = false
 				return ""
-			for k in CAPSULE_RECTS:
-				if CAPSULE_RECTS[k].has_point(p):
+			var rects := capsule_rects()
+			for k in rects:
+				if rects[k].has_point(p):
 					return k
 	return ""
 
@@ -764,5 +812,5 @@ func dev_rects() -> Array:
 		R01Sim.C_WINDOW:
 			return [PEER_RECT]
 		R01Sim.C_CAPSULE:
-			return CAPSULE_RECTS.values()
+			return capsule_rects().values()
 	return super.dev_rects()

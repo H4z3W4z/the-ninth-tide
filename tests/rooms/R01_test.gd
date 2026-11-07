@@ -31,8 +31,10 @@ func run_tests() -> void:
 	test_determinism()
 	test_service_door()
 	test_round_w1_lines()
+	test_round_w2_lines()
 	await view_checks(ROOM)
 	await test_view_presentation()
+	await test_view_w2()
 
 # ---------------------------------------------------------------------------
 # helpers
@@ -473,7 +475,7 @@ func layer(v, id: String) -> Array:
 func test_view_presentation() -> void:
 	var scene = new_scene("user://room_test_R01_view.json")
 	await process_frame
-	const BACK := {"arrival": "back_b0_dusk", "boat": "back_b0_dusk", "s1": "back_b1", "s2": "back_b2",
+	const BACK := {"arrival": "back_b0_dusk", "boat": "back_b0_dusk", "s1": "back_b1_mud", "s2": "back_b2_high",
 		"s3": "back_b3", "s4": "back_b4", "s5": "back_b5", "s6": "back_b5", "s7": "back_b7",
 		"A": "back_end_a"}
 	for s in STATES:
@@ -511,7 +513,9 @@ func test_view_presentation() -> void:
 		for l in v.layer_stack():
 			if str(l[0]).begins_with("waves_"):
 				w = l
-		if n <= 6 and s != "A":
+		if s == "s1":
+			check(w.is_empty(), "V: s1 no waves: the sea's out")
+		elif n <= 6 and s != "A":
 			var a: float = w[2].a if not w.is_empty() else -1.0
 			var wa := 1.0 if n <= 2 else (0.8 if n <= 4 else 0.5)
 			check(is_equal_approx(a, wa), "V: %s waves alpha %.1f" % [s, wa])
@@ -524,9 +528,10 @@ func test_view_presentation() -> void:
 	# Labels per state.
 	scene_in(scene, "boat")
 	var v = scene.room_view
-	check(v.label_for("launch") == "Boat" and v.label_for("stump") == "Past the jetty's end", "V: boat labels")
+	check(v.label_for("launch") == "Boat" and v.label_for("stump") == "Tenth piling", "V: boat labels (after Tide I)")
 	scene_in(scene, "arrival")
 	check(scene.room_view.label_for("launch") == "Open water", "V: open water before the boat")
+	check(scene.room_view.label_for("stump") == "Past the jetty's end", "V: nothing past the end before Tide I")
 	scene_in(scene, "s3")
 	check(scene.room_view.label_for("stump") == "Tenth piling" and scene.room_view.label_for("line") == "Capsule",
 		"V: s3 labels")
@@ -730,3 +735,133 @@ func test_view_w1(scene) -> void:
 		check(vw._tex(id) != null, "W1: %s exists" % id)
 	await process_frame
 
+
+# ---------------------------------------------------------------------------
+# round w2: the tenth piling, the storm bands, the capsule's rects
+# ---------------------------------------------------------------------------
+func test_round_w2_lines() -> void:
+	# Before Tide I: nine pilings, nothing past the end.
+	var g0 := game_at(1, ROOM)
+	check(not g0.tide_done(1), "w2: the arrival game is in Tide I")
+	var ev := g0.dispatch("pilings")
+	check(says(ev) == "Nine pilings. From the launch I counted eight.", "w2: Tide I, nine pilings (%s)" % says(ev))
+	ev = g0.dispatch("stump")
+	check("but water" in says(ev), "w2: Tide I, nothing past the end")
+	# After tide_done(1): ten, in every state before the stump.
+	for s in ["boat", "s1", "s2"]:
+		var g := game_in(s)
+		var r := r01(g)
+		check(g.tide_done(1), "w2: %s is after Tide I" % s)
+		ev = g.dispatch("pilings")
+		check(says(ev) == R01Sim.PILINGS_TEN and r.has_seen("pilings_ten"), "w2: %s ten pilings (%s)" % [s, says(ev)])
+		check(R01Sim.PILINGS_TEN == "Ten pilings now. I counted nine from the launch.", "w2: the line, exactly")
+		ev = g.dispatch("stump")
+		check("holds nothing up" in says(ev) and r.has_seen("tenth_piling"), "w2: %s the tenth piling (%s)" % [s, says(ev)])
+	# Arrival state but after Tide I (a revisit before P05): ten as well.
+	var ga := with_flags(["P01", "P02", "P03"], ROOM)
+	check(r01(ga).jetty_state() == "arrival" and ga.tide_done(1), "w2: arrival after Tide I")
+	check(says(ga.dispatch("pilings")) == R01Sim.PILINGS_TEN, "w2: arrival after Tide I counts ten")
+	# From band 3 it's a stump again (sawn).
+	var g3 := game_in("s3")
+	check("stump of a tenth" in says(g3.dispatch("pilings")), "w2: s3, nine and a stump")
+	# The notebook keeps the earlier count.
+	var gk := with_flags(["P01"], ROOM)
+	gk.dispatch("pilings")
+	for f in ["P02", "P03"]:
+		gk.set_flag(f)
+	gk.dispatch("pilings")
+	check(r01(gk).has_seen("pilings") and r01(gk).has_seen("pilings_ten"), "w2: both counts stay in the notebook")
+	# Bands 1-2: the lighthouse is dark; band 1 is mud.
+	for s in ["s1", "s2"]:
+		var g := game_in(s)
+		ev = g.dispatch("lighthouse")
+		check("Dark" in says(ev) and not "Lit" in says(ev), "w2: %s the lighthouse is unlit (%s)" % [s, says(ev)])
+	check("Lit now" in says(game_in("s3").dispatch("lighthouse")), "w2: s3 lit again")
+	var g1 := game_in("s1")
+	ev = g1.dispatch("launch")
+	check("Mud" in says(ev) and r01(g1).has_seen("sea_out"), "w2: s1 mud where the boat sat")
+	ev = g1.dispatch("bell")
+	check("gone out" in says(ev), "w2: s1 the water round the bell stays")
+	ev = g1.dispatch("causeway")
+	check("mud" in says(ev), "w2: s1 the causeway on the mud")
+	var g2 := game_in("s2")
+	check("higher" in says(g2.dispatch("bell")), "w2: s2 the sea back, higher")
+	for k in R01Sim.OBSERVATIONS:
+		check(R01Sim.OBSERVATIONS[k] != "", "w2: %s has notebook text" % k)
+
+func test_view_w2() -> void:
+	var scene = new_scene("user://room_test_R01_w2.json")
+	await process_frame
+	# Plates: new files, never the bright band plates.
+	scene_in(scene, "s1")
+	for id in ["back_b1_mud", "back_b1_sea", "back_b2_high", "high_water", "tenth_piling"]:
+		check(scene.room_view._tex(id) != null, "W2: %s exists" % id)
+	for s in ["s1", "s2"]:
+		scene_in(scene, s)
+		var v = scene.room_view
+		var ids := layer_ids(v)
+		check(not ids.has("back_b1") and not ids.has("back_b2") and not ids.has("reflections"),
+			"W2: %s none of the bright band plates" % s)
+		check(ids.has("tenth_piling") and ids.find("tenth_piling") > ids.find("fg_jetty"), "W2: %s the tenth piling shows" % s)
+		check(ids.has("high_water") == (s == "s2"), "W2: %s high water only at band 2" % s)
+		check(ids.has("bell_calm"), "W2: %s the bell keeps its water" % s)
+	scene_in(scene, "s2")
+	var ids2 := layer_ids(scene.room_view)
+	check(ids2.find("high_water") < ids2.find("line") and ids2.find("high_water") < ids2.find("capsule_open"),
+		"W2: s2 the line and capsule stay over the high water")
+	check(ids2.has("reflections_dusk") and ids2.any(func(i): return str(i).begins_with("waves_dusk_")),
+		"W2: s2 the storm sea's own dark marks")
+	# The tenth piling: from tide_done(1) until the stump replaces it.
+	scene_in(scene, "arrival")
+	check(not layer_ids(scene.room_view).has("tenth_piling"), "W2: arrival in Tide I, nine")
+	scene_in(scene, "boat")
+	check(layer_ids(scene.room_view).has("tenth_piling"), "W2: boat (after Tide I), ten")
+	for s in ["s3", "s5", "s7", "A"]:
+		scene_in(scene, s)
+		var ids := layer_ids(scene.room_view)
+		check(not ids.has("tenth_piling") and ids.has("stump"), "W2: %s the stump, not the whole piling" % s)
+	# The drain: the sea is in through the withdrawal, then goes out under the card.
+	scene.room_jump(ROOM, 2)
+	scene.dispatch("panel")
+	scene.dispatch("bell_2")
+	var v = scene.room_view
+	check(scene.sim.room(ROOM).jetty_state() == "s1" and v.withdrawing(), "W2: withdrawing at s1")
+	for t in [0.0, 11.5, 14.5, 15.9]:
+		v.withdraw_t = t
+		var ids := layer_ids(v)
+		check(ids[0] == "back_b1_sea" and layer(v, "back_b1_mud")[2].a == 0.0, "W2: %.1f s the sea is still in" % t)
+		check(ids.any(func(i): return str(i).begins_with("waves_dusk_")), "W2: %.1f s waves on it" % t)
+	v.withdraw_t = 18.0
+	var mid: float = layer(v, "back_b1_mud")[2].a
+	check(mid > 0.0 and mid < 1.0, "W2: 18 s the mud is coming up (%.2f)" % mid)
+	v.withdraw_t = 20.5
+	check(layer_ids(v)[0] == "back_b1_mud" and not layer_ids(v).any(func(i): return str(i).begins_with("waves_")),
+		"W2: 20.5 s the sea is out")
+	scene.sim.settings.motion = false
+	v.withdraw_t = 15.9
+	check(v.drain_k() == 0.0, "W2: motion off, the sea is in before the cut")
+	v.withdraw_t = 16.0
+	check(v.drain_k() == 1.0, "W2: motion off, a cut at DRAIN_AT")
+	scene.sim.settings.motion = true
+	v.apply_instantly()
+	check(v.drain_k() == 1.0 and layer_ids(v)[0] == "back_b1_mud", "W2: a revisit is mud at once")
+	check(v.TIDE_CARD_AT < v.DRAIN_AT, "W2: the drain starts after the card is up")
+	# Capsule close-up: with the cap off, the note wins over the cap's old rect.
+	scene.room_jump(ROOM, 3)
+	scene.dispatch("line")
+	v = scene.room_view
+	var note_c: Vector2 = v.CAPSULE_RECTS["note"].get_center()
+	var overlap := Vector2(776, 270)   # the note's lower half, where the closed cap's drum was
+	check(v.CAPSULE_RECTS["cap"].has_point(overlap) and v.CAPSULE_RECTS["note"].has_point(overlap),
+		"W2: the closed cap's rect overlaps the note's")
+	check(scene.action_at(overlap) == "cap", "W2: closed, the drum is the cap")
+	scene.dispatch("cap")
+	check(scene.action_at(overlap) == "note", "W2: open, the note wins where they overlapped")
+	check(scene.action_at(note_c) == "note", "W2: open, the note at its centre")
+	check(scene.action_at(Vector2(650, 270)) == "key", "W2: open, the key below its tag")
+	check(scene.action_at(Vector2(926, 470)) == "cap", "W2: open, the cap hanging on its chain")
+	check(scene.action_at(Vector2(700, 320)) == "", "W2: open, the empty mouth is not the cap")
+	check(v.dev_rects().size() == 3 and v.dev_rects()[0] == v.CAPSULE_RECTS_OPEN["note"], "W2: dev rects follow")
+	scene.dispatch("note")
+	check(v.note_open, "W2: the overlap click reads the note")
+	await free_scene(scene)

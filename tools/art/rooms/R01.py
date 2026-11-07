@@ -2594,6 +2594,262 @@ def c_boat_window_chart():
     lens_ring(cv, r)
     return cv.finish(name, "RGB", r)
 
+# =================================================================== bands 1-2: worse, not friendlier
+# Tides II-III. Darker than the Tide I dusk: a matte storm-navy overcast in flat bands (no lit
+# cloud crowns), the lighthouse unlit. Band 1: after the boat went, the sea went out with it,
+# mud flats to a thin bright line of water at the horizon (R03's sea window shows the same
+# plain), the only water left standing level round the bell. Band 2: the sea back, high, dark
+# and rain-pocked, up over the pilings' weed line (the high_water overlay), except at the bell.
+STORM_B1 = dict(top=hexc("#1c2731"), hor=hexc("#384450"), sea=hexc("#20333a"), wave=hexc("#566c74"))
+STORM_B2 = dict(top=hexc("#161f28"), hor=hexc("#2e3a45"), sea=hexc("#18292f"), wave=hexc("#4e646c"))
+MUD_FAR = (88, 80, 68)       # restrained brown, toned by the storm light
+MUD_NEAR = (58, 48, 40)      # wetter, darker toward the viewer
+MUD_AT = 932                 # where the mud meets the pilings' feet
+HIGH_WATER = 842             # band 2: the sea stands this high, over the weed lines
+BELL_GAP = (660, 740)        # ...except round the bell, where it keeps to the lip
+
+
+def storm_sky(cv, r, top, hor, n=6):
+    """Flat matte overcast bands, darkest overhead, each edge a slow low swell; rain veils
+    hang from the lowest band as soft vertical smears (static)."""
+    edges = [HORIZON * (1 - (1 - k / n) ** 1.3) for k in range(n + 1)]
+    cv.box(0, 0, W, HORIZON + 2, top)
+    for k in range(1, n):
+        col = mix(top, hor, k / (n - 1))
+        amp = 2 + 4 * (1 - k / n)
+        ph = r.uniform(0, 6.28)
+        per = r.uniform(420, 700)
+        edge = [(x, edges[k] + amp * math.sin(ph + 2 * math.pi * x / per)) for x in range(-20, W + 41, 20)]
+        cv.fillpoly(edge + [(W + 40, HORIZON + 2), (-20, HORIZON + 2)], col)
+    veil = cv.layer()
+    for i in range(22):
+        vx = r.uniform(-40, W + 40)
+        vw = r.uniform(30, 80)
+        veil.fillpoly([(vx, edges[2]), (vx + vw, edges[2]), (vx + vw - 14, HORIZON), (vx - 14, HORIZON)],
+                      mix(top, INK, 0.3))
+    a = veil.im.getchannel("A").filter(ImageFilter.GaussianBlur(6 * S)).point(lambda v: v * 46 // 255)
+    veil.im.putalpha(a)
+    cv.im.alpha_composite(veil.im)
+
+
+def storm_props(cv, hor, haze=0.3):
+    """Causeway, headland and the unlit lighthouse, lifted to read (as the dusk plate's)."""
+    props = cv.layer()
+    props.wk = 0.6
+    paint_causeway(props, haze, hor, random.Random(seed_of("R01:causeway")))
+    land = mix(mix(STORM, COPPER, 0.45), hor, 0.2)
+    paint_headland(props, land, 210, mix(COPPER, hor, 0.3), random.Random(seed_of("R01:headland")))
+    props.wk = 0.8
+    paint_lighthouse(props, "off", haze * 0.5, hor)
+    lift(props, 1.18)
+    cv.comp(props)
+    cv.wk = 1.0
+
+
+def rain_pocks(cv, r, y0, y1, n, col, skip_calm=True):
+    """Rain striking dark water: small flat rings and dots, larger and further apart toward
+    the viewer. Static (the rain overlay supplies the motion)."""
+    lay = cv.layer()
+    for i in range(n):
+        t = r.random() ** 0.8
+        y = y0 + t * (y1 - y0)
+        x = r.uniform(-10, W + 10)
+        k = (y - HORIZON) / (H - HORIZON)
+        rx = 1.5 + 6.5 * k * r.uniform(0.6, 1.2)
+        if r.random() < 0.55:
+            lay.ell(x, y, rx, rx * 0.3, fill=None, ink=col, w=0.7 + 0.8 * k)
+        else:
+            lay.ell(x, y, 0.8 + 1.4 * k, 0.5 + 0.7 * k, fill=col, ink=None)
+    if skip_calm:
+        cut_calm(lay, 2.0)
+    cv.comp(lay, 0.55)
+
+
+def storm_sea(cv, pal, lay_seed):
+    """A dark matte sea under the storm: one deepening tone and cold wave marks."""
+    sea0 = mix(pal["sea"], pal["hor"], 0.25)
+    cv.hrows(HORIZON, H, sea0, mix(pal["sea"], INK, 0.35), ya=HORIZON, yb=H)
+    marks = cv.layer()
+    lay_r = random.Random(lay_seed)
+    for i in range(380):
+        y = HORIZON + 8 + (lay_r.random() ** 1.35) * (H - HORIZON - 8)
+        x = lay_r.uniform(-40, W)
+        t = (y - HORIZON) / (H - HORIZON)
+        ln = 18 + t * 100 * lay_r.uniform(0.6, 1.3)
+        sag = 1 + t * 3
+        marks.stroke([(x, y), (x + ln * 0.5, y + sag * 0.6), (x + ln, y)], 1.0 + t * 1.4, pal["wave"], jitter=0.1)
+    cut_calm(marks, 1.0)
+    cv.comp(marks, 0.28)
+    cv.stroke([(0, HORIZON), (W, HORIZON)], 2.0, mix(pal["hor"], pal["wave"], 0.6), alpha=170, jitter=0.03)
+    cv.stroke([(0, HORIZON + 2), (W, HORIZON + 2)], 1.4, INK, alpha=120, jitter=0.03)
+    return sea0
+
+
+def back_storm_sea(name, pal, pocks):
+    """Band 1 while the boat withdraws (the sea still in), and band 2 (the sea back, pocked)."""
+    r = random.Random(seed_of(f"{name}.png"))
+    cv = Cv(r, bg=pal["top"])
+    storm_sky(cv, random.Random(seed_of("R01:storm_sky")), pal["top"], pal["hor"])
+    sea0 = storm_sea(cv, pal, seed_of("R01:storm_seatex"))
+    if pocks:
+        rain_pocks(cv, random.Random(seed_of(f"R01:{name}:pocks")), HORIZON + 6, H, pocks,
+                   mix(pal["wave"], PAPER, 0.25))
+    paint_calm(cv, mix(sea0, pal["sea"], 0.5), pal["hor"])
+    storm_props(cv, pal["hor"])
+    return cv.finish(name, "RGB", r)
+
+
+def back_b1_mud():
+    """Band 1, after the withdrawal: the sea has gone out from under the jetty. Mud flats run
+    to a thin pale line of water at the horizon; ripple marks, a few flat pools holding the
+    sky, the pilings' black feet, a buoy on its side (as R03's window shows it), a ladder down
+    into the causeway's middle gap. The water round the bell has not gone anywhere: it stands
+    level where the sea was, its rim hard, the bell's lip still on it."""
+    name = "back_b1_mud"
+    pal = STORM_B1
+    r = random.Random(seed_of(f"{name}.png"))
+    cv = Cv(r, bg=pal["top"])
+    storm_sky(cv, random.Random(seed_of("R01:storm_sky")), pal["top"], pal["hor"])
+    # the sea, far out: a thin flat strip on the horizon, the one light thing low down
+    strip = mix(pal["hor"], SEAGLASS, 0.35)
+    cv.box(0, HORIZON, W, HORIZON + 9, strip)
+    cv.stroke([(0, HORIZON + 9), (W, HORIZON + 9)], 1.2, mix(strip, PAPER, 0.4), alpha=200, jitter=0.02)
+    # the mud plain
+    cv.hrows(HORIZON + 10, H, MUD_FAR, MUD_NEAR, ya=HORIZON + 10, yb=H)
+    tint(cv, grad_mask(0, HORIZON + 10, W, 620, 0.35, 0.0), mix(MUD_FAR, pal["hor"], 0.5))
+    cv.stroke([(0, HORIZON), (W, HORIZON)], 1.6, INK, alpha=150, jitter=0.03)
+    lay_r = random.Random(seed_of("R01:mud"))
+    # flat pools left behind: long low lozenges holding the sky's tone, hard-rimmed
+    pools = cv.layer()
+    for i in range(16):
+        y = HORIZON + 24 + (lay_r.random() ** 1.5) * (H - HORIZON - 60)
+        t = (y - HORIZON) / (H - HORIZON)
+        x = lay_r.uniform(-60, W)
+        rx = (40 + 220 * t) * lay_r.uniform(0.5, 1.1)
+        ry = 2 + 9 * t
+        if abs(x - CALM[0]) < CALM[2] + rx and abs(y - CALM[1]) < CALM[3] + 30:
+            continue
+        pools.ell(x, y, rx, ry, fill=mix(pal["hor"], SEAGLASS, 0.15), ink=None)
+        pools.stroke([(x - rx * 0.9, y - ry * 0.4), (x + rx * 0.9, y - ry * 0.4)], 0.8 + t,
+                     mix(pal["hor"], PAPER, 0.35), alpha=170, jitter=0.03)
+        pools.ell(x, y, rx, ry, fill=None, ink=mix(MUD_NEAR, INK, 0.5), w=0.8 + t)
+    cv.comp(pools, 0.8)
+    # ripple marks: short wavy ink dashes, wider apart toward the viewer (R03's plain)
+    rip = cv.layer()
+    y = HORIZON + 16
+    while y < H:
+        t = (y - HORIZON) / float(H - HORIZON)
+        x = lay_r.uniform(-30, 10)
+        while x < W:
+            ln = lay_r.uniform(14, 44) * (0.6 + 1.4 * t)
+            if lay_r.random() < 0.6:
+                n = 8
+                pts = [(x + ln * i / n, y + (0.5 + 2.2 * t) * math.sin(math.pi * i / n * 2)) for i in range(n + 1)]
+                rip.stroke(pts, 0.8 + 1.4 * t, mix(MUD_NEAR, INK, 0.55), alpha=int(255 * (0.35 + 0.4 * t)),
+                           jitter=0.05)
+            x += ln + lay_r.uniform(10, 34) * (0.6 + t)
+        y += 5 + 22 * t
+    cut_calm(rip, 3.0)
+    cv.comp(rip)
+    # the causeway's foot, bare now, and a ladder down into its middle gap: it goes on below
+    cv.box(430, 491, 1040, 497, mix(MUD_FAR, INK, 0.4))
+    for g0, g1 in CAUSEWAY_GAPS:
+        cv.box(g0, 491, g1, 497, mix(MUD_FAR, INK, 0.15))
+    lx0, lx1 = 756, 774
+    cv.box(lx0 + 1, 494, lx1 - 1, 500, (20, 24, 26))
+    for lx in (lx0, lx1):
+        cv.stroke([(lx, 474), (lx, 500)], 1.4, INK, jitter=0.0)
+    for ly in (478, 484, 490, 496):
+        cv.stroke([(lx0, ly), (lx1, ly)], 1.0, INK, jitter=0.0)
+    # the pilings' feet: black wet wood down into the mud, a scoured ring round each
+    feet = cv.layer()
+    for cx in PILINGS:
+        if cx in (680, 785):
+            continue   # they stand in the bell's water
+        x0, x1 = cx - 13, cx + 13
+        wet = mix(PILE, INK, 0.45)
+        feet.rect(x0, 864, x1, MUD_AT, fill=wet, ink=INK, w=2.0)
+        feet.box(x0 + 2, 864, x0 + 6, MUD_AT, mix(wet, PAPER, 0.18))
+        for k in range(6):
+            feet.ell(x0 + 4 + (k * 7) % 20, 880 + k * 8, 2.2, 1.6, fill=mix(PAPER, SEAGLASS, 0.4), ink=None)
+        feet.ell(cx, MUD_AT + 2, 24, 6, fill=mix(MUD_NEAR, INK, 0.35), ink=INK, w=1.4)
+        feet.box(x0, MUD_AT - 6, x1, MUD_AT + 1, wet)
+        feet.stroke([(x0, MUD_AT), (x1, MUD_AT)], 1.6, INK, jitter=0.0)
+    cv.comp(feet)
+    # the line from the cleat, slack on the mud
+    cv.stroke(smooth([(CLEAT_X, 980), (CLEAT_X + 6, 1000), (CLEAT_X + 30, 1008), (CLEAT_X + 80, 1010)], 5),
+              4.0, mix(TIMBER, MUD_NEAR, 0.3), jitter=0.05)
+    # a buoy stranded on its side, as in R03's window
+    bx, by = 1120, 1004
+    cv.ell(bx, by + 10, 40, 6, fill=mix(MUD_NEAR, INK, 0.35), ink=None)
+    cv.ell(bx, by, 28, 18, fill=(122, 52, 40), ink=INK, w=2.2)
+    cv.ell(bx - 8, by - 6, 10, 5, fill=mix((122, 52, 40), PAPER, 0.25), ink=None)
+    cv.rect(bx + 16, by - 8, bx + 46, by + 8, fill=(40, 50, 60), ink=INK, w=2.0)
+    # the bell's water, standing level, alone
+    paint_calm(cv, pal["sea"], pal["hor"])
+    storm_props(cv, pal["hor"])
+    return cv.finish(name, "RGB", r)
+
+
+def ov_high_water():
+    """Band 2: the sea up the pilings to y842, over every weed line, pocked with rain; round
+    the bell it keeps to the lip (y872), a hard notch in the water that nothing explains."""
+    name = "high_water"
+    pal = STORM_B2
+    r = random.Random(seed_of(f"{name}.png"))
+    cv = Cv(r)
+    top_col = mix(mix(pal["sea"], pal["hor"], 0.25), mix(pal["sea"], INK, 0.35),
+                  (HIGH_WATER - HORIZON) / (H - HORIZON))
+    g0, g1 = BELL_GAP
+    lip = 872
+    edge = [(452, HIGH_WATER), (g0, HIGH_WATER), (g0, lip), (g1, lip), (g1, HIGH_WATER), (W, HIGH_WATER),
+            (W, 880), (452, 880)]
+    cv.fillpoly(edge, top_col)
+    lay = cv.layer()
+    for i in range(70):
+        x = r.uniform(452, W)
+        y = r.uniform(HIGH_WATER + 4, 878)
+        if g0 - 4 < x < g1 + 4:
+            continue
+        if r.random() < 0.5:
+            lay.ell(x, y, 4.5, 1.4, fill=None, ink=mix(pal["wave"], PAPER, 0.25), w=0.9)
+        else:
+            lay.stroke([(x, y), (x + r.uniform(16, 40), y)], 1.2, pal["wave"], jitter=0.05)
+    cv.comp(lay, 0.6)
+    surf = [(452, HIGH_WATER), (g0, HIGH_WATER), (g0, lip), (g1, lip), (g1, HIGH_WATER), (W, HIGH_WATER)]
+    cv.stroke([(x, y - 0.5) for x, y in surf], 1.8, mix(pal["wave"], PAPER, 0.35), jitter=0.0)
+    cv.stroke([(x, y + 1.5) for x, y in surf], 1.2, INK, alpha=170, jitter=0.0)
+    # fade its foot into the plate's own sea below the old waterline
+    fade = grad_mask(0, 868, W, 880, 1.0, 0.0)
+    cv.im.putalpha(ImageChops.multiply(cv.im.getchannel("A"), fade))
+    return cv.finish(name, "RGBA", r)
+
+
+def ov_tenth_piling():
+    """After Tide I: a tenth piling past the end of the jetty, whole, holding nothing up.
+    Pale dry oak: no weed band, no barnacles, no reflection (the others all have theirs)."""
+    name = "tenth_piling"
+    r = random.Random(seed_of(f"{name}.png"))
+    cv = Cv(r)
+    cv.wk = 1.35
+    x0, x1 = STUMP_X, STUMP_X + 26
+    dry = mix(PILE, PAPER, 0.22)
+    cv.rect(x0, 780, x1, 870, fill=dry, ink=None)
+    wood_grain(cv, r, x0, 780, x1, 870, dry, lines=4, knots=True, alpha=0.5)
+    cv.box(x0, 780, x0 + 5, 870, mix(dry, PAPER, 0.3))
+    cv.box(x1 - 6, 780, x1, 870, mix(dry, INK, 0.25))
+    cv.rect(x0 - 1, 776, x1 + 1, 782, fill=mix(dry, PAPER, 0.35), ink=None)   # a clean square top
+    cv.rect(x0, 777, x1, 870, fill=None, ink=INK, w=2.4)
+    sub = cv.layer()
+    sub.box(x0 + 1, 870, x1 - 1, 940, mix(dry, (78, 106, 102), 0.45))
+    m = Image.new("L", (W * S, H * S), 0)
+    md = ImageDraw.Draw(m)
+    for row in range(870 * S, 940 * S):
+        md.line([(0, row), (W * S, row)], fill=int(170 * (1 - (row / S - 870) / 70) ** 1.3))
+    cv.comp(sub, mask=m)
+    return cv.finish(name, "RGBA", r)
+
+
 # =================================================================== registry
 def _bd(name, *a, **k):
     return lambda: backdrop(name, *a, **k)
@@ -2615,6 +2871,11 @@ ASSETS = {
     "back_b3": _bd("back_b3", hexc("#5A6B72"), mix(hexc("#5A6B72"), PAPER, 0.07), hexc("#3A5052"),
                    mix(hexc("#3A5052"), INK, 0.25), haze=0.45, ceiling=220, cloud_band=(250, 420),
                    cloud_ink=50),
+    "back_b1_sea": lambda: back_storm_sea("back_b1_sea", STORM_B1, 0),
+    "back_b1_mud": back_b1_mud,
+    "back_b2_high": lambda: back_storm_sea("back_b2_high", STORM_B2, 1400),
+    "high_water": ov_high_water,
+    "tenth_piling": ov_tenth_piling,
     "back_b4": back_b4,
     "b4_level": ov_b4_level,
     "back_b5": _bd("back_b5", hexc("#4A5A62"), hexc("#4E5E66"), hexc("#4E5E66"), hexc("#4A5A62"),
