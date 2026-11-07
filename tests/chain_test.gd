@@ -189,7 +189,12 @@ func play_p03() -> void:
 	ev = g.dispatch("clip_tin")
 	check(g.has_item("chart_clips"), "P03: the clips from the tin")
 	g.dispatch("sheet_table")
-	g.dispatch("reg_lay")
+	ev = g.dispatch("reg_table")
+	check(not chart.state.reg_laid and says(ev) == R03Sim.REG_HAS_SHEET,
+		"P03: a bare click on the table says the sheet is in her pocket")
+	g.dispatch("item:venn_tide_sheet")
+	g.dispatch("reg_table")
+	check(chart.state.reg_laid, "P03: his sheet is laid by using it on the table")
 	g.dispatch("reg_base_17")
 	var guard := 0
 	while int(chart.state.reg_rot) != 0 and guard < 8:
@@ -197,9 +202,12 @@ func play_p03() -> void:
 		guard += 1
 	g.dispatch("reg_snap_lighthouse")
 	ev = g.dispatch("reg_clip")
+	check(not g.flag("P03") and says(ev) == R03Sim.REG_HAS_CLIPS, "P03: the bare rail is empty")
+	g.dispatch("item:chart_clips")
+	ev = g.dispatch("reg_clip")
 	check(g.flag("P03") and g.tide_done(1), "P03: the composite closes Tide I's instruments")
 	check(not g.has_item("venn_tide_sheet") and g.has_item("chart_clips"), "P03: sheet taken, clips kept")
-	check("The office will want to know." in says(ev), "P03: the office line")
+	check(R03Sim.RECONCILE_LINE in says(ev), "P03: the office line")
 	check(g.tide() == 1, "P03: tide I holds until the threshold")
 	g.dispatch("back")
 
