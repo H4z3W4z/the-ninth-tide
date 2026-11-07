@@ -29,6 +29,15 @@ Registration (R05_view.gd draws on these; hotspots never move between stage plat
   c_table plan bowls (104x104 sprite) centre on BOWL_PLAN[k]: mats 1-8 at (x_k+48, 258) with
           x_k = 130 + 136*(k-1); place 9 at (1282, 340). Rack recesses (162+112k, 715) r46.
 
+Repaint pass (art direction on db1d3a5): the plates carry the office's lighting grammar (an enamel
+pendant over each room's centre, a warm pool that falls off to cooler, darker walls; off at band 7
+and in the sever daylight), the office's ~3 px wobbling navy contour, paper mottle and plank grain,
+cast shadows under the furniture, a hanging hem, the bench and its pads under the table, water under
+place 9, and the band 4-7 tide line as one straight salt crest at the office's station height
+(y 512). New sprites sit beside the first set (a_spoon_dark/_used, a_soup_ring, a_chair_pulled,
+a_seat9/_wet, a_towel_wet, a_ring_amber/_wisp, a_wet_b2..b7, a_rain_still, b_board_back,
+b_book_blank, c_*_damp); the first-set files the view no longer draws are still painted unchanged.
+
 Python 3 + PIL only. Deterministic: each asset has its own random.Random(SEED + k), there is no
 clock and no PIL noise effect, so a rerun is byte-identical.
 
@@ -114,6 +123,29 @@ def rot(p, c, deg):
     return (c[0] + x * math.cos(a) - y * math.sin(a), c[1] + x * math.sin(a) + y * math.cos(a))
 
 
+INK_GAIN = 1.2              # contour weight: 2.6 -> ~3.1 px native, the office's navy line
+
+
+def wobble(pts, step=9.0, amp=0.75):
+    """Subdivide a polyline and nudge it sideways by a smooth position-keyed field (no rng, so a
+    shape lands identically on every stage plate)."""
+    out = []
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+        dx, dy = x1 - x0, y1 - y0
+        ln = math.hypot(dx, dy)
+        n = max(1, int(ln / step))
+        nx, ny = (-dy / ln, dx / ln) if ln > 0 else (0.0, 0.0)
+        for i in range(n):
+            t = i / n
+            x, y = x0 + dx * t, y0 + dy * t
+            o = amp * (math.sin(x * 0.051 + y * 0.083 + 1.3) * 0.65 + math.sin(x * 0.137 - y * 0.061) * 0.35)
+            if i == 0:
+                o = 0.0 if not out else o
+            out.append((x + nx * o, y + ny * o))
+    out.append(pts[-1])
+    return out
+
+
 class Pen:
     """Draws in 1x logical coordinates on a supersampled RGBA canvas."""
 
@@ -123,23 +155,40 @@ class Pen:
         self.d = ImageDraw.Draw(self.im)
 
     def iw(self, w, key=(0.0, 0.0)):
-        # slight width variation keyed to position, so stage plates stay identical under swaps
+        # slight width variation keyed to position, so stage plates stay identical under swaps.
+        # Structural contours (>= 2 px) carry the office's heavier navy line (about 3 px native).
         j = ((int(key[0] * 7) * 7919 + int(key[1] * 7) * 104729) % 61) / 100.0 - 0.3
+        if w >= 2.0:
+            w *= INK_GAIN
         return max(1, int(round((w + j) * SS)))
 
     def _p(self, pts):
         return [(x * SS, y * SS) for x, y in pts]
+
+    def _ink(self, pts, col, w, closed=False):
+        """A contour stroke. Heavy navy contours wobble slightly, like the office's hand line."""
+        if closed:
+            pts = list(pts) + [pts[0]]
+        if col[:3] == INK and w >= 2.0 and len(pts) >= 2:
+            pts = wobble(pts)
+        self.d.line(self._p(pts), fill=rgba(col), width=self.iw(w, pts[0]), joint="curve")
 
     def poly(self, pts, fill=None, ink=INK, w=2.6):
         p = self._p(pts)
         if fill is not None:
             self.d.polygon(p, fill=rgba(fill))
         if ink is not None and w:
-            self.d.line(p + [p[0]], fill=rgba(ink), width=self.iw(w, pts[0]), joint="curve")
+            self._ink(pts, ink, w, closed=True)
 
     def rect(self, x0, y0, x1, y1, fill=None, ink=INK, w=2.6, r=0):
         box = (x0 * SS, y0 * SS, x1 * SS, y1 * SS)
         width = self.iw(w, (x0, y0)) if (ink is not None and w) else 0
+        if width and r <= 3 and ink[:3] == INK and w >= 2.0:
+            # square-cornered navy boxes take the hand-drawn wobbling contour
+            if fill is not None:
+                self.d.rounded_rectangle(box, radius=r * SS, fill=rgba(fill))
+            self._ink([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], ink, w, closed=True)
+            return
         self.d.rounded_rectangle(box, radius=r * SS, fill=rgba(fill) if fill is not None else None,
                                  outline=rgba(ink) if width else None, width=width)
 
@@ -151,7 +200,7 @@ class Pen:
                        outline=rgba(ink) if width else None, width=width)
 
     def line(self, pts, col=INK, w=2.6):
-        self.d.line(self._p(pts), fill=rgba(col), width=self.iw(w, pts[0]), joint="curve")
+        self._ink(pts, col, w)
 
     def arc(self, cx, cy, rx, ry, a0, a1, col=INK, w=2.6):
         box = ((cx - rx) * SS, (cy - ry) * SS, (cx + rx) * SS, (cy + ry) * SS)
@@ -330,6 +379,13 @@ def soft_shadow(p, cx, cy, rx, ry, op=0.35, blur=6):
     p.put_soft(lay, blur, op)
 
 
+def drop_shadow(p, x0, y0, x1, y1, off=9, op=0.42, blur=7, r=6):
+    """A soft shadow under a part, cast down and right (away from the key light)."""
+    lay = p.layer()
+    lay.rect(x0 + off * 0.6, y0 + off, x1 + off * 0.6, y1 + off, INK, None, r=r)
+    p.put_soft(lay, blur, op)
+
+
 def planks_v(p, rng, x0, x1, y0, y1, fill, seam, hi, pitch=48):
     p.rect(x0, y0, x1, y1, fill, None)
     x = x0
@@ -452,6 +508,163 @@ def peg(p, x, y):
     p.ell(x + 6, y, 5, 5, TIMBER_HI, INK, 1.8)
 
 
+# ----------------------------------------------------------------------------- lighting (office grammar)
+
+WALL_A = (124, 144, 140)        # upper wall: the office's grey-teal, ~15% darker than the old mint
+WALL_A_SEAM = mix(WALL_A, INK, 0.3)
+WALL_A_HI = (144, 162, 156)
+WALL_B = (126, 146, 140)        # kitchen plaster, same family
+STATION_Y = 512                 # the tide-line station height (office_s3, painter_3 TIDE_Y)
+PENDANT_A = (730, 0, 326, 382)  # x, ceiling y, shade top, shade bottom (cord on the window mullion)
+PENDANT_B = (720, 62, 214, 262)
+WARM_POOL = (255, 226, 176)
+
+
+def mottle(im, rng, box, amp=10, cell=90):
+    """Broad seeded paper mottle inside `box`: soft blotches up to `amp` levels darker and lighter."""
+    x0, y0, x1, y1 = box
+    w, h = x1 - x0, y1 - y0
+    n = value_noise(rng, w, h, cell).filter(ImageFilter.GaussianBlur(cell * 0.25))
+    n2 = value_noise(rng, w, h, cell * 0.35)
+    n = ImageChops.add(n.point(lambda v: v // 2), n2.point(lambda v: v // 2))
+    pos = n.point(lambda v: max(0, v - 132) * amp // 60)
+    neg = n.point(lambda v: max(0, 124 - v) * amp // 60)
+    rgb = im.convert("RGB")
+    reg = rgb.crop(box)
+    reg = ImageChops.add(reg, Image.merge("RGB", [pos] * 3))
+    reg = ImageChops.subtract(reg, Image.merge("RGB", [neg] * 3))
+    rgb.paste(reg, box[:2])
+    return rgb
+
+
+def plank_grain(p, rng, x0, x1, y0, y1, pitch, col):
+    """Long, faintly wandering grain lines down each vertical plank."""
+    x = x0
+    while x < x1:
+        for _ in range(3):
+            gx = x + rng.uniform(8, pitch - 8)
+            ya = rng.uniform(y0, y0 + (y1 - y0) * 0.4)
+            yb = ya + rng.uniform((y1 - y0) * 0.3, (y1 - y0) * 0.7)
+            ph = rng.uniform(0, 6.3)
+            pts = [(gx + 1.6 * math.sin(ph + k * 0.5), ya + (yb - ya) * k / 12) for k in range(13)]
+            p.line(pts, col, 1.1)
+        x += pitch
+
+
+def key_light(im, pool, floor=0.72, warm=0.0, keep=None, core=None):
+    """The office's lamp grammar baked into a plate: a soft pool that keeps the plate's own colour,
+    falling off to a cooler, darker room; an optional warm lift in the pool's core."""
+    cx, cy, rx, ry = pool
+    m = Image.new("L", im.size, 0)
+    ImageDraw.Draw(m).ellipse((cx - rx, cy - ry, cx + rx, cy + ry), fill=255)
+    m = m.filter(ImageFilter.GaussianBlur(min(rx, ry) * 0.45))
+    if keep is not None:
+        m = ImageChops.lighter(m, keep)
+    rgb = im.convert("RGB")
+    cool = (int(255 * floor * 0.95), int(255 * floor * 0.99), min(255, int(255 * floor * 1.06)))
+    out = Image.composite(rgb, ImageChops.multiply(rgb, Image.new("RGB", im.size, cool)), m)
+    if warm > 0:
+        ccx, ccy, crx, cry = core or (cx, cy, rx * 0.5, ry * 0.5)
+        c = Image.new("L", im.size, 0)
+        ImageDraw.Draw(c).ellipse((ccx - crx, ccy - cry, ccx + crx, ccy + cry), fill=int(255 * warm))
+        c = c.filter(ImageFilter.GaussianBlur(min(crx, cry) * 0.5))
+        lit = ImageChops.multiply(ImageChops.screen(out, Image.new("RGB", im.size, (64, 44, 14))),
+                                  Image.new("RGB", im.size, WARM_POOL))
+        out = Image.composite(lit, out, c)
+    return out
+
+
+def pendant(p, x, y_top, shade_top, shade_bot, on=True):
+    """An enamel pendant on a cord: sea-glass cone, navy rim, the bulb under it."""
+    p.line([(x, y_top), (x, shade_top - 14)], INK, 3.2)
+    p.rect(x - 7, shade_top - 16, x + 7, shade_top + 2, BRASS_LO, INK, 2.2)          # cord grip
+    p.line([(x - 4, shade_top - 12), (x - 4, shade_top - 2)], BRASS_HI, 1.2)
+    h = shade_bot - shade_top
+    cone = [(x - 20, shade_top), (x + 20, shade_top), (x + 58, shade_bot), (x - 58, shade_bot)]
+    if on:
+        glow = p.layer()
+        glow.ell(x, shade_bot + 6, 48, 18, (255, 236, 190), None)
+        p.put_soft(glow, 9, 0.85)
+    bulb = (252, 236, 196) if on else (120, 124, 120)
+    p.ell(x, shade_bot + 4, 15, 12, bulb, INK, 2.2)
+    if on:
+        p.ell(x - 4, shade_bot + 1, 5, 4, (255, 252, 236), None)
+    p.poly(cone, SEAGLASS, INK, 2.8)
+    p.poly([(x + 6, shade_top), (x + 20, shade_top), (x + 58, shade_bot), (x + 22, shade_bot)],
+           SEAGLASS_DK, None)
+    p.line([(x - 14, shade_top + 4), (x - 44, shade_bot - 6)], SEAGLASS_HI, 2.4)          # bevel
+    p.poly(cone, None, INK, 2.8)
+    p.rect(x - 60, shade_bot - 7, x + 60, shade_bot + 1, STORM, INK, 2.2)                # rim
+    if on:   # the lit underside of the rim
+        p.line([(x - 54, shade_bot + 2.5), (x + 54, shade_bot + 2.5)], (250, 226, 170), 1.6)
+    del h
+
+
+def hem_pts(x0, x1, base, legs, rng):
+    """The cloth's hanging hem: a gentle wave, dropping a little at each leg and at the ends."""
+    pts = []
+    ph = [rng.uniform(0, 6.3) for _ in range(2)]
+    x = x0
+    while x <= x1 + 0.1:
+        y = base + 2.2 * math.sin(x / 41 + ph[0]) + 1.4 * math.sin(x / 17 + ph[1])
+        for lx in legs:
+            y += 15 * math.exp(-((x - lx) / 46) ** 2)
+        y += 12 * math.exp(-((x - x0) / 26) ** 2) + 12 * math.exp(-((x - x1) / 26) ** 2)
+        pts.append((x, y))
+        x += 8
+    return pts
+
+
+def cloth_fold(p, x, top, bot, w0=3, w1=16):
+    """A soft fold falling to the hem: a shaded wedge with a lit edge beside it."""
+    sh = p.layer()
+    sh.poly([(x - w0, top), (x + w0, top), (x + w1, bot), (x - w1 * 0.4, bot)], LINEN_SH, None)
+    p.put_soft(sh, 3, 0.9)
+    p.line([(x - w0 - 2, top + 6), (x - w1 * 0.4 - 3, bot - 4)], (248, 244, 234), 1.4)
+    p.line([(x + w0, top + 10), (x + w1 * 0.8, bot - 3)], mix(LINEN_SH, INK, 0.3), 1.2)
+
+
+def bench_cushion(p, x):
+    p.rect(x - 40, 748, x + 40, 760, TIMBER, INK, 2.4)                    # seat slab edge
+    p.line([(x - 36, 750.5), (x + 36, 750.5)], TIMBER_HI, 1.4)
+    p.poly([(x - 36, 748), (x - 32, 734), (x + 32, 734), (x + 36, 748)], SEAGLASS, INK, 2.2)  # folded pad
+    p.line([(x - 30, 737), (x + 30, 737)], SEAGLASS_HI, 1.4)
+    p.line([(x - 22, 741), (x + 22, 741)], SEAGLASS_DK, 1.2)
+
+
+def puddle(p, cx, y, rx, op=1.0):
+    """Flat dark water on the boards: a lobed shape with a pale lit lip."""
+    lay = p.layer()
+    pts = []
+    for k in range(36):
+        a = 2 * math.pi * k / 36
+        r = 1 + 0.12 * math.sin(3 * a + 0.7) + 0.08 * math.sin(5 * a + 2.1)
+        pts.append((cx + rx * r * math.cos(a), y + rx * 0.16 * r * math.sin(a)))
+    lay.poly(pts, (30, 40, 46), None)
+    p.put(lay, 0.82 * op)
+    p.line(pts[20:31], (196, 210, 206), 1.6)
+
+
+def salt_line(p, srng, x0, x1, y, floor_y, damp_op):
+    """The office tide line: one straight crisp salt crest at the station height, damp darkening
+    below it with a few runs, a faint crust above."""
+    d = p.layer()
+    d.rect(x0, y, x1, floor_y, TIMBER_XD, None)
+    p.put(d, damp_op)
+    runs = p.layer()
+    for _ in range(int((x1 - x0) / 46)):
+        x = srng.uniform(x0 + 4, x1 - 4)
+        runs.line([(x, y + 4), (x + srng.uniform(-1, 1), y + srng.uniform(18, 70))], (196, 206, 200), 1.3)
+    p.put(runs, 0.45)
+    crust = p.layer()
+    for _ in range(int((x1 - x0) / 5)):
+        x = srng.uniform(x0, x1)
+        crust.ell(x, y - srng.uniform(2, 9), srng.uniform(0.8, 1.6), srng.uniform(0.6, 1.2), (226, 230, 220), None)
+    p.put(crust, 0.55)
+    p.line([(x0, y + 3.5), (x1, y + 3.5)], INK, 3.2)
+    p.line([(x0, y - 0.5), (x1, y - 0.5)], (240, 242, 234), 3.6)
+
+
 # ----------------------------------------------------------------------------- view A: the mess
 
 GLASS = (576, 126, 884, 292)
@@ -499,11 +712,32 @@ def paint_window(p, rng, stage):
         lay.rect(gx0, gy0, gx1, gy1, (44, 64, 80), None)
         lay.line([(gx0, 214), (gx1, 214)], (50, 72, 88), 1.4)
     elif stage == 7:
-        # a dark near-flat surface pressed right against the panes, one slow pale arc across it
-        lay.rect(gx0, gy0, gx1, gy1, (18, 28, 36), None)
-        lay.rect(gx0, gy0, gx1, gy1, None, (12, 18, 24), 6)
-        lay.arc(742, 372, 230, 190, 222, 318, (150, 176, 168), 4)
-        lay.arc(742, 372, 230, 190, 226, 314, (88, 112, 112), 1.4)
+        # Something pressed against the glass from outside, far too big for the window: an eye
+        # opening sideways, its pale almond running in at one side of the frame and out of the
+        # other, the iris and a slot pupil inside it. Stark flat shapes; the bars sit in front.
+        lid_dark = (14, 22, 28)
+        lay.rect(gx0, gy0, gx1, gy1, lid_dark, None)
+        upper = bezier((gx0 - 160, 200), (730, 110), (gx1 + 160, 200), 40)
+        lower = bezier((gx0 - 160, 200), (730, 330), (gx1 + 160, 200), 40)
+        almond = upper + lower[::-1]
+        lay.poly(almond, (150, 170, 160), None)
+        eye = Pen(W, H, rng)
+        eye.poly(almond, (255, 255, 255), None)
+        iris = p.layer()
+        iris.ell(786, 196, 66, 66, (40, 58, 60), None)
+        iris.ell(786, 196, 66, 66, None, (98, 124, 116), 5)
+        iris.ell(786, 196, 50, 50, None, (56, 76, 76), 2)
+        iris.rect(738, 189, 834, 203, (6, 10, 12), None, r=7)              # a horizontal slot pupil
+        lay.put(iris, 1.0, mask=eye.alpha())
+        lay.line(lower, (204, 220, 210), 7)                                # the wet lower rim
+        lay.line(lower, lid_dark, 2.4)
+        lay.line(upper, lid_dark, 5)                                       # the upper lid's edge
+        lay.line([(x, y - 9) for x, y in upper], (40, 54, 60), 2)          # its crease
+        glass = Pen(W, H, rng)
+        glass.rect(gx0, gy0, gx1, gy1, (255, 255, 255), None)
+        clip = p.layer()
+        clip.put(lay, 1.0, mask=glass.alpha())
+        lay = clip
     p.put(lay)
     if stage != 7:
         gl = p.layer()  # two dry glints: glass, not paint
@@ -511,34 +745,44 @@ def paint_window(p, rng, stage):
             gl.line([(x, y + 26), (x + 26, y)], (226, 232, 228), 3)
             gl.line([(x + 10, y + 26), (x + 26, y + 10)], (226, 232, 228), 1.6)
         p.put(gl, 0.35)
+    else:
+        gl = p.layer()  # the pane in front of it: one faint reflected glint
+        gl.line([(600, 166), (626, 140)], (190, 204, 200), 2)
+        p.put(gl, 0.3)
 
 
 def paint_view_a(rng, stage=0):
-    p = Pen(W, H, rng, SEAGLASS_HI)
+    p = Pen(W, H, rng, WALL_A)
     srng = rng_for(700)     # stage-only marks draw from their own stream: the base never shifts
     sever = stage == "sever"
-    # wall: sea-glass tongue-and-groove from the ceiling to the dado
-    planks_v(p, rng, -4, W + 4, -4, 470, SEAGLASS_HI, mix(SEAGLASS, INK, 0.25), (176, 198, 188))
-    p.rect(-4, -4, W + 4, 16, SEAGLASS, INK, 2.4)                 # ceiling batten
+    lamp_on = stage not in (7, "sever")
+    chair_out = stage in (4, 6, 7)
+    wet = stage in (2, 4, 6, 7)
+    # wall: grey-teal tongue-and-groove from the ceiling to the dado, with long plank grain
+    planks_v(p, rng, -4, W + 4, -4, 470, WALL_A, WALL_A_SEAM, WALL_A_HI)
+    plank_grain(p, rng, -4, W + 4, 20, 466, 48, mix(WALL_A, INK, 0.12))
+    p.rect(-4, -4, W + 4, 16, SEAGLASS_DK, INK, 2.4)              # ceiling batten
     # high window
-    p.rect(548, 98, 912, 110, SEAGLASS, INK, 2.6)                 # head trim
+    p.rect(548, 98, 912, 110, SEAGLASS_DK, INK, 2.6)              # head trim
+    p.line([(552, 100.5), (908, 100.5)], SEAGLASS_HI, 1.4)
     p.rect(560, 110, 900, 300, STORM, INK, 3)                     # frame
     paint_window(p, rng_for(701), stage)
     p.rect(*GLASS, None, INK, 3)
     p.rect(MULL_X - 5, GLASS[1], MULL_X + 5, GLASS[3], STORM, INK, 2.2)
     p.rect(GLASS[0], MULL_Y - 5, GLASS[2], MULL_Y + 5, STORM, INK, 2.2)
     p.line([(566, 116), (894, 116)], STORM_HI, 1.6)
-    p.rect(544, 296, 916, 312, SEAGLASS, INK, 2.6)               # sill
-    p.line([(548, 299), (912, 299)], (176, 198, 188), 1.6)
+    p.rect(544, 296, 916, 312, SEAGLASS_DK, INK, 2.6)            # sill
+    p.line([(548, 299), (912, 299)], SEAGLASS_HI, 1.6)
     p.rect(556, 312, 904, 318, mix(SEAGLASS, INK, 0.3), None)
-    # damp (bands 2+): under the sill and along the dado
-    if stage in (2, 4, 6, 7):
+    # damp (bands 2+): the patch under the sill keeps its tide edge; the dado only blooms, no line
+    if wet:
         sill_len = {2: 46, 4: 76, 6: 104, 7: 112}[stage]
-        stain(p, srng, 566, 894, 318 + sill_len * 0.4, 318, 6, mix(SEAGLASS, STORM, 0.35), 0.55,
+        stain(p, srng, 566, 894, 318 + sill_len * 0.4, 318, 6, mix(WALL_A, STORM, 0.35), 0.55,
               tongues=4, tongue_len=sill_len)
-        dado_up = {2: 22, 4: 34, 6: 48, 7: 52}[stage]
-        stain(p, srng, -4, W + 4, 470 - dado_up, 470, 5, mix(SEAGLASS, STORM, 0.35), 0.45,
-              tongues=6, tongue_len=-dado_up * 0.8)
+        bloom = p.layer()
+        up = {2: 30, 4: 46, 6: 60, 7: 64}[stage]
+        bloom.rect(-4, 470 - up, W + 4, 470, mix(WALL_A, STORM, 0.45), None)
+        p.put_soft(bloom, 12, 0.5)
     # mug rail: nine pegs, the ninth bare
     p.rect(270, 398, 1286, 414, TIMBER, INK, 2.4)
     p.line([(274, 401), (1282, 401)], TIMBER_HI, 1.4)
@@ -550,8 +794,11 @@ def paint_view_a(rng, stage=0):
             p.put(ghost, 0.8)
             peg(p, x, 410)
             continue
+        soft_shadow(p, x + 28, 448, 18, 5, 0.25, 3)
         mug(p, x, 410)
         peg(p, x, 410)
+    # the pendant over the table's centre; its cord runs down the window mullion
+    pendant(p, PENDANT_A[0], PENDANT_A[1], PENDANT_A[2], PENDANT_A[3], lamp_on)
     # dado rail, brass-edged
     p.rect(-4, 468, W + 4, 488, TIMBER, INK, 2.6)
     p.line([(-4, 471), (W + 4, 471)], BRASS_HI, 2.2)
@@ -564,25 +811,20 @@ def paint_view_a(rng, stage=0):
         p.line([(x + 16, 512), (x + 164, 512)], TIMBER_HI, 1.4)
         p.line([(x + 16, 512), (x + 16, 842)], TIMBER_HI, 1.4)
         x += 180
+    plank_grain(p, rng, -4, W + 4, 512, 842, 60, mix(TIMBER, TIMBER_XD, 0.35))
     p.rect(-4, 852, W + 4, 882, TIMBER_DK, INK, 2.6)              # skirting
+    p.line([(-4, 855), (W + 4, 855)], TIMBER, 1.4)
     floorboards(p, rng, 880)
     if stage in (4, 6, 7):
-        up = {4: 120, 6: 150, 7: 160}[stage]
-        stain(p, srng, -4, W + 4, 880 - up, 880, 10, TIMBER_XD, 0.5, tongues=7, tongue_len=-40)
-    if stage in (6, 7):
-        # the tide-line: one dark hard line across the panelling at y 760
-        tl = p.layer()
-        pts = wavy(srng, -4, W + 4, 760, 2.2, step=14)
-        tl.poly(pts + [(W + 4, 880), (-4, 880)], TIMBER_XD, None)
-        p.put(tl, 0.35)
-        p.line(pts, mix(INK, TIMBER_XD, 0.3), 4.2)
-        p.line([(x, y - 5) for x, y in pts], (176, 170, 150), 1.6)
+        # the tide line: one straight salt crest at the station height, as in the office
+        salt_line(p, rng_for(703), -4, 1340, STATION_Y, 880, {4: 0.36, 6: 0.46, 7: 0.52}[stage])
     # kitchen doorway at the right edge
     p.rect(1340, 120, W + 4, 880, TIMBER_DK, INK, 3)
     p.rect(1374, 150, W + 4, 880, (30, 34, 38), INK, 2.6)
     p.rect(1374, 760, W + 4, 880, (40, 42, 44), None)             # the kitchen floor beyond
     p.line([(1374, 760), (W + 4, 760)], (52, 54, 54), 2)
     p.rect(1336, 112, W + 4, 150, TIMBER, INK, 2.6)              # lintel
+    p.line([(1340, 115), (W + 4, 115)], TIMBER_HI, 1.4)
     p.line([(1346, 160), (1346, 876)], TIMBER_HI, 1.6)
     p.line([(1366, 160), (1366, 876)], TIMBER_XD, 1.6)
     if stage == 7:
@@ -594,6 +836,7 @@ def paint_view_a(rng, stage=0):
         w2.poly([(1374, 880), (W + 4, 880), (W + 4, 940), (1300, 940)], mix(FLOOR, AMBER, 0.35), None)
         p.put_soft(w2, 10, 0.5)
     # bowl trolley at far left: two timber shelves
+    soft_shadow(p, 92, 884, 84, 8, 0.45, 5)
     p.rect(26, 470, 40, 872, TIMBER_DK, INK, 2.4)
     p.rect(144, 470, 158, 872, TIMBER_DK, INK, 2.4)
     p.rect(22, 464, 162, 476, TIMBER, INK, 2.4)
@@ -610,18 +853,38 @@ def paint_view_a(rng, stage=0):
     p.line([(270, 519), (1172, 519)], TIMBER_HI, 1.4)
     for x in range(300, 1160, 56):
         p.line([(x, 534), (x, 600)], TIMBER_XD, 2.2)
-    # floor shadow under the table
-    soft_shadow(p, 750, 886, 620, 14, 0.4, 6)
+    # under the table: the cloth's shadow on the panelling, the bench and its eight pads
+    us = p.layer()
+    us.rect(150, 700, 1350, 880, (20, 24, 28), None)
+    p.put_soft(us, 14, 0.38)
+    for x in (300, 724, 1150):                                    # bench legs
+        p.rect(x - 7, 760, x + 7, 880, TIMBER_DK, INK, 2.2)
+    p.rect(266, 748, 1176, 760, TIMBER, INK, 2.4)
+    p.line([(270, 750.5), (1172, 750.5)], TIMBER_HI, 1.4)
+    for x in PLACE_X[:8]:
+        bench_cushion(p, x)
+    # floor shadow under the table and benches
+    soft_shadow(p, 750, 888, 640, 18, 0.55, 8)
+    # water under place 9: it grows with the bands, out under his chair once it is pulled out
+    if wet:
+        pr = {2: 46, 4: 70, 6: 84, 7: 92}[stage]
+        puddle(p, PLACE_X[8] + (14 if chair_out else 0), 900, pr)
+        if chair_out:
+            puddle(p, 1268, 912, 40, 0.9)
     # legs
     for x in (190, 760, 1310):
         p.rect(x - 14, 696, x + 14, 880, NAVY_BROWN, INK, 2.6)
-        p.line([(x - 8, 700), (x - 8, 874)], (70, 66, 66), 1.4)
-    # the cloth: tabletop edge at y 590, drop to y 700
-    p.rect(160, 586, 1340, 700, PAPER_HI, INK, 2.8, r=2)
-    p.line([(164, 589.5), (1336, 589.5)], (244, 240, 228), 1.6)
-    for fx in (300, 520, 760, 980, 1200):   # soft fold lines in the drop
-        p.line([(fx + rng.uniform(-8, 8), 600), (fx + rng.uniform(-8, 8), 696)], LINEN_SH, 2)
-    chain_h(p, 168, 1332, 690)
+        p.line([(x - 8, 700), (x - 8, 874)], (78, 74, 72), 1.6)
+        p.line([(x + 9, 700), (x + 9, 874)], (34, 32, 34), 1.4)
+    # the cloth: tabletop edge at y 590, a hanging hem with folds that drops at each leg
+    hem = hem_pts(160, 1340, 702, (190, 760, 1310), rng)
+    cloth = [(160, 586), (1340, 586)] + hem[::-1]
+    p.poly(cloth, PAPER_HI, None)
+    for fx in (236, 300, 420, 540, 640, 700, 830, 900, 1000, 1120, 1180, 1270):
+        cloth_fold(p, fx + rng.uniform(-6, 6), 600, 702 + 15 * math.exp(-((fx - 760) / 46) ** 2), 2, 12)
+    p.line([(164, 589.5), (1336, 589.5)], (248, 244, 234), 2)    # lit top edge
+    p.poly(cloth, None, INK, 2.8)
+    p.line([(x, y - 9) for x, y in hem[1:-1]], mix(LINEN_SH, INK, 0.25), 1.2)   # the hem stitch
     chain_h(p, 168, 1332, 597, mix(INK, SEAGLASS, 0.3), 9, 1.2)
     for x in PLACE_X:
         p.rect(x - 44, 618, x + 44, 678, (240, 235, 220), None)
@@ -632,12 +895,13 @@ def paint_view_a(rng, stage=0):
             spoon_side(p, x + 30, 590, 54)
         else:
             dent = p.layer()
-            dent.poly([(1256, 586), (1290, 587.5), (1292, 588), (1300, 584), (1310, 588),
-                       (1300, 593), (1290, 591), (1256, 590)], LINEN_SH, None)
+            dent.poly([(1250, 586), (1290, 587.5), (1292, 588), (1300, 584), (1312, 588),
+                       (1300, 594), (1290, 591), (1250, 590)], LINEN_SH, None)
             p.put(dent)
-            p.line([(1256, 590.5), (1290, 591.5), (1300, 593.5), (1310, 588.5)], mix(LINEN_SH, INK, 0.35), 1.4)
-            p.line([(1258, 586), (1290, 587), (1300, 583.5), (1308, 586.5)], (250, 248, 240), 1.2)
+            p.line([(1250, 590.5), (1290, 591.5), (1300, 594.5), (1312, 588.5)], mix(LINEN_SH, INK, 0.35), 1.4)
+            p.line([(1252, 586), (1290, 587), (1300, 583.5), (1310, 586.5)], (250, 248, 240), 1.2)
     # tally housing on the left drop
+    soft_shadow(p, 224, 658, 46, 46, 0.3, 5)
     p.ell(220, 652, 44, 44, BRASS, INK, 2.8)
     p.ell(220, 652, 38, 38, None, BRASS_LO, 2)
     for k in range(13):     # 13 tick notches (0-12), no numerals
@@ -649,8 +913,19 @@ def paint_view_a(rng, stage=0):
     p.rect(256, 682, 270, 694, BRASS_HI, INK, 2, r=3)            # lever nub
     p.ell(263, 680, 4, 4, BRASS_LO, INK, 1.4)
     im = p.done()
+    im = mottle(im, rng_for(704), (0, 0, W, 470), 6, 150)
+    im = mottle(im, rng_for(705), (0, 488, W, 880), 5, 150)
+    # light: the pendant's warm pool on the cloth, falling off to cooler walls and corners
+    lit = [(150, 560, 1350, 720)] + ([(1160, 600, 1340, 905)] if chair_out else [])
+    cloth_keep = rect_mask(im.size, lit, 255, 0, blur=24)
+    if lamp_on:
+        im = key_light(im, (740, 600, 700, 400), 0.6, 0.55, keep=cloth_keep.point(lambda v: v * 3 // 4),
+                       core=(740, 640, 520, 150))
+    elif not sever:
+        # band 7: the pendant is dark; the cloth keeps its light, the warm strip is the only warmth
+        im = key_light(im, (740, 640, 640, 260), 0.7, 0.0, keep=cloth_keep)
     # stage colour: colder each band; the table and cloth stay readable
-    cloth = rect_mask(im.size, [(150, 500, 1350, 710)], 0, 255, blur=10)
+    cloth = rect_mask(im.size, [(150, 500, 1350, 720)], 0, 255, blur=10)
     if stage == 2:
         im = tint(im, (204, 218, 232), 0.25)
     elif stage == 4:
@@ -658,7 +933,7 @@ def paint_view_a(rng, stage=0):
     elif stage == 6:
         im = tint(im, (176, 196, 222), 0.55, cloth.point(lambda v: max(v, 110)))
     elif stage == 7:
-        keep = rect_mask(im.size, [(150, 500, 1350, 710), (1336, 112, W, 960)], 0, 255, blur=10)
+        keep = rect_mask(im.size, [(150, 500, 1350, 720), (1336, 112, W, 960)], 0, 255, blur=10)
         im = tint(im, (164, 186, 214), 0.6, keep.point(lambda v: max(v, 70)))
     elif sever:
         im = greyday(im)
@@ -687,36 +962,49 @@ def kettle(p, x0, y0):
 
 
 def paint_view_b(rng, stage=0):
-    p = Pen(W, H, rng, SEAGLASS_HI)
+    p = Pen(W, H, rng, WALL_B)
     srng = rng_for(702)     # stage-only marks draw from their own stream
-    plaster = (156, 182, 170)
+    lamp_on = stage not in (7, "sever")
+    plaster = WALL_B
     p.rect(-4, -4, W + 4, 560, plaster, None)
     lay = p.layer()     # trowel sweeps, faint
     for _ in range(26):
         x, y = rng.uniform(0, W), rng.uniform(40, 540)
-        lay.arc(x, y, rng.uniform(60, 140), rng.uniform(8, 16), 200, 340, (176, 198, 188), 3)
+        lay.arc(x, y, rng.uniform(60, 140), rng.uniform(8, 16), 200, 340, mix(WALL_B, PAPER_HI, 0.22), 3)
     p.put(lay, 0.45)
-    p.rect(-4, -4, W + 4, 16, SEAGLASS, INK, 2.4)
-    p.rect(-4, 52, W + 4, 62, SEAGLASS, INK, 2)                   # picture rail
+    p.rect(-4, -4, W + 4, 16, SEAGLASS_DK, INK, 2.4)
+    p.rect(-4, 52, W + 4, 62, SEAGLASS_DK, INK, 2)                # picture rail
+    p.line([(-4, 54.5), (W + 4, 54.5)], SEAGLASS_HI, 1.2)
     # damp on the plaster
     if stage in (2, 4, 6, 7):
         up = {2: 70, 4: 120, 6: 150, 7: 150}[stage]
-        stain(p, srng, 1300, W + 4, 556 - up, 556, 8, mix(SEAGLASS, STORM, 0.4), 0.55, tongues=3,
+        stain(p, srng, 1300, W + 4, 556 - up, 556, 8, mix(WALL_B, STORM, 0.4), 0.55, tongues=3,
               tongue_len=-up * 0.5)
-        stain(p, srng, 620, 940, 60 + up * 0.5, 62, 6, mix(SEAGLASS, STORM, 0.35), 0.45, tongues=3,
+        stain(p, srng, 620, 940, 60 + up * 0.5, 62, 6, mix(WALL_B, STORM, 0.35), 0.45, tongues=3,
               tongue_len=up * 0.6)
     if stage in (4, 6, 7):
-        stain(p, srng, -4, 140, 300, 62, 7, mix(SEAGLASS, STORM, 0.35), 0.45, tongues=2, tongue_len=60)
-        stain(p, srng, 600, 960, 470, 556, 6, mix(SEAGLASS, STORM, 0.35), 0.45, tongues=3, tongue_len=-50)
+        stain(p, srng, -4, 140, 300, 62, 7, mix(WALL_B, STORM, 0.35), 0.45, tongues=2, tongue_len=60)
+        stain(p, srng, 600, 960, 470, 556, 6, mix(WALL_B, STORM, 0.35), 0.45, tongues=3, tongue_len=-50)
     if stage in (6, 7):
-        stain(p, srng, -4, W + 4, 512, 556, 4, mix(SEAGLASS, STORM, 0.5), 0.6, tongues=8, tongue_len=-28)
+        stain(p, srng, -4, W + 4, 512, 556, 4, mix(WALL_B, STORM, 0.5), 0.6, tongues=8, tongue_len=-28)
+    # the pendant over the lectern
+    pendant(p, PENDANT_B[0], PENDANT_B[1], PENDANT_B[2], PENDANT_B[3], lamp_on)
     # dado and timber below
     p.rect(-4, 552, W + 4, 572, TIMBER, INK, 2.6)
     p.line([(-4, 555), (W + 4, 555)], BRASS_HI, 2)
     p.line([(-4, 569), (W + 4, 569)], BRASS, 2)
     planks_v(p, rng, -4, W + 4, 572, 880, TIMBER, TIMBER_XD, TIMBER_HI, 64)
+    plank_grain(p, rng, -4, W + 4, 580, 846, 64, mix(TIMBER, TIMBER_XD, 0.35))
     p.rect(-4, 852, W + 4, 882, TIMBER_DK, INK, 2.6)
     floorboards(p, rng, 880)
+    # cast shadows: the range, the lectern and the dresser stand on the boards
+    soft_shadow(p, 372, 888, 236, 16, 0.6, 8)
+    soft_shadow(p, 806, 884, 96, 10, 0.55, 6)
+    soft_shadow(p, 1134, 886, 186, 14, 0.55, 8)
+    wsh = p.layer()     # and on the wall behind them, falling right, away from the lamp
+    wsh.rect(584, 450, 600, 860, (20, 24, 28), None)
+    wsh.rect(842, 620, 860, 862, (20, 24, 28), None)
+    p.put_soft(wsh, 8, 0.35)
     # splashback: storm-navy glazed tiles
     p.rect(140, 160, 600, 440, STORM, INK, 3)
     for y in range(160, 440, 40):
@@ -749,6 +1037,9 @@ def paint_view_b(rng, stage=0):
     # range: black iron, cold
     p.rect(160, 432, 580, 446, SOOT_HI, INK, 2.6)                 # cooktop lip
     p.rect(170, 446, 570, 860, SOOT, INK, 3)
+    p.line([(176, 452), (564, 452)], SOOT_HI, 2)                  # bevel highlights
+    p.line([(176, 452), (176, 852)], (58, 60, 62), 2)
+    p.line([(164, 435), (576, 435)], (96, 98, 100), 1.4)
     for x in (210, 330, 450):                                     # hob plates
         p.rect(x, 434, x + 80, 440, (70, 72, 74), None)
     # oven doors and firebox
@@ -828,6 +1119,7 @@ def paint_view_b(rng, stage=0):
                 (1284 + 15 * math.cos(aa), 320 + 15 * math.sin(aa))], INK, 1.4)
     # dresser with the service drawer
     p.rect(966, 596, 1294, 860, TIMBER, INK, 2.8)
+    p.line([(972, 600), (972, 856)], TIMBER_HI, 1.6)
     p.rect(950, 578, 1310, 596, TIMBER_DK, INK, 2.8)
     p.line([(954, 581), (1306, 581)], TIMBER_HI, 1.6)
     p.rect(990, 600, 1280, 710, mix(TIMBER, TIMBER_HI, 0.3), INK, 2.6, r=2)
@@ -863,6 +1155,13 @@ def paint_view_b(rng, stage=0):
             vg.rect(sx, 564, sx + 10, 636, (232, 196, 130), None)
         p.put_soft(vg, 3, 0.7)
     im = p.done()
+    im = mottle(im, rng_for(706), (0, 0, W, 552), 6, 150)
+    if lamp_on:
+        im = key_light(im, (780, 600, 720, 470), 0.62, 0.5, core=(790, 590, 300, 190))
+    elif stage == 7:
+        rk = Image.new("L", im.size, 0)
+        ImageDraw.Draw(rk).ellipse((60, 400, 700, 1060), fill=255)
+        im = key_light(im, (800, 640, 560, 320), 0.74, 0.0, keep=rk.filter(ImageFilter.GaussianBlur(60)))
     if stage == 2:
         im = tint(im, (204, 218, 232), 0.25)
     elif stage == 4:
@@ -947,11 +1246,17 @@ def paint_c_table(rng):
     timber_ground(p, rng, TIMBER_DK, TIMBER_XD, TIMBER, 110)
     soft_shadow(p, 730, 372, 640, 230, 0.4, 10)
     # the cloth
+    drop_shadow(p, 100, 150, 1350, 580, 12, 0.45, 10)
     p.rect(100, 150, 1350, 580, PAPER_HI, INK, 3)
-    lay = p.layer()     # faint weave
-    for y in range(156, 576, 6):
+    lay = p.layer()     # linen weave, both ways, and a few slubs
+    for y in range(156, 576, 5):
         lay.line([(104, y), (1346, y)], LINEN_SH, 1)
-    p.put(lay, 0.35)
+    for x in range(104, 1346, 5):
+        lay.line([(x, 154), (x, 576)], mix(LINEN_SH, PAPER_HI, 0.4), 1)
+    for _ in range(40):
+        x, y = rng.uniform(110, 1330), rng.uniform(160, 570)
+        lay.line([(x, y), (x + rng.uniform(12, 30), y)], mix(LINEN_SH, INK, 0.15), 1.2)
+    p.put(lay, 0.5)
     chain_rect(p, 112, 160, 1338, 570)
     for i, x in enumerate(MAT_X):
         p.rect(x, 170, x + 124, 370, (226, 218, 198), None)
@@ -967,6 +1272,7 @@ def paint_c_table(rng):
     chain_rect(p, 1240, 400, 1324, 444)
     spoon_dent(p, 1282, 230, 330)
     # timber rack with nine recesses
+    drop_shadow(p, 100, 620, 1120, 810, 12, 0.5, 9)
     p.rect(100, 620, 1120, 810, TIMBER, INK, 3, r=6)
     p.line([(108, 626), (1112, 626)], TIMBER_HI, 1.8)
     for k in range(9):
@@ -976,6 +1282,8 @@ def paint_c_table(rng):
         p.arc(cx, 715, 42, 42, 200, 340, (36, 32, 28), 5)
         p.ell(cx, 715, 22, 22, None, mix(TIMBER_XD, TIMBER, 0.4), 1.4)
     # tally housing
+    drop_shadow(p, 1130, 600, 1300, 924, 12, 0.5, 9)
+    drop_shadow(p, 1300, 600, 1430, 912, 12, 0.5, 9)
     brass_plate(p, 1130, 600, 1300, 820)
     recess(p, 1146, 616, 1284, 720, 6, (24, 30, 34))
     blank_field(p, 1150, 620, 1280, 716, (232, 226, 210), 4)
@@ -1058,6 +1366,7 @@ def paint_c_board(rng):
     p = Pen(W, H, rng)
     timber_ground(p, rng, TIMBER, TIMBER_DK, TIMBER_HI, 96, vertical=True)
     # tile rack
+    drop_shadow(p, 40, 120, 270, 900, 12, 0.5, 9)
     p.rect(40, 120, 270, 900, TIMBER_DK, INK, 3, r=4)
     for k in range(10):
         recess(p, 50, 140 + 76 * k, 260, 206 + 76 * k, 4, (40, 36, 32))
@@ -1079,15 +1388,21 @@ def paint_c_board(rng):
         for x in (296, 1064):
             p.rect(x - 6, y - 26, x + 6, y + 26, BRASS, INK, 2, r=3)
     # amendment slot
+    drop_shadow(p, 300, 722, 1060, 834, 10, 0.5, 8)
     p.rect(300, 722, 1060, 834, SOOT, INK, 2.8, r=4)
     for (x0, x1) in ((320, 470), (490, 820), (840, 1050)):
         recess(p, x0, 730, x1, 826, 4, (30, 34, 38))
     # placard
+    drop_shadow(p, 300, 850, 1060, 960, 10, 0.5, 8)
     p.rect(300, 850, 1060, 960, ENAMEL, INK, 2.8, r=6)
     p.rect(310, 860, 1050, 950, None, STORM, 2, r=4)
     for x in (318, 1042):
         rivet(p, x, 905, 3.4, BRASS_HI)
     # token socket
+    drop_shadow(p, 1090, 120, 1420, 440, 12, 0.5, 9)
+    drop_shadow(p, 1090, 470, 1420, 670, 12, 0.5, 9)
+    drop_shadow(p, 1110, 676, 1400, 856, 12, 0.5, 9)
+    drop_shadow(p, 1090, 870, 1420, 960, 10, 0.5, 8)
     brass_plate(p, 1090, 120, 1420, 440, BRASS_LO)
     for left, ox in ((True, 1110), (False, 1260)):
         pts = half_token_pts(left, ox, 140)
@@ -1302,6 +1617,11 @@ def paint_c_condense_plan(rng):
             x, y = cx + r * math.cos(a), cy + r * math.sin(a)
             tgt = (cx, cy) if k == 8 else aim
             bead(p, x, y, rng.uniform(2.2, 3.4), tgt, rng.uniform(8, 18) if k < 8 else 5)
+    clear = Image.new("L", p.im.size, 255)          # the initials' band in each well stays dry
+    d = ImageDraw.Draw(clear)
+    for (cx, cy) in BOWL_PLAN[:8]:
+        d.rectangle(((cx - 44) * SS, (cy + 6) * SS, (cx + 44) * SS, (cy + 34) * SS), fill=0)
+    p.im.putalpha(ImageChops.multiply(p.im.getchannel("A"), clear))
     return p
 
 
@@ -1414,9 +1734,14 @@ def fog(p, rng, x0, y0, x1, y1, wipe=None):
     p.put(lay)
 
 
-def paint_fog(rng, w, h, wipe=None):
+def paint_fog(rng, w, h, wipe=None, thin=False):
     p = Pen(w, h, rng)
     fog(p, rng, 2, 2, w - 2, h - 2, wipe)
+    if thin:
+        # breath on glass, not frosted glass: patchy, so the board's strips show through
+        n = value_noise(rng_for(710), w * SS, h * SS, 46 * SS).filter(ImageFilter.GaussianBlur(10 * SS))
+        n = n.point(lambda v: int(70 + 120 * max(0.0, min(1.0, (v - 70) / 120.0))))
+        p.im.putalpha(ImageChops.multiply(p.im.getchannel("A"), n))
     return p
 
 
@@ -1706,6 +2031,348 @@ def paint_c_board_swung(rng):
     return p
 
 
+# ----------------------------------------------------------------------------- repaint-pass sprites
+
+TARNISH = (70, 76, 78)
+TARNISH_HI = (128, 136, 134)
+SOUP_DK = (88, 64, 40)
+WET = (60, 82, 88)
+
+
+def paint_a_spoon2(rng, used=False):
+    """His spoon, side-on, big and dark enough to read lifting: tarnished steel, 64 px long.
+    Rests on y 22 of a 70x28 box. `used`: soup on its bowl."""
+    p = Pen(70, 28, rng)
+    x0, x1, yr = 2, 66, 22
+    hx = x1 - 22
+    p.poly([(x0, yr - 7), (x0 + 8, yr - 9), (hx, yr - 5), (hx, yr - 1), (x0 + 8, yr - 3.5), (x0, yr - 2)],
+           TARNISH, INK, 2.2)
+    p.poly(bezier((hx - 2, yr), (hx + 10, yr - 18), (x1, yr), 12), TARNISH, INK, 2.4)
+    p.line([(x0 + 9, yr - 7), (hx - 4, yr - 4)], TARNISH_HI, 1.4)
+    p.line([(hx + 5, yr - 8), (hx + 12, yr - 11)], (196, 204, 200), 2)
+    if used:
+        p.poly(bezier((hx + 2, yr - 1), (hx + 10, yr - 10), (x1 - 2, yr - 1), 10), SOUP_DK, None)
+        p.ell(hx + 15, yr + 2, 2.6, 2.2, SOUP_DK, None)
+    return p
+
+
+def paint_a_soup2(rng):
+    """The ninth bowl after band 3: a thick dark soup tide ring under the rim, one drip down the
+    outside, over the tabletop edge and down the cloth. Bowl box at (0,0); 104x100."""
+    p = Pen(104, 100, rng)
+    m = Pen(104, 100, rng)
+    m.poly(bezier((93, 16), (90, 50), (66, 55), 16) + bezier((30, 55), (6, 50), (3, 16), 16), (255, 255, 255), None)
+    ring = p.layer()
+    ring.rect(0, 18, 100, 28, SOUP_DK, None)
+    ring.line([(0, 28.5), (100, 28.5)], mix(SOUP_DK, ENAMEL, 0.45), 2)
+    ring.line([(0, 18), (100, 18)], (60, 42, 26), 1.6)
+    p.put(ring, 1.0, mask=m.alpha())
+    # the drip: over the lip, down the side, off the foot, down the cloth's drop
+    drip = [(84, 15), (89, 26), (88, 38), (83, 49), (76, 56), (74, 62), (76, 66), (77, 78), (77, 86)]
+    p.line(drip, SOUP_DK, 4.2)
+    p.ell(77, 89, 3.6, 4.4, SOUP_DK, None)
+    p.ell(72, 64.5, 9, 2.2, SOUP_DK, None)        # where it met the tabletop edge
+    p.line([(86, 24), (85, 36)], mix(SOUP_DK, ENAMEL, 0.6), 1.2)
+    return p
+
+
+def paint_a_chair_out2(rng):
+    """His chair, pulled straight back from place 9 and left standing, turned slightly toward
+    the table. A stark flat silhouette with a wet seat. 170x292; seat top at y 150."""
+    p = Pen(170, 292, rng)
+    sh = p.layer()
+    sh.ell(88, 284, 82, 7, INK, None)
+    p.put_soft(sh, 4, 0.5)
+    body = TIMBER_XD
+    edge = TIMBER
+    # rear leg + back post (right), front leg (left), stretchers
+    p.poly([(132, 10), (148, 8), (154, 286), (140, 286)], body, INK, 2.8)
+    p.rect(18, 166, 32, 286, body, INK, 2.8)
+    p.rect(30, 226, 144, 236, body, INK, 2.2)
+    # the back: the crest rail turned a little toward us, three spindles
+    p.poly([(106, 6), (156, 2), (160, 28), (110, 32)], body, INK, 2.6)
+    p.line([(112, 10), (152, 7)], edge, 1.6)
+    for x in (118, 128, 138):
+        p.rect(x, 30, x + 5, 150, body, INK, 1.8)
+    p.rect(108, 86, 150, 94, body, INK, 1.8)
+    # the seat: a thick edge with its top plane just visible, wet
+    p.poly([(10, 146), (156, 140), (158, 150), (12, 156)], mix(body, (40, 48, 54), 0.5), INK, 2.2)
+    p.rect(8, 152, 160, 170, body, INK, 2.8)
+    p.line([(12, 155.5), (156, 155.5)], edge, 1.6)
+    wet = p.layer()
+    wet.poly([(26, 147), (138, 142), (140, 149), (28, 153)], (34, 46, 54), None)
+    p.put(wet, 0.9)
+    p.line([(40, 146.5), (110, 143.5)], (200, 214, 210), 1.6)            # a wet sheen on the seat
+    for x, ln in ((36, 26), (70, 40), (118, 18)):                       # running off the front edge
+        p.line([(x, 170), (x + 0.6, 170 + ln)], WET, 3.2)
+        p.line([(x - 0.8, 172), (x - 0.4, 166 + ln)], (176, 196, 196), 1)
+        p.ell(x + 0.6, 173 + ln, 3.2, 4, WET, None)
+        p.ell(x - 0.4, 172 + ln, 1.1, 1.3, (214, 226, 224), None)
+    p.line([(21, 172), (21, 280)], edge, 1.4)
+    return p
+
+
+def paint_a_seat9(rng, wet=False):
+    """Under the table at place 9: his chair's seat, bare where the bench has pads. 100x142;
+    seat top at y 8 (world 748)."""
+    p = Pen(100, 142, rng)
+    for x in (12, 80):
+        p.rect(x, 18, x + 10, 140, TIMBER_XD, INK, 2.2)
+    p.rect(12, 92, 90, 100, TIMBER_XD, INK, 1.8)
+    p.rect(4, 8, 96, 20, mix(TIMBER, TIMBER_DK, 0.4), INK, 2.4)
+    p.line([(8, 10.5), (92, 10.5)], TIMBER, 1.4)
+    if wet:
+        w = p.layer()
+        w.rect(10, 7, 90, 19, (34, 46, 54), None)
+        p.put(w, 0.9)
+        p.line([(18, 9.5), (62, 9.5)], (196, 210, 206), 1.6)
+        for x, ln in ((24, 30), (52, 52), (78, 22)):
+            p.line([(x, 20), (x, 20 + ln)], WET, 3)
+            p.ell(x, 23 + ln, 3, 3.8, WET, None)
+            p.ell(x - 0.6, 22 + ln, 1, 1.2, (214, 226, 224), None)
+    return p
+
+
+def paint_a_towel_wet(rng):
+    """Band 6: Nora's towel refolded the other way - in halves, its stripes now running along the
+    folds (turned 90 degrees), wet through, with a drip line over the table edge. 84x100; the towel
+    sits on the tabletop at y 68."""
+    p = Pen(84, 100, rng)
+    layers = [(40, 68), (12, 41)]
+    for k, (y0, y1) in enumerate(layers):
+        r = (y1 - y0) / 2
+        p.rect(4, y0, 78 - r, y1, PAPER_HI, None)
+        p.ell(78 - r, (y0 + y1) / 2, r, r, PAPER_HI, None)
+        for yy in (y0 + 6, y0 + 10, y1 - 10, y1 - 6):                 # stripes along the fold
+            p.line([(6, yy), (76 - r * 0.4, yy)], SEAGLASS, 2.2)
+    m = p.layer()
+    m.im.alpha_composite(p.im)
+    wet = p.layer()
+    for (x, y, rx, ry) in ((30, 52, 30, 16), (52, 30, 28, 14), (16, 26, 14, 10), (62, 58, 16, 12)):
+        wet.ell(x, y, rx, ry, WET, None)
+    wet.im = wet.im.filter(ImageFilter.GaussianBlur(2.5 * SS))
+    p.put(wet, 0.88, mask=m.alpha())
+    for k, (y0, y1) in enumerate(layers):
+        r = (y1 - y0) / 2
+        p.line([(4, y0), (78 - r, y0)], INK, 2.4)
+        p.arc(78 - r, (y0 + y1) / 2, r, r, 270, 450, INK, 2.4)
+        p.line([(78 - r, y1), (4, y1)], INK, 2.4)
+        p.line([(4, y0), (4, y1)], INK, 1.6)
+    p.line([(8, 14.5), (60, 14.5)], (246, 242, 230), 1.4)               # the dry top fold edge
+    drip = [(60, 68), (61, 76), (60, 86), (60.5, 94)]
+    p.line(drip, (176, 196, 196), 2.2)
+    p.ell(60.5, 96, 2.4, 3, (176, 196, 196), None)
+    return p
+
+
+def paint_a_ring_amber(rng):
+    """The continue ending: the ring where her cup stood, warm. 64x24; centre (32, 12)."""
+    p = Pen(64, 24, rng)
+    g = p.layer()
+    g.ell(32, 12, 28, 9, AMBER, None)
+    p.put_soft(g, 3, 0.75)
+    p.ell(32, 12, 22, 6, None, mix(AMBER, (120, 60, 20), 0.35), 3.4)
+    p.ell(32, 12, 22, 6, None, (238, 200, 130), 1.4)
+    return p
+
+
+def paint_a_ring_wisp(rng):
+    """Motion off: the warm ring and its steam as one still ribbon, ~84 px tall. 64x112;
+    the ring's centre at (32, 100)."""
+    p = Pen(64, 112, rng)
+    g = p.layer()
+    g.ell(32, 100, 28, 9, AMBER, None)
+    p.put_soft(g, 3, 0.75)
+    p.ell(32, 100, 22, 6, None, mix(AMBER, (120, 60, 20), 0.35), 3.4)
+    p.ell(32, 100, 22, 6, None, (238, 200, 130), 1.4)
+    pts = [(32 + 9 * math.sin(i * 0.19) * (0.3 + i / 40), 96 - i * 2.1) for i in range(41)]
+    for w, a in ((12, 0.14), (7, 0.22), (3.2, 0.42)):
+        lay = p.layer()
+        lay.line(pts, (240, 236, 226), w)
+        lay.im = lay.im.filter(ImageFilter.GaussianBlur(1.2 * SS))
+        fade = Image.linear_gradient("L").resize(lay.im.size).point(lambda v: min(255, int(v * 1.6)))
+        p.put(lay, min(1.0, a * 2), mask=fade)
+    return p
+
+
+def paint_a_wet(rng, band):
+    """Bands 2-7: the cloth darkening wet from places 1-8 toward place 9, growing each band and
+    pooling round the square; beads gathered on the side of each bowl nearest him (kept above
+    the initials). Full frame; the place patches stay dry so every mark reads."""
+    f = (band - 1) / 6.0
+    p = Pen(W, H, rng)
+    x9 = PLACE_X[8]
+    wet = p.layer()
+    for i, x in enumerate(PLACE_X[:8]):
+        x_a = x - 26
+        x_b = x + 40 + f * (x9 - x - 40)
+        th = 5 + 11 * f
+        wet.poly([(x_a, 598 - th * 0.3), (x_b, 597), (x_b + 10, 600 + th * 0.4), (x_b, 602 + th * 0.6),
+                  (x_a, 602 + th * 0.4)], (84, 104, 112), None)
+    if f > 0.6:      # the streaks have run together into one wet band along the cloth
+        wet.rect(PLACE_X[0], 596, x9, 606 + 8 * f, (84, 104, 112), None)
+    rx, ry = 40 + 46 * f, 26 + 30 * f
+    wet.ell(x9, 652, rx, ry, (94, 114, 120), None)
+    if band >= 5:
+        for dx in (-30, 6, 34):
+            wet.line([(x9 + dx, 652 + ry * 0.6), (x9 + dx, 704 + 6 * f)], (94, 114, 120), 3)
+    wet.im = wet.im.filter(ImageFilter.GaussianBlur(3 * SS))
+    keep = Image.new("L", wet.im.size, 0)
+    d = ImageDraw.Draw(keep)
+    d.polygon([(160 * SS, 592 * SS), (1340 * SS, 592 * SS), (1340 * SS, 712 * SS), (160 * SS, 712 * SS)], fill=255)
+    for x in PLACE_X:                                    # the patches stay dry
+        d.rectangle(((x - 48) * SS, 614 * SS, (x + 48) * SS, 682 * SS), fill=0)
+    p.put(wet, 0.55 + 0.3 * f, mask=keep)
+    edge = p.layer()                                     # the pool's tide edge round the square
+    edge.ell(x9, 652, rx, ry, None, (70, 90, 96), 1.6)
+    p.put(edge, 0.6, mask=keep)
+    beads = p.layer()
+    for i, x in enumerate(PLACE_X[:8]):
+        for _ in range(3 + int(round(5 * f))):
+            bx = x + rng.uniform(8, 40)
+            by = rng.uniform(528, 546)
+            bead(beads, bx, by, rng.uniform(1.8, 2.8))
+    p.put(beads)
+    return p
+
+
+def paint_rain_hang2(rng):
+    """Bands 3-6: rain hanging on the glass and not falling. Few, fat, still drops."""
+    p = Pen(340, 190, rng)
+    gx0, gy0, gx1, gy1 = GLASS[0] - 560, GLASS[1] - 110, GLASS[2] - 560, GLASS[3] - 110
+    mask = Pen(340, 190, rng)
+    mask.rect(gx0, gy0, gx1, gy1, (255, 255, 255), None)
+    lay = p.layer()
+
+    def drop(x, y, s):
+        pts = [(x, y)] + bezier((x + 0.2 * s, y + 0.5 * s), (x + 1.1 * s, y + 1.9 * s), (x, y + 2.2 * s), 10)[1:] + \
+            bezier((x, y + 2.2 * s), (x - 1.1 * s, y + 1.9 * s), (x - 0.2 * s, y + 0.5 * s), 10)[1:]
+        lay.poly(pts, (214, 228, 226), (36, 56, 64), 1.6)
+        lay.ell(x - 0.3 * s, y + 1.45 * s, 0.22 * s, 0.3 * s, (255, 255, 255), None)
+    for x in (34, 82, 128, 196, 246, 300):
+        drop(x + rng.uniform(-6, 6), MULL_Y - 110 + 5, rng.uniform(7, 9))
+    for x in (58, 150, 222, 282):
+        drop(x + rng.uniform(-6, 6), gy1 - 1 - 18, rng.uniform(6, 8))
+    for _ in range(4):
+        drop(rng.uniform(gx0 + 20, gx1 - 20), rng.uniform(gy0 + 10, gy0 + 60), rng.uniform(5, 7))
+    p.put(lay, 1.0, mask=mask.alpha())
+    return p
+
+
+def paint_b_board_back(rng):
+    """After P09: the official board swung open on its right-hand hinge, its back to us, compressed
+    as it stands out from the wall; the cavity's frame edge beside it. 180x400 at (782, 130)."""
+    p = Pen(180, 400, rng)
+    sh = p.layer()
+    sh.rect(4, 20, 150, 396, INK, None)
+    p.put_soft(sh, 8, 0.3)
+    p.rect(10, 10, 162, 390, TIMBER_DK, INK, 2.8)
+    for x in (48, 86, 124):
+        p.line([(x, 14), (x, 386)], TIMBER_XD, 2.2)
+        p.line([(x + 3, 14), (x + 3, 386)], TIMBER, 1.2)
+    for y in (60, 330):                                    # battens
+        p.rect(14, y - 12, 158, y + 12, TIMBER, INK, 2.2)
+        p.line([(18, y - 9), (154, y - 9)], TIMBER_HI, 1.4)
+    p.poly([(16, 330), (30, 330), (156, 70), (142, 60)], TIMBER, INK, 2)   # the brace
+    for y in (40, 360):                                    # strap hinges to the frame
+        p.rect(110, y - 7, 176, y + 7, SOOT_HI, INK, 2, r=2)
+        p.ell(174, y, 5, 9, BRASS_LO, INK, 1.6)
+    p.rect(162, 6, 176, 394, TIMBER, INK, 2.4)             # its edge, the board's thickness
+    p.line([(165, 10), (165, 390)], TIMBER_HI, 1.4)
+    return p
+
+
+def paint_b_book_blank(rng):
+    """Band 5+: Nora's book has turned itself to a fresh ruled page; one leaf still stands up off
+    the spine. One pencil line. Drawn over the lectern book at (690, 468); 220x136."""
+    p = Pen(220, 136, rng)
+    ox, oy = 690, 468
+    def T(pts):
+        return [(x - ox, y - oy) for x, y in pts]
+    lp = bezier((706, 590), (704, 530), (742, 528), 10) + bezier((742, 528), (780, 528), (800, 548), 10) + [(800, 590)]
+    rp = [(800, 590), (800, 548)] + bezier((800, 548), (820, 528), (858, 528), 10) + bezier((858, 528), (896, 530), (894, 590), 10)
+    p.poly(T(lp), PAPER_HI, INK, 2.2)
+    p.poly(T(rp), PAPER_HI, INK, 2.2)
+    rules = p.layer()
+    for k in range(5):
+        y = 548 + k * 9
+        rules.line(T([(712, y + 4), (796, y)]), SEAGLASS_HI, 1.4)
+        rules.line(T([(806, y), (888, y + 4)]), SEAGLASS_HI, 1.4)
+    p.put(rules, 0.9)
+    p.line(T([(812, 556), (852, 556.5)]), GRAPHITE, 1.8)                 # one pencil line
+    leaf = bezier((800, 548), (790, 500), (806, 476), 12) + bezier((806, 476), (836, 488), (842, 540), 12)[1:] + [(800, 562)]
+    p.poly(T(leaf), PAPER, INK, 2.2)
+    p.line(T(bezier((804, 540), (800, 506), (810, 486), 8)), PAPER_LO, 1.2)
+    p.poly(T([(796, 546), (804, 546), (806, 640 - 40), (800, 592), (794, 600)]), SEAGLASS, INK, 1.6)
+    return p
+
+
+def frame_dark(p, inner, op, blur=60):
+    """Darken a close-up's surround: everything outside `inner` falls toward damp shadow."""
+    lay = p.layer()
+    lay.rect(-10, -10, p.w + 10, p.h + 10, (14, 18, 22), None)
+    hole = p.layer()
+    hole.rect(*inner, (255, 255, 255), None, r=30)
+    hole.im = hole.im.filter(ImageFilter.GaussianBlur(blur * SS))
+    a = ImageChops.subtract(lay.im.getchannel("A"), hole.im.getchannel("A"))
+    lay.im.putalpha(a)
+    p.put(lay, op)
+
+
+def paint_c_table_damp(rng):
+    p = Pen(W, H, rng)
+    frame_dark(p, (130, 170, 1320, 940), 0.55)
+    ring = p.layer()                                       # a water ring on the cloth at place 9
+    ring.ell(1276, 352, 68, 64, None, (120, 132, 128), 6)
+    ring.ell(1276, 352, 64, 60, None, (164, 170, 160), 2)
+    p.put(ring, 0.8)
+    st = p.layer()
+    for _ in range(9):                                     # damp creeping in at the cloth's edge
+        x = rng.uniform(110, 1340)
+        st.ell(x, rng.choice((154, 576)), rng.uniform(30, 70), rng.uniform(8, 16), (120, 136, 136), None)
+    st.im = st.im.filter(ImageFilter.GaussianBlur(5 * SS))
+    p.put(st, 0.55)
+    return p
+
+
+def paint_c_ledger_damp(rng):
+    p = Pen(W, H, rng)
+    frame_dark(p, (120, 96, 1328, 916), 0.55)
+    fox = p.layer()
+    spots = []
+    for _ in range(70):     # foxing on the outer margins and the head and foot, clear of the text
+        side = rng.random()
+        if side < 0.3:
+            x, y = rng.uniform(152, 178), rng.uniform(112, 878)
+        elif side < 0.6:
+            x, y = rng.uniform(1272, 1296), rng.uniform(112, 878)
+        elif side < 0.8:
+            x, y = rng.uniform(152, 1296), rng.uniform(112, 150)
+        else:
+            x, y = rng.uniform(152, 1296), rng.uniform(866, 878)
+        spots.append((x, y))
+        fox.ell(x, y, rng.uniform(1.6, 4.6), rng.uniform(1.4, 3.8), (150, 112, 70), None)
+    p.put(fox, 0.75)
+    tide = p.layer()        # the page foot has taken water: a pale brown tide edge
+    tide.rect(150, 862, 1298, 880, (170, 140, 96), None)
+    tide.im = tide.im.filter(ImageFilter.GaussianBlur(3 * SS))
+    p.put(tide, 0.45)
+    return p
+
+
+def paint_c_board_damp(rng):
+    p = Pen(W, H, rng)
+    frame_dark(p, (40, 100, 1420, 960), 0.5)
+    st = p.layer()
+    st.rect(0, 990, W, H, (20, 26, 30), None)
+    for _ in range(12):
+        x = rng.uniform(0, W)
+        st.line([(x, 960), (x, rng.uniform(1000, 1086))], (20, 26, 30), rng.uniform(4, 10))
+    st.im = st.im.filter(ImageFilter.GaussianBlur(6 * SS))
+    p.put(st, 0.5)
+    return p
+
+
 # ----------------------------------------------------------------------------- registry
 
 ASSETS = [  # name, seed index, painter, opaque, grain
@@ -1721,9 +2388,9 @@ ASSETS = [  # name, seed index, painter, opaque, grain
     ("view_b_b6", 1, lambda r: paint_view_b(r, 6), True, True),
     ("view_b_b7", 1, lambda r: paint_view_b(r, 7), True, True),
     ("view_b_sever", 1, lambda r: paint_view_b(r, "sever"), True, True),
-    ("c_table", 2, paint_c_table, True, True),
-    ("c_ledger", 3, paint_c_ledger, True, True),
-    ("c_board", 4, paint_c_board, True, True),
+    ("c_table", 2, lambda r: mottle(paint_c_table(r).done(), rng_for(707), (0, 0, W, H), 7, 120), True, True),
+    ("c_ledger", 3, lambda r: mottle(paint_c_ledger(r).done(), rng_for(709), (0, 0, W, H), 5, 120), True, True),
+    ("c_board", 4, lambda r: mottle(paint_c_board(r).done(), rng_for(708), (0, 0, W, H), 7, 120), True, True),
     ("a_bowl", 10, paint_a_bowl, False, False),
     ("a_bowl_sq", 11, lambda r: paint_a_bowl(r, True), False, False),
     ("a_stack_rim", 12, paint_a_stack_rim, False, False),
@@ -1741,8 +2408,8 @@ ASSETS = [  # name, seed index, painter, opaque, grain
     ("a_rain_hang", 24, lambda r: paint_rain(r, "hang"), False, False),
     ("a_warm_b7", 25, paint_a_warm_b7, False, False),
     ("b_board_swung", 30, paint_b_board_swung, False, False),
-    ("b_fog", 31, lambda r: paint_fog(r, 340, 380), False, False),
-    ("b_fog_wiped", 31, lambda r: paint_fog(r, 340, 380, (300, 330)), False, False),
+    ("b_fog", 31, lambda r: paint_fog(r, 340, 380, thin=True), False, False),
+    ("b_fog_wiped", 31, lambda r: paint_fog(r, 340, 380, (300, 330), thin=True), False, False),
     ("b_hatch_open", 32, paint_b_hatch_open, False, False),
     ("b_drawer_open", 33, paint_b_drawer_open, False, False),
     ("b_work_card", 34, paint_b_work_card, False, False),
@@ -1773,6 +2440,28 @@ ASSETS = [  # name, seed index, painter, opaque, grain
     ("c_board_swung", 63, paint_c_board_swung, False, False),
     ("c_fog", 64, lambda r: paint_fog(r, 720, 620), False, False),
     ("c_fog_wiped", 64, lambda r: paint_fog(r, 720, 620, (480, 530)), False, False),
+    # repaint pass (art direction on db1d3a5): new files beside the first set
+    ("a_spoon_dark", 70, lambda r: paint_a_spoon2(r), False, False),
+    ("a_spoon_used", 70, lambda r: paint_a_spoon2(r, True), False, False),
+    ("a_soup_ring", 71, paint_a_soup2, False, False),
+    ("a_chair_pulled", 72, paint_a_chair_out2, False, False),
+    ("a_seat9", 73, lambda r: paint_a_seat9(r), False, False),
+    ("a_seat9_wet", 73, lambda r: paint_a_seat9(r, True), False, False),
+    ("a_towel_wet", 74, paint_a_towel_wet, False, False),
+    ("a_ring_amber", 75, paint_a_ring_amber, False, False),
+    ("a_ring_wisp", 76, paint_a_ring_wisp, False, False),
+    ("a_wet_b2", 77, lambda r: paint_a_wet(r, 2), False, False),
+    ("a_wet_b3", 77, lambda r: paint_a_wet(r, 3), False, False),
+    ("a_wet_b4", 77, lambda r: paint_a_wet(r, 4), False, False),
+    ("a_wet_b5", 77, lambda r: paint_a_wet(r, 5), False, False),
+    ("a_wet_b6", 77, lambda r: paint_a_wet(r, 6), False, False),
+    ("a_wet_b7", 77, lambda r: paint_a_wet(r, 7), False, False),
+    ("a_rain_still", 78, paint_rain_hang2, False, False),
+    ("b_board_back", 79, paint_b_board_back, False, False),
+    ("b_book_blank", 80, paint_b_book_blank, False, False),
+    ("c_table_damp", 81, paint_c_table_damp, False, False),
+    ("c_ledger_damp", 82, paint_c_ledger_damp, False, False),
+    ("c_board_damp", 83, paint_c_board_damp, False, False),
 ]
 
 

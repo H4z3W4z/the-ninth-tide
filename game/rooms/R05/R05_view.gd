@@ -167,12 +167,23 @@ const RAIN_SIZE := Vector2(340, 190)
 const STACK_SHELF := 660.0
 const BOWL_BASE_Y := 590.0
 const PATCH_Y := 648.0
-const SPOON_AT := Vector2(1256, 578)
+## a_spoon_dark (70x28) rests on its bottom edge in the place-9 dent (cloth top y 590).
+const SPOON_AT := Vector2(1246, 563)
 const TOWEL_AT := Vector2(166, 550)
+const TOWEL_WET_AT := Vector2(162, 522)
 const RING_AT := Vector2(236, 582)
-const RING_WARM_AT := Vector2(236, 534)
+const RING_AMBER_AT := Vector2(224, 576)
+const RING_WISP_AT := Vector2(224, 488)
+const RING_CENTRE := Vector2(256, 588)
 const TALLY_WIN := Rect2(196, 630, 48, 40)
-const SPOON_RISE := 14.0
+const SPOON_RISE := 36.0
+const CHAIR_TUCKED_AT := Vector2(1172, 452)
+const SEAT9_AT := Vector2(1176, 740)
+const CHAIR_PULLED_AT := Vector2(1162, 610)
+const SOUP_AT := Vector2(1178, 526)
+const KETTLE_SPOUT := Vector2(255, 346)
+const BOOK_BLANK_AT := Vector2(690, 468)
+const BOARD_BACK_AT := Vector2(782, 130)
 
 # view B geometry -------------------------------------------------------------------------------
 const CARD_AT := Vector2(40, 300)
@@ -354,13 +365,13 @@ func rain_id() -> String:
 	if b == 2:
 		return "a_rain_2"
 	if b <= 6:
-		return "a_rain_hang"
+		return "a_rain_still"
 	return ""
 
 func rain_speed() -> float:
 	if not motion:
 		return 0.0
-	return 40.0 if _band() <= 2 or r.ending() == "sever" else 6.0
+	return 40.0 if _band() <= 2 or r.ending() == "sever" else 0.0   # band 3-6: hanging, not falling
 
 ## 0..1: how far the spoon is lifted off the cloth now.
 func spoon_raise() -> float:
@@ -379,7 +390,7 @@ func spoon_raise() -> float:
 				else:
 					k = 1.0 - smoothstep(0.0, 1.0, (t - down) / (down_end - down))
 		else:
-			k = 1.0 if t >= rise and t < rise + 1.0 else 0.0
+			k = 1.0 if t >= rise and t < down_end else 0.0   # one still frame, clearly raised
 	if r.spoon_raised_still():
 		k = maxf(k, 0.3)
 	return k
@@ -417,12 +428,21 @@ func fog_creeping() -> bool:
 	var t := reveal_t()
 	return t >= P09_FOG and t < P09_END
 
+## Band 6 on: the card has come off its nail and hangs in the air at a slant (a still pose, so
+## the breath reads with Motion off too).
+func card_off_nail() -> bool:
+	return r.card_breathing() and _band() >= 6
+
 ## The card's lift (degrees) now, synced to r05_draught_breath when it is playing.
 func card_angle() -> float:
 	if not r.card_breathing():
 		return 0.0
+	var base := 14.0 if card_off_nail() else 0.0
 	if not motion:
-		return 5.0
+		return maxf(base, 9.0)
+	return base + _breath_angle()
+
+func _breath_angle() -> float:
 	var ph := fposmod(time, BREATH_LEN)
 	if mixer and mixer.players.has("r05_draught_breath"):
 		var p: AudioStreamPlayer = mixer.players["r05_draught_breath"]
@@ -446,7 +466,7 @@ func tick(dt: float) -> void:
 	zoom_k = move_toward(zoom_k, zt, dt * 2.5)
 	var s := 1.0 + HOLD_ZOOM * smoothstep(0.0, 1.0, zoom_k)
 	room.scale = Vector2(s, s)
-	room.position = hold_rect.get_center() * (1.0 - s)
+	room.position = hold_pivot() * (1.0 - s)
 	lever_t = maxf(0.0, lever_t - dt)
 	stamp_t = maxf(0.0, stamp_t - dt)
 	drawer_t = minf(1.0, drawer_t + dt / 0.4) if motion else 1.0
@@ -543,6 +563,21 @@ func _start_hold(n: String) -> void:
 	hold_rect = rect
 	hold_side = NOTICE_SIDE.get(n, "a")
 	hold_t = HOLD_TIME
+
+## The point the arrival hold zooms about: the focus centre, pulled in just enough that a 56 px
+## inset of the frame (exit chevrons, the work card, the bowl rack) stays on screen at full zoom.
+func hold_pivot() -> Vector2:
+	var sm := 1.0 + HOLD_ZOOM
+	var m := 56.0
+	var e := 16.0
+	var c := hold_rect.get_center()
+	var out := Vector2()
+	for ax in 2:
+		var full: float = SIZE[ax]
+		var hi := (m * sm - e) / (sm - 1.0)
+		var lo := ((full - m) * sm - (full - e)) / (sm - 1.0)
+		out[ax] = clampf(c[ax], lo, hi) if lo <= hi else full / 2.0
+	return out
 
 func hold_active() -> bool:
 	return hold_t > 0.0
@@ -758,7 +793,10 @@ func _draw_top() -> void:
 	if _side() == "a":
 		_chevron(c, HOTSPOTS[15][1].get_center(), true)
 	else:
-		_draw_lectern_pencil(c)
+		if book_blank():
+			_tex_at(c, "b_book_blank", BOOK_BLANK_AT)
+		else:
+			_draw_lectern_pencil(c)
 		_chevron(c, KITCHEN_HOTSPOTS[8][1].get_center(), false)
 	if hold_t > 0.0 and not motion and not _closeup():
 		_ring(c, hold_rect.grow(3), Color(PAPER_HI, 0.95), 2.0)
@@ -784,11 +822,12 @@ func _draw_view_a(c: CanvasItem) -> void:
 					Rect2(0, RAIN_SIZE.y - off, RAIN_SIZE.x, off))
 				c.draw_texture_rect_region(t, Rect2(RAIN_AT + Vector2(0, off), Vector2(RAIN_SIZE.x, RAIN_SIZE.y - off)),
 					Rect2(0, 0, RAIN_SIZE.x, RAIN_SIZE.y - off))
-	# his chair
+	# his chair: tucked in (its back over the table, its bare seat under it), or pulled out
 	if r.chair_out():
-		_tex_at(c, "a_chair_out", Vector2(1290, 600))
+		_tex_at(c, "a_chair_pulled", CHAIR_PULLED_AT)
 	else:
-		_tex_at(c, "a_chair_tucked", Vector2(1172, 452))
+		_tex_at(c, "a_chair_tucked", CHAIR_TUCKED_AT)
+		_tex_at(c, "a_seat9_wet" if seat_wet() else "a_seat9", SEAT9_AT)
 	# the rack: one rim per initialled bowl still in it, the patched bowl on top
 	var rack: Array = r.rack_contents()
 	var j := 0
@@ -801,66 +840,77 @@ func _draw_view_a(c: CanvasItem) -> void:
 	# bowls at the places
 	for i in range(1, 10):
 		var b := r.place_bowl(i)
-		if b == "":
-			continue
-		var x := _place_x(i)
-		_tex_at(c, "a_bowl_sq" if b == "b_sq" else "a_bowl", Vector2(x - 48, BOWL_BASE_Y - 64))
-		var ini := _bowl_initials(b)
+		if b != "":
+			_tex_at(c, "a_bowl_sq" if b == "b_sq" else "a_bowl", Vector2(_place_x(i) - 48, BOWL_BASE_Y - 64))
+	if r.soup_shown():
+		_tex_at(c, "a_soup_ring", SOUP_AT)
+	# the wet running along the cloth toward his place, the beads on the bowls (kept above the
+	# initials, which are drawn after it so they always read)
+	var wid := wet_id()
+	if wid != "":
+		_full(c, wid)
+	for i in range(1, 10):
+		var ini := _bowl_initials(r.place_bowl(i))
 		if ini != "":
-			_ctext(c, ini, x, BOWL_BASE_Y - 14, 16, INK, serif)   # on the white body, under the navy band
+			_ctext(c, ini, _place_x(i), BOWL_BASE_Y - 14, 16, INK, serif)   # on the white body, under the navy band
 	# hem patches: the place marks, shape plus word for the square
 	for i in range(1, 9):
 		_ctext(c, R05Sim.PLACE_MARKS[i - 1], _place_x(i), PATCH_Y + 8, 22, INK, serif)
 	var x9 := _place_x(9)
 	c.draw_rect(Rect2(x9 - 13, PATCH_Y - 26, 26, 26), NAVY, false, 2.5)
 	_ctext(c, "square", x9, PATCH_Y + 22, 12, INK, serif)
-	# his spoon in its dent
+	# his spoon in its dent: big and dark, so a lift reads across the room
 	if r.spoon_in_dent():
 		var k := spoon_raise()
-		var sp := _tex("a_spoon")
+		var sid := "a_spoon_used" if r.soup_shown() else "a_spoon_dark"
+		var sp := _tex(sid)
 		if sp:
 			if k > 0.0:
-				c.draw_texture(sp, SPOON_AT + Vector2(2, 3), Color(SHADOW, 0.35 * k))
+				c.draw_texture(sp, SPOON_AT + Vector2(3, 4), Color(SHADOW, 0.4 * k))
 			c.draw_texture(sp, SPOON_AT - Vector2(0, SPOON_RISE * k))
 		else:
-			_missing(c, Rect2(SPOON_AT, Vector2(56, 16)), "a_spoon")
-	if r.soup_shown():
-		_tex_at(c, "a_soup", Vector2(x9 - 48, BOWL_BASE_Y - 64))
-	if r.condensation_shown():
-		var dx := 0.0
-		var a := 1.0
-		if motion:
-			var kk := 0.5 - 0.5 * cos(TAU * time / 6.0)
-			dx = 6.0 * kk
-			a = 1.0 - 0.35 * kk
-		var ct := _tex("a_condensation")
-		if ct:
-			c.draw_texture_rect(ct, Rect2(Vector2(dx, 0), SIZE), false, Color(1, 1, 1, a))
+			_missing(c, Rect2(SPOON_AT, Vector2(70, 28)), sid)
 	# Nora's towel and the ring where her cup stood
-	_tex_at(c, "a_towel_refolded" if r.towel_pose() == "halves" else "a_towel", TOWEL_AT)
+	if r.towel_pose() == "halves":
+		_tex_at(c, "a_towel_wet", TOWEL_WET_AT)
+	else:
+		_tex_at(c, "a_towel", TOWEL_AT)
 	if r.ring_pose() == "warm":
 		if motion:
-			_tex_at(c, "a_ring", RING_AT)
-			_draw_wisp(c, RING_AT + Vector2(20, 4))
+			_tex_at(c, "a_ring_amber", RING_AMBER_AT)
+			_draw_ribbon(c, RING_CENTRE + Vector2(0, -6), 84.0, 3.0)
 		else:
-			_tex_at(c, "a_ring_warm", RING_WARM_AT)
+			_tex_at(c, "a_ring_wisp", RING_WISP_AT)
 	else:
 		_tex_at(c, "a_ring", RING_AT)
 	# the tally numeral
 	var n := str(int(r.state.tally))
 	_ctext(c, n, TALLY_WIN.get_center().x, TALLY_WIN.end.y - 9, _fit(n, serif, 28, TALLY_WIN.size.x - 4), INK, serif)
 
-## A thread of steam off nothing: three bezier segments rising 30 px and fading over 3 s.
-func _draw_wisp(c: CanvasItem, base: Vector2) -> void:
-	var t := fposmod(time, 3.0) / 3.0
-	var a := sin(PI * t) * 0.7
-	var pts := PackedVector2Array()
-	var rise := 30.0 * t + 12.0
-	for i in 25:
-		var s := i / 24.0
-		var x := base.x + 4.0 * sin(TAU * (s * 1.5 + t))
-		pts.append(Vector2(x, base.y - rise * s - 6.0 * t))
-	c.draw_polyline(pts, Color(PAPER_HI, a), 2.0, true)
+## His seat under the table is wet from band 2 (before the chair is pulled out at band 4).
+func seat_wet() -> bool:
+	return _band() >= 2 and r.ending() != "sever"
+
+## The cloth's wet overlay for this band (a_wet_b2..b7), or "".
+func wet_id() -> String:
+	if not r.condensation_shown():
+		return ""
+	return "a_wet_b%d" % clampi(_band(), 2, 7)
+
+## A soft pale ribbon of steam rising `height` px from `base`, swaying; still when Motion is off.
+func _draw_ribbon(c: CanvasItem, base: Vector2, height: float, period: float) -> void:
+	var t := fposmod(time, period) / period if motion else 0.35
+	var widths := [18.0, 9.0, 4.0]
+	var alphas := [0.2, 0.34, 0.7]
+	for pass_i in 3:
+		var pts := PackedVector2Array()
+		var cols := PackedColorArray()
+		for i in 31:
+			var s := i / 30.0
+			var sway := 9.0 * sin(TAU * (s * 1.1 - t)) * (0.3 + s)
+			pts.append(Vector2(base.x + sway, base.y - height * s))
+			cols.append(Color(PAPER_HI, alphas[pass_i] * (1.0 - s * s) * (0.8 + 0.2 * sin(PI * t))))
+		c.draw_polyline_colors(pts, cols, widths[pass_i], true)
 
 # --- view B: the kitchen ------------------------------------------------------------------------
 func _draw_view_b(c: CanvasItem) -> void:
@@ -872,9 +922,14 @@ func _draw_view_b(c: CanvasItem) -> void:
 		_tex_at(c, "b_hatch_open", Vector2(1316, 560))
 	else:
 		_rect_text(c, "LOWER PASSAGE", Rect2(1330, 580, 92, 30), 14, INK, narrow)
-	# the shift board: Rook's register on its strips, then the swung board and its fog
+	# band 3: a thread of steam off the kettle, over a range that is cold
+	if steam_shown():
+		_draw_ribbon(c, KETTLE_SPOUT, 96.0, 3.4)
+	# the shift board: Rook's register on its strips; after P09 the official board stands swung
+	# open on its hinge (its back to us) beside the second board it hid, and that one's fog
 	_draw_vb_board(c)
 	if r.board_swung():
+		_tex_at(c, "b_board_back", BOARD_BACK_AT)
 		_tex_at(c, "b_board_swung", Vector2(950, 130))
 		var pose := r.fog_pose()
 		if pose in ["wiped", "dry"]:
@@ -892,9 +947,10 @@ func _draw_view_b(c: CanvasItem) -> void:
 		if t:
 			c.draw_texture(t, at, Color(1, 1, 1, k))
 		_text(c, "E.V. ate.", at + Vector2(48, 44), 14, Color(INK, k), hand)
-	# Nora's work card, lifting on its nail
+	# Nora's work card, lifting on its nail; from band 6, off it, hanging in the air at a slant
 	var ang := deg_to_rad(card_angle())
-	c.draw_set_transform(CARD_NAIL, -ang, Vector2.ONE)
+	var pivot := CARD_NAIL + (Vector2(10, -16) if card_off_nail() else Vector2.ZERO)
+	c.draw_set_transform(pivot, -ang, Vector2.ONE)
 	var o := CARD_AT - CARD_NAIL
 	_tex_at(c, "b_work_card", o)
 	_draw_card_trace(c, o)
@@ -928,6 +984,14 @@ func _draw_vb_board(c: CanvasItem) -> void:
 	_rect_text(c, str(int(r.state.board_count)), Rect2(1206, 432, 58, 34), 22, INK, Ink.serif())
 	_ctext(c, "PRESENT", 1235, 428, 10, INK, narrow)
 
+## Band 3 only: the kettle steams over the cold range.
+func steam_shown() -> bool:
+	return _band() == 3 and r.ending() == "" and not r.range_lit()
+
+## Band 5 on: the book has opened itself at a fresh ruled page (one pencil line).
+func book_blank() -> bool:
+	return _band() >= 5 and r.ending() != "sever"
+
 ## Faint grey pencil on the lectern book's pages.
 func _draw_lectern_pencil(c: CanvasItem) -> void:
 	var col := Color(0.30, 0.31, 0.34, 0.55)
@@ -939,6 +1003,17 @@ func _draw_lectern_pencil(c: CanvasItem) -> void:
 # ---------------------------------------------------------------------------
 # drawing: close-ups (layer 5)
 # ---------------------------------------------------------------------------
+## 0..1: how far the station's damp has reached into the close-up backdrops (bands 2..7).
+func close_damp() -> float:
+	if r.ending() == "sever":
+		return 0.0
+	return clampf((_band() - 1) / 6.0, 0.0, 1.0)
+
+func _damp(c: CanvasItem, id: String) -> void:
+	var k := close_damp()
+	if k > 0.0:
+		_full(c, id, Color(1, 1, 1, k))
+
 func _draw_close() -> void:
 	match _view():
 		"c_table":
@@ -974,6 +1049,7 @@ func _draw_plan_initials(c: CanvasItem, b: String, centre: Vector2) -> void:
 func _draw_table(c: CanvasItem) -> void:
 	var serif := Ink.serif()
 	_full(c, "c_table")
+	_damp(c, "c_table_damp")
 	# place marks on the stitched patches
 	for k in range(1, 9):
 		_ctext(c, R05Sim.PLACE_MARKS[k - 1], _mat_x(k) + 62, 348, 24, INK, serif)
@@ -1015,6 +1091,11 @@ func _draw_table(c: CanvasItem) -> void:
 		for k in range(1, 10):
 			if r.place_bowl(k) != "":
 				_draw_plan_initials(c, r.place_bowl(k), _place_centre(k))
+		for slot in 9:
+			if rack[slot] != "":
+				_draw_plan_initials(c, rack[slot], _rack_centre(slot))
+		if r.held != "":
+			_draw_plan_initials(c, r.held, _rack_centre(maxi(R05Sim.RACK_HOME.find(r.held), 0)) - Vector2(0, LIFT))
 	# tally drum, register plate, result flags, COMPARE lever
 	_tex_at(c, "c_tally_wheel", Vector2(1150, 620))
 	var n := str(int(r.state.tally))
@@ -1041,6 +1122,7 @@ func _draw_flag(c: CanvasItem, at: Vector2, word: String, state: String) -> void
 func _draw_ledger(c: CanvasItem) -> void:
 	var hand := Ink.hand()
 	_full(c, "c_ledger")
+	_damp(c, "c_ledger_damp")
 	var spread := r.ledger_spread
 	var page := r.ledger_page(spread)
 	var y := _draw_page_lines(c, page.left, 190.0, 480.0, spread == 2)
@@ -1104,6 +1186,7 @@ func _draw_board(c: CanvasItem) -> void:
 	var hand := Ink.hand()
 	var st: Dictionary = r.state
 	_full(c, "c_board")
+	_damp(c, "c_board_damp")
 	var sw := swing_k()
 	# the swung board fades in behind the original as it folds to the hinge
 	if sw > 0.0:

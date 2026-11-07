@@ -2513,7 +2513,7 @@
       "path": "assets/rooms/R05/a_bowl.png",
       "width": 96,
       "height": 64,
-      "sha256": "f0521c6c0249aa187aafe84fcf4cf4745e1595c6552c174753d94db0a6495083",
+      "sha256": "7ba354392cf192b78bbd82a35e5af6fd4036bff0252e9a5fdd07e06f10608ed0",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2522,7 +2522,7 @@
       "path": "assets/rooms/R05/a_bowl_sq.png",
       "width": 96,
       "height": 64,
-      "sha256": "8ef7b9c18a6c3e0c68b5d438c970ae406bb8070ae2fbb5db897970b74e5c0071",
+      "sha256": "fdf1af51f888b663ffff8b9fc2742e63eb71f39871e07f91e0b7a9cfe1e73706",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2531,7 +2531,16 @@
       "path": "assets/rooms/R05/a_chair_out.png",
       "width": 150,
       "height": 300,
-      "sha256": "32fefa1c260b21ffbe7fd9b2790dafa69da8e4a6c68ceb5bb8200b19df0690c2",
+      "sha256": "dba5c9f449386b8cbf8e25dba40ff3e73d5ccefca37efdf0b48e3e6471f39a5e",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_chair_pulled",
+      "path": "assets/rooms/R05/a_chair_pulled.png",
+      "width": 170,
+      "height": 292,
+      "sha256": "60472a19d4023b4e12bc1f33f2ba7a4d0d248988baf62a910beaf385143c2cfa",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2540,7 +2549,7 @@
       "path": "assets/rooms/R05/a_chair_tucked.png",
       "width": 110,
       "height": 140,
-      "sha256": "a011869faf9f2b79665aeff7162b125d0f201a8623a5f99ec4119744af83cb6f",
+      "sha256": "becb09777be802aa78d1be4b36ff28c38f7995e8f7c11abd8a5aacd73699aa0d",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2549,7 +2558,7 @@
       "path": "assets/rooms/R05/a_condensation.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "e18f5e234e4647a95d90294e3fda6fc9625d187e3fe67ad636cb701b73e86a5f",
+      "sha256": "997ead44bdea1a60504f83158a2c5be7b698d26ad4f14bd576344e3e5a82ef4a",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2567,7 +2576,7 @@
       "path": "assets/rooms/R05/a_rain_2.png",
       "width": 340,
       "height": 190,
-      "sha256": "5af1aee114a2d1a0512a183a1aaf80b0453cd0ea8d6d63b6cc1fda378802add3",
+      "sha256": "25fbb5ded0b37e2a8acc15a870df3ced9b3433651a2028588db12f585011d459",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2576,7 +2585,16 @@
       "path": "assets/rooms/R05/a_rain_hang.png",
       "width": 340,
       "height": 190,
-      "sha256": "4d1e9ddc2bca581d7ca1182baba2e3d94eb94ce7f20287cbff927188a5ab5add",
+      "sha256": "4d1c7e180aac434d997bc9d282dd4ce99e31e4cf1271aa94acdc2da82b669b92",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_rain_still",
+      "path": "assets/rooms/R05/a_rain_still.png",
+      "width": 340,
+      "height": 190,
+      "sha256": "a73443e4746b4ad0a18d1359e805ca0f2ab31de2f495f0429b4cc6f3009e0900",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2585,7 +2603,16 @@
       "path": "assets/rooms/R05/a_ring.png",
       "width": 40,
       "height": 12,
-      "sha256": "5c2f6d4dd3fa16d878aea3ff9b77822ce94a9a898563d0d50d179a0dbc0ae86d",
+      "sha256": "ef0f4c7abd7d11db498b4549f6a11b1a11baccd1bb0e4807c60100f9fc5b3119",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_ring_amber",
+      "path": "assets/rooms/R05/a_ring_amber.png",
+      "width": 64,
+      "height": 24,
+      "sha256": "2811d5ba5cb62efaa164b1190d673b4849174236c9d724e0a26993eb355c8cd2",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2594,7 +2621,34 @@
       "path": "assets/rooms/R05/a_ring_warm.png",
       "width": 40,
       "height": 60,
-      "sha256": "32512c11f41ee0eb7ffe884bbb29f5851336b81c5bc8241ccbf88f9be96e4c58",
+      "sha256": "73c298397e7e276a76a41344efd71fe7a8d87ad9901759ef760d4a7df9499fc9",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_ring_wisp",
+      "path": "assets/rooms/R05/a_ring_wisp.png",
+      "width": 64,
+      "height": 112,
+      "sha256": "ad84b8b122afd661e0b2b76e431abd8456f33f2ba2100bc90f06f6c4ef224187",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_seat9",
+      "path": "assets/rooms/R05/a_seat9.png",
+      "width": 100,
+      "height": 142,
+      "sha256": "3e10aebe75c86fdf7a2f31158d4f87eb37db52361cf83d0002cbf5783a97df2d",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_seat9_wet",
+      "path": "assets/rooms/R05/a_seat9_wet.png",
+      "width": 100,
+      "height": 142,
+      "sha256": "80c091ef0435806df7a2a9c470c68381418734232202ecce332905a510c1fd11",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2603,7 +2657,16 @@
       "path": "assets/rooms/R05/a_soup.png",
       "width": 96,
       "height": 64,
-      "sha256": "8227772142e93498adc41c6ff221d4809d34bf862170cf019d006d9e987ecc55",
+      "sha256": "84bebeb1b26ac790c159ee2e47b7e558a12accc7565c6486b1852726f253288b",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_soup_ring",
+      "path": "assets/rooms/R05/a_soup_ring.png",
+      "width": 104,
+      "height": 100,
+      "sha256": "23fa27a0452b512c111fe8b62278704cb28c6dc63e9f2558eeaf1592579d5956",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2612,7 +2675,25 @@
       "path": "assets/rooms/R05/a_spoon.png",
       "width": 56,
       "height": 16,
-      "sha256": "450a591b8c5a89dc77ef09c0951dfc103cdefe41dd5af6eca7e95ffa0f809acc",
+      "sha256": "733e50bb84aace033befc81f0b88fdb3ade46f3a3c6413623a942af286790f51",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_spoon_dark",
+      "path": "assets/rooms/R05/a_spoon_dark.png",
+      "width": 70,
+      "height": 28,
+      "sha256": "9e466ae0727402c3d33ba39a1b02a30f2c845d56a7871282b37e580bc7d76f12",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_spoon_used",
+      "path": "assets/rooms/R05/a_spoon_used.png",
+      "width": 70,
+      "height": 28,
+      "sha256": "76534d6344c1a833a499d51bc02c030f705b74a970e5c8983cb844d88f8c2b8c",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2621,7 +2702,7 @@
       "path": "assets/rooms/R05/a_stack_rim.png",
       "width": 104,
       "height": 22,
-      "sha256": "cca9a48dd0c1c2042751467a9e23f6e42cdb822f4bbf1f89e9af55a4db7aa6c4",
+      "sha256": "eef10b5dd560d990a36ac0e78425b08918a4d9afb9bbcb2a7b262db4be216b0a",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2630,7 +2711,7 @@
       "path": "assets/rooms/R05/a_towel.png",
       "width": 72,
       "height": 40,
-      "sha256": "c7e5bb72f86a364a79413c4cecbade30b8ddec326b255261661f1f41b49c89cb",
+      "sha256": "80585393a6dcb77240067a000262f11e1cd5cd524bb0ceae3a0da1b73e0f60cf",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2639,7 +2720,16 @@
       "path": "assets/rooms/R05/a_towel_refolded.png",
       "width": 72,
       "height": 44,
-      "sha256": "6311a93bc7b1bfee7433daa2861c8588e858d5fc17f2dfba45ac14b5af44c709",
+      "sha256": "d77bf65a13fd29984a84d53621af6b9ccc63ac5fc850661e80e49aec77cd51f5",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_towel_wet",
+      "path": "assets/rooms/R05/a_towel_wet.png",
+      "width": 84,
+      "height": 100,
+      "sha256": "eea978a995429ffc9504aeafe886200c93bdf114b35088b3d8cc7645b8db1c1b",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2653,11 +2743,83 @@
       "source_svg": null
     },
     {
+      "id": "R05/a_wet_b2",
+      "path": "assets/rooms/R05/a_wet_b2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "8f708c0c1839e70acc4985204982844037674f842875aab68fb5061b8f5c0078",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_wet_b3",
+      "path": "assets/rooms/R05/a_wet_b3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "4f2fbabf7da0382fb87f6856cfb52225c341c5e9b91825dd34133fb7acb66d6e",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_wet_b4",
+      "path": "assets/rooms/R05/a_wet_b4.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "7a3dc43c0108b6010770b66a056c479e67561f60c13101b10887114bde549abb",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_wet_b5",
+      "path": "assets/rooms/R05/a_wet_b5.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "41ecb80c13137e826a8d479a055517c57b03230fa699f1465d9112e4b69618dc",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_wet_b6",
+      "path": "assets/rooms/R05/a_wet_b6.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "fb2245c3741f2da9569b6a34ea46c5739586091ee1291a8dd1a6a67cb4671d78",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_wet_b7",
+      "path": "assets/rooms/R05/a_wet_b7.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "a088541d092c9ece84903bce0bf38de374025a137581c093f4b21ebbca75d9eb",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/b_board_back",
+      "path": "assets/rooms/R05/b_board_back.png",
+      "width": 180,
+      "height": 400,
+      "sha256": "28a965f5267fc04e011fb8cb77a759d472ce6819d8232536495f3553be24896c",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R05/b_board_swung",
       "path": "assets/rooms/R05/b_board_swung.png",
       "width": 380,
       "height": 400,
-      "sha256": "766c0d229fbc2634e275e60aa9343f1845fe2162965c96eb9ac2c4f879250dcc",
+      "sha256": "54703de100e0d94ed9fdab1e36b2c330d6bea3b942a9e2fef12450f20c47ef72",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/b_book_blank",
+      "path": "assets/rooms/R05/b_book_blank.png",
+      "width": 220,
+      "height": 136,
+      "sha256": "aedb864a070a368550ce9e6e5b728d08430f607b2298cc8093aa83dcc6725b17",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2666,7 +2828,7 @@
       "path": "assets/rooms/R05/b_drawer_open.png",
       "width": 300,
       "height": 150,
-      "sha256": "8022482339d0c1532cf64d5c9c71e57617111fef240ec324fd7aa72eaf61a787",
+      "sha256": "79cd4b8a8a94bcfe7fa458c3479138a10d3b386019a3f3f30ef57bcb0b752813",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2675,7 +2837,7 @@
       "path": "assets/rooms/R05/b_fog.png",
       "width": 340,
       "height": 380,
-      "sha256": "4510e4e0b8cfe1f3c37094bd5165644873a1e88c1f6d3cdcc1263c4e5cd38755",
+      "sha256": "42172e0c34d1b5ffbe8b59ea2b3dcd0c9c40708e6007ad8cc05797fedd2456ac",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2684,7 +2846,7 @@
       "path": "assets/rooms/R05/b_fog_wiped.png",
       "width": 340,
       "height": 380,
-      "sha256": "8429a9724e6c854f68f0a93221118c21d2d445f7e93892d3479d2e2c1de07455",
+      "sha256": "882e9e81164695a445b26ebf3f2abd12a8175a5bdb31aec6e1c6710f7d91e201",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2693,7 +2855,7 @@
       "path": "assets/rooms/R05/b_hatch_open.png",
       "width": 120,
       "height": 320,
-      "sha256": "ba6500a62344829d1619298d2e5715675ac9405f0f5e270ddb56175117f7ad65",
+      "sha256": "9fda00fc500cf7b5bf27f96712111561474c6039f64d77b7be4f3267bdde8fe6",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2711,7 +2873,7 @@
       "path": "assets/rooms/R05/b_work_card.png",
       "width": 110,
       "height": 150,
-      "sha256": "200abbe50678c4d1110ddb9ae2a1ce617d88d1da65cd139ffb10a89968c67034",
+      "sha256": "9020fb760721373e917f4556822f665ed6a4a4854e65e53ab566bb6dd89d96a5",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2720,7 +2882,16 @@
       "path": "assets/rooms/R05/c_board.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "49951e175fa0977c76b16538c7db35d7bf8d99f876e601eadbbdb2f894aaa9a3",
+      "sha256": "969d2eaeb958dc8d0db880c83e2805972dc87182e601e76231a870f4c7ef6591",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_board_damp",
+      "path": "assets/rooms/R05/c_board_damp.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "6d3014179c3622bb9f9288267e6fbfd7ab9c0fa332e6d4e5b52d561c32e8f4a8",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2729,7 +2900,7 @@
       "path": "assets/rooms/R05/c_board_swung.png",
       "width": 760,
       "height": 620,
-      "sha256": "14b1f5a0be42b0d16e2a18ee58a7d483ef61d8f5d6c40ec82cb507fc1d971bb2",
+      "sha256": "7e3896c65297d22608e5be44e6e17610756017fbdcab968d64b93bedcee3c7da",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2738,7 +2909,7 @@
       "path": "assets/rooms/R05/c_bowl.png",
       "width": 104,
       "height": 104,
-      "sha256": "7c20c0d21a7eafadf572d6dacddc8875ea378c335a39e3625e6cd7bf72110fa2",
+      "sha256": "db58e3719ccda58997d0c48b2303a16847c7c556ba0807c8b8d5de32c143e4f0",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2747,7 +2918,7 @@
       "path": "assets/rooms/R05/c_bowl_sq.png",
       "width": 104,
       "height": 104,
-      "sha256": "cd1bdb0fd7b53bad754cee72681e26456a97e77a4b58cac467412e02b8f7593f",
+      "sha256": "5b387526642dfa07a11301a5045ac1d54a8be09226d6b2ef555197484138b7c5",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2756,7 +2927,7 @@
       "path": "assets/rooms/R05/c_condense_plan.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "99122ee39b1b4d8c4b120efe4287955b6536932b766ce53413c078217dc90c81",
+      "sha256": "6c85655bde7fdf0ab5c49bb7257e0d0e379c988f9b872138f06880e548adb9eb",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2765,7 +2936,7 @@
       "path": "assets/rooms/R05/c_flag_agree.png",
       "width": 150,
       "height": 44,
-      "sha256": "98610d81c5c795e03f626c8733d2c9877d3c87f96cfcc25f1c527b78927b16a1",
+      "sha256": "f55d9b49d564f171557ddf76bb3b37ef32cf543e10d8ff0c11f753a2e470e404",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2774,7 +2945,7 @@
       "path": "assets/rooms/R05/c_flag_disagree.png",
       "width": 150,
       "height": 44,
-      "sha256": "c1a60ac3ca1ba8826670262256227483c392989e7edb6af3bcb6bb2df95d5648",
+      "sha256": "6fde96e60767934c04bc1c7eb262bcc2184406cf7bc021cf7432a5e71f33e1bd",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2783,7 +2954,7 @@
       "path": "assets/rooms/R05/c_fog.png",
       "width": 720,
       "height": 620,
-      "sha256": "521ce215fa0a74e1574a7a8b9f149f3aca1fad6decc4f1bf30b831584eaeb1bc",
+      "sha256": "3149e0e320f3b3287623bade76204c03922960fe6a7b722448b731dba5db94fd",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2792,7 +2963,7 @@
       "path": "assets/rooms/R05/c_fog_wiped.png",
       "width": 720,
       "height": 620,
-      "sha256": "358765ab016b3e4f319b9361a753f999854ce7e94ce068c6e9aaef829fa26498",
+      "sha256": "a82d85f9f4ef249969bfe53b0d2e0504920dc37a5d85e1af8df9e5afcaadb856",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2801,7 +2972,7 @@
       "path": "assets/rooms/R05/c_knob.png",
       "width": 100,
       "height": 90,
-      "sha256": "b549c7526e01814c34d356bdfca07e1abca8f04fa85a46c87354e69983a304e8",
+      "sha256": "17867adf7f3d3e82b3d3bdeaa154cd04823e8ed0c11b6a566f6b133e129f88fc",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2810,7 +2981,7 @@
       "path": "assets/rooms/R05/c_knob_turned.png",
       "width": 100,
       "height": 90,
-      "sha256": "0987baf82baf9bf13c313e292f6d6bbfadccf2b1324b4adeb1d09c6a2b8cd16e",
+      "sha256": "a4058cc875e0e6e769cef5d362dee53a28751b8d355839e76cfcfc3eeb28e765",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2819,7 +2990,16 @@
       "path": "assets/rooms/R05/c_ledger.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "e5f07cb801dd10e7da594c2d05b35ed189f38d16a62df6c99cf7fdee8d27601f",
+      "sha256": "7c029fcdfc72e587297fee7ef08ba117497a3fa733d8605fedc4ecf8d326da70",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_ledger_damp",
+      "path": "assets/rooms/R05/c_ledger_damp.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "fd0da1dcc62d0f39ae16332e174c6d79b9751288a5b3c251954a0baa20028339",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2828,7 +3008,7 @@
       "path": "assets/rooms/R05/c_lever_down.png",
       "width": 120,
       "height": 200,
-      "sha256": "0f523f85f766f7e7ccffe44729108851f5e616c07be58a40244b5b8246f04a61",
+      "sha256": "9ba798ac7beba7b4e213204a5e8d83f00fa1b1b235806a40c1dfda867b5b35ce",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2837,7 +3017,7 @@
       "path": "assets/rooms/R05/c_lever_up.png",
       "width": 120,
       "height": 200,
-      "sha256": "b0224ffe0b69801f9dad1d836ff5948737b471e419cf7200c5ed4ab8af7e70bd",
+      "sha256": "12a5a5bb6277f13fead2bcf7a8827e1f05b61914e80e0abfbf56d00cf38a71d0",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2846,7 +3026,7 @@
       "path": "assets/rooms/R05/c_seal_marker.png",
       "width": 96,
       "height": 40,
-      "sha256": "837d2a62f790d9ebdf84036eb2dea54d1bb381d211456e304eaf98451c760b49",
+      "sha256": "d094d9a6c385a198d1eebfc7d3680621c2316c4a5bce59aa6a6e71d60bdc03d3",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2873,7 +3053,7 @@
       "path": "assets/rooms/R05/c_sketch_cup.png",
       "width": 300,
       "height": 200,
-      "sha256": "1053b5d3a4ca89c38ed30ab28a5826fcf3d6e3564cebf68e94e0dafd2dd3fe13",
+      "sha256": "16aeee0d500ba7978c5d466eda3e7c5bad0cbfee9e00af94ee578e063b30ec66",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2882,7 +3062,7 @@
       "path": "assets/rooms/R05/c_soup.png",
       "width": 104,
       "height": 104,
-      "sha256": "44b9ed25cb3fcfdece3e47afa27df8bc0e7a0cae38a33840d3a53a3985a6301d",
+      "sha256": "50718adf964ca56c99fd1b863e35aaa30fc7e8e315a6773489a6b34e7c45190d",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2891,7 +3071,7 @@
       "path": "assets/rooms/R05/c_spoon.png",
       "width": 34,
       "height": 96,
-      "sha256": "972366043fb38d4c1d1bed4deb6b2efba069031a813742af0452f4a9820c2f3b",
+      "sha256": "31b4fc3756b01926d90f5408a8c9287b2957c9f96b95fd26f2a470635d869d8c",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2900,7 +3080,7 @@
       "path": "assets/rooms/R05/c_stamp_down.png",
       "width": 290,
       "height": 180,
-      "sha256": "a60bbda71e088ba102ec5991bc63a13d915712c398111254ede48d654538b14c",
+      "sha256": "7aaa709beaa89cf2a304d4b89dc4b287abc834fea45f750ae03d62584cb6d4db",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2909,7 +3089,7 @@
       "path": "assets/rooms/R05/c_stamp_up.png",
       "width": 290,
       "height": 180,
-      "sha256": "e32daef513a83d91675d19f77d99226c9585d3099c0794010684185f63ffe8cf",
+      "sha256": "02cc3afe12afee8e9c79d67ae0c05d8d18824c8e8d501274c15c638ab893302b",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2918,7 +3098,16 @@
       "path": "assets/rooms/R05/c_table.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "77a16364e5c901c8f504bd8e137b945b720edc1aebb7257de4be045c4f0ad9b3",
+      "sha256": "4c589d1d21558f809a86bd0fcfc13d06eed1e504d340e85069485841dc6ae2fa",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_table_damp",
+      "path": "assets/rooms/R05/c_table_damp.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "e39bb98dc5e6d5276a2f9fbec1d8327de50280f3fa54f24a4d872675af01bc32",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2927,7 +3116,7 @@
       "path": "assets/rooms/R05/c_tally_wheel.png",
       "width": 130,
       "height": 96,
-      "sha256": "1282234daec5cf246916039822d226e784d077da05e9c2db1c27e8c127891537",
+      "sha256": "9cff0466b516a956a917b72ee22d2f8517990f00ddfc2e877714a047dd372739",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2936,7 +3125,7 @@
       "path": "assets/rooms/R05/c_tile.png",
       "width": 210,
       "height": 66,
-      "sha256": "7e4e43ec8f563a0120c2f1e6e24745d8221508441434b7e20a6cbd18e1c40390",
+      "sha256": "90e74bb413f7b45e18d7d501e43f591697335aa02ea9c52bc340e9a6281e4986",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2945,7 +3134,7 @@
       "path": "assets/rooms/R05/c_tile_new.png",
       "width": 210,
       "height": 66,
-      "sha256": "bb2159febabf96c25fe6a6bc4ef044c83133ea356f688d1816d82b2a0a264c34",
+      "sha256": "bfe7fe4f5a42284573d4d75e39cec9605fba772b615d21cf70d791eac251bb00",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2954,7 +3143,7 @@
       "path": "assets/rooms/R05/c_tile_small.png",
       "width": 140,
       "height": 86,
-      "sha256": "36cec74dd9f6e8d96528fc213a35e2d22fe7d972c91d79a95c6878b8ad7161a7",
+      "sha256": "88e1efa55cce398bdf86ddf73cc77ad15556128ebcb951ad18609832bc984397",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2963,7 +3152,7 @@
       "path": "assets/rooms/R05/c_token_bunk.png",
       "width": 140,
       "height": 190,
-      "sha256": "28816e84855e086cab9866fb03c4cd04e735608a2bfec64721bc77a3e2e86a6d",
+      "sha256": "8e8a1b8a2b968a2b308126a0cddf703b69208af2be35269972473450a8483889",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2972,7 +3161,7 @@
       "path": "assets/rooms/R05/c_token_pantry.png",
       "width": 140,
       "height": 190,
-      "sha256": "a328f0401a70e6ac96bbcc27077c3b46fe481c5ee431560b964009a4ddfaa73a",
+      "sha256": "6e9f7491a5d93428f67ad343730fd939076728c3b944c8efeb6b6475c34b623e",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2981,7 +3170,7 @@
       "path": "assets/rooms/R05/view_a.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "7ee2db8d208e715ad9f54f52c8ca1d8670f689f37a91ec129c99389353a74e3e",
+      "sha256": "2b2f6b2250bd6e98c2694ab339b160cbb2a34df84c71938b3ca03cc6cf638f37",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2990,7 +3179,7 @@
       "path": "assets/rooms/R05/view_a_b2.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "d79634b7b0141e5191f12a504d5dec1e38c499ad6221f429ce6a9ab45dd65951",
+      "sha256": "8c78f1e17fc3310517eea5942ff396bb6792647f2ffaa73ed2463e66abd50191",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2999,7 +3188,7 @@
       "path": "assets/rooms/R05/view_a_b4.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "a8d4f022a0c93cad827c1d01ab2803dbb147eba900ffecd9a08cd4169941a177",
+      "sha256": "05703790857bc377f33086cbd9f3f70e6250d90611010420c4a7288c3fa723ff",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -3008,7 +3197,7 @@
       "path": "assets/rooms/R05/view_a_b6.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "778ffa6c12ba177d8e571ee88f6baf524b3d37f4c034d670415eb2355dc96ec3",
+      "sha256": "449884409b8dccf7216bcc55a81187edd699e0cec9c83b27a59d433f260d9354",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -3017,7 +3206,7 @@
       "path": "assets/rooms/R05/view_a_b7.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "831ec508bd7ae04b24fbf7f00826a092f8bd6c1c299543fbdeb76e36ae6e36c3",
+      "sha256": "4ba3d7d905a928f3acf48407d4fdb676a15f7eabd217b35273663be19ef40731",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -3026,7 +3215,7 @@
       "path": "assets/rooms/R05/view_a_sever.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "8826b1c48d5b0080be3c1315273d87cf59d8ea577963331bbf4df5c9138e256e",
+      "sha256": "68569c75f708bacceb496a1c2051a471e34e3347fed0d5580c67f0bb32eb96e1",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -3035,7 +3224,7 @@
       "path": "assets/rooms/R05/view_b.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "518881399c7f2aea4175dbb8cc6ceaea4cf6f4d668ae075cb110000a41b9d8dd",
+      "sha256": "960e3d8316011d0b117cab08f8fa9af7d44d34870740b75cbb12c04c309d6eaa",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -3044,7 +3233,7 @@
       "path": "assets/rooms/R05/view_b_b2.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "62c8996012590de82c521afaba413c4609fd12ca8c67ecaa055169bf895ff572",
+      "sha256": "1e55011b5d58a477b2bc80237d7acc974f1db16a22191bafad97d60a3f115003",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -3053,7 +3242,7 @@
       "path": "assets/rooms/R05/view_b_b4.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "c5b9fe5af6fee5bb2a9855cb7977203be9be919573f69a5261f97657c33f6161",
+      "sha256": "c31815aae573e7d47413f74e802c4b30cc69cef5f106398cccc452523ad16730",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -3062,7 +3251,7 @@
       "path": "assets/rooms/R05/view_b_b6.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "192de85c765b1e7543eb298cc631147a280307241cff69ebed165843831807d6",
+      "sha256": "e84ed6d793be89d8f4e2f649eb5b4019671d43795edfe829e0e53b298fa0de93",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -3071,7 +3260,7 @@
       "path": "assets/rooms/R05/view_b_b7.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "931f12635d0b90efe8a36c1ad0ff236fdeb85f038ef8c89f6bf600ba2ee5fd79",
+      "sha256": "b7725265a1af98212917317bd386e35cf324213a8fd4c5a381ff73586f258c3d",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -3080,7 +3269,7 @@
       "path": "assets/rooms/R05/view_b_sever.png",
       "width": 1448,
       "height": 1086,
-      "sha256": "aeb569f0074f40ed4f801376fc224f65f36c78a6396fdae3df8bceb0c0ee19e7",
+      "sha256": "c6bbd76d84fcbdb5c5fb8863b3ce6619590971c1afea757a1b77c469044d2e10",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
