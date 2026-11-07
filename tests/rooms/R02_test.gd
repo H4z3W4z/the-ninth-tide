@@ -509,7 +509,7 @@ func test_stage_text_drift() -> void:
 	check(not s3.has_seen("tag") and s3.has_seen("hooks"), "hooks at T1X: no tag yet")
 	var w3 := s3.dispatch("window")
 	check(not s3.has_seen("horizon") and not s3.has_seen("eye") and s3.has_seen("silent"), "window at T1X: silent, no horizon or eye")
-	check(says(w3) == "Nine pilings. The sea moving against them, without a sound.", "the T1X window line")
+	check(says(w3) == "Ten pilings now. The sea moving against them, without a sound.", "the T1X window line: the report's tenth piling")
 	var p := new_sim()
 	p.debug_jump(1)
 	var ev := p.dispatch("papers")
@@ -1129,8 +1129,9 @@ func test_soundings() -> void:
 	t.debug_jump(3)
 	ev = t.dispatch("map")
 	lines = says(ev).split(" | ")
-	check(lines.size() == 4 and "tenth piling" in lines[3] and is_equal_approx(say_ev(ev, "tenth").delay, 9.0),
-		"at s3 the 4th soundings line is the tenth piling")
+	check(lines.size() == 5 and "tenth piling" in lines[3] and is_equal_approx(say_ev(ev, "tenth").delay, 9.0)
+		and lines[4] == R02Sim.PILINGS_TEN_LINE and t.has_seen("pilings_ten"),
+		"at s3 the 4th soundings line is the tenth piling, then the report's count")
 	var one := new_sim()
 	one.debug_jump(1)
 	one.dispatch("map")
@@ -2997,7 +2998,8 @@ func test_repaint_pass() -> void:
 	# Every new painted file is in the manifest and loaded.
 	for id in ["hook_tags_large", "b_board_strip", "c_note_card", "receipt_fallen", "entry_wall_s4_stain",
 			"entry_wall_shadow", "entry_wall_shadow2", "b_lamp_wedge", "outer_door_pour", "outer_glass_sea",
-			"tide_line_hard", "damp_window_hard", "door_seep_hard", "window_drowned"]:
+			"tide_line_hard", "damp_window_hard", "door_seep_hard", "window_drowned",
+			"window_tenth_piling", "tide_mark", "window_low_water"]:
 		check(v._tex("R02/" + id) != null, "painted %s loads" % id)
 	# The entry wall's light: no lamp and no torch before P01; a warm wedge after, never in sever.
 	scene.room_jump("R02", 0)
@@ -3178,4 +3180,145 @@ func test_fix_w1() -> void:
 	check(v.TURN_RECT.end.y <= 986.0, "turn tab clear of the subtitle bar")
 	# The repair card's stains sit below the card, clear of every step and the B shape.
 	check(v.REPAIR_STAIN_BOX.position.y > 774.0 and v.REPAIR_STAIN_BOX.end.y < 870.0, "stains in the margin")
+	await free_scene(scene)
+
+
+# ---------------------------------------------------------------------------
+# fix pass w2
+# ---------------------------------------------------------------------------
+## R02-1: while the report is the objective, the framed chart shows (and says) ten pilings,
+## and the report's hint ladder sends her back to it before it gives the answer.
+func test_w2_fair_report() -> void:
+	var s := new_sim()
+	s.debug_jump(3)
+	s.state.soundings_heard = true   # the soundings beat is its own test
+	check(s.objective() == "report" and s.game.tide_done(1), "stage 3: the report is the objective")
+	var ev := s.dispatch("map")
+	check(says(ev) == "Ten pilings now. I counted nine an hour ago.", "the chart line while the report is open")
+	check(s.has_seen("pilings_ten") and s.has_seen("chart_tenth"), "the chart records pilings_ten")
+	check(R02Sim.OBSERVATIONS["pilings_ten"] == "The chart shows ten pilings now. I counted nine an hour ago.",
+		"pilings_ten's notebook text")
+	check(s.tenth_piling_shown(), "the window shows the tenth piling at the report stage")
+	var h: Array = R02Sim.HINTS["report"]
+	check(h.size() == 3 and h[1] == "Look at the chart again, as it is now."
+		and h[2] == "Pilings 10. Observers 2. High water 19:34 (07:13 plus 12 h 21 m). Height 9.9 m. Then sign it.",
+		"the report ladder: three steps, the chart as it is now, then the answer")
+	s.game.state.hint.level = 0
+	var lines := []
+	for i in 3:
+		lines.append(says(s.dispatch("hint")))
+	check(lines[1] == h[1] and lines[2] == h[2], "the report hints play in order")
+	# Before the report (no wet seat): no tenth in the window, the old line; after filing, the
+	# chart no longer gives the report line.
+	var e := new_sim()
+	e.debug_jump(2)
+	check(not e.tenth_piling_shown(), "no tenth piling before the wet seat")
+	check(not "Ten pilings" in says(e.dispatch("map")) and not e.has_seen("pilings_ten"), "the old chart before the report")
+	var f := new_sim()
+	f.debug_jump(3)
+	f.state.soundings_heard = true
+	tide1(f)
+	file_and_back(f)
+	check(f.objective() != "report", "filed: the report is no longer the objective")
+	check(says(f.dispatch("map")) == "Someone has inked a tenth piling. Further out than the jetty goes.",
+		"after filing, the chart's ordinary line")
+	f.game.solve("t1x_threshold_crossed", [])
+	f.state.finished = true
+	check(not f.tenth_piling_shown(), "past the threshold the window's tenth piling is gone")
+
+## R02-2: the threshold hint and the 'Go on' line agree; the doorway (and the corridor in it)
+## walk her in once she may go on, with a hover name.
+func test_w2_threshold_verb() -> void:
+	check(R02Sim.THRESHOLD_HINT == "Stand still until it finishes breathing. Then walk into it.", "the threshold hint")
+	var VC = load("res://game/rooms/R02/R02_view.gd")
+	check(VC.GO_ON_LINE == "Go on, then." and VC.WALK_ON_LABEL == "Walk toward it", "go-on line and hover name")
+	var scene = new_scene("user://office_w2_threshold.json")
+	await process_frame
+	scene.room_jump("R02", 4)
+	scene.dispatch("door")
+	await process_frame
+	var v = scene.room_view
+	v.zoom_k = 1.0
+	v.push_k = 1.0
+	var xf: Transform2D = v._zoom_xform()
+	var corridor: Vector2 = xf * (v.DOOR_SLAB.get_center() + Vector2(0, 120))
+	check(v.hover_at(corridor) == "" and scene.action_at(corridor) == "", "before she may go on: no hover, no click")
+	v.continue_ready = true
+	check(v.hover_at(corridor) == "continue" and v.label_for("continue") == "Walk toward it", "the corridor names the verb")
+	check(scene.action_at(corridor) == "continue", "a click on the painted corridor walks her in")
+	check(scene.action_at(xf * v.VP) == "continue" and v.hover_at(xf * v.VP) == "continue", "the far end too")
+	check(v.hover_at(v.TURN_RECT.get_center()) == "" and scene.action_at(v.TURN_RECT.get_center()) == "turn",
+		"the turn tab still turns her, and is never named 'walk'")
+	scene.dispatch("hint")
+	check(scene.room_sim().hint_line(0) == R02Sim.THRESHOLD_HINT, "the hint at the threshold")
+	await free_scene(scene)
+
+## R02-3: the rest tabs read; the unlocked service door walks to the kitchen; the key on the
+## kitchen or bunk tab turns in the service door.
+func test_w2_exits() -> void:
+	var VC = load("res://game/rooms/R02/R02_view.gd")
+	check(is_equal_approx(VC.TAB_REST_ALPHA, 0.8), "rest tabs at 0.8")
+	check(FileAccess.get_file_as_string("res://game/rooms/R02/R02_view.gd").contains("TAB_REST_ALPHA * (1.0 if open else 0.6)"),
+		"a closed exit rests at 0.6 of that")
+	for tab in ["go:R05", "go:R06"]:
+		for facing in ["A", "B"]:
+			var k := with_flags(["P01", "P06"])
+			k.room("R01").state.p06_complete = true
+			var o := office(k)
+			o.facing = facing
+			k.give("service_key")
+			var ev := o.use_item("service_key", tab, [])
+			check(ev and not k.has_item("service_key") and o.state.service_unlocked and not o.service_locked(),
+				"the key on %s (facing %s) turns in the service door" % [tab, facing])
+			var ev2 := []
+			check(not o.use_item("service_key", tab, ev2), "with the door open the key on %s is not the door's" % tab)
+	# Without P06 the tab is not a keyhole.
+	var n := with_flags(["P01"])
+	n.give("service_key")
+	check(not office(n).use_item("service_key", "go:R05", []) and n.has_item("service_key"), "no P06: the key is kept")
+	# The view: an unlocked service door is a way out, like the outer door.
+	var scene = new_scene("user://office_w2_exits.json")
+	await process_frame
+	scene.tide_jump(3, "R02")
+	await process_frame
+	var s = scene.room_sim()
+	var v = scene.room_view
+	s.facing = "B"
+	var door_c: Vector2 = Rect2(1160, 120, 270, 790).get_center()
+	var outer_c: Vector2 = Rect2(88, 120, 316, 790).get_center()
+	check(scene.action_at(outer_c) == "go:R01", "the outer door goes to the jetty")
+	check(not s.service_locked() and scene.action_at(door_c) == "go:R05", "the unlocked service door goes to the kitchen")
+	scene.dispatch(scene.action_at(door_c))
+	check(scene.sim.state.room == "R05", "and she is in the kitchen")
+	scene.tide_jump(2, "R02")
+	await process_frame
+	s = scene.room_sim()
+	s.facing = "B"
+	if scene.sim.has_item("service_key"):
+		scene.sim.take("service_key")
+	check(scene.action_at(door_c) == "service_door", "before P06 the service door is only a door")
+	await free_scene(scene)
+
+## R02-4/5: the tide mark replaces the hairline; Tide II's window is low water, with a line
+## to match; the hotspots stay.
+func test_w2_window_and_mark() -> void:
+	var src := FileAccess.get_file_as_string("res://game/rooms/R02/R02_view.gd")
+	check(src.contains("\"R02/tide_mark\"") and not src.contains("_draw_full(c, \"R02/tide_line_hard\")"),
+		"band 4+: the tide mark, not the hairline")
+	var g := game_at(2)
+	var s := office(g)
+	check(g.tide() == 2 and g.flag("t1x_threshold_crossed") and not g.flag("P06"), "tide II")
+	check(s.low_water() and not s.tenth_piling_shown(), "tide II: low water in the window")
+	var ev := g.dispatch("window")
+	check(says(ev) == R02Sim.LOW_WATER_LINE and "lighthouse" in says(ev), "the window line at low water")
+	for t in [1, 3, 4]:
+		check(not office(game_at(t)).low_water(), "tide %d: not low water" % t)
+	var scene = new_scene("user://office_w2_window.json")
+	await process_frame
+	scene.tide_jump(2, "R02")
+	await process_frame
+	var v = scene.room_view
+	check(v._tex("R02/window_low_water") != null and v._tex("R02/tide_mark") != null
+		and v._tex("R02/window_tenth_piling") != null, "the new overlays load")
+	check(scene.action_at(Rect2(428, 82, 430, 515).get_center()) == "window", "the window is still the window at tide II")
 	await free_scene(scene)
