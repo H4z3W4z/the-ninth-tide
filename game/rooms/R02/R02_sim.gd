@@ -1578,11 +1578,11 @@ func _service_key_turn(ev: Array) -> bool:
 func _load_board(ev: Array) -> void:
 	if not game.tide_done(6):
 		_say(ev, "Not yet. I don't know what I'm comparing them against.")
-	elif not has_seen("contract"):
-		_say(ev, "His letters are all about a name. The contract under the duty card has it. I should read that first.")
 	elif state.board_loaded or board_solved():
 		_say(ev, "They're already on the board.")
 	else:
+		# The contract goes up with the letters: unread until now, she reads it as she pins it.
+		_observe("contract")
 		state.board_loaded = true
 		local_view = "board"
 		_sfx(ev, "pin", 0.0)

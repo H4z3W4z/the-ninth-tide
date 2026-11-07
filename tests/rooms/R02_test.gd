@@ -2556,12 +2556,30 @@ func test_p20() -> void:
 	check(says(c.dispatch("board")) == "A comparison board. Cork, three pins, a rail of rubber stamps. Nothing pinned to it.", "the empty board")
 	c.game.give("venn_correspondence")
 	c.dispatch("item:venn_correspondence")
-	check(says(c.dispatch("board")).begins_with("His letters are all about a name.") and not c.state.board_loaded, "needs the contract")
-	c._observe("contract")
-	c.dispatch("item:venn_correspondence")
+	check(not c.has_seen("contract"), "the contract unread before loading")
 	var ev := c.dispatch("board")
 	check(c.state.board_loaded and c.view == "board" and count_ev(ev, "sfx", "pin") == 3 and c.game.has_item("venn_correspondence"),
 		"loading: three pins, the board opens, the letters are kept")
+	check(c.has_seen("contract") and "fetch the contract from the desk" in says(ev) and not "read that first" in says(ev),
+		"an unread contract is fetched from the desk, not refused")
+	# Tide VII with the contract read back in Tide I, from the duty card: the board loads first time.
+	var t1 := new_sim()
+	t1.dispatch("begin")
+	t1.dispatch("papers")
+	t1.dispatch("read_contract")
+	check(t1.has_seen("contract"), "tide I: the contract read from the duty card")
+	# Carry Tide I's notebook into a Tide VII game (the save would carry it the same way).
+	var d7 := office(game_at(7))
+	for k in t1.game.state.notebook:
+		if not k in d7.game.state.notebook:
+			d7.game.state.notebook.append(k)
+	check(d7.has_seen("contract"), "tide VII: the tide I contract is in the notebook")
+	d7.game.give("venn_correspondence")
+	d7.dispatch("turn")
+	d7.dispatch("item:venn_correspondence")
+	ev = d7.dispatch("board")
+	check(d7.state.board_loaded and d7.view == "board" and count_ev(ev, "sfx", "pin") == 3,
+		"tide VII, contract seen in tide I: the board loads on the first try")
 	c.dispatch("back")
 	check(c.view == "room" and c.facing == "B", "back from the board faces B")
 	c.dispatch("item:venn_correspondence")
@@ -2997,6 +3015,36 @@ func test_repaint_pass() -> void:
 	check(v.exit_bar_live_at(v.TURN_RECT.get_center()) and v.exit_bar_live_at(Vector2(10, 1080)),
 		"the bar shows on the turn tab and at the bottom edge")
 	check(scene.action_at(v.TURN_RECT.get_center()) == "turn", "a tap on the turn tab still turns her")
+	# Exit tabs click without hover: with the pointer on the room, every tab still answers;
+	# only the core's full-strength drawing waits for the cursor.
+	v.pointer_at = Vector2(700, 500)
+	check(not v._exit_bar_live() and v.exits_active(), "pointer elsewhere: bar at rest, exits still answer")
+	var live: Dictionary = v.live_exit_rects()
+	var n_tabs := 0
+	for e in scene.sim.exits():
+		if live.has(e[0]):
+			n_tabs += 1
+			check(scene.action_at(live[e[0]].get_center()) == "go:" + e[0],
+				"pointer elsewhere: the %s tab returns go:%s" % [e[0], e[0]])
+			check(live[e[0]] == v.exit_rects()[e[0]], "the %s tab keeps its rect" % e[0])
+	check(n_tabs >= 2, "the office has its exit tabs (%d)" % n_tabs)
+	v.pointer_at = null
+	# The HUD pass: opened by tick, closed by draw_hud. While it is open a bar at rest is not
+	# drawn by the core (draw_hud draws it faint); a bar under the cursor is.
+	var core_src := FileAccess.get_file_as_string("res://game/core/game.gd")
+	check(core_src.find("_draw_exits(c)") < core_src.find("room_view.draw_hud(c)") and core_src.find("_draw_exits(c)") > 0,
+		"the core draws the exits just before the room's draw_hud")
+	v.pointer_at = Vector2(700, 500)
+	v._open_hud_pass()
+	check(v.hud_pass_open and not v.exits_active(), "HUD pass, bar at rest: the core leaves the tabs to the room")
+	v.pointer_at = v.exit_rects().values()[0].get_center()
+	check(v.exits_active(), "HUD pass, cursor on a tab: the core draws the bar full")
+	v._close_hud_pass()
+	v.pointer_at = Vector2(700, 500)
+	check(not v.hud_pass_open and v.exits_active(), "after draw_hud the exits answer clicks again")
+	v.pointer_at = null
+	await process_frame
+	check(not v.hud_pass_open, "a real frame closes the pass it opened")
 	# Every new painted file is in the manifest and loaded.
 	for id in ["hook_tags_large", "b_board_strip", "c_note_card", "receipt_fallen", "entry_wall_s4_stain",
 			"entry_wall_shadow", "entry_wall_shadow2", "b_lamp_wedge", "outer_door_pour", "outer_glass_sea",
@@ -3259,8 +3307,9 @@ func test_w2_threshold_verb() -> void:
 ## kitchen or bunk tab turns in the service door.
 func test_w2_exits() -> void:
 	var VC = load("res://game/rooms/R02/R02_view.gd")
-	check(is_equal_approx(VC.TAB_REST_ALPHA, 0.8), "rest tabs at 0.8")
-	check(FileAccess.get_file_as_string("res://game/rooms/R02/R02_view.gd").contains("TAB_REST_ALPHA * (1.0 if open else 0.6)"),
+	check(is_equal_approx(VC.TAB_REST_ALPHA, 0.8), "the threshold's turn tab rests at 0.8")
+	check(is_equal_approx(VC.BAR_REST_ALPHA, 0.45), "the exit bar rests at 0.45")
+	check(FileAccess.get_file_as_string("res://game/rooms/R02/R02_view.gd").contains("BAR_REST_ALPHA * (1.0 if open else 0.6)"),
 		"a closed exit rests at 0.6 of that")
 	for tab in ["go:R05", "go:R06"]:
 		for facing in ["A", "B"]:
