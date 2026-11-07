@@ -8,6 +8,7 @@ const ROOM := "R03"
 const EXPECT_REQUIRES := ["P01"]
 ## First tide at whose start the room is reachable from the office by real gates.
 const OPEN_TIDE := 2
+const VIEW_SCRIPT := preload("res://game/rooms/R03/R03_view.gd")
 
 func run_tests() -> void:
 	skeleton_checks(ROOM, EXPECT_REQUIRES, OPEN_TIDE)
@@ -28,6 +29,7 @@ func run_tests() -> void:
 	test_save_load()
 	test_reconcile_keeps_flags()
 	test_notices()
+	test_sea_low_and_knot()
 	test_stair_looked()
 	test_hotspots_everywhere()
 	test_turns()
@@ -81,8 +83,18 @@ func tide_fx(ev: Array) -> int:
 func laid_game() -> GameSim:
 	var g := stage(1)
 	g.dispatch("sheet_table")
-	g.dispatch("reg_lay")
+	lay(g)
 	return g
+
+## His sheet laid the only way it is: the item, used on the light table.
+func lay(g: GameSim) -> Array:
+	g.dispatch("item:venn_tide_sheet")
+	return g.dispatch("reg_table")
+
+## The clips used on the clip rail (the commit).
+func clip(g: GameSim) -> Array:
+	g.dispatch("item:chart_clips")
+	return g.dispatch("reg_clip")
 
 func set_rot(g: GameSim, rot: int) -> void:
 	var r := r3(g)
@@ -177,7 +189,7 @@ func test_p03_matrix() -> void:
 				set_rot(g, rot)
 				if snap != "":
 					g.dispatch("reg_snap_" + snap)
-				var ev := g.dispatch("reg_clip")
+				var ev := clip(g)
 				var want := ""
 				if base != "17": want = refuse.date
 				elif rot != 0: want = refuse.north
@@ -201,31 +213,45 @@ func test_p03_gates() -> void:
 	g.dispatch("clip_tin")
 	g.dispatch("sheet_table")
 	var ev := g.dispatch("reg_lay")
-	check(says(ev) == "I only have the one sheet. 'Sheet 2 of 2: with E.V.'" and not r.state.reg_laid, "no sheet to lay")
+	check(says(ev) == refuse.no_sheet and not r.state.reg_laid, "no sheet to lay: with E.V.")
+	ev = g.dispatch("reg_table")
+	check(says(ev) == refuse.no_sheet and not r.state.reg_laid, "the bare table: with E.V.")
 	ev = g.dispatch("reg_clip")
+	check(says(ev) == R03Sim.REG_HAS_CLIPS and r.state.clip_misses == 0, "the bare rail: the clips are in her pocket")
+	ev = clip(g)
 	check(says(ev) == refuse.no_sheet and not g.flag("P03"), "clip without the sheet: with E.V.")
+	check(g.has_item("chart_clips"), "a refused clip keeps the clips")
 	for a in ["reg_rot_cw", "reg_rot_ccw", "reg_snap_lighthouse"]:
 		ev = g.dispatch(a)
 		check(says(ev) == R03Sim.REG_NOT_LAID, "%s needs the sheet laid" % a)
 	check(r.state.reg_rot == 2 and r.state.reg_snap == "", "nothing turned or pinned")
 	# Even a forced arrangement can't complete without the sheet.
 	r.state.reg_laid = true; r.state.reg_base = "17"; r.state.reg_rot = 0; r.state.reg_snap = "lighthouse"
-	ev = g.dispatch("reg_clip")
+	ev = clip(g)
 	check(not g.flag("P03") and says(ev) == refuse.no_sheet, "P03 can't complete without venn_tide_sheet")
 	# Sheet in hand, not laid.
 	g = stage(1)
 	r = r3(g)
 	g.dispatch("sheet_table")
-	ev = g.dispatch("reg_clip")
+	ev = g.dispatch("reg_lay")
+	check(says(ev) == R03Sim.REG_HAS_SHEET and not r.state.reg_laid, "the bare tray doesn't lay his sheet")
+	ev = g.dispatch("reg_table")
+	check(says(ev) == R03Sim.REG_HAS_SHEET and not r.state.reg_laid, "nor does the bare table")
+	ev = clip(g)
 	check(says(ev) == refuse.not_laid, "sheet in inventory but not laid")
+	ev = lay(g)
+	check(r.state.reg_laid and r.has_seen("venn_sheet") and g.has_item("venn_tide_sheet"), "his sheet, used on the table, is laid")
+	ev = lay(g)
+	check(says(ev) == R03Sim.REG_LAID_ALREADY, "laying twice: already there")
 	# Laid, no clips.
 	g = stage(1)
 	g.take("chart_clips")
 	g.dispatch("sheet_table")
-	g.dispatch("reg_lay")
+	lay(g)
 	g.dispatch("reg_base_17"); set_rot(g, 0); g.dispatch("reg_snap_lighthouse")
 	ev = g.dispatch("reg_clip")
-	check(says(ev) == refuse.no_clips and not g.flag("P03"), "no clips: the tin's on the ledge")
+	check(says(ev) == refuse.no_clips and refuse.no_clips == "Nothing to hold them with. There was a tin."
+		and not g.flag("P03"), "no clips: there was a tin")
 	check(g.has_item("venn_tide_sheet"), "the refused clip keeps the sheet")
 	# Lift clears the pin, keeps the rest.
 	g = laid_game()
@@ -242,17 +268,25 @@ func test_p03_success() -> void:
 	check(r.has_seen("venn_sheet"), "laying observes venn_sheet")
 	g.dispatch("reg_base_17"); set_rot(g, 0); g.dispatch("reg_snap_lighthouse")
 	var ev := g.dispatch("reg_clip")
+	check(not g.flag("P03") and says(ev) == R03Sim.REG_HAS_CLIPS, "a bare click on the rail doesn't clip")
+	ev = clip(g)
 	check(g.flag("P03") and r.state.p03_complete, "17 / north up / lighthouse solves")
 	check(not g.has_item("venn_tide_sheet") and g.has_item("chart_clips"), "the sheet is taken, the clips kept")
 	check(r.has_seen("calibration_interval") and r.has_seen("composite_chart"), "calibration_interval and composite_chart")
 	check(g.value("movement_events").back() == "charts_aligned", "charts_aligned recorded")
 	check(has_ev(ev, "fx", "composite") and has_ev(ev, "sfx", "clip_snap"), "composite fx and clip snap")
-	check("The curve crosses band three" in says(ev), "the curve line")
-	check(not "The office will want to know" in says(ev), "no reconcile line without P02")
+	check(R03Sim.CURVE_LINE in says(ev) and not "three" in says(ev) and not "3" in says(ev), "the curve line names no band")
+	check(not R03Sim.RECONCILE_LINE in says(ev), "no reconcile line without P02")
+	for o in ["calibration_interval", "composite_chart"]:
+		var t: String = r.observation_text(o)
+		check(not "3" in t and not "three" in t.to_lower() and not "Interval:" in t, "%s speaks no interval number" % o)
+	check("numbered band" in r.observation_text("composite_chart"), "the composite names his numbered bands")
 	var moves: Array = g.value("movement_events")
 	var nb: int = g.state.notebook.size()
-	ev = g.dispatch("reg_clip")
+	ev = clip(g)
 	check(says(ev) == R03Sim.REG_CLIPPED and not has_ev(ev, "fx", "composite"), "a repeat clip doesn't re-solve")
+	ev = g.dispatch("reg_clip")
+	check(says(ev) == R03Sim.REG_CLIPPED, "a bare repeat: clipped")
 	check(g.value("movement_events") == moves and g.state.notebook.size() == nb, "a repeat clip duplicates nothing")
 	for a in ["reg_base_14", "reg_lift", "reg_rot_cw", "reg_snap_buoy", "reg_lay"]:
 		ev = g.dispatch(a)
@@ -265,8 +299,8 @@ func test_p03_success() -> void:
 	g = laid_game()
 	g.set_flag("P02")
 	g.dispatch("reg_base_17"); set_rot(g, 0); g.dispatch("reg_snap_lighthouse")
-	ev = g.dispatch("reg_clip")
-	check("The charts reconcile. The office will want to know." in says(ev) and g.tide_done(1), "tide I done: the office line")
+	ev = clip(g)
+	check(R03Sim.RECONCILE_LINE in says(ev) and g.tide_done(1), "tide I done: the office line")
 	# Using the sheet on the table opens and lays it.
 	g = stage(1)
 	r = r3(g)
@@ -457,7 +491,21 @@ func test_p05_orders() -> void:
 	check(r.held_plate == "" and r.rack_plates()[1] == "boundary", "Back puts the held plate on the rack")
 	g.dispatch("recorder")
 	var ev := g.dispatch("rec_miniature")
-	check(r.has_seen("miniature") and says(ev).begins_with("From the duty card"), "the miniature")
+	check(r.has_seen("miniature") and says(ev) == R03Sim.MINIATURE, "the miniature")
+	for t in [says(ev), r.observation_text("miniature"), R03Sim.MINIATURE_CARD]:
+		check(not "BOUNDARY" in t and not "RELATION" in t and not "OBSERVER" in t, "the miniature doesn't print the answer")
+	check("PILE → SPAN → LAMP" in R03Sim.MINIATURE_CARD and R03Sim.MINIATURE.ends_with(R03Sim.MINIATURE_CARD + "\""),
+		"the duty card's own example")
+	check(R03Sim.HINTS.record[1] == "The hatch frame is carved. Read it the way you'd meet it going down.", "hint 2 points at the hatch")
+	# After the miniature, the hatch marks get one quiet line.
+	g.dispatch("back")
+	ev = g.dispatch("hatch_scratches")
+	check(R03Sim.SCRATCHES_AFTER_MINIATURE in says(ev), "the hatch: not his example")
+	var line: Dictionary = ev.filter(func(e): return e.type == "say" and e.text == R03Sim.SCRATCHES_AFTER_MINIATURE)[0]
+	check(not line.get("story", false), "a quiet (feedback) line")
+	g = record_game()
+	ev = g.dispatch("hatch_scratches")
+	check(not R03Sim.SCRATCHES_AFTER_MINIATURE in says(ev), "not before the miniature is read")
 
 func test_p05_trace_and_strip() -> void:
 	for turned in [false, true]:
@@ -765,6 +813,23 @@ func test_notices() -> void:
 	check(r.wall == "B" and notice_fx(ev) == ["n_threshold"] and r.has_seen("seal_broken"), "the threshold arrival faces B")
 	check("n_arrival" in r.state.notices and r.has_seen("recorder"), "the superseded arrival notice keeps its evidence")
 	check("from inside." in says(ev), "the threshold line")
+	# Tide II: after the seal, the window. Story, once, after the seal line.
+	check(r.sea_low() and count_says(ev, R03Sim.LAMP_OUT_LINE) == 1, "the lighthouse is out (story line)")
+	var lines: Array = ev.filter(func(e): return e.type == "say")
+	var i_seal := -1
+	var i_lamp := -1
+	for i in lines.size():
+		if "from inside." in lines[i].text: i_seal = i
+		if lines[i].text == R03Sim.LAMP_OUT_LINE: i_lamp = i
+	check(i_seal >= 0 and i_lamp > i_seal and lines[i_lamp].story and lines[i_seal].story
+		and lines[i_lamp].delay > lines[i_seal].delay, "the lamp line follows the seal line in one chain")
+	check(r.state.lamp_out_said and r.has_seen("sea_low"), "said once, sea_low noted")
+	ev = g.dispatch("sea_window")
+	check("lighthouse is out" in says(ev), "the window at tide II: the lighthouse is out")
+	g.dispatch("go:R02")
+	ev = g.dispatch("go:R03")
+	check(count_says(ev, R03Sim.LAMP_OUT_LINE) == 0, "the lamp line plays once")
+	check(roundtrip(g).room(ROOM).state.lamp_out_said, "lamp_out_said saves")
 	# After P04, Back from the recorder faces C.
 	g.dispatch("recorder")
 	r.state.zero = 4; r.state.interval = 3
@@ -796,6 +861,43 @@ func test_notices() -> void:
 	# A notice survives a load as seen.
 	var b := roundtrip(g)
 	check(r3(b).state.notices.size() == r.state.notices.size() and r3(b).pending_notice("C") == "", "notices saved")
+
+## Tide II on arrival: the sea is low and the lamp out only after the threshold, until tide II is done.
+func test_sea_low_and_knot() -> void:
+	var g := stage(0)
+	var r := r3(g)
+	check(not r.sea_low(), "before the threshold the sea is ordinary")
+	check(r.solved_count() == 1 and is_equal_approx(r.ink_knot_radius(), 10.0), "P01 alone: a 10 px knot")
+	var g2 := game_at(2)
+	check(r3(g2).sea_low(), "tide II start: the sea is low")
+	var g3 := game_at(3)
+	check(not r3(g3).sea_low(), "tide III: the weather moves on")
+	var g0 := with_flags([])
+	check(r3(g0).solved_count() == 0 and is_equal_approx(r3(g0).ink_knot_radius(), 6.0), "nothing solved: 6 px")
+	var all := []
+	for i in range(1, 28):
+		all.append("P%02d" % i)
+	check(is_equal_approx(r3(with_flags(all)).ink_knot_radius(), 60.0), "the knot is capped at 60 px")
+	var prev := 0.0
+	for n in range(0, 20):
+		var rad := minf(60.0, 6.0 + 4.0 * n)
+		var pts: PackedVector2Array = _knot(rad, n)
+		var far := 0.0
+		for p in pts:
+			far = maxf(far, p.length())
+		check(far <= rad + 0.001, "knot %d stays within %.0f px" % [n, rad])
+		check(pts.size() >= prev, "the knot never thins (%d)" % n)
+		prev = pts.size()
+	check(_knot(20.0, 3) == _knot(20.0, 3), "the knot is deterministic")
+	var small := _knot(10.0, 1)
+	var big := _knot(30.0, 6)
+	var grows := true
+	for i in small.size():
+		grows = grows and (small[i] * 3.0).distance_to(big[i]) < 0.01
+	check(grows, "a bigger knot is the same knot, grown: it never redraws")
+
+func _knot(radius: float, solved: int) -> PackedVector2Array:
+	return VIEW_SCRIPT.knot_points(radius, solved)
 
 func test_stair_looked() -> void:
 	for first in ["hatch", "outer_window"]:
@@ -836,7 +938,7 @@ func test_items() -> void:
 		["inspection_lens", "sheet_table"]: "Every cross is pricked through with a pin. Many times.",
 		["inspection_lens", "compass"]: "The needle is steady. It isn't the compass.",
 		["pencil", "sheet_table"]: "I don't amend his charts.",
-		["chart_clips", "sheet_table"]: "The clips go on once the sheets are in register.",
+		["chart_clips", "sheet_table"]: "The clips go on the rail, once the sheets are in register.",
 	}
 	for k in cases:
 		var inv: Array = g.state.inventory.duplicate()
@@ -1030,6 +1132,14 @@ func test_view() -> void:
 			check(v._tex("%s_damp_%d" % [w, b]) != null, "damp tide-mark %s band %d is painted" % [w, b])
 	for id in ["A_buckle", "A_fog", "B_float", "C_rope_0", "C_rope_1", "C_rope_2", "C_beads", "cu_rec_fog", "cu_rec_brown"]:
 		check(v._tex(id) != null, "%s is painted" % id)
+	check(v._tex("B_window_t2") != null, "the tide II window is painted")
+	check(R03Sim.REG_SLOT_LABELS == {"14": "SPARE: 14 OCT", "17": "TABLE: 17 OCT"}, "the base slots are labelled by id")
+	for c0 in v.REG_CONTROLS:
+		if c0[0].begins_with("reg_base_"):
+			check(c0[2] == R03Sim.REG_SLOT_LABELS[c0[0].substr(9)], "%s is labelled %s" % [c0[0], c0[2]])
+	check(v.TIDE_SCALE.has_point(Vector2(v.TIDE_SCALE.get_center().x, v.MUD_Y)) and v.MUD_Y < 522.0,
+		"his MUD mark is on the scale, above where the tide II sea lies")
+	check(v.WINDOW_GLASS.encloses(v.TIDE_SCALE), "the tide scale is on the glass")
 	# Loop targets follow state and wall, never a clock.
 	r.wall = "B"
 	var t: Dictionary = v.audio_targets()

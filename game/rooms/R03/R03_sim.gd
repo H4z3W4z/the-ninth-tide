@@ -50,12 +50,21 @@ const LOOKS := {}
 const REG_BASES := ["14", "17"]
 const REG_SNAPS := ["", "lighthouse", "buoy", "datum"]
 const REG_ANSWER := {"base": "17", "rot": 0, "snap": "lighthouse"}
+## The base-sheet rack's engraved labels, by sheet id. "17" is the table's own sheet.
+const REG_SLOT_LABELS := {"14": "SPARE: 14 OCT", "17": "TABLE: 17 OCT"}
+const CURVE_LINE := "Together they draw a line neither sheet has. I've seen it before: scratched into the hatch, from the underside."
+const RECONCILE_LINE := "The charts agree now. Something in the office has already written that down."
+## Contextual use in c_registration: his sheet is laid by using it on the table (reg_table),
+## the clips by using them on the clip rail (reg_clip). A bare click says what's missing.
+const REG_HAS_SHEET := "His sheet's with me. It goes on the table, over this one."
+const REG_HAS_CLIPS := "The rail's empty. The clips are in my pocket."
+const REG_LAID_ALREADY := "His sheet's already on the table."
 const REG_CLIPPED := "It's clipped. I'm not taking it apart."
 const REG_NOT_LAID := "Nothing laid over it to turn."
 const REG_REFUSE := {
 	"no_sheet": "Both sheets, he said. The other's with E.V.",
 	"not_laid": "Venn's sheet isn't on the table yet.",
-	"no_clips": "Nothing to hold them with. The clip tin's on the ledge.",
+	"no_clips": "Nothing to hold them with. There was a tin.",
 	"date": "The dates don't match. 14th and 17th.",
 	"north": "North arrows disagree.",
 	"no_snap": "The crosses aren't on each other yet.",
@@ -82,6 +91,10 @@ const REFUSE_BOUNDARY := "RECORD REFUSED: OBSERVATION MUST BEGIN AT BOUNDARY."
 const REFUSE_RELATION := "RECORD REFUSED: RELATION PRECEDES OBSERVER."
 const RECORD_REFUSALS := [REFUSE_INCOMPLETE, REFUSE_BOUNDARY, REFUSE_RELATION]
 const RECORD_MISS_LINES := ["It printed why.", "Refused. The order's wrong.", "It's patient about it."]
+const MINIATURE := "From the duty card: \"Departure observation: record the marks in the order the observer meets them going down. Example, from the jetty: PILE → SPAN → LAMP, as met walking out. Then RECORD.\""
+## The framed card itself (the view prints it; MINIATURE is what she reads aloud).
+const MINIATURE_CARD := "Departure observation: record the marks in the order the observer meets them going down. Example, from the jetty: PILE → SPAN → LAMP, as met walking out. Then RECORD."
+const SCRATCHES_AFTER_MINIATURE := "Not his example. The marks on the hatch."
 const STRIP_HEAD := "DEPARTURE OBSERVATION"
 const STRIP_RELAY := "COLLECTION ANSWERS. ATTEND JETTY."
 const LINE4_TURNED := "Observer has looked behind her once."
@@ -123,11 +136,15 @@ const NOTICES := [
 	["n_b7", "C", "band7", "water_standing", "The water in the window is standing up."],
 ]
 const NOTICE_DELAY := 1.4
+const KNOT_BASE := 6.0
+const KNOT_STEP := 4.0
+const KNOT_MAX := 60.0
+const LAMP_OUT_LINE :="The lighthouse is out. The sea hasn't come back from where it went."
 
 ## The flags this room owns, and the state key that mirrors each.
 const OWNED := [["P03", "p03_complete"], ["P04", "p04_complete"], ["P05", "p05_complete"], ["P21", "p21_complete"]]
 const SAVED_BOOLS := ["clips_taken", "reg_laid", "p03_complete", "prophecy_seen", "p04_complete",
-	"stair_looked", "p05_complete", "looked_behind", "plan_lid_seen", "p21_complete"]
+	"stair_looked", "p05_complete", "looked_behind", "plan_lid_seen", "p21_complete", "lamp_out_said"]
 const SAVED_COUNTS := ["clip_misses", "pull_misses", "record_misses"]
 
 const OBSERVATIONS := {
@@ -136,8 +153,8 @@ const OBSERVATIONS := {
 	"empty_clip": "An empty clip on the board, labelled 'sheet 2 of 2: with E.V.'",
 	"clip_tin": "A tin of brass chart clips. I took them.",
 	"venn_sheet": "Venn's 17 Oct sheet is tracing paper, folded so its north arrow points down. The same three crosses.",
-	"calibration_interval": "The registered charts give a curve crossing interval band 3. It has the shape of the three scratches on the hatch.",
-	"composite_chart": "Composite chart, 17 Oct: Venn's sheet over the table sheet, north up, lighthouse cross on lighthouse cross. The curve is on neither sheet alone.",
+	"calibration_interval": "Registered, the charts draw a line neither sheet has. It runs through one of his numbered interval bands, and it has the shape of the marks scratched on the hatch. The composite is clipped on the chart table.",
+	"composite_chart": "Composite chart, 17 Oct: Venn's sheet over the table sheet, north up, lighthouse cross on lighthouse cross. The line crosses one of his numbered bands; it is on neither sheet alone.",
 	"plan": "The station plan, 1889, revised E.V. 1927. The landward edge is marked with a bracket and the word BOUNDARY. Down the dry stair, landings in bracket pairs: '[ 1' above '] 1'. A '[ 2' with nothing under it.",
 	"compass": "A brass compass rose on the wall. North is where north should be.",
 	"compass_bent": "The compass lines on the chart sheet bend toward the place in front of the table where I stand.",
@@ -150,8 +167,9 @@ const OBSERVATIONS := {
 	"pen_report": "The pen traced the figures from my closure report: 10, 2, 19:34, 9.9.",
 	"calibration_plate": "The calibration plate: ZERO and INTERVAL are independent controls. Worked example: ZERO 7, INTERVAL 2, then pull CALIBRATE.",
 	"plates": "Three record plates: '[' BOUNDARY, two linked strokes RELATION, a hollow circle OBSERVER.",
-	"miniature": "Framed beside the slots, from the duty card: 'Departure observation, example: BOUNDARY → RELATION → OBSERVER, then RECORD.'",
+	"miniature": "Framed beside the slots. From the duty card: \"Departure observation: record the marks in the order the observer meets them going down. Example, from the jetty: PILE → SPAN → LAMP, as met walking out. Then RECORD.\"",
 	"sea_window": "The sea window: overcast, the lighthouse clear, ordinary waves.",
+	"sea_low": "The sea window after the threshold: the lighthouse is out, and the sea lies flat and glassy below the MUD mark on his tide scale. No waves.",
 	"vis_nil": "The pen writes 'VIS 0.0 NM'. Out of the window I can still see the sea.",
 	"attending": "The pen writes 'SEA STATE: ATTENDING'. The drum has stopped turning.",
 	"stair_threshold": "The observation hatch opens onto a dry stair going down. The window beside it is full of seawater at the same level.",
@@ -204,7 +222,7 @@ const HINTS := {
 	],
 	"record": [
 		"The recorder's other panel takes three plates.",
-		"The plan, the hatch marks and the duty card all read the same way: boundary, then relation, then observer.",
+		"The hatch frame is carved. Read it the way you'd meet it going down.",
 		"Slots left to right: BOUNDARY, RELATION, OBSERVER. Press RECORD.",
 	],
 	"jetty": [
@@ -249,7 +267,7 @@ func initial_state() -> Dictionary:
 		"looked_behind": false,
 		"plan_tiles": {"body": "", "place": "", "name": "", "witness": ""}, "plan_misplaced": [],
 		"plan_lid_seen": false, "p21_complete": false,
-		"notices": [],
+		"notices": [], "lamp_out_said": false,
 	}
 
 # ---------------------------------------------------------------------------
@@ -461,8 +479,19 @@ func _play_notice(n: Array, ev: Array, say_line := true) -> void:
 		state.notices.append(n[0])
 	_observe(n[3])
 	ev.append({"type": "fx", "id": "notice", "notice": n[0]})
+	# Tide II's arrival: after the broken seal, the window. Said once, as part of the reveal.
+	var lamp_out: bool = n[0] == "n_threshold" and sea_low() and not state.lamp_out_said
 	if say_line:
-		_say(ev, n[4], NOTICE_DELAY)
+		_say(ev, n[4], NOTICE_DELAY, lamp_out)
+	if lamp_out:
+		state.lamp_out_said = true
+		_observe("sea_low")
+		_say(ev, LAMP_OUT_LINE, NOTICE_DELAY + 2.6, true)
+
+## Tide II, before it is done: the threshold is crossed and the sea in the window has gone out
+## below his mud line, flat and still; the lighthouse is dark.
+func sea_low() -> bool:
+	return game.flag("t1x_threshold_crossed") and game.weather_band() == 0
 
 # ---------------------------------------------------------------------------
 # actions
@@ -535,7 +564,7 @@ func _hotspot(h: String, ev: Array) -> void:
 		"sea_window":
 			_say(ev, _sea_window_line(band))
 			if band == 0:
-				_observe("sea_window")
+				_observe("sea_low" if sea_low() else "sea_window")
 		"hatch":
 			if not state.p04_complete:
 				_observe("hatch")
@@ -563,6 +592,8 @@ func _hotspot(h: String, ev: Array) -> void:
 			_observe("scratches")
 			_say(ev, "The same shape as the curve on the composite." if state.p03_complete \
 				else "Three marks cut down the frame, top to bottom: a bracket, two linked strokes, a hollow circle.")
+			if has_seen("miniature") and not state.p05_complete:
+				_say(ev, SCRATCHES_AFTER_MINIATURE, 2.0)
 
 func _look_down_stair() -> void:
 	if not state.stair_looked:
@@ -589,6 +620,8 @@ func _pen_drum(ev: Array, band: int) -> void:
 func _sea_window_line(band: int) -> String:
 	match band:
 		0:
+			if sea_low():
+				return "The lighthouse is out. The sea's down below his mud line, flat as a plate. Not a wave on it."
 			return "Overcast. The lighthouse is clear and the sea is ordinary."
 		1, 2:
 			return "Rain on the glass. The water's darker than it was."
@@ -629,8 +662,10 @@ func _act_registration(action: String, ev: Array) -> void:
 		"reg_base_14", "reg_base_17":
 			state.reg_base = action.substr(9)
 			_sfx(ev, "sheet_slide")
-		"reg_lay":
-			_reg_lay(ev)
+		"reg_lay", "reg_table":
+			# His sheet is laid by using it on the table; a bare click says what's missing.
+			if not state.reg_laid:
+				_say(ev, REG_HAS_SHEET if game.has_item("venn_tide_sheet") else REG_REFUSE.no_sheet)
 		"reg_lift":
 			state.reg_laid = false
 			state.reg_snap = ""
@@ -651,14 +686,18 @@ func _act_registration(action: String, ev: Array) -> void:
 			_observe("example")
 			_say(ev, "Two sheets that have nothing to do with each other, registered at a cross. The line runs through band 1.")
 		"reg_clip":
-			_reg_clip(ev)
+			# The clips go on the rail from the inventory; the bare rail is empty.
+			_say(ev, REG_HAS_CLIPS if game.has_item("chart_clips") else REG_REFUSE.no_clips)
 
 func _reg_lay(ev: Array) -> void:
 	if state.p03_complete:
 		_say(ev, REG_CLIPPED)
 		return
 	if not game.has_item("venn_tide_sheet"):
-		_say(ev, "I only have the one sheet. 'Sheet 2 of 2: with E.V.'")
+		_say(ev, REG_REFUSE.no_sheet)
+		return
+	if state.reg_laid:
+		_say(ev, REG_LAID_ALREADY)
 		return
 	state.reg_laid = true
 	_observe("venn_sheet")
@@ -699,9 +738,9 @@ func _reg_clip(ev: Array) -> void:
 	_sfx(ev, "clip_snap", 0.0)
 	_fx(ev, "composite")
 	_say(ev, "Clipped. The two halves meet.", 0.3, true)
-	_say(ev, "The curve crosses band three. It isn't on either sheet. It's the shape of the marks on the hatch.", 2.4, true)
+	_say(ev, CURVE_LINE, 2.4, true)
 	if game.tide_done(1):
-		_say(ev, "The charts reconcile. The office will want to know.", 5.6, true)
+		_say(ev, RECONCILE_LINE, 5.6, true)
 
 # --- P04 / P05: the recorder ------------------------------------------------------
 func _open_recorder(ev: Array, opening_line := true) -> void:
@@ -794,7 +833,7 @@ func _act_record_panel(action: String, ev: Array) -> void:
 		_say(ev, "The shutter's up. Three slots, left to right, and the rack.")
 	elif action == "rec_miniature":
 		_observe("miniature")
-		_say(ev, "From the duty card: 'Departure observation, example: BOUNDARY → RELATION → OBSERVER, then RECORD.'")
+		_say(ev, MINIATURE)
 	elif action == "rec_record":
 		_record(ev)
 	elif action.begins_with("rec_plate_"):
@@ -1000,15 +1039,23 @@ func use_item(item: String, target: String, ev: Array) -> bool:
 	var line := ""
 	match item:
 		"venn_tide_sheet":
-			if target == "sheet_table" or (target == "reg_table" and local_view == "c_registration"):
+			var on_table: bool = target in ["reg_table", "reg_lay"] and local_view == "c_registration"
+			if target == "sheet_table" or on_table:
 				if local_view != "c_registration":
 					_open_registration(ev)
 				_reg_lay(ev)
 				_settle_notices()
 				return true
 		"chart_clips":
+			if target == "reg_clip" and local_view == "c_registration":
+				if state.p03_complete:
+					_say(ev, REG_CLIPPED)
+				else:
+					_reg_clip(ev)
+				_settle_notices()
+				return true
 			if target == "sheet_table" or target == "reg_table":
-				line = "The clips go on once the sheets are in register."
+				line = "The clips go on the rail, once the sheets are in register."
 		"inspection_lens":
 			match target:
 				"outer_window":
@@ -1163,6 +1210,19 @@ func pen_text() -> String:
 	if band < 3:
 		return ""
 	return "VIS 0.0 NM" if band <= 4 else "SEA STATE: ATTENDING"
+
+## Puzzles solved anywhere in the station (P01..P27 flags set).
+func solved_count() -> int:
+	var n := 0
+	for i in range(1, 28):
+		if game.flag("P%02d" % i):
+			n += 1
+	return n
+
+## The ink knot at the pen's nib: the pen keeps writing in one place while the drum is still,
+## and the knot grows with every solved puzzle. 6 px, plus 4 px a puzzle, never over 60.
+func ink_knot_radius() -> float:
+	return minf(KNOT_MAX, KNOT_BASE + KNOT_STEP * solved_count())
 
 func drum_turning() -> bool:
 	return state.p04_complete and game.weather_band() < 5

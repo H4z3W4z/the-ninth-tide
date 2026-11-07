@@ -1447,6 +1447,15 @@
       "source_svg": null
     },
     {
+      "id": "R03/B_window_t2",
+      "path": "assets/rooms/R03/B_window_t2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "fe03cac44f0d0619c196b684a6663263e618dd46dc377a20cf45c3df461c7771",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R03/C_base",
       "path": "assets/rooms/R03/C_base.png",
       "width": 1448,
