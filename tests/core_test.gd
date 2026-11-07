@@ -7,10 +7,12 @@ extends SceneTree
 const FIXTURES := "res://tests/fixtures/rooms"
 const ALL := ["R01", "R02", "R03", "R04", "R05", "R06", "R07", "R08", "R09", "R10", "R11", "R12"]
 
-## GDD section 5 traversal topology, as undirected pairs.
+## Traversal topology (GDD section 5 as refined by docs/design/puzzle-cards/rooms.md), as
+## undirected pairs. The passage strips join their rooms: R03-R04, R05-R06, R07-R08.
 const TOPOLOGY := [["R01", "R02"], ["R02", "R03"], ["R02", "R04"], ["R02", "R05"], ["R02", "R06"],
-	["R03", "R11"], ["R05", "R07"], ["R05", "R08"], ["R07", "R10"], ["R07", "R11"], ["R09", "R11"],
-	["R11", "R12"]]
+	["R03", "R04"], ["R03", "R11"], ["R05", "R06"], ["R05", "R07"], ["R05", "R08"], ["R07", "R08"],
+	["R07", "R10"], ["R07", "R11"], ["R09", "R11"], ["R11", "R12"]]
+const CARDS := "res://docs/design/puzzle-cards/"
 
 ## Rooms reachable from the office at the start of each tide (by real gates).
 const REACH := {
@@ -62,6 +64,8 @@ func run() -> void:
 	test_topology()
 	test_reach_per_tide()
 	test_tides_and_weather()
+	test_card_flags()
+	test_movement_trace()
 	test_travel()
 	test_latched_office()
 	test_inventory_and_use()
@@ -122,12 +126,12 @@ func test_reach_per_tide() -> void:
 	g.debug_enter("R02")
 	check(not g.exit_open("R02", "R03"), "chart room shut at the start")
 	g.set_flag("P01")
-	check(not g.exit_open("R02", "R03"), "the lamp alone doesn't open the corridor")
-	g.set_flag("R02.threshold")
-	check(g.exit_open("R02", "R03") and g.exit_open("R02", "R04"), "lamp + threshold open the instrument rooms")
+	check(g.exit_open("R02", "R03") and g.exit_open("R02", "R04"), "the lamp opens the instrument rooms (rooms.md)")
+	check(g.exit_open("R03", "R04") and g.exit_open("R04", "R03"), "the upper passage joins chart and listening rooms")
 	check(not g.exit_open("R02", "R05") and not g.exit_open("R02", "R06"), "service door shut before P06")
 	g.set_flag("P06")
 	check(g.exit_open("R02", "R05") and g.exit_open("R02", "R06"), "P06 opens kitchen and bunks")
+	check(g.exit_open("R05", "R06") and g.exit_open("R06", "R05"), "the service passage joins kitchen and bunks")
 	check(not g.exit_open("R03", "R11"), "hatch shut before P04")
 	g.set_flag("P04")
 	check(g.exit_open("R03", "R11"), "P04 opens the hatch onto the stair threshold")
@@ -135,6 +139,7 @@ func test_reach_per_tide() -> void:
 	check(not g.exit_open("R05", "R07"), "kitchen service access shut before P09")
 	g.set_flag("P09")
 	check(g.exit_open("R05", "R07") and g.exit_open("R05", "R08"), "P09 opens lab and machine room")
+	check(g.exit_open("R07", "R08") and g.exit_open("R08", "R07"), "the lower passage joins lab and machine room")
 	check(not g.exit_open("R07", "R11"), "the lab's stair door stays shut until P12")
 	g.set_flag("P12")
 	check(g.exit_open("R11", "R07") and g.exit_open("R07", "R11") and g.exit_open("R11", "R09"), "P12 opens the stair both ways and the gallery")
@@ -147,28 +152,149 @@ func test_reach_per_tide() -> void:
 
 func test_tides_and_weather() -> void:
 	var g := GameSim.new()
-	check(g.tide() == 1 and g.weather() == 0, "tide I, weather 0 at the start")
+	check(g.tide() == 1 and g.weather_band() == 0, "tide I, weather 0 at the start")
 	var ev: Array = []
 	g.solve("P01", ev); g.solve("P02", ev)
 	check(ev.is_empty() and g.tide() == 1, "no tide change mid-tide")
 	g.solve("P03", ev)
-	check(g.tide() == 2 and count_ev(ev, "fx", "tide") == 1 and ev[0].tide == 2, "tide I completes on P01-P03")
+	check(g.tide_done(1) and g.tide() == 1 and ev.is_empty(), "P02 + P03 finish tide I's puzzles; Tide II waits for the threshold")
+	g.solve("closure_report_filed", ev)
+	check(g.tide() == 1 and ev.is_empty(), "the filed report alone is not the threshold")
+	g.solve("t1x_threshold_crossed", ev)
+	check(g.tide() == 2 and count_ev(ev, "fx", "tide") == 1 and ev[0].tide == 2, "crossing the threshold begins Tide II")
 	ev.clear()
 	g.solve("P03", ev)
 	check(ev.is_empty() and g.tide() == 2, "a repeated solve neither re-rewards nor re-advances")
-	check(g.weather() == 0, "Tide I complete: still the arrival weather")
-	for p in ["P04", "P05", "P06"]:
+	check(g.weather_band() == 0, "Tide I complete: still the arrival weather")
+	var early := GameSim.new()
+	early.set_flag("t1x_threshold_crossed")
+	early.set_flag("P02")
+	check(early.tide() == 1, "the threshold without both instruments stays tide I")
+	for p in ["P04", "P05"]:
 		g.solve(p, ev)
-	check(g.tide() == 3 and g.weather() == 1, "Tide II complete: weather 1")
+	check(g.tide() == 2, "tide II is done by P06, not P04/P05")
+	g.solve("P06", ev)
+	check(g.tide() == 3 and g.weather_band() == 1, "Tide II complete: weather 1")
 	g.solve("P08", ev)
 	check(g.tide() == 3, "a later puzzle out of order doesn't skip a tide")
+	var six := GameSim.new()
+	for p in ["P02", "P03", "t1x_threshold_crossed", "P06", "P09", "P12", "P15", "P17"]:
+		six.set_flag(p)
+	check(six.tide() == 6 and six.weather_band() == 4, "tide VI needs both P17 and P18")
+	six.set_flag("P18")
+	check(six.tide() == 7 and six.weather_band() == 5, "P17 + P18 finish tide VI")
 	var all := GameSim.new()
 	for n in range(1, 10):
 		for p in GameSim.tide_puzzles(n):
 			all.set_flag(p)
-	check(all.tide() == 9 and all.tides_completed() == 9 and all.weather() == 7, "after IX: tide 9, weather holds at 7")
+	all.set_flag("t1x_threshold_crossed")
+	check(all.tide() == 9 and all.tides_completed() == 9 and all.weather_band() == 7, "after IX: tide 9, weather holds at 7")
+	check(all.plan_unlocked() and not GameSim.new().plan_unlocked(), "the plan unlocks with P05")
+	check(all.room_open("R12") and not GameSim.new().room_open("R12") and not all.room_open("R99"), "room_open")
 	check(GameSim.tide_puzzles(9) == ["P25", "P26", "P27"], "tide IX is P25-P27")
 	check(g.tide_title(2) == "Tide II  ·  The Boat at the Window", "tide titles")
+
+## Every cross-room id in the cards' flags.md is settable and readable through the core API,
+## in the cards' own spelling; every movement event the cards whitelist is the core's.
+func test_card_flags() -> void:
+	var text := FileAccess.get_file_as_string(CARDS + "flags.md")
+	check(text != "", "flags.md is readable")
+	var bools := []
+	var values := []
+	var section := ""
+	var row := RegEx.create_from_string("^\\| `([a-z0-9_]+)` \\|")
+	for line in text.split("\n"):
+		if line.begins_with("## "):
+			section = line.substr(3, 2)
+		var m := row.search(line)
+		if m == null:
+			continue
+		if section == "2." or section == "6.":
+			var id := m.get_string(1)
+			if id in ["p05_trace", "movement_events", "ending_choice", "endings_seen"]:
+				values.append(id)
+			else:
+				bools.append(id)
+	check(bools.size() == 36, "flags.md lists 27 completion, 3 transition and 6 optional flags (got %d)" % bools.size())
+	var g := GameSim.new()
+	for id in bools:
+		g.set_flag(id)
+		check(g.flag(id), "card flag %s is settable" % id)
+	var t := roundtrip(g)
+	# P01 and the Tide I transition flags follow R02's state on load (tested in R02_test).
+	var derived := ["p01_complete", "closure_report_filed", "t1x_threshold_crossed", "t1x_turned"]
+	for id in bools:
+		check(t.flag(id) != (id in derived), "card flag %s survives a save (or follows its owner)" % id)
+		t.set_flag(id, false)
+		check(not t.flag(id), "card flag %s clears" % id)
+	check(g.flag("P07") and g.flag("p07_complete") and GameSim.canon_flag("p07_complete") == "P07",
+		"the cards' p07_complete is the core's P07")
+	check(sorted(values) == ["ending_choice", "endings_seen", "movement_events", "p05_trace"],
+		"flags.md's non-bool values (got %s)" % [values])
+	for id in values:
+		check(g.value(id) != null, "card value %s is readable" % id)
+	var before: int = g.state.flags.size()
+	g.set_flag("p28_complete")
+	g.set_flag("threshold_crossed")
+	check(g.state.flags.size() == before, "an id not in the cards is refused")
+	# The movement whitelist (section 3) is the core's, word for word.
+	var moves := {}
+	var mrow := RegEx.create_from_string("^\\| `([a-z_]+)` \\| [^|]+ \\| (.+?) \\|$")
+	section = ""
+	for line in text.split("\n"):
+		if line.begins_with("## "):
+			section = line.substr(3, 2)
+		var m := mrow.search(line)
+		if m != null and section == "3.":
+			moves[m.get_string(1)] = m.get_string(2)
+	check(moves == GameSim.MOVES, "the movement whitelist matches flags.md (%s)" % [moves])
+	# Items (section 4): each is declared by the room the card says it is found in. The P01
+	# bridges stay R02 tray parts (P01 is unchanged), so they are not inventory items.
+	var irow := RegEx.create_from_string("^\\| `([a-z_]+)` \\| [^|]+ \\| ([^|]+) \\|")
+	var want := {}
+	section = ""
+	for line in text.split("\n"):
+		if line.begins_with("## "):
+			section = line.substr(3, 2)
+		var m := irow.search(line)
+		if m != null and section == "4." and not m.get_string(1) in ["bridge_b", "spare_c"]:
+			var found := m.get_string(2)
+			var r := RegEx.create_from_string("R\\d\\d").search(found)
+			var p := RegEx.create_from_string("P\\d\\d").search(found)
+			want[m.get_string(1)] = r.get_string() if r else ("start" if p == null else p.get_string())
+	var defs := g.item_defs()
+	check(sorted(defs.keys()) == sorted(want.keys()), "declared items match flags.md (%s vs %s)" % [sorted(defs.keys()), sorted(want.keys())])
+	var puzzle_room := {"P06": "R01", "P07": "R05", "P08": "R06", "P13": "R07", "P14": "R07", "P15": "R09",
+		"P16": "R10", "P18": "R10", "P22": "R06", "P23": "R10", "start": "R02"}
+	for id in want:
+		var where: String = puzzle_room.get(want[id], want[id])
+		check(defs.has(id) and defs[id].room == where, "%s is declared by %s (got %s)" % [id, where, defs.get(id, {}).get("room", "-")])
+
+func test_movement_trace() -> void:
+	var g := GameSim.new()
+	g.record_move("lamp_mended")
+	g.record_move("lamp_mended")
+	g.record_move("not_a_move")
+	check(g.value("movement_events") == ["lamp_mended"], "duplicates collapse, unknown ids are refused")
+	for m in ["log_read", "drawer_opened", "recording_played", "charts_aligned", "report_signed",
+			"held_still", "zero_turned", "interval_set", "zero_turned", "hatch_opened"]:
+		g.record_move(m)
+	var ev: Array = g.value("movement_events")
+	check(ev.size() == GameSim.MOVES_MAX and ev[-1] == "hatch_opened" and ev[0] == "recording_played",
+		"the trace keeps the last eight (%s)" % [ev])
+	check(g.freeze_p05_trace() == ["interval_set", "zero_turned", "hatch_opened"], "P05 freezes the last three")
+	g.record_move("stair_looked")
+	check(g.freeze_p05_trace() == ["interval_set", "zero_turned", "hatch_opened"], "a frozen trace never changes")
+	var t := roundtrip(g)
+	check(t.value("p05_trace") == g.value("p05_trace") and t.value("movement_events") == g.value("movement_events"),
+		"trace and frozen P05 trace survive a save")
+	var d: Dictionary = JSON.parse_string(JSON.stringify(g.to_dict()))
+	d.p05_trace = ["junk"]
+	d.movement_events = ["lamp_mended", "junk", 4]
+	var b := GameSim.new()
+	b.from_dict(d)
+	check(b.value("p05_trace") == [] and b.value("movement_events") == ["lamp_mended"], "unknown trace ids are dropped")
+	check(GameSim.move_text("held_still") == "Held still.", "the recorder's printed text")
 
 func test_travel() -> void:
 	var g := GameSim.new()
@@ -206,7 +332,8 @@ func test_latched_office() -> void:
 	var ev := g.dispatch("go:R01")
 	check(g.state.room == "R02" and says(ev) == R02Sim.LATCHED_LINE, "seat wet: every exit is latched")
 	s.debug_jump(5)
-	check(g.flag("P01") and g.flag("R02.threshold"), "debug 5: lamp and threshold flags")
+	check(g.flag("P01") and g.flag("closure_report_filed") and g.flag("t1x_threshold_crossed"),
+		"debug 5: lamp, report and threshold flags")
 	ev = g.dispatch("go:R04")
 	check(g.state.room == "R04" and says(ev) == g.room("R04").c("ARRIVAL"), "through the corridor to the listening room")
 
@@ -270,11 +397,11 @@ func test_saves() -> void:
 	var g := GameSim.new()
 	g.debug_tide(4, "R05")
 	g.dispatch("go:R07")
-	g.record("Aligned chart.")
+	g.record_move("charts_aligned")
 	var t := roundtrip(g)
 	check(JSON.stringify(t.to_dict()) == JSON.stringify(g.to_dict()), "a save round-trips exactly")
 	check(t.state.room == "R07" and t.view == "room" and t.tide() == 4, "room, view and tide survive")
-	check(t.state.trace == ["Aligned chart."], "the movement trace survives")
+	check(t.value("movement_events") == ["charts_aligned"], "the movement trace survives")
 	check(t.to_dict().schema == GameSim.SCHEMA and GameSim.SCHEMA == 6, "schema 6")
 	var bad := GameSim.new()
 	check(not bad.from_dict({"schema": 1}), "a flat dict with no rooms is rejected")
@@ -298,7 +425,8 @@ func test_saves() -> void:
 	# Settings are saved apart from the story and survive a restart.
 	var s := GameSim.new()
 	s.dispatch("menu"); s.dispatch("toggle_motion"); s.dispatch("toggle_soft")
-	check(not s.to_dict().has("settings") and s.settings_dict() == {"motion": false, "soft_audio": true}, "settings apart")
+	check(not s.to_dict().has("settings") and s.settings_dict() == {"motion": false, "soft_audio": true, "endings_seen": []},
+		"settings apart")
 	s.dispatch("resume"); s.dispatch("begin"); s.dispatch("restart")
 	check(s.view == "title" and not s.settings.motion, "a restart keeps the settings")
 	var u := GameSim.new()
@@ -367,16 +495,23 @@ func test_endings() -> void:
 	g.debug_tide(9, "R12")
 	g.save_checkpoint()
 	g.finish("sever")
-	check(g.view == "end" and g.state.ending == "sever" and g.state.endings_seen == ["sever"], "the severance ending")
+	check(g.view == "end" and g.state.ending == "sever" and g.value("endings_seen") == ["sever"], "the severance ending")
+	check(g.value("ending_choice") == "sever", "ending_choice reads the ending")
 	var t := roundtrip(g)
 	check(t.view == "end" and t.state.ending == "sever", "an ending save reopens its card")
 	var ev := g.dispatch("return_decision")
-	check(g.view == "room" and g.state.room == "R12" and g.state.ending == "" and g.state.endings_seen == ["sever"],
+	check(g.view == "room" and g.state.room == "R12" and g.state.ending == "" and g.value("endings_seen") == ["sever"],
 		"return to the final decision keeps the endings seen")
+	g.finish("continue")
+	check(sorted(g.value("endings_seen")) == ["continue", "sever"], "both endings seen")
 	g.finish("witness")
-	check(sorted(g.state.endings_seen) == ["sever", "witness"], "both endings seen")
+	check(g.state.ending == "continue", "only the cards' ending ids exist")
 	g.dispatch("new_game")
 	check(g.view == "title" and not g.state.started, "new game from the end card")
+	check(sorted(g.value("endings_seen")) == ["continue", "sever"], "endings seen survive New game (flags.md)")
+	var gs := GameSim.new()
+	gs.load_settings(JSON.parse_string(JSON.stringify(g.settings_dict())))
+	check(sorted(gs.value("endings_seen")) == ["continue", "sever"], "endings seen are saved with the settings")
 	var bad: Dictionary = JSON.parse_string(JSON.stringify(GameSim.new().to_dict()))
 	bad.started = true
 	bad.ending = "sever"

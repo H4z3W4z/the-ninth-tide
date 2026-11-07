@@ -155,7 +155,7 @@ func draw_placeholder(cv: CanvasItem) -> void:
 	var wall: Color = pal.get("wall", Color("a9c8b8"))
 	var trim: Color = pal.get("trim", Color("2f5b6e"))
 	var floor_col: Color = pal.get("floor", Color("7d6e5c"))
-	var w := gsim().weather() if gsim() else 0
+	var w := gsim().weather_band() if gsim() else 0
 	var dim := 1.0 - 0.06 * w
 	cv.draw_rect(Rect2(Vector2.ZERO, SIZE), wall * Color(dim, dim, dim))
 	cv.draw_rect(Rect2(0, 600, SIZE.x, 300), trim * Color(dim, dim, dim))

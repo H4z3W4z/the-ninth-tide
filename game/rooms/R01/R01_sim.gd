@@ -41,7 +41,10 @@ const HINTS := {
 		"Look at each object in the room.",
 	],
 }
-const ITEMS := {}
+## Items this room hands out (docs/design/puzzle-cards/flags.md section 4).
+const ITEMS := {
+	"service_key": {"name": "Kitchen service key", "desc": "A key from the capsule on the mooring line. It fits the office's service door."},
+}
 
 func initial_state() -> Dictionary:
 	return {}

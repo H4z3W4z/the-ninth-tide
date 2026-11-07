@@ -7,7 +7,7 @@ extends RefCounted
 ## room actions. A room mutates only its own `state` dict (which is the same Dictionary
 ## as game.state.rooms[ID], so it saves with the game) and global state through the
 ## GameSim API: game.flag(), game.set_flag(), game.solve(), game.give(), game.take(),
-## game.observe(), game.record().
+## game.observe(), game.record_move(), game.value().
 ##
 ## Every room script declares constants the core reads (see docs/dev/room-contract.md):
 ##   ID            "R03"

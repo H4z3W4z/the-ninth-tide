@@ -16,6 +16,7 @@ const HOTSPOTS := [
 const EXIT_RECTS := {
 	"R02": Rect2(20, 922, 250, 64),
 	"R11": Rect2(282, 922, 250, 64),
+	"R04": Rect2(544, 922, 250, 64),
 }
 const PALETTE := {"wall": Color("b8c9b4"), "trim": Color("2f5b6e"), "floor": Color("7d6e5c")}
 const SFX_DB := {}

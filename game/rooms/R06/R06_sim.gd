@@ -13,6 +13,7 @@ const ARRIVAL := "The bunk room. A hollow settles into an empty mattress, slowly
 ## [to, label, extra flags]: the ways out. The target's REQUIRES also apply.
 const EXITS := [
 	["R02", "Office", []],
+	["R05", "Kitchen", []],
 ]
 const HOTSPOTS := ["lockers", "belongings", "bunks", "calendar", "shelf", "curtain"]
 const LOOKS := {
@@ -41,7 +42,11 @@ const HINTS := {
 		"Look at each object in the room.",
 	],
 }
-const ITEMS := {}
+## Items this room hands out (docs/design/puzzle-cards/flags.md section 4).
+const ITEMS := {
+	"token_bunk_half": {"name": "Service token, bunk half", "desc": "Half of a split brass service token."},
+	"amended_nora_card": {"name": "Register card: Nora Bell (amended)", "desc": "Nora's register card, with the amendment in Ada's hand."},
+}
 
 func initial_state() -> Dictionary:
 	return {}

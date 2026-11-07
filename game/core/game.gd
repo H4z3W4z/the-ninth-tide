@@ -947,7 +947,7 @@ func _draw_end(c: Node2D) -> void:
 	Ink.text(c, e.title, Vector2(0, 420), 48, Color(Ink.PAPER, a), serif, SIZE.x)
 	for i in e.lines.size():
 		Ink.text(c, e.lines[i], Vector2(0, 520 + 50 * i), 26, Color(Ink.NIGHT_INK, a), hand, SIZE.x)
-	Ink.text(c, "Endings seen: %d of 2" % sim.state.endings_seen.size(), Vector2(0, 780), 20,
+	Ink.text(c, "Endings seen: %d of 2" % sim.settings.endings_seen.size(), Vector2(0, 780), 20,
 		Color(Ink.PAPER, 0.5 * a), serif, SIZE.x)
 	if end_t >= 1.5:
 		for b in END_BUTTONS:
@@ -1042,7 +1042,7 @@ func _draw_dev(c: Node2D) -> void:
 	c.draw_rect(Rect2(20, 90, 620, 190), Color(0, 0, 0, 0.75))
 	var y := 120
 	for line in ["DEV (F1)  %s  view %s/%s  tide %d  weather %d" % [sim.state.room, sim.view,
-				room_sim().local_view if room_sim() else "-", sim.tide(), sim.weather()],
+				room_sim().local_view if room_sim() else "-", sim.tide(), sim.weather_band()],
 			"1-9 room stage jumps, Shift+1-9 start of tide I-IX",
 			"objective: " + (room_sim().objective() if room_sim() else ""),
 			"flags: " + ", ".join(sim.state.flags.keys())]:

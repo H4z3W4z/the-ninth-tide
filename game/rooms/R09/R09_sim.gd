@@ -39,7 +39,10 @@ const HINTS := {
 		"Look at each object in the room.",
 	],
 }
-const ITEMS := {}
+## Items this room hands out (docs/design/puzzle-cards/flags.md section 4).
+const ITEMS := {
+	"nora_spatial_strip": {"name": "Bearing strip: N. Bell", "desc": "A bearing strip recorded through the gallery scope."},
+}
 
 func initial_state() -> Dictionary:
 	return {}

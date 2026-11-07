@@ -20,21 +20,37 @@ const SCHEMA := 6
 const SLICE_SCHEMA := 5
 const START_ROOM := "R02"
 const ROOMS_DIR := "res://game/rooms"
-const TRACE_MAX := 12
+## Cross-room facts that are not puzzle flags (docs/design/puzzle-cards/flags.md sections 2
+## and 6). Puzzle flags are "P01".."P27"; the cards' "p01_complete" spelling means the same flag.
+## Room-local facts that another room may read are "<rid>.<name>".
+const GLOBAL_FLAGS := ["closure_report_filed", "t1x_threshold_crossed", "t1x_turned",
+	"o01_found", "o02_found", "o03_found", "o04_found", "o05_found", "o06_found"]
+## The movement-event whitelist (flags.md section 3): the only things Ada's trace records.
+const MOVES := {
+	"lamp_mended": "Mended the lamp.", "log_read": "Read his log.",
+	"drawer_opened": "Opened his drawer.", "recording_played": "Played tomorrow's recording.",
+	"charts_aligned": "Aligned the charts.", "report_signed": "Signed for two.",
+	"held_still": "Held still.", "turned_round": "Turned round.",
+	"zero_turned": "Turned the zero wheel.", "interval_set": "Set the interval.",
+	"hatch_opened": "Opened the hatch.", "stair_looked": "Looked down the stair.",
+}
+const MOVES_MAX := 8
+const P05_TRACE_LEN := 3
 
 const TIDE_TITLES := ["The Last Shift", "The Boat at the Window", "Supper for the Absent",
 	"The Room Beneath the Water", "A Body of Measurements", "The Other Side of the Glass",
 	"The Man Who Left You a Letter", "An Incomplete Person", "The Ninth Tide"]
 const NUMERALS := ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"]
 
-## The two endings (GDD section 9). The chamber room (R12) sets game.state.ending; the
-## core shows the end card. Lines are placeholders until R12's team writes the scene.
+## The two endings (GDD section 9). Ids are the cards' `ending_choice` values. The chamber
+## room (R12) calls finish(); the core shows the end card. Lines are placeholders until R12's
+## team writes the scene.
 const ENDINGS := {
 	"sever": {"title": "The Unrecorded Shore", "lines": [
 		"The instruments fall silent in sequence.",
 		"\"I cannot certify their absence.\"",
 	]},
-	"witness": {"title": "The Last Observer", "lines": [
+	"continue": {"title": "The Last Observer", "lines": [
 		"\"Subject Bell possesses no surviving personal effects.\"",
 		"\"Nora Bell took her tea without sugar. Begin there.\"",
 	]},
@@ -47,7 +63,8 @@ static var _room_scripts := {}   # dir -> {rid: Script}, discovered once per run
 var rooms := {}        # rid -> RoomSim
 var order: Array = []  # rids, sorted
 var state := {}
-var settings := {"motion": true, "soft_audio": false}
+## Saved apart from the story. endings_seen lives here so it survives New game (flags.md).
+var settings := {"motion": true, "soft_audio": false, "endings_seen": []}
 var view := "title"
 var return_view := "room"   # where Back goes from the notebook / menu
 var selected_item := ""     # transient: the inventory item in hand
@@ -82,11 +99,11 @@ static func discover(dir := ROOMS_DIR) -> Array:
 
 func reset(keep_settings := true) -> void:
 	if not keep_settings:
-		settings = {"motion": true, "soft_audio": false}
+		settings = {"motion": true, "soft_audio": false, "endings_seen": []}
 	state = {
 		"schema": SCHEMA, "started": false, "room": start_room, "visited": [],
-		"flags": {}, "inventory": [], "notebook": [], "trace": [],
-		"hint": {"for": "", "level": 0}, "rooms": {}, "ending": "", "endings_seen": [],
+		"flags": {}, "inventory": [], "notebook": [], "movement_events": [], "p05_trace": [],
+		"hint": {"for": "", "level": 0}, "rooms": {}, "ending": "",
 	}
 	for rid in order:
 		var r: RoomSim = rooms[rid]
@@ -104,10 +121,24 @@ func reset(keep_settings := true) -> void:
 func room(rid := "") -> RoomSim:
 	return rooms.get(state.room if rid == "" else rid)
 
-func flag(name: String) -> bool:
-	return bool(state.flags.get(name, false))
+## The canonical spelling of a flag: the cards' "p07_complete" is "P07". Anything else is
+## returned unchanged.
+static func canon_flag(name: String) -> String:
+	if name.length() == 12 and name.begins_with("p") and name.ends_with("_complete") \
+			and name.substr(1, 2).is_valid_int():
+		return "P" + name.substr(1, 2)
+	return name
 
+func flag(name: String) -> bool:
+	return bool(state.flags.get(canon_flag(name), false))
+
+## Sets or clears a cross-room flag. Only valid ids (see _valid_flag) are kept, so a typo is
+## an error at the call, not a flag that silently vanishes on the next load.
 func set_flag(name: String, on := true) -> void:
+	name = canon_flag(name)
+	if not _valid_flag(name):
+		push_error("GameSim.set_flag: unknown flag '%s' (see docs/design/puzzle-cards/flags.md)" % name)
+		return
 	if on:
 		state.flags[name] = true
 	else:
@@ -116,8 +147,9 @@ func set_flag(name: String, on := true) -> void:
 func solved(pid: String) -> bool:
 	return flag(pid)
 
-## Marks a puzzle solved. Idempotent: a repeated commit never re-rewards or re-advances.
-## When the tide advances, a {fx: "tide", tide: n} event follows.
+## Marks a puzzle (or a transition flag such as "t1x_threshold_crossed") complete.
+## Idempotent: a repeated commit never re-rewards or re-advances. When the tide advances,
+## a {fx: "tide", tide: n} event follows.
 func solve(pid: String, ev: Array) -> void:
 	if flag(pid):
 		return
@@ -131,29 +163,70 @@ func solve(pid: String, ev: Array) -> void:
 static func tide_puzzles(n: int) -> Array:
 	return ["P%02d" % (3 * n - 2), "P%02d" % (3 * n - 1), "P%02d" % (3 * n)]
 
-func tide_complete(n: int) -> bool:
-	for p in tide_puzzles(n):
+## The flags whose completion ends tide n (flags.md section 1). Earlier puzzles of a tide
+## gate its last one, so these imply the rest in real play.
+const TIDE_DONE := [["P02", "P03"], ["P06"], ["P09"], ["P12"], ["P15"], ["P17", "P18"],
+	["P21"], ["P24"], ["P27"]]
+
+func tide_done(n: int) -> bool:
+	if n < 1 or n > 9:
+		return false
+	for p in TIDE_DONE[n - 1]:
 		if not flag(p):
 			return false
 	return true
 
+## The number of tides behind her: tide() - 1, or 9 once P27 is done.
 func tides_completed() -> int:
-	var k := 0
+	return 9 if tide_done(9) and tide() == 9 else tide() - 1
+
+## The current tide, 1..9: the lowest tide not done. Tide II does not begin until the Tide I
+## transition's threshold is crossed. Holds at 9 after P27 (the cards' "10"): the ending
+## reads P27 and ending_choice, not the tide. Derived from flags, never a clock.
+func tide() -> int:
 	for n in range(1, 10):
-		if tide_complete(n):
-			k = n
-		else:
-			break
+		if not tide_done(n) or (n == 1 and not flag("t1x_threshold_crossed")):
+			return n
+	return 9
+
+## Station-wide weather band 0..7 (GDD section 5 table, flags.md weather_band()): the count
+## of tides II..VIII done. 0 arrival through Tide I, 1 after Tide II ... 7 after Tide VIII;
+## Tide IX holds 7.
+func weather_band() -> int:
+	var k := 0
+	for n in range(2, 9):
+		if tide_done(n):
+			k += 1
 	return k
 
-## The current tide, 1..9. Derived from puzzle flags, never a clock.
-func tide() -> int:
-	return mini(tides_completed() + 1, 9)
+## The notebook station plan and fast travel (P05).
+func plan_unlocked() -> bool:
+	return flag("P05")
 
-## Station-wide weather milestone 0..7 (GDD section 5 table): 0 arrival through Tide I,
-## 1 after Tide II ... 7 after Tide VIII; Tide IX holds 7.
-func weather() -> int:
-	return clampi(tides_completed() - 1, 0, 7)
+## True when the room's way in is open (its REQUIRES); exits may add their own flags.
+func room_open(rid: String) -> bool:
+	return rooms.has(rid) and rooms[rid].can_enter()
+
+## Cross-room values that are not booleans (flags.md section 2): "p05_trace",
+## "movement_events", "ending_choice" (the state's `ending`), "endings_seen". Copies.
+func value(name: String) -> Variant:
+	match name:
+		"p05_trace", "movement_events":
+			return state[name].duplicate()
+		"ending_choice":
+			return state.ending
+		"endings_seen":
+			return settings.endings_seen.duplicate()
+	push_error("GameSim.value: unknown value '%s'" % name)
+	return null
+
+## Freezes P05's trace: the last three movement events, once (R03 calls it at RECORD). A
+## second call keeps the first value; P25 shows the stored value, never a recomputation.
+func freeze_p05_trace() -> Array:
+	if state.p05_trace.is_empty():
+		var m: Array = state.movement_events
+		state.p05_trace = m.slice(maxi(m.size() - P05_TRACE_LEN, 0))
+	return state.p05_trace.duplicate()
 
 func tide_title(n := -1) -> String:
 	if n < 0:
@@ -200,11 +273,22 @@ func seen_in(rid: String) -> Array:
 			out.append(k.substr(prefix.length()))
 	return out
 
-## Appends a recognized interaction to Ada's movement trace (P05 / P25 read it).
-func record(text: String) -> void:
-	state.trace.append(text)
-	while state.trace.size() > TRACE_MAX:
-		state.trace.pop_front()
+## Records one whitelisted movement event (MOVES) for P05. Consecutive duplicates collapse;
+## the oldest drop past MOVES_MAX. Unknown ids are an error and are not recorded.
+func record_move(id: String) -> void:
+	if not MOVES.has(id):
+		push_error("GameSim.record_move: '%s' is not in the movement whitelist" % id)
+		return
+	var m: Array = state.movement_events
+	if not m.is_empty() and m[-1] == id:
+		return
+	m.append(id)
+	while m.size() > MOVES_MAX:
+		m.pop_front()
+
+## The recorder's printed line for a movement event id.
+static func move_text(id: String) -> String:
+	return MOVES.get(id, "")
 
 # ---------------------------------------------------------------------------
 # travel
@@ -382,13 +466,13 @@ func _hint(ev: Array) -> void:
 func objective_text() -> String:
 	return room().objective_text() if room() else ""
 
-## The end card for `ending` ("sever" or "witness"). Called by the chamber room.
+## The end card for `ending` ("sever" or "continue"): sets ending_choice. Called by R12.
 func finish(ending: String) -> void:
 	if not ENDINGS.has(ending):
 		return
 	state.ending = ending
-	if not ending in state.endings_seen:
-		state.endings_seen.append(ending)
+	if not ending in settings.endings_seen:
+		settings.endings_seen.append(ending)
 	view = "end"
 
 ## Replay: back to the P26-complete decision with both endings available. The chamber
@@ -401,11 +485,7 @@ func save_checkpoint() -> void:
 func _return_to_decision(ev: Array) -> void:
 	if checkpoint.is_empty():
 		return
-	var seen_endings: Array = state.endings_seen.duplicate()
 	if from_dict(checkpoint):
-		for e in seen_endings:
-			if not e in state.endings_seen:
-				state.endings_seen.append(e)
 		ev.append({"type": "fx", "id": "travel", "from": "", "to": state.room})
 
 # ---------------------------------------------------------------------------
@@ -418,13 +498,17 @@ func to_dict() -> Dictionary:
 	return d
 
 func settings_dict() -> Dictionary:
-	return settings.duplicate()
+	return settings.duplicate(true)
 
 func load_settings(d: Variant) -> void:
 	if d is Dictionary:
 		for k in ["motion", "soft_audio"]:
 			if d.get(k) is bool:
 				settings[k] = d[k]
+		if d.get("endings_seen") is Array:
+			for e in d.endings_seen:
+				if e is String and ENDINGS.has(e) and not e in settings.endings_seen:
+					settings.endings_seen.append(e)
 
 ## Restores a save (full game, or a slice save that migrates). Ignores anything malformed.
 ## Returns true if loaded.
@@ -454,10 +538,16 @@ func from_dict(d: Variant) -> bool:
 		for v in d.visited:
 			if v is String and rooms.has(v) and not v in state.visited:
 				state.visited.append(v)
-	if d.get("trace") is Array:
-		for t in d.trace:
-			if t is String:
-				record(t)
+	if d.get("movement_events") is Array:
+		for t in d.movement_events:
+			if t is String and MOVES.has(t):
+				record_move(t)
+	if d.get("p05_trace") is Array and d.p05_trace.size() <= P05_TRACE_LEN:
+		var ok := true
+		for t in d.p05_trace:
+			ok = ok and t is String and MOVES.has(t)
+		if ok:
+			state.p05_trace = d.p05_trace.duplicate()
 	if d.get("hint") is Dictionary and d.hint.get("for") is String and RoomSim._all_whole([d.hint.get("level")]):
 		state.hint = {"for": d.hint["for"], "level": clampi(int(d.hint.level), 0, 3)}
 	for rid in order:
@@ -469,10 +559,6 @@ func from_dict(d: Variant) -> bool:
 		for k in d.notebook:
 			if k is String and _valid_observation(k) and not k in state.notebook:
 				state.notebook.append(k)
-	if d.get("endings_seen") is Array:
-		for e in d.endings_seen:
-			if e is String and ENDINGS.has(e) and not e in state.endings_seen:
-				state.endings_seen.append(e)
 	for rid in order:
 		rooms[rid].reconcile()
 	if not state.started:
@@ -481,12 +567,14 @@ func from_dict(d: Variant) -> bool:
 		state.visited.append(state.room)
 	view = "room" if state.started else "title"
 	var ending = d.get("ending")
-	if state.started and ending is String and ENDINGS.has(ending) and tide_complete(8):
+	if state.started and ending is String and ENDINGS.has(ending) and tide_done(8):
 		state.ending = ending
 		view = "end"
 	return true
 
 func _valid_flag(k: String) -> bool:
+	if k in GLOBAL_FLAGS:
+		return true
 	if k.length() == 3 and k.begins_with("P") and k.substr(1).is_valid_int():
 		var n := int(k.substr(1))
 		return n >= 1 and n <= 27
@@ -517,8 +605,8 @@ static func migrate_slice(d: Dictionary) -> Dictionary:
 	return {
 		"progress": {
 			"schema": SCHEMA, "started": started, "room": "R02", "visited": ["R02"] if started else [],
-			"flags": flags, "inventory": [], "notebook": notebook, "trace": [],
-			"hint": {"for": "", "level": 0}, "rooms": {"R02": local}, "ending": "", "endings_seen": [],
+			"flags": flags, "inventory": [], "notebook": notebook, "movement_events": [], "p05_trace": [],
+			"hint": {"for": "", "level": 0}, "rooms": {"R02": local}, "ending": "",
 		},
 		"settings": {"motion": d.get("motion", true), "soft_audio": d.get("soft_audio", false)},
 	}
@@ -535,6 +623,10 @@ func debug_tide(t: int, rid := "") -> void:
 	for n in range(1, t):
 		for p in tide_puzzles(n):
 			set_flag(p)
+	if t >= 2:
+		# The Tide I transition is behind her too (R02's reconcile confirms it from its state).
+		set_flag("closure_report_filed")
+		set_flag("t1x_threshold_crossed")
 	for r in order:
 		rooms[r].debug_prepare(t)
 	for r in order:

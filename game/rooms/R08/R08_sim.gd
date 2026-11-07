@@ -13,6 +13,7 @@ const ARRIVAL := "The machine room. A black diaphragm draws in against its restr
 ## [to, label, extra flags]: the ways out. The target's REQUIRES also apply.
 const EXITS := [
 	["R05", "Kitchen", []],
+	["R07", "Laboratory", []],
 ]
 const HOTSPOTS := ["diaphragm", "toggles", "drawing", "pump", "belts", "repairs"]
 const LOOKS := {

@@ -17,6 +17,7 @@ const EXIT_RECTS := {
 	"R02": Rect2(20, 922, 250, 64),
 	"R07": Rect2(282, 922, 250, 64),
 	"R08": Rect2(544, 922, 250, 64),
+	"R06": Rect2(806, 922, 250, 64),
 }
 const PALETTE := {"wall": Color("c9c2a3"), "trim": Color("6b5a3e"), "floor": Color("7d6e5c")}
 const SFX_DB := {}

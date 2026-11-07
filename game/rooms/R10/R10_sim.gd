@@ -41,7 +41,12 @@ const HINTS := {
 		"Look at each object in the room.",
 	],
 }
-const ITEMS := {}
+## Items this room hands out (docs/design/puzzle-cards/flags.md section 4).
+const ITEMS := {
+	"contact_sheet": {"name": "Contact sheet, 18 Oct 1927", "desc": "A contact sheet from the Index session."},
+	"venn_correspondence": {"name": "Venn's correspondence", "desc": "Letters from Venn's drawer in the vault."},
+	"witness_bridge": {"name": "Witness bridge", "desc": "A bridge part from the Index model, marked WITNESS."},
+}
 
 func initial_state() -> Dictionary:
 	return {}

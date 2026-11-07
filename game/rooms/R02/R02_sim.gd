@@ -7,7 +7,7 @@ extends RoomSim
 ## notebook, settings and hints-ladder bookkeeping live in the core (GameSim); this room
 ## owns P01, the drawer, the self-writing log, the closure report and the threshold, whose
 ## end card is now the Tide I transition: "Go on" returns her to the office with the
-## corridor open (flag R02.threshold), and the instrument rooms beyond it.
+## corridor open (flag t1x_threshold_crossed), and the instrument rooms beyond it.
 ##
 ## Every "delay" in an event is seconds after the click that caused it.
 ## "story" lines are part of a reveal: the view never drops them for a
@@ -32,7 +32,12 @@ const EXITS := [
 ]
 const HOTSPOTS := ["mug", "tray", "lamp", "logbook", "papers", "chair", "drawer", "puddle",
 	"hooks", "coat", "map", "stove", "window", "door"]
-const ITEMS := {}
+## Items this room hands out (docs/design/puzzle-cards/flags.md section 4).
+const ITEMS := {
+	"pencil": {"name": "Pencil", "desc": "Ada's own pencil. Short, and sharpened with a knife."},
+	"venn_tide_sheet": {"name": "Venn's tide sheet, 17 Oct", "desc": "His second tide sheet from the drawer, with a registration cross and a north arrow."},
+	"inspection_lens": {"name": "Inspection lens", "desc": "A brass-rimmed lens from Venn's drawer."},
+}
 
 ## The drawer plate wants the hour the log says she mends the lamp: 18:52.
 const DRAWER_CODE := [1, 8, 5, 2]
@@ -353,13 +358,16 @@ func act(action: String, ev: Array) -> void:
 	elif local_view == "threshold" and action == "continue":
 		state.finished = true
 		local_view = "end"
-		game.set_flag("R02.threshold")
+		game.record_move("held_still")
+		game.solve("t1x_threshold_crossed", ev)
 		_sfx(ev, "motif")
 	elif local_view == "threshold" and action == "turn":
 		state.turned = true
 		state.finished = true
 		local_view = "end"
-		game.set_flag("R02.threshold")
+		game.record_move("turned_round")
+		game.set_flag("t1x_turned")
+		game.solve("t1x_threshold_crossed", ev)
 		_sfx(ev, "exhale_near")
 		_sfx(ev, "motif", 1.4)
 		_fx(ev, "turn")
@@ -615,6 +623,7 @@ func _logbook(ev: Array) -> void:
 	state.log_read = true
 	_observe("handwriting")
 	if first:
+		game.record_move("log_read")
 		_say(ev, "He's worked out the tides to tomorrow. In advance.", 0.0, true)
 		_say(ev, "And the last line... that's my handwriting.", 1.4, true)
 		_say(ev, "One of the times is under a tide-stain. His margin note isn't.", 3.0, true)
@@ -717,6 +726,7 @@ func _drawer(action: String, ev: Array) -> void:
 			var code: Array = state.drawer_dial
 			if code == DRAWER_CODE and state.log_read:
 				state.drawer_open = true
+				game.record_move("drawer_opened")
 				_observe("watch")
 				_observe("photo")
 				_sfx(ev, "drawer")
@@ -787,6 +797,8 @@ func _report(action: String, ev: Array) -> void:
 				return
 			if state.report_fields == REPORT_ANSWER and state.report_time == REPORT_TIME_ANSWER:
 				state.report_filed = true
+				game.record_move("report_signed")
+				game.set_flag("closure_report_filed")
 				_observe("report")
 				_sfx(ev, "sign")
 				_say(ev, "I sign it. A. Mercer, observer.", 0.0, true)
@@ -824,6 +836,7 @@ func _repair(action: String, ev: Array) -> void:
 			if state.supply_on and state.bridge_installed and not state.p01_complete:
 				state.p01_complete = true
 				_observe("lamp")
+				game.record_move("lamp_mended")
 				game.solve("P01", ev)
 				local_view = "room"
 				selected = ""
@@ -943,10 +956,12 @@ func load_state(d: Variant) -> void:
 	state.contours_seen = state.contours_seen and state.soundings_heard and state.seat_wet
 	# The threshold and its end card are never restored: a save lands in the room.
 
-## P01 and the threshold passage are R02's flags: they follow its state.
+## P01 and the Tide I transition flags are R02's (flags.md): they follow its state.
 func reconcile() -> void:
 	game.set_flag("P01", state.p01_complete)
-	game.set_flag("R02.threshold", state.finished)
+	game.set_flag("closure_report_filed", state.report_filed)
+	game.set_flag("t1x_threshold_crossed", state.finished)
+	game.set_flag("t1x_turned", state.turned)
 
 ## Dev-only: jump to a story stage (0-3), or 4 = stage 3 with the report filed, or 5 = the
 ## threshold passed (Tide I continues). Builds the state the real actions would, on a

@@ -15,6 +15,7 @@ const HOTSPOTS := [
 ## Where each exit is clicked. The core draws these as tabs on the HUD layer.
 const EXIT_RECTS := {
 	"R05": Rect2(20, 922, 250, 64),
+	"R07": Rect2(282, 922, 250, 64),
 }
 const PALETTE := {"wall": Color("9da39a"), "trim": Color("292929"), "floor": Color("5a544c")}
 const SFX_DB := {}

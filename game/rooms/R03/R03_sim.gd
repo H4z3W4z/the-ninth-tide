@@ -6,7 +6,7 @@ extends RoomSim
 
 const ID := "R03"
 const TITLE := "Chart Room"
-const REQUIRES := ["P01", "R02.threshold"]
+const REQUIRES := ["P01"]
 const LOCKED := "The chart room door is latched. Electrically, by the feel of it."
 const RESUME := "Back in the chart room."
 const ARRIVAL := "The chart room. A tide pen scratches against a drum that isn't turning."
@@ -14,6 +14,7 @@ const ARRIVAL := "The chart room. A tide pen scratches against a drum that isn't
 const EXITS := [
 	["R02", "Office", []],
 	["R11", "Observation hatch", []],
+	["R04", "Listening room", []],
 ]
 const HOTSPOTS := ["recorder", "sheets", "plate", "hatch", "window", "lever"]
 const LOOKS := {
@@ -42,7 +43,10 @@ const HINTS := {
 		"Look at each object in the room.",
 	],
 }
-const ITEMS := {}
+## Items this room hands out (docs/design/puzzle-cards/flags.md section 4).
+const ITEMS := {
+	"chart_clips": {"name": "Chart clips", "desc": "Brass clips from the chart table, for holding sheets in register."},
+}
 
 func initial_state() -> Dictionary:
 	return {}

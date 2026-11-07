@@ -6,13 +6,14 @@ extends RoomSim
 
 const ID := "R04"
 const TITLE := "Listening Room"
-const REQUIRES := ["P01", "R02.threshold"]
+const REQUIRES := ["P01"]
 const LOCKED := "The listening room door is latched. Electrically, by the feel of it."
 const RESUME := "Back in the listening room."
 const ARRIVAL := "The listening room. Ear trumpets point into a sealed plaster wall."
 ## [to, label, extra flags]: the ways out. The target's REQUIRES also apply.
 const EXITS := [
 	["R02", "Office", []],
+	["R03", "Chart room", []],
 ]
 const HOTSPOTS := ["funnels", "spindle", "bands", "stool", "board", "dial"]
 const LOOKS := {

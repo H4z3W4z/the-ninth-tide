@@ -195,7 +195,10 @@ func test_full_playthrough() -> void:
 	check(has_ev(ev, "fx", "threshold") and has_ev(ev, "sfx", "door") and says(ev) == "", "threshold: door + fx, no line")
 	s.dispatch("continue")
 	check(s.view == "end" and s.state.finished, "continue reaches the end card")
-	check(s.game.flag("R02.threshold"), "the threshold passage is recorded for the corridor")
+	check(s.game.flag("t1x_threshold_crossed") and s.game.flag("closure_report_filed"),
+		"the Tide I transition flags are recorded for the corridor")
+	check(s.game.value("movement_events") == ["lamp_mended", "log_read", "drawer_opened", "report_signed", "held_still"],
+		"the office records its movement events in order (%s)" % [s.game.value("movement_events")])
 	ev = s.dispatch("end_continue")
 	check(s.view == "room" and s.state.finished and s.objective() == "done", "Go on: Tide I continues, back in the office")
 	check(s.game.exit_open("R02", "R03") and s.game.exit_open("R02", "R04"), "the corridor opens on the instrument rooms")
@@ -1809,6 +1812,9 @@ func test_endings() -> void:
 	check(s.end_lines() == [R02Sim.END_ON_STATION, R02Sim.END_CONTINUES], "turned: end lines")
 	var t := roundtrip(s)
 	check(t.state.turned and t.view == "room", "turned round-trips; a save lands in the office")
+	check(s.game.flag("t1x_turned") and t.game.flag("t1x_turned") and t.game.flag("t1x_threshold_crossed"),
+		"t1x_turned and the threshold follow the office's state through a save")
+	check(s.game.value("movement_events").back() == "turned_round", "turning round is a recorded move")
 	var n := new_sim()
 	n.debug_jump(4)
 	n.dispatch("door")

@@ -15,6 +15,7 @@ const EXITS := [
 	["R05", "Kitchen", []],
 	["R10", "Records vault", []],
 	["R11", "Stair door", ["P12"]],
+	["R08", "Machine room", []],
 ]
 const HOTSPOTS := ["jars", "rack", "balance", "tank", "datum", "cards"]
 const LOOKS := {
@@ -43,7 +44,11 @@ const HINTS := {
 		"Look at each object in the room.",
 	],
 }
-const ITEMS := {}
+## Items this room hands out (docs/design/puzzle-cards/flags.md section 4).
+const ITEMS := {
+	"nora_register_card": {"name": "Register card: Nora Bell", "desc": "A specimen register card with Nora Bell's name on the tab."},
+	"nora_frame": {"name": "Specimen frame: N. Bell", "desc": "A specimen frame holding three traces."},
+}
 
 func initial_state() -> Dictionary:
 	return {}

@@ -5,7 +5,7 @@ extends "res://tests/rooms/room_test_base.gd"
 
 const ROOM := "R03"
 ## Flags that must all be set to enter (GDD section 5 traversal topology).
-const EXPECT_REQUIRES := ["P01", "R02.threshold"]
+const EXPECT_REQUIRES := ["P01"]
 ## First tide at whose start the room is reachable from the office by real gates.
 const OPEN_TIDE := 2
 

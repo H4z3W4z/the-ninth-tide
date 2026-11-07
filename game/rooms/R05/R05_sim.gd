@@ -15,6 +15,7 @@ const EXITS := [
 	["R02", "Office", []],
 	["R07", "Laboratory", []],
 	["R08", "Machine room", []],
+	["R06", "Bunk room", []],
 ]
 const HOTSPOTS := ["table", "bowls", "ledger", "cup", "board", "drawer"]
 const LOOKS := {
@@ -43,7 +44,10 @@ const HINTS := {
 		"Look at each object in the room.",
 	],
 }
-const ITEMS := {}
+## Items this room hands out (docs/design/puzzle-cards/flags.md section 4).
+const ITEMS := {
+	"token_pantry_half": {"name": "Service token, pantry half", "desc": "Half of a split brass service token."},
+}
 
 func initial_state() -> Dictionary:
 	return {}

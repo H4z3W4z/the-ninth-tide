@@ -41,11 +41,12 @@ func use_item(item: String, target: String, ev: Array) -> bool:
 		game.solve("P01", ev)
 		game.solve("P02", ev)
 		game.solve("P03", ev)
+		game.solve("t1x_threshold_crossed", ev)
 		_say(ev, "The box opens.")
 		return true
 	return false
 
 func reconcile() -> void:
 	if not state.box_open:
-		for p in ["P01", "P02", "P03"]:
+		for p in ["P01", "P02", "P03", "t1x_threshold_crossed"]:
 			game.set_flag(p, false)
