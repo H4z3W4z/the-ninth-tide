@@ -14,7 +14,9 @@ const TITLE := "Wet Laboratory"
 const REQUIRES := ["P09"]
 const LOCKED := "The laboratory door is behind the kitchen's service access. It's sealed."
 const RESUME := "Back in the wet laboratory."
-const ARRIVAL := "The wet laboratory. Three jars of seawater, and the water in each one lies at its own angle."
+const ARRIVAL := "The wet laboratory. Three sealed jars of seawater on a canted rack, all half full."
+## The way in, for the core's hint toward this room.
+const WAY_IN_HINT := "The hatch in the kitchen floor is open: the laboratory and the machine room."
 ## [to, label, extra flags]: the ways out. The target's REQUIRES also apply.
 const EXITS := [
 	["R05", "Kitchen", []],
@@ -49,12 +51,13 @@ const RACK_CANT_DEG := 12.0
 const TIP_DEG := 90.0
 const LEAN_DEG := 34.0
 const PANE_DEG := -58.0
-const REF_CARD := "A valid sample: surface follows the station datum, independent of vessel."
+const REF_CARD := "A valid sample keeps the station's own level: the brass, not the bob, not the glass."
 const TAG_TEXT := "DATUM READING STABLE. STAIR PRESSURE TARGET: 2."
+## At rest the three look alike: only a tip on the rack tells them apart.
 const JAR_LINES := {
-	"A": "Jar A. Its water lies at the plumb bob's slant, like the tank's.",
-	"B": "Jar B. Its water lies square to the jar, and the jar is leaning in the rack.",
-	"C": "Jar C. Its water lies square with the room. With the brass line.",
+	"A": "Jar A. Half full. Sealed with wax.",
+	"B": "Jar B. Half full. Sealed with wax.",
+	"C": "Jar C. Half full. Sealed with wax.",
 }
 const TIP_SFX := {"A": "slosh_a", "B": "glass_creak_b", "C": "slosh_c"}
 const TIP_LINES := {
@@ -88,7 +91,9 @@ const SAMPLE_LINES := {
 	"W": "Sample W. Seawater in a vial.",
 	"F": "Sample F. A chip of the foundation stone.",
 }
-const SAMPLE_CARDS_LINE := "Three sample cards, in drams. N: nought, three, nought, stamped SPECIMEN N-27. W, seawater: nought all through. F, foundation stone: two all through."
+const SAMPLE_CARDS_LINE := "Three sample cards, in drams. N, stamped N-27. W, seawater, W-27. F, foundation stone, F-27. The readings are left for the balance."
+## The stamps on the sample cards (the readings are found only by running the balance).
+const CARD_STAMPS := {"N": "N-27", "W": "W-27", "F": "F-27"}
 const RECORDED_LINE := "Recorded. I'll leave it as it is."
 const BEAM_LOCKED := "BEAM LOCKED."
 const NO_CORRESPONDENCE := "NO CORRESPONDENCE"
@@ -105,6 +110,10 @@ const SECTION_LABELS := {"short": "SHORT RISES", "pause": "PAUSE", "long": "LONG
 const CATEGORY := "BODY"
 const INSCRIPTION := "Retention is not resuscitation."
 const KITCHEN_CARD := "Her work card isn't here. It hangs in the kitchen, by the range."
+## SEAL before her work card has been seen.
+const SEEN_GATE := "I need her trace to compare. It's on the nail by the range."
+const SECTION_LINE := "A trace section."
+const P14_TAIL := "CATEGORY: BODY. Printed, not written. The frame was waiting to be filled."
 
 # --- escalation ------------------------------------------------------------------------------
 ## First-time arrival holds in view A, oldest first. Seeing one retires every older one.
@@ -112,12 +121,24 @@ const NOTICES := ["angles", "tank_lag", "vault_ajar", "jars_to_vault", "tank_pan
 const BENCH_NOTICES := ["shells_rings"]
 const NOTICE_LINES := {
 	"tank_lag": "The tank's reflection is behind the room. It still has jar C in the rack.",
-	"vault_ajar": "The vault door's open a hand's width. Nobody unlatched it from this side.",
+	"vault_ajar": "The vault door's open a hand's width.",
 	"jars_to_vault": "Every jar's water has tilted toward the vault door.",
 	"tank_pane": "The tank. Its surface is standing on edge. And the hum's stopped.",
 	"jars_face": "The water in the jars has turned. It's facing me.",
 	"shells_rings": "The shells have lined up.",
 }
+## Notices that arrive silently: only their visual change and sound play on arrival; the line
+## waits for her first click on the thing itself (state.<id>_said).
+const SILENT_NOTICES := ["vault_ajar"]
+## Lines of the P10 lean and the P13 thumb.
+const LEAN_LINES := ["...The water in C leaned toward me.", "Now it's level again. It took longer than water should."]
+const THUMB_TAIL := "Pressed into the felt. The nap hasn't risen back yet."
+## Rewards are seen: the glance at the end of each commit chain (view A / view B rects), and
+## how long after the click it starts (once the chain's last line is up).
+const GLANCE_SOCKET := Rect2(716, 318, 130, 362)
+const GLANCE_FRAME := Rect2(720, 330, 250, 270)
+const GLANCE_DELAY := {"p10": 1.6, "p14": 2.2}
+
 ## After the sever ending the room is released: everything lies level.
 const SEVER_LINES := {
 	"jar_a": "Level. All of them, with each other and with the line.",
@@ -132,18 +153,18 @@ const SEVER_LINES := {
 }
 
 const OBSERVATIONS := {
-	"angles": "Three sealed jars on a canted rack, A, B and C, each half full of seawater. The water in each lies at its own angle.",
+	"angles": "Three sealed jars on a canted rack, A, B and C, each half full of seawater. At rest they look alike: the tilt rack is the test.",
 	"datum": "A brass line set into the wall, labelled DATUM. The room is built square to it: tiles, shelves, floor. Beside it a plumb bob labelled GRAVITY hangs eight degrees off the wall. The station was built on the datum, not on level ground.",
 	"tank": "A flotation tank. Its water lies at the plumb bob's slant, eight degrees off the room. Ordinary water: it follows gravity.",
 	"basin_drip": "The basin tap drips. Every drop falls at a slant, along the plumb line, not down the tiles.",
 	"drip_hangs": "The drop at the basin tap doesn't fall. It hangs at the spout.",
-	"reference_card": "Reference card above the socket: 'A valid sample: surface follows the station datum, independent of vessel.'",
+	"reference_card": "Reference card above the socket: 'A valid sample keeps the station's own level: the brass, not the bob, not the glass.'",
 	"rack": "A tilt rack. Its cradle tips one jar through a fixed quarter-turn, and a test card draws the jar's surface against three printed lines: GRAVITY (solid), JAR (dashed), DATUM (dot-dash).",
 	"test_a": "Jar A, tipped a quarter-turn: its surface stayed on the GRAVITY line. A follows gravity.",
 	"test_b": "Jar B, tipped a quarter-turn: its surface turned with the jar, on the JAR line. B follows its jar.",
 	"test_c": "Jar C, tipped a quarter-turn: its surface stayed on the DATUM line, square with the room, whatever the jar did. C follows the datum.",
 	"datum_target": "Jar C's water follows the station's datum, not gravity and not its jar. The reference socket gives a stair pressure target: 2.",
-	"lean": "When I stepped back from the socket, the water in jar C leaned toward me, held, and settled level with the datum again. The reading was already on the tag.",
+	"lean": "When I stepped back from the socket, the water in jar C leaned toward me, held there longer than water should, and settled level with the datum again. The reading was already on the tag.",
 	"vault_door": "A steel door marked RECORDS. Latched from the far side.",
 	"return_door": "A door marked STAIR. Dry, and cold to the touch. It opens from the stair side.",
 	"tank_lag": "The tank's reflection runs behind the room. It still shows jar C standing in the rack, and its ripples run the other way.",
@@ -154,13 +175,13 @@ const OBSERVATIONS := {
 	"balance": "A balance: a pan for the sample, an empty control tray lined in felt opposite. Keys: ADDRESS, RELEASE, RECORD. A strip printer with three cells: UNATTENDED, ADDRESSED, RELEASED.",
 	"beam_locked": "The balance beam is pinned. The gauge on its foot reads 0. It runs off the stair circuit.",
 	"control_tray": "An empty control tray lined with green felt. Everything on the balance is weighed against it.",
-	"sample_cards": "Three sample cards, in drams, across UNATTENDED / ADDRESSED / RELEASED. N: 0 → 3 → 0, stamped SPECIMEN N-27. W (seawater): 0 → 0 → 0. F (foundation stone): 2 → 2 → 2.",
+	"sample_cards": "Three sample cards, in drams, across UNATTENDED / ADDRESSED / RELEASED, the readings left blank for the balance. N is stamped N-27, W (seawater) W-27, F (foundation stone) F-27.",
 	"register": "Specimen register: eight staff cards, BELL, DOANE, HART, IVES, LUSK, PRYCE, ROOK, TULL. Every one is stamped INDEXED 18.X.27 and reads 'No surviving personal effects.' Only Nora Bell's also carries SPECIMEN N-27.",
 	"register_bell": "BELL, N. Cook and caretaker. No surviving personal effects.",
 	"nora_mass_trace": "Sample N weighs nothing unattended, three drams when addressed as Nora Bell, nothing when released.",
-	"thumb": "A thumbprint appeared in the empty control tray, pressed into the felt, as if someone had steadied herself on it.",
+	"thumb": "A thumbprint appeared in the empty control tray, pressed into the felt. The nap hadn't risen back yet.",
 	"thumb_flour": "Under the lens, there's a fleck of flour in the thumbprint.",
-	"frame_stand": "A specimen frame on a stand: three trace slots, a name tab, a clip for a balance strip, a SEAL FRAME key. Three loose trace sections in a glass tray: SHORT RISES, PAUSE, LONG RISE.",
+	"frame_stand": "A specimen frame on a stand: three trace slots, a name tab, a clip for a balance strip, a SEAL FRAME key. Three loose trace sections in a glass tray, unlabelled: only their shapes.",
 	"nora_breath_trace": "Nora Bell's breath, rebuilt from her 1927 calibration card: two short rises, a pause, one long rise. Framed with her name and her weight.",
 	"sealed_jar": "A sealed jar on its own on the bench, empty. Something is etched on the inside of the glass, too fine to read.",
 	"inscription": "The sealed jar fogged from the inside, once, in her rhythm: two short, a pause, one long. In the fog, words etched on the inside of the glass: 'Retention is not resuscitation.'",
@@ -176,8 +197,8 @@ const OBJECTIVES := {
 }
 const HINTS := {
 	"p10": [
-		"The laboratory's three jars don't agree about level.",
-		"The card wants a surface that follows the brass datum line, whatever the jar does. Test each one.",
+		"The laboratory's three jars look alike at rest. The tilt rack tests them.",
+		"The card wants the brass: a surface that keeps the datum's level, whatever the jar does. Tip each one.",
 		"Test all three. C stays parallel to the datum. Put C in the reference socket.",
 	],
 	"p13": [
@@ -187,7 +208,7 @@ const HINTS := {
 	],
 	"p14": [
 		"The specimen frame wants a trace, a name and the measurement.",
-		"Nora's work card shows the order of her breath. The register card gives the name; the balance gave the strip.",
+		"Nora's work card shows the shape of her breath. Match the sections to it. The register card gives the name; the balance gave the strip.",
 		"Short rises, pause, long rise. Name tab from her card, clip the 0/3/0 strip, seal the frame.",
 	],
 	"wait_p12": [
@@ -208,7 +229,7 @@ const ITEMS := {
 }
 
 const SAVED_BOOLS := ["p10_complete", "lean_seen", "tap_on", "p13_complete", "thumb_seen",
-	"p14_complete", "name_tab", "strip_clipped", "fog_seen", "frame_opened", "bench_seen"]
+	"p14_complete", "name_tab", "strip_clipped", "fog_seen", "frame_opened", "bench_seen", "vault_ajar_said"]
 
 ## Transient, never saved: what the view animates or highlights after the last action.
 var last_test := ""      # the jar just tipped
@@ -222,7 +243,7 @@ func initial_state() -> Dictionary:
 		"socket": "", "lean_seen": false, "tap_on": false,
 		"p13_complete": false, "pan": "", "holder": "", "step": 0, "thumb_seen": false,
 		"p14_complete": false, "slots": ["", "", ""], "name_tab": false, "strip_clipped": false,
-		"fog_seen": false, "frame_opened": false, "bench_seen": false,
+		"fog_seen": false, "frame_opened": false, "bench_seen": false, "vault_ajar_said": false,
 		"notices": [], "bench_notices": [],
 	}
 
@@ -264,6 +285,11 @@ static func surface_deg(rule: String, jar_rot: float) -> float:
 		"jar":
 			return jar_rot
 	return DATUM_DEG
+
+## A rack jar's surface at rest (no tip): all three keep jar A's resting slant, so only a tip
+## on the rack tells them apart. Jar C in the socket shows its own rule (see the view).
+static func rack_rest_deg(_j: String) -> float:
+	return surface_deg(JAR_RULE.A, RACK_CANT_DEG)
 
 ## A jar's rotation at rest: the rack is canted; the socket holds C square.
 func jar_rest_rot(j: String) -> float:
@@ -397,7 +423,8 @@ func arrive(ev: Array, first: bool) -> void:
 		_mark_notice(n)
 		if n == "vault_ajar":
 			_sfx(ev, "vault_settle", 0.6)
-		_say(ev, NOTICE_LINES[n], 1.6)
+		if not n in SILENT_NOTICES:
+			_say(ev, NOTICE_LINES[n], 1.6)
 		_observe(n)
 
 func back(ev: Array) -> void:
@@ -409,8 +436,8 @@ func back(ev: Array) -> void:
 				state.lean_seen = true
 				_fx(ev, "notice_lean")
 				_sfx(ev, "water_lean", 0.8)
-				_say(ev, "...It leaned. The water in C leaned toward me.", 1.0, true)
-				_say(ev, "Now it's level with the brass again.", 3.2, true)
+				_say(ev, LEAN_LINES[0], 1.0, true)
+				_say(ev, LEAN_LINES[1], 3.8, true)
 				_observe("lean")
 		"c_balance":
 			local_view = "bench"
@@ -518,6 +545,10 @@ func _room(action: String, ev: Array) -> void:
 				_sfx(ev, "door_rattle")
 				_say(ev, "A steel door marked RECORDS. Latched from the far side.")
 				_observe("vault_door")
+			elif vault_ajar() and not state.vault_ajar_said:
+				state.vault_ajar_said = true
+				_say(ev, NOTICE_LINES.vault_ajar)
+				_observe("vault_ajar")
 			else:
 				_say(ev, "The vault's through here.")
 		"return_door":
@@ -700,6 +731,7 @@ func _seat(ev: Array) -> void:
 	_sfx(ev, "tag_drop", 1.2)
 	_fx(ev, "tag")
 	_say(ev, "A tag drops out of the slot: %s" % TAG_TEXT, 1.4, true)
+	_glance(ev, "p10", GLANCE_SOCKET)
 
 # ---------------------------------------------------------------------------------------------
 # P13: c_balance
@@ -867,7 +899,7 @@ func _record(ev: Array) -> void:
 	_sfx(ev, "felt_press", 3.6)
 	_fx(ev, "thumb")
 	_say(ev, "...There's a thumbprint in the empty tray.", 4.0, true)
-	_say(ev, "Pressed into the felt. As if someone had steadied herself on it.", 5.6, true)
+	_say(ev, THUMB_TAIL, 5.6, true)
 	_observe("thumb")
 	state.thumb_seen = true
 
@@ -882,7 +914,7 @@ func _frame(action: String, ev: Array) -> void:
 		var s := action.substr(4)
 		held = "" if held == s else s
 		_sfx(ev, "section_slide")
-		_say(ev, SECTION_LABELS[s] + ".")
+		_say(ev, SECTION_LINE)
 		return
 	if action.begins_with("slot_"):
 		_slot(int(action.substr(5)), ev)
@@ -904,7 +936,7 @@ func _frame(action: String, ev: Array) -> void:
 				_say(ev, "Clipped.")
 		"ref_card":
 			if reference_seen():
-				_say(ev, "Her work card: two short rises, a pause, one long rise.")
+				_say(ev, "Her work card's trace, copied beside the frame. The sections have to match it.")
 			else:
 				_say(ev, KITCHEN_CARD)
 		"seal":
@@ -944,7 +976,7 @@ func _seal(ev: Array) -> void:
 		_sfx(ev, "key_refuse")
 		if not reference_seen():
 			frame_miss = []
-			_say(ev, "I don't know her breath yet. Her work card hangs in the kitchen, by the range.")
+			_say(ev, SEEN_GATE)
 			return
 		frame_miss = []
 		for k in 3:
@@ -974,10 +1006,14 @@ func _seal(ev: Array) -> void:
 	_sfx(ev, "frame_seal", 0.0)
 	_fx(ev, "frame_sealed")
 	_say(ev, "Sealed. Her breath, her name, her weight, in one frame.", 0.4, true)
-	var label := "The label was printed before I came: CATEGORY: %s." % CATEGORY
-	if game.has_seen("R08", "reference_respiration"):
-		label += " Like the nameplate under the belt."
-	_say(ev, label, 2.0, true)
+	_say(ev, P14_TAIL, 2.0, true)
+	_glance(ev, "p14", GLANCE_FRAME)
+
+## The reward glance at the end of a commit chain: the view brackets (and, Motion on, zooms
+## to) `rect`, `delay` s after the click, once the chain's last line is up. The fx's own id is
+## "glance"; `glance` names which one.
+func _glance(ev: Array, gid: String, rect: Rect2) -> void:
+	ev.append({"type": "fx", "id": "glance", "glance": gid, "rect": rect, "delay": GLANCE_DELAY[gid]})
 
 # ---------------------------------------------------------------------------------------------
 # inventory
