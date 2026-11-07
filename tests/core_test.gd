@@ -100,8 +100,16 @@ func run() -> void:
 	await test_consume_click()
 	await test_room_hooks()
 	await test_cinematic_keys()
+	await test_closeup_now_and_plan()
+	test_end_card_lines()
+	await test_end_clears_lines()
+	test_resume_view()
+	await test_travel_outside_graph()
+	test_retired_items()
+	test_plan_equals_walking()
+	await test_plan_button()
 	if failures.is_empty():
-		print("PASS: core — discovery, topology, gates per tide, tides and weather, travel, latched office, inventory, notebook, hints, saves, slice migration, debug jumps, plan travel, endings, events, objective elsewhere, objective every tide, plan from a close-up, load behind a gate, scene rooms, scene saves, inventory paging, notebook pages, hover and back, travel fade, card and slab, placeholder, item on exit, item labels, hint ladder, build end, tide card waits, tide card in a close-up, clicks never eaten, hover labels, glance, consume_click, room hooks, cinematic keys")
+		print("PASS: core — discovery, topology, gates per tide, tides and weather, travel, latched office, inventory, notebook, hints, saves, slice migration, debug jumps, plan travel, endings, events, objective elsewhere, objective every tide, plan from a close-up, load behind a gate, scene rooms, scene saves, inventory paging, notebook pages, hover and back, travel fade, card and slab, placeholder, item on exit, item labels, hint ladder, build end, tide card waits, tide card in a close-up, clicks never eaten, hover labels, glance, consume_click, room hooks, cinematic keys, Now: after P02, end card lines, end clears lines, resume view, travel outside the graph, retired items, plan equals walking, plan button")
 	else:
 		print("FAIL (%d): %s" % [failures.size(), "; ".join(failures)])
 	for i in 10:
@@ -687,14 +695,21 @@ func test_objective_elsewhere() -> void:
 	var now := g.objective_text()
 	check(now != "" and now.begins_with("Intake Office: "), "Now: names the Intake Office (%s)" % now)
 	check(now == "Intake Office: " + g.room("R02").objective_text(), "Now: carries the office's own objective")
-	var ev := g.dispatch("hint")
-	check(says(ev) == "Something in the intake office has changed.", "hint 1: where (%s)" % says(ev))
+	# She has been in the office: no where-step (Now: names it), and none of its own
+	# "Something ... has changed." tiers; straight to its ladder.
+	var want := []
+	for lv in 3:
+		var l: String = g.room("R02").hint_line(lv)
+		if not GameSim._changed_line(l) and not l in want:
+			want.append(l)
+	var got := []
+	for i in want.size():
+		got.append(says(g.dispatch("hint")))
+	check(got == want, "hints from R04: the office's own ladder, no stale room news (%s vs %s)" % [got, want])
 	check(g.state.hint["for"] == "R04:->R02", "the hint key names the room it points at")
-	ev = g.dispatch("hint")
-	check(says(ev) == g.room("R02").hint_line(0), "hint 2: the office's own first rung")
-	g.dispatch("hint")
-	ev = g.dispatch("hint")
-	check(says(ev) == g.room("R02").hint_line(2), "hint 4: the office's solution")
+	for l in got:
+		check(not GameSim._changed_line(l), "no 'Something in the ... has changed.' toward a visited room (%s)" % l)
+	var ev: Array
 	g.dispatch("go:R02")
 	ev = g.dispatch("hint")
 	check(says(ev) == g.room("R02").hint_line(0), "in the office the ladder starts over, on its own objective")
@@ -1034,9 +1049,16 @@ func test_hint_ladder() -> void:
 	var g: GameSim = await chain_at("P06")
 	check(g.work_elsewhere() == "R05" and not "R05" in g.state.visited, "after P06 the work is in the unvisited kitchen")
 	var r5: RoomSim = g.room("R05")
-	var want: String = r5.c("WAY_IN_HINT", "The way into the %s is open now." % str(r5.c("TITLE")).to_lower())
+	var want := "The kitchen and mess is through the intake office."
 	var ev := g.dispatch("hint")
-	check(says(ev) == want, "an unvisited room: its way in (%s)" % says(ev))
+	check(says(ev) == want, "an unvisited room: through the visited room that leads there (%s)" % says(ev))
+	# With no visited neighbour, the room's own WAY_IN_HINT.
+	var lone := GameSim.new()
+	lone.debug_tide(3, "R02")
+	lone.state.visited = ["R01"]
+	var wl: Array = lone._elsewhere_ladder("R05")
+	check(wl[0] == r5.c("WAY_IN_HINT", "The way into the kitchen and mess is open now."),
+		"no visited neighbour: the way-in hint (%s)" % wl[0])
 	g = await chain_at("P03")
 	g.debug_enter("R04")
 	var lines := []
@@ -1047,6 +1069,11 @@ func test_hint_ladder() -> void:
 			"after P03 in R04: hint %d and %d differ (%s)" % [i, i + 1, lines])
 	check(not ("Something in the intake office has changed." in lines and "Something in the office has changed." in lines),
 		"the ladder says where once (%s)" % [lines])
+	var trimmed := lines.duplicate()   # the ladder may stop on its last rung; nothing else repeats
+	while trimmed.size() > 1 and trimmed[-1] == trimmed[-2]:
+		trimmed.pop_back()
+	for i in trimmed.size():
+		check(trimmed.find(trimmed[i]) == i, "no hint line repeats (%s)" % [lines])
 	for presses in [1, 2, 3, 6]:
 		var h := GameSim.new()
 		h.debug_tide(1, "R02")
@@ -1405,4 +1432,225 @@ func test_cinematic_keys() -> void:
 		scene.click(b[1].get_center())
 		check(scene.sim.view == "room" and scene.room_sim().local_view == "end", "the hidden HUD's %s does nothing" % b[0])
 	scene.room_sim().local_view = "room"
+	await free_scene(scene)
+
+# ---------------------------------------------------------------------------
+# wave 3 core fixes
+# ---------------------------------------------------------------------------
+## After P01 and P02, with P03 open, "Now:" from the listening room points at the chart room.
+func test_closeup_now_and_plan() -> void:
+	var g: GameSim = await chain_at("P02")
+	check(g.flag("P01") and g.flag("P02") and not g.flag("P03"), "fixture: P01, P02 done, P03 open")
+	g.debug_enter("R04")
+	var now := g.objective_text()
+	check(now.begins_with("Chart Room:"), "Now: after P02 from R04 names the chart room (%s)" % now)
+	check(g.objective_puzzle("R03") == "P03" and g.puzzle_open("P03"), "R03's objective is the open P03")
+	check(not g.puzzle_open("P02") and not g.puzzle_open("P04"), "solved and gated puzzles are not open")
+
+func test_end_card_lines() -> void:
+	check(GameSim.ENDINGS.sever.lines == ["I write eight names. Then his.", "\"I cannot certify their absence.\""],
+		"the severance card's lines")
+	check(GameSim.ENDINGS.continue.lines.size() == 2, "the continuation card keeps its lines")
+	check(GameSim.ENDINGS.sever.still == "res://assets/rooms/R12/end_a_page.png"
+		and GameSim.ENDINGS.continue.still == "res://assets/rooms/R12/end_b_field.png", "each ending names its still")
+
+## An ending's lines still queued when the card goes up never follow her back into R12.
+func test_end_clears_lines() -> void:
+	var scene = new_scene("user://core_end_lines_test.json")
+	await process_frame
+	scene.tide_jump(9, "R12")
+	scene.sim.save_checkpoint()
+	scene._show_line("An ending line, still on the screen.", true)
+	scene._queue_line("An ending line, still queued.", 1.5, true)
+	scene.sim.finish("sever")
+	scene._mount_room()
+	scene.end_t = 2.0
+	check(scene.end_still("sever") != null, "the severance still loads")
+	check(scene.end_still("nowhere") == null, "a missing still is nothing")
+	scene._redraw()
+	await process_frame   # the card draws, still and all
+	scene.dispatch("return_decision")
+	check(scene.sim.view == "room" and scene.sim.state.room == "R12", "back at the decision")
+	var stale := false
+	for l in scene.lines:
+		stale = stale or l.text.begins_with("An ending line")
+	check(not stale and not scene.cur_text.begins_with("An ending line") and not scene.subtitle.text.begins_with("An ending line"),
+		"no ending line survives return_decision (%s / %s)" % [scene.cur_text, scene.lines])
+	await free_scene(scene)
+
+## A load lands in resume_view(): "room" for every room unless it overrides it.
+func test_resume_view() -> void:
+	var g := GameSim.new()
+	for rid in g.order:
+		check(g.room(rid).resume_view() == "room", "%s: a fresh game resumes in 'room' (%s)" % [rid, g.room(rid).resume_view()])
+		check(g.room(rid).local_view == "room", "%s: a fresh game is at 'room'" % rid)
+	var h := GameSim.new()
+	h.debug_tide(5, "R02")
+	h.dispatch("lamp")
+	var t := roundtrip(h)
+	for rid in t.order:
+		if rid != t.state.room:
+			check(t.room(rid).local_view == "room", "%s: a load leaves other rooms at 'room'" % rid)
+
+## A "go:X" that is no way out of here does nothing; no say ever has empty text.
+func test_travel_outside_graph() -> void:
+	var g: GameSim = await chain_at("P26")
+	check(g.state.room == "R12", "fixture: in the chamber after P26")
+	var r12: RoomSim = g.room("R12")
+	for i in 4:
+		if r12.local_view != "room":
+			g.dispatch("back")
+	for a in ["to_routing", "contacts", "tray", "contacts", "preview", "btn_sever", "ending_next"]:
+		g.dispatch(a)
+	check(g.view == "room" and g.flag("P27"), "fixture: mid-ending in R12 (%s/%s)" % [g.view, r12.local_view])
+	var latch: String = g.room("R03").locked_line()
+	for to in ["R03", "R02"]:
+		var ev := g.dispatch("go:" + to)
+		var empty := false
+		for e in ev:
+			empty = empty or (e.type == "say" and e.text == "")
+		check(not empty, "mid-ending go:%s: no empty say" % to)
+		check(not latch in says(ev), "mid-ending go:%s: no Tide I latch line (%s)" % [to, says(ev)])
+		check(g.state.room == "R12" and not has_ev(ev, "fx", "travel"), "mid-ending go:%s: she stays" % to)
+		check(ev.is_empty(), "go:%s is no exit of R12: no events (%s)" % [to, ev])
+	# Every room of a fully flagged game: every hotspot, exit and core action has words or none.
+	for rid in GameSim.new().order:
+		var f := GameSim.new()
+		f.debug_tide(9, rid)
+		var acts: Array = f.room().c("HOTSPOTS", []).duplicate()
+		for e in f.exits():
+			acts.append("go:" + e[0])
+		acts.append_array(["go:R99", "go:" + rid, "hint", "back", "nonsense"])
+		for a in acts:
+			f.debug_enter(rid)
+			for e in f.dispatch(a):
+				if e.type == "say":
+					check(e.text != "", "%s %s: a say with empty text" % [rid, a])
+
+## Spent items are filed in the notebook: off the bar, never handed back, saved, shown.
+func test_retired_items() -> void:
+	var g := GameSim.new()
+	g.debug_tide(7, "R02")
+	g.give("pencil")
+	check(g.has_item("venn_correspondence") and g.has_item("pencil"), "fixture: the letters and the pencil in hand")
+	g.set_flag("P20")
+	g.set_flag("P22")
+	check(g.dispatch("hint").all(func(e): return e.get("text", "") != GameSim.FILED_LINE),
+		"flags set before the action (a debug jump) file nothing")
+	g.state.flags.erase("P20")
+	g.state.flags.erase("P22")
+	var snap := g._spent_snapshot()
+	g.set_flag("P20")
+	g.set_flag("P22")
+	var ev := [{"type": "say", "text": "A commit's last line.", "delay": 1.2, "story": true}]
+	g._file_spent(snap, ev)
+	var filed := 0
+	for e in ev:
+		if e.type == "say" and e.text == GameSim.FILED_LINE:
+			filed += 1
+			check(not e.story, "the filed line is not a story line")
+	check(filed == 1, "two items filed, one line (%d)" % filed)
+	check(ev[-1].type == "say" and ev[-1].text == GameSim.FILED_LINE and ev[-1].delay > 1.2, "the filed line ends the chain")
+	check(not g.has_item("venn_correspondence") and not g.has_item("pencil"), "both spent items leave the bar")
+	check(g.retired().slice(-2) == ["venn_correspondence", "pencil"], "retired, in order (%s)" % [g.retired()])
+	g.give("pencil")
+	check(not g.has_item("pencil"), "a retired item is never handed back")
+	for rid in g.order:
+		g.rooms[rid].reconcile()
+	check(not g.has_item("pencil") and not g.has_item("venn_correspondence"), "reconciles don't hand them back")
+	var t := roundtrip(g)
+	check(t.retired() == g.retired() and not t.has_item("pencil"), "a save keeps state.retired")
+	var bad: Dictionary = JSON.parse_string(JSON.stringify(g.to_dict()))
+	bad.inventory.append("pencil")
+	bad.retired.append("not_an_item")
+	var b := GameSim.new()
+	b.from_dict(bad)
+	check(not b.has_item("pencil") and b.retired() == g.retired(), "a tampered save can't hold a retired item")
+	check(says(g.dispatch("hint")).find(GameSim.FILED_LINE) < 0, "the filed line is said once")
+	for item in GameSim.ITEM_RETIRES_AFTER:
+		check(g.item_defs().has(item), "%s is a real item" % item)
+
+## Plan travel lands exactly where walking the exits does.
+func test_plan_equals_walking() -> void:
+	var a := GameSim.new()
+	a.debug_tide(7, "R10")
+	var b := GameSim.new()
+	b.from_dict(JSON.parse_string(JSON.stringify(a.to_dict())))
+	var trace: Array = a.value("p05_trace")
+	check(a.plan_unlocked() and "R04" in a.state.visited, "fixture: the plan is hers, R04 visited")
+	a.dispatch("notebook")
+	var ev_plan := a.dispatch("plan:R04")
+	var ev_walk: Array = []
+	var hops := _hops(b, "R10", "R04")
+	check(not hops.is_empty(), "R04 is walkable from R10")
+	for hop in hops:
+		ev_walk = b.dispatch("go:" + hop)
+	check(a.state.room == "R04" and b.state.room == "R04", "both in R04 (%s, %s)" % [a.state.room, b.state.room])
+	check(JSON.stringify(a.room("R04").state) == JSON.stringify(b.room("R04").state), "the same R04 state (notices included)")
+	check(sorted(a.state.visited) == sorted(b.state.visited), "the same visited set")
+	check(says(ev_plan) == says(ev_walk), "the same arrival (%s vs %s)" % [says(ev_plan), says(ev_walk)])
+	check(a.value("p05_trace") == trace and b.value("p05_trace") == trace, "P05's frozen trace is unaffected")
+
+func _hops(g: GameSim, from: String, to: String) -> Array:
+	var prev := {from: ""}
+	var queue := [from]
+	while not queue.is_empty():
+		var cur: String = queue.pop_front()
+		for e in g.exits(cur):
+			if not prev.has(e[0]) and g.exit_open(cur, e[0]):
+				prev[e[0]] = cur
+				queue.append(e[0])
+	if not prev.has(to):
+		return []
+	var out := []
+	var cur := to
+	while cur != from:
+		out.push_front(cur)
+		cur = prev[cur]
+	return out
+
+## The Plan button: only once the plan is hers, never over the title, menu, end or a
+## cinematic; one click opens the notebook on the plan.
+func test_plan_button() -> void:
+	var scene = new_scene("user://core_plan_button_test.json")
+	await process_frame
+	var p: Vector2 = GameView.PLAN_BUTTON[1].get_center()
+	scene.tide_jump(2, "R02")
+	check(not scene.plan_button_shown() and scene.action_at(p) != "plan", "no Plan before P05")
+	scene.tide_jump(4, "R02")
+	check(scene.plan_button_shown() and scene.action_at(p) == "plan", "the Plan after P05")
+	scene.click(p)
+	check(scene.sim.view == "notebook" and scene._nb_page() == "plan", "one click: the notebook on the plan")
+	check(not scene.plan_button_shown() and scene.action_at(p) != "plan", "the notebook has its Plan tab, Back its place")
+	scene.dispatch("back")
+	scene.dispatch("lamp")
+	check(scene.room_sim().is_closeup() and not scene.plan_button_shown(), "no Plan over a close-up (Back's place)")
+	scene.dispatch("back")
+	scene.dispatch("menu")
+	check(not scene.plan_button_shown(), "no Plan over the menu")
+	scene.dispatch("resume")
+	check(scene.plan_button_shown(), "the Plan is back with the room")
+	# Its rect is clear of every room's exit tabs and room hotspots wherever it shows.
+	for rid in scene.sim.order:
+		scene.tide_jump(9, rid)
+		for r in scene.room_view.live_exit_rects().values():
+			check(not r.intersects(GameView.PLAN_BUTTON[1]), "%s: an exit tab under the Plan button" % rid)
+		var hit := ""
+		for y in range(26, 72, 6):
+			for x in range(1016, 1102, 6):
+				var a: String = scene.room_view.action_at(Vector2(x, y))
+				if a != "" and hit == "":
+					hit = a
+		check(hit == "", "%s: room hotspot '%s' under the Plan button" % [rid, hit])
+	scene.sim.view = "title"
+	check(not scene.plan_button_shown(), "no Plan on the title")
+	scene.tide_jump(9, "R12")
+	scene.sim.finish("sever")
+	check(not scene.plan_button_shown(), "no Plan on the end card")
+	# Rows she can travel by are marked; the plan draws.
+	scene.tide_jump(7, "R10")
+	scene.dispatch("notebook")
+	scene.dispatch("tab:plan")
+	scene._redraw()
+	await process_frame
 	await free_scene(scene)

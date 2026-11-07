@@ -26,6 +26,11 @@ const HUD_BUTTONS := [
 	["hint", Rect2(1272, 22, 86, 50), "Hint"],
 	["menu", Rect2(1368, 22, 58, 50), "≡"],
 ]
+## The Plan button (after P05), beside the Notebook: the notebook opened on the station plan.
+## It shares the top row with Back, so it shows only where Back doesn't (never over a close-up
+## control or Back; the notebook has its own Plan tab).
+const PLAN_BUTTON := ["plan", Rect2(1012, 22, 90, 50), "Plan"]
+const HUD_ACTIONS := ["notebook", "hint", "menu", "plan"]
 const BACK_RECT := Rect2(952, 22, 150, 50)
 ## Inventory slots run left to right along the top-left of the HUD.
 const INV_ORIGIN := Vector2(20, 22)
@@ -447,7 +452,7 @@ func _refresh_hover_on_view_change() -> void:
 	if sim.view == seen_game_view and lv == seen_local_view:
 		return
 	_mark_view_seen()
-	hover_id = _hover_at(get_global_mouse_position())
+	hover_id = _hover_at(pointer_position())
 
 func _mark_view_seen() -> void:
 	seen_game_view = sim.view
@@ -574,23 +579,25 @@ func advance() -> void:
 	_show_line(next.text, true, next.hold, next.click)
 
 ## A click (or tap) at `p`, exactly as the mouse handler does it. Drivers and tests use it.
-## Clicks are never eaten: the HUD always answers, and exits, Back, the inventory and the
-## notebook's tabs, plan rows and pages always act (a playing chain advances first, in the
-## same press). Only a room hotspot or close-up control click is spent advancing a chain.
-## The room sees its click first (consume_click: skipping its own hold).
+## Clicks are never eaten: the HUD always answers, and exits, Back, the inventory, every
+## control of an open close-up, and the notebook's tabs, plan rows and pages always act (a
+## playing chain advances first, in the same press; anything the action says waits after
+## the chain). Only a click on empty space or the subtitle bar, or on a room hotspot outside
+## a close-up, is spent advancing a chain. The room sees its click first (consume_click:
+## skipping its own hold).
 func click(p: Vector2) -> void:
 	var a := _core_action_at(p)
 	if a == "" and _room_takes_click():
 		if room_view.consume_click(p):
 			return
 		a = room_view.action_at(p)
-	if a in ["notebook", "hint", "menu"]:
+	if a in HUD_ACTIONS:
 		if not _cinematic():
-			dispatch(a)
+			_hud_press(a)
 		return
 	if (a.begins_with("go:") or a.begins_with("plan:")) and time - arrived_at < TRAVEL_DEBOUNCE:
 		return   # a double click on an exit moves one room, not two
-	if always_acts(a):
+	if always_acts(a) or _closeup_acts(a):
 		if _chain_gates() and chain_active():
 			advance()
 		if not _local_action(a):
@@ -617,6 +624,22 @@ func always_acts(a: String) -> bool:
 			if a.begins_with(pre):
 				return true
 	return false
+
+## A room action on an open close-up's control: it acts in the press that advances a chain.
+func _closeup_acts(a: String) -> bool:
+	return a != "" and not a in HUD_ACTIONS and sim.view == "room" and room_sim() != null \
+		and room_sim().is_closeup()
+
+## A HUD button: the Plan opens the notebook straight on the station plan.
+func _hud_press(a: String) -> void:
+	if a != "plan":
+		dispatch(a)
+		return
+	if not plan_button_shown():
+		return
+	if sim.view != "notebook":
+		dispatch("notebook")
+	dispatch("tab:plan")
 
 ## A full-screen room moment (an interlude card): no notebook, hint or menu from the HUD.
 func _cinematic() -> bool:
@@ -708,6 +731,13 @@ func dispatch(action: String) -> void:
 	var before_tab := sim.nb_tab
 	var ev := sim.dispatch(action)
 	last_events = ev
+	if before_game != sim.view and "end" in [before_game, sim.view]:
+		# Into or out of the end card: nothing still queued or on screen carries across it.
+		lines.clear()
+		cur_text = ""
+		cur_story = false
+		subtitle.text = ""
+		chain_was = false
 	play_events(ev, chain_was)
 	_mount_room()
 	var after_room := room_sim().view if room_sim() else ""
@@ -961,10 +991,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		click(get_global_mouse_position())
 	elif event is InputEventMouseMotion:
-		var id := _hover_at(get_global_mouse_position())
-		if id != hover_id:
-			hover_id = id
-			Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND if id != "" else Input.CURSOR_ARROW)
+		hover(get_global_mouse_position())
 	elif event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_ESCAPE:
@@ -997,6 +1024,29 @@ func _unhandled_input(event: InputEvent) -> void:
 						tide_jump(n + 1)          # Shift+1..9: start of tide I..IX
 					else:
 						room_jump(sim.state.room, n)   # 1..9: the room's own stages 0..8
+
+## A pointer a test or driver stands in for the mouse (tests/click_chain_test.gd's pointer
+## mode). Views that gate on the pointer read has_pointer() and pointer_position(), so a
+## headless run sees what a real pointer would.
+var sim_pointer_on := false
+var sim_pointer := Vector2.ZERO
+
+func pointer_position() -> Vector2:
+	return sim_pointer if sim_pointer_on else get_global_mouse_position()
+
+## True when there is a hovering pointer: a real mouse, or a simulated one.
+func has_pointer() -> bool:
+	return sim_pointer_on or (DisplayServer.get_name() != "headless" and not DisplayServer.is_touchscreen_available())
+
+## The pointer moved to `p`: what it names, and the cursor. The mouse-motion handler and
+## the click-chain test's pointer mode both come through here.
+func hover(p: Vector2) -> void:
+	if sim_pointer_on:
+		sim_pointer = p
+	var id := _hover_at(p)
+	if id != hover_id:
+		hover_id = id
+		Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND if id != "" else Input.CURSOR_ARROW)
 
 func _hover_at(p: Vector2) -> String:
 	if sim.view != "room" or room_view == null:
@@ -1056,7 +1106,7 @@ func _core_action_at(p: Vector2) -> String:
 					return items[i]
 			return ""
 	if sim.state.started and _hud_shown():
-		for b in HUD_BUTTONS:
+		for b in hud_buttons():
 			if b[1].has_point(p):
 				return b[0]
 		if sim.view == "room":
@@ -1082,6 +1132,19 @@ func _core_action_at(p: Vector2) -> String:
 	if room_view.back_visible() and BACK_RECT.has_point(p):
 		return "back"
 	return _exit_at(p)
+
+## The HUD buttons on show: Notebook, Hint, menu, and the Plan once the plan is hers.
+func hud_buttons() -> Array:
+	var out: Array = HUD_BUTTONS.duplicate()
+	if plan_button_shown():
+		out.append(PLAN_BUTTON)
+	return out
+
+## The Plan button: after P05, in the room view (never in a cinematic, the title, the end
+## card or the menu, and not while Back holds its place: a close-up, the notebook).
+func plan_button_shown() -> bool:
+	return sim.plan_unlocked() and sim.state.started and sim.view == "room" and room_view != null \
+		and not room_view.hud_hidden() and not room_view.back_visible() and not room_sim().is_closeup()
 
 func _hud_shown() -> bool:
 	return sim.view == "notebook" or (sim.view == "room" and (room_view == null or not room_view.hud_hidden()))
@@ -1236,6 +1299,7 @@ func _draw_notebook(c: Node2D) -> void:
 		return
 	var r: RoomSim = sim.room(cur)
 	var obs: Dictionary = r.c("OBSERVATIONS", {})
+	var entries := nb_entries(cur)
 	var nb := _nb_pagination(cur)
 	var pager := _nb_page_buttons()
 	var noted_right := page.size.x - 50.0
@@ -1261,7 +1325,7 @@ func _draw_notebook(c: Node2D) -> void:
 			Color(Ink.INK, 0.6), hand, 900, HORIZONTAL_ALIGNMENT_LEFT)
 		return
 	var last: bool = nb.shown == nb.pages.size() - 1
-	var flow := _notebook_flow(c, obs, nb.pages[nb.shown], nb.layout, nb.top,
+	var flow := _notebook_flow(c, entries, nb.pages[nb.shown], nb.layout, nb.top,
 		nb.bottom - (nb.room_for if last else 0.0), page.position.x, true)
 	if nb.intrusion == "" or not last:
 		return
@@ -1276,16 +1340,37 @@ func _draw_notebook(c: Node2D) -> void:
 	pos.x = minf(pos.x, page.end.x - 30 - w)
 	Ink.handwriting(c, intrusion, n, pos, 22, 300, _intrusion_writing())
 
+const FILED_PREFIX := "filed:"
+
+## Room `rid`'s notebook entries: its observations, then every item it handed out that has
+## been filed after its last use ("filed:<item>": the item's name and description).
+func nb_entries(rid: String) -> Dictionary:
+	var r: RoomSim = sim.room(rid)
+	if r == null:
+		return {}
+	var out: Dictionary = r.c("OBSERVATIONS", {})
+	var defs := sim.item_defs()
+	var filed := {}
+	for item in sim.retired():
+		var d: Dictionary = defs.get(item, {})
+		if d.get("room", "") == rid:
+			filed[FILED_PREFIX + item] = "Filed: %s. %s" % [d.get("name", item), d.get("desc", "")]
+	if filed.is_empty():
+		return out
+	out = out.duplicate()
+	out.merge(filed)
+	return out
+
 ## How room `rid`'s notebook page lays out: {layout, pages (arrays of observation ids), shown,
 ## top, bottom, room_for, intrusion}. The roomiest layout that holds every entry; past the
 ## smallest ([17, 460, 2]) the entries run onto more pages, the stranger's line keeping its
 ## room on the last. Cached: it measures text.
 func _nb_pagination(rid: String) -> Dictionary:
 	var r: RoomSim = sim.room(rid)
-	var obs: Dictionary = r.c("OBSERVATIONS", {}) if r else {}
+	var obs := nb_entries(rid)
 	var ids := []
 	for id in obs:
-		if r.has_seen(id):
+		if r.has_seen(id) or id.begins_with(FILED_PREFIX):
 			ids.append(id)
 	var intrusion := r.notebook_intrusion() if r and rid == sim.state.room else ""
 	var key := [rid, ids, intrusion]
@@ -1365,6 +1450,11 @@ func _draw_plan(c: Node2D, page: Rect2) -> void:
 		var here: bool = row[0] == sim.state.room
 		var label: String = "%s  %s%s" % [row[0], r.c("TITLE", ""), "  (here)" if here else ""]
 		Ink.button(c, row[1], label, here, 22, not row[2] and not here)
+		if row[2]:
+			# A row she can travel by: a small mark at its right end.
+			var rr: Rect2 = row[1]
+			Ink.text(c, "→ go", Vector2(rr.end.x - 74, rr.position.y + rr.size.y * 0.5 + 7), 18,
+				Color(Ink.GOLD, 0.95), hand, 64, HORIZONTAL_ALIGNMENT_RIGHT)
 
 ## The stranger line writes itself once, slowly, the first time the notebook opens after
 ## the room makes one. Motion off: it is simply there.
@@ -1402,7 +1492,10 @@ func _notebook_flow(c: CanvasItem, obs: Dictionary, ids: Array, layout: Array, t
 func _draw_end(c: Node2D) -> void:
 	c.draw_rect(Rect2(Vector2.ZERO, SIZE), Ink.BLACK)
 	var e: Dictionary = GameSim.ENDINGS.get(sim.state.ending, {"title": "", "lines": []})
-	var a := clampf(end_t / 2.0, 0.0, 1.0) if sim.settings.motion else 1.0
+	var still := end_still(sim.state.ending)
+	if still:
+		c.draw_texture_rect(still, Rect2(Vector2.ZERO, SIZE), false, Color(1, 1, 1, END_STILL_ALPHA))
+	var a := clampf(end_t / END_TEXT_FADE, 0.0, 1.0) if sim.settings.motion else 1.0
 	Ink.text(c, e.title, Vector2(0, 420), 48, Color(Ink.PAPER, a), serif, SIZE.x)
 	for i in e.lines.size():
 		Ink.text(c, e.lines[i], Vector2(0, 520 + 50 * i), 26, Color(Ink.NIGHT_INK, a), hand, SIZE.x)
@@ -1413,6 +1506,21 @@ func _draw_end(c: Node2D) -> void:
 			if b[0] == "return_decision" and sim.checkpoint.is_empty():
 				continue
 			Ink.button(c, b[1], b[2])
+
+const END_STILL_ALPHA := 0.22
+const END_TEXT_FADE := 0.6
+
+var _end_stills := {}   # path -> Texture2D, held: a drawn texture must outlive the draw call
+
+## The ending's painted still (ENDINGS[id].still), or null when it has none or the file is
+## missing (nothing is drawn, nothing is raised).
+func end_still(id: String) -> Texture2D:
+	var path: String = GameSim.ENDINGS.get(id, {}).get("still", "")
+	if path == "" or not ResourceLoader.exists(path):
+		return null
+	if not _end_stills.has(path):
+		_end_stills[path] = load(path) as Texture2D
+	return _end_stills[path]
 
 ## The tide card: high on the screen, clear of the room's reveal below it. Fades in and out
 ## over TIDE_CARD_TIME; Motion off, it is simply there for TIDE_CARD_STILL.
@@ -1462,7 +1570,7 @@ func _draw_hud() -> void:
 		# More to come: a click brings the next line up.
 		var pulse := 0.75 + 0.25 * sin(time * 2.0) if sim.settings.motion else 1.0
 		c.draw_string(serif, Vector2(1392, 1040), "▸", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(Ink.PAPER, 0.55 * pulse))
-	for b in HUD_BUTTONS:
+	for b in hud_buttons():
 		Ink.button(c, b[1], b[2], false, 21)
 	if sim.view == "notebook":
 		Ink.button(c, BACK_RECT, "Back", false, 21)
@@ -1476,13 +1584,13 @@ func _draw_hud() -> void:
 		room_view.draw_hud(c)
 	if hover_id != "" and sim.view == "room":
 		var label := _hover_label(hover_id)
-		var box := hover_label_rect(hover_id, get_global_mouse_position())
+		var box := hover_label_rect(hover_id, pointer_position())
 		if label != "" and box.size != Vector2.ZERO:
 			c.draw_rect(box, Color(0.03, 0.06, 0.08, 0.8))
 			c.draw_string(serif, box.position + Vector2(10, 24), label, HORIZONTAL_ALIGNMENT_LEFT, -1, HOVER_SIZE, Ink.PAPER)
 	if sim.selected_item != "":
 		var name: String = sim.item_defs().get(sim.selected_item, {}).get("name", sim.selected_item)
-		var p := get_global_mouse_position() + Vector2(22, -14)
+		var p := pointer_position() + Vector2(22, -14)
 		c.draw_string(hand, p, "using " + name, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Ink.GOLD)
 	if dev:
 		_draw_dev(c)

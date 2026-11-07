@@ -71,8 +71,10 @@ dicts). Puzzle-local arrangements (dial positions, placed plates) live here. Ove
 accept only known ids, then make derived flags agree), and `reconcile()` to set or clear the
 global flags you own from your state (R02 sets `P01` from `p01_complete`).
 
-`local_view` is where the room is looking: `"room"` or one of your close-up ids. It is never
-saved: a load always lands in `"room"`. Override `is_closeup(v)` if a view is not a close-up.
+`local_view` is where the room is looking: `"room"` or one of your close-up ids. local_view is
+never saved; a load lands in resume_view(), "room" unless the room overrides it (R12 resumes
+its ending). The core asks only the room she stands in, after `load_state()` and `reconcile()`;
+every other room loads at `"room"`. Override `is_closeup(v)` if a view is not a close-up.
 Exit tabs are drawn and answered in any view that is not a close-up (`is_closeup()` false), so a
 base view such as R09's rail or R10's catalogue wall leaves by its tabs; `exits_active()` can still hide them.
 
@@ -162,6 +164,15 @@ The bar holds any number of items: up to six show as they are; past six, five sh
 pager (`▸ 2/3`) in the sixth slot. Paging is presentation only (never saved, never sent to the
 sim); selecting an item keeps its page on show.
 
+**Spent items are filed.** `GameSim.ITEM_RETIRES_AFTER` lists items whose last use is a puzzle
+(chart clips after P16, the contact sheet after P17 and P18, Venn's correspondence after P20,
+the pencil after P22). When an action makes that puzzle's flag true while she holds the item,
+the core takes it off the bar after your room is done with the action, adds it to the saved
+`state.retired`, and ends the action's events with one non-story say, "Filed in the
+notebook." `game.give()` never hands a retired item back, so a reconcile or debug helper can
+call it freely. The item's name and description stay on its room's notebook page ("Filed:
+..."). An item with any later use (the inspection lens) is not listed.
+
 ### Notebook entries
 
 Every critical clue becomes an `OBSERVATIONS` entry the moment it is seen, worded so it can be
@@ -181,11 +192,15 @@ room+objective and restarts it when the objective changes. Override `hint_line(l
 or it has no `HINTS` ladder), or its objective is idle (an id starting `away`, `done` or `wait`),
 the core points at the open, reachable room that has work: the office first, then the rooms in
 order, a room's opening survey (`explore`) only when nothing else is waiting. "Now:" reads
-`"<TITLE>: <that room's objective>"`; the Hint first says where (`WAY_IN_HINT`, or "The way
-into the <title> is open now.", for a room she hasn't been in; `"Something in the <title> has
-changed."` for one she has), then climbs that room's own ladder. A step that repeats the one
-before it is skipped (a room whose own first step is already "Something in the ... has
-changed." starts there), and the ladder's level is clamped to 0..3 and survives saves. So: return `""` (or an idle id) when your room is done for
+`"<TITLE>: <that room's objective>"`. Before the office-first order, the core looks for a room
+(in room order) whose objective works toward a puzzle that is open now (its prerequisites set,
+its flag not): an objective id `pNN` / `pNN_...`, an entry in `GameSim.OBJECTIVE_PUZZLES`, or
+your `objective_puzzle()` override (`"P07"`; default `""`). The Hint toward a room she hasn't
+been in first says where: "The <title> is through the <neighbour>." when a room that leads
+there is one she has visited, else `WAY_IN_HINT` (or "The way into the <title> is open now.").
+Toward a room she has been in there is no where-step (the Now: line names it already), and
+your own "Something in the ... has changed." tiers are dropped. Then it climbs that room's own
+ladder; no line is said twice, and the ladder's level is clamped to 0..3 and survives saves. So: return `""` (or an idle id) when your room is done for
 the tide, and use the `away`/`done`/`wait` prefixes for idle objectives.
 
 ### Debug
@@ -235,11 +250,17 @@ should only skip your arrival hold goes in `consume_click(p)`: the core calls it
 click it did not take itself (after the HUD, Back and the exits), before `action_at`; return
 `true` to use the click up.
 
-**Clicks are never eaten.** Exits, Back, the inventory and the notebook's tabs, plan rows and
-page turners always act: during a story chain the chain advances and the click acts, in the
-same press. Only hotspot and close-up control clicks are spent advancing a chain. An exit or
+**Clicks are never eaten.** Exits, Back, the inventory, every control of an open close-up, and
+the notebook's tabs, plan rows and page turners always act: during a story chain the chain
+advances and the click acts, in the same press (what the action says waits after the chain).
+Only a click on empty space or the subtitle bar, or on a room hotspot outside a close-up, is
+spent advancing a chain. An exit or
 plan click within 0.4 s of arriving is ignored (a double click moves one room). In a view where
 `hud_hidden()` is true, N, H and the HUD buttons do nothing.
+
+**The pointer.** A view that shows or answers only under a hovering pointer reads
+`game.has_pointer()` and `game.pointer_position()`, not the mouse directly: the click-chain
+test's pointer mode simulates a pointer through them (and `game.hover(p)`), headless.
 
 **Presentation hooks.** `back_label()` is the Back button's text (default `"Back"`).
 `exit_arrow(to_rid)` points an exit tab: `""` (by the side of the screen the tab sits on),
