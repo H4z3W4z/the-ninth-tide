@@ -135,6 +135,10 @@ func balance_game() -> GameSim:
 func frame_game(ref_seen := true) -> GameSim:
 	var g := GameSim.new()
 	r07(g).debug_jump(6)
+	# The built kitchen and machine room prepare what real play leaves seen; this fixture
+	# controls the two cross-room reads itself.
+	g.state.notebook.erase("R05.nora_work_card")
+	g.state.notebook.erase("R08.reference_respiration")
 	if ref_seen:
 		g.observe("R05", "nora_work_card")
 	play(g, ["to_bench", "frame_stand"])

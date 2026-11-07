@@ -11,6 +11,8 @@ extends "res://tests/rooms/room_test_base.gd"
 ##
 ## Wave 1 (Tide I hub): R01, R02, R03 and R04 are played: P01, the drawer (P03 part 1),
 ## P02, P03, T1X, P04, P05, P06 (and the service door), P17, P19, P20, P21.
+## Wave 2 (station interior): R05, R06, R07 and R08 are played too: P07, P08, P09, P10,
+## P11, P13, P14 and P22.
 
 ## [step, room, prerequisites] in canonical order (flags.md section 2, GDD section 5,
 ## T1X-closure.md: the corridor opens on P01 and T1X waits for tide_done(1)).
@@ -58,23 +60,38 @@ const BAND_AFTER := {"T1X": 0, "P06": 1, "P09": 2, "P12": 3, "P15": 4, "P18": 5,
 	"P24": 7, "P27": 7}
 
 ## Steps played by their room's real actions (everything else: flags only).
-const PLAYED := ["P01", "P03a", "P02", "P03", "T1X", "P04", "P05", "P06", "P17", "P19", "P20", "P21"]
+const PLAYED := ["P01", "P03a", "P02", "P03", "T1X", "P04", "P05", "P06", "P07", "P08", "P09", "P10",
+	"P11", "P13", "P14", "P17", "P19", "P20", "P21", "P22"]
 
 ## Items a not-yet-built room hands out at its step (flags.md section 4).
-const GIVES := {"P16": ["contact_sheet"], "P18": ["venn_correspondence"]}
+const GIVES := {"P15": ["nora_spatial_strip"], "P16": ["contact_sheet"], "P18": ["venn_correspondence"],
+	"P23": ["witness_bridge"]}
+
+## A capture driver (tools-side, under .panel/) may hand in the scene's own GameSim and an
+## awaited hook(pid, rid, phase) called on arrival ("at") and after each commit ("done").
+var external_game: GameSim = null
+var step_hook := Callable()
 
 var g: GameSim
 var office: R02Sim
 var chart: R03Sim
 var listen: R04Sim
 var jetty: R01Sim
+var kitchen: R05Sim
+var bunks: R06Sim
+var lab: R07Sim
+var machine: R08Sim
 
 func run_tests() -> void:
-	g = GameSim.new()
+	g = external_game if external_game != null else GameSim.new()
 	office = g.room("R02")
 	chart = g.room("R03")
 	listen = g.room("R04")
 	jetty = g.room("R01")
+	kitchen = g.room("R05")
+	bunks = g.room("R06")
+	lab = g.room("R07")
+	machine = g.room("R08")
 	check(g.view == "title" or office.view == "title", "the game starts on the title")
 	g.dispatch("begin")
 	check(g.state.started and g.state.room == "R02" and g.tide() == 1 and g.weather_band() == 0,
@@ -90,6 +107,8 @@ func run_tests() -> void:
 		check(not _done(pid), "%s not done before its step" % pid)
 		_walk_to(rid)
 		check(g.state.room == rid, "%s: walked to %s by open exits (at %s)" % [pid, rid, g.state.room])
+		if step_hook.is_valid():
+			await step_hook.call(pid, rid, "at")
 		if pid in PLAYED:
 			call("play_" + pid.to_lower())
 		else:
@@ -101,6 +120,8 @@ func run_tests() -> void:
 			if pid == "P26":
 				g.save_checkpoint()
 		check(_done(pid), "%s committed" % pid)
+		if step_hook.is_valid():
+			await step_hook.call(pid, rid, "done")
 		tide = TIDE_AFTER.get(pid, tide)
 		band = BAND_AFTER.get(pid, band)
 		check(g.tide() == tide, "after %s: tide %d (got %d)" % [pid, tide, g.tide()])
@@ -290,6 +311,144 @@ func play_p06() -> void:
 	check(not g.has_item("service_key") and office.state.service_unlocked, "the key is spent at the service door")
 	office.dispatch("turn")
 	_walk_to("R01")
+
+# ---------------------------------------------------------------------------
+# Tides III-V (wave 2: the station interior)
+# ---------------------------------------------------------------------------
+## R05 P07: nine bowls on their marks, the tally at nine, COMPARE; then Nora's book, her
+## work card and the service drawer's pantry half.
+func play_p07() -> void:
+	check(not g.exit_open("R05", "R07") and not g.exit_open("R05", "R08"), "P07: the hatch is shut")
+	g.dispatch("bowl_stack")
+	check(kitchen.local_view == "c_table", "P07: the bowl stack opens the table")
+	for k in 9:
+		g.dispatch("slot_%d" % R05Sim.RACK_HOME.find(R05Sim.SOLUTION[k]))
+		g.dispatch("place_%d" % (k + 1))
+	var guard := 0
+	while int(kitchen.state.tally) != R05Sim.SOLUTION_TALLY and guard < 30:
+		g.dispatch("tally_up" if int(kitchen.state.tally) < R05Sim.SOLUTION_TALLY else "tally_down")
+		guard += 1
+	var ev := g.dispatch("compare")
+	check(g.flag("P07") and kitchen.has_seen("headcount_nine"), "P07: the table for nine")
+	check(not has_ev(ev, "fx", "tide"), "P07 does not end a tide")
+	g.dispatch("back")
+	for a in ["to_kitchen", "ledger", "back", "work_card"]:
+		g.dispatch(a)
+	check(kitchen.has_seen("nora_ledger") and kitchen.has_seen("nora_work_card"), "P07: her book and her work card")
+	g.dispatch("service_drawer")
+	check(g.has_item("token_pantry_half") and kitchen.has_seen("drawer_note"), "P07: the pantry half")
+	g.dispatch("to_mess")
+
+## R06 P08: each belonging home on its owner's shelf; the bunk half from the compartment.
+func play_p08() -> void:
+	g.dispatch("belongings_shelf")
+	check(bunks.local_view == "c_lockers", "P08: the belongings shelf opens the lockers")
+	var ev: Array = []
+	for o in R06Sim.OWNER:
+		g.dispatch("obj_" + o)
+		ev = g.dispatch("shelf_" + R06Sim.OWNER[o])
+	check(g.flag("P08") and g.has_item("token_bunk_half"), "P08: the bunk half")
+	check(bunks.has_seen("venn_seal"), "P08: Venn's seal, three cuts")
+	check(not has_ev(ev, "fx", "tide") and not g.flag("P09"), "P08 alone does not finish Tide III")
+	g.dispatch("back")
+
+## R05 P09: both halves in the socket, turned; +1 VENN present under seal 3; STAMP.
+func play_p09() -> void:
+	g.dispatch("to_kitchen")
+	for item in ["token_pantry_half", "token_bunk_half"]:
+		g.dispatch("item:" + item)
+		g.dispatch("shift_board")
+	g.dispatch("socket_turn")
+	check(kitchen.local_view == "c_service_board", "P09: the shift board is open")
+	var want: Dictionary = R05Sim.SOLUTION_AMEND
+	var guard := 0
+	while kitchen.state.amend.count != want.count and guard < 8:
+		g.dispatch("f_count")
+		guard += 1
+	g.dispatch("tile_%d" % R05Sim.NAME_TILES.find(want.name))
+	guard = 0
+	while kitchen.state.amend.status != want.status and guard < 8:
+		g.dispatch("f_status")
+		guard += 1
+	g.dispatch("seal_3")
+	var ev := g.dispatch("stamp")
+	check(g.flag("P09") and has_ev(ev, "fx", "tide"), "P09: the amendment stands; the Tide IV card")
+	check(not g.has_item("token_pantry_half") and not g.has_item("token_bunk_half"), "P09: both halves spent")
+	check(kitchen.has_seen("eight_retained"), "P09: eight retained, one witnessing")
+	check(g.exit_open("R05", "R07") and g.exit_open("R05", "R08"), "P09: the hatch opens the lab and the machine room")
+	g.dispatch("back")
+	g.dispatch("to_mess")
+
+## R07 P10: tilt the rack, rest jar C, tip, seat it in the reference socket.
+func play_p10() -> void:
+	for a in ["tilt_rack", "rest_c", "tip", "seat"]:
+		g.dispatch(a)
+	check(g.flag("P10") and lab.has_seen("datum_target"), "P10: jar C seats; stair pressure 2")
+	g.dispatch("back")
+	check(lab.has_seen("lean"), "P10: the water leaned")
+	check(not g.flag("P12"), "P10 alone does not open the stair work")
+
+## R08 P11: SUPPLY, GATE, RETURN open, INDEX shut; the pump.
+func play_p11() -> void:
+	g.dispatch("valve_board")
+	for v in R08Sim.SOLUTION:
+		if machine.state.toggles[v] != R08Sim.SOLUTION[v]:
+			g.dispatch("tog_" + v.to_lower())
+	g.dispatch("pump")
+	check(g.flag("P11"), "P11: the gate loop runs")
+	g.dispatch("back")
+
+## R07 P13: the N sample addressed to BELL, released, recorded; her register card.
+func play_p13() -> void:
+	g.dispatch("to_bench")
+	var ev := g.dispatch("balance")
+	check(lab.beam_unlocked(), "P13: P12's stair pressure frees the beam")
+	for a in ["smp_n", "reg_bell", "key_address", "key_release", "key_record"]:
+		ev = g.dispatch(a)
+	check(g.flag("P13") and g.has_item("nora_register_card"), "P13: her mass recorded; her card")
+	check(lab.has_seen("thumb"), "P13: the thumb in the felt")
+	g.dispatch("back")
+
+## R07 P14: short, pause, long (her work card); her name tab; the strip; SEAL.
+func play_p14() -> void:
+	g.dispatch("frame_stand")
+	check(lab.local_view == "c_frame", "P14: P13 opens the frame")
+	for k in 3:
+		g.dispatch("sec_" + R07Sim.SOLUTION_SLOTS[k])
+		g.dispatch("slot_%d" % k)
+	g.dispatch("item:nora_register_card")
+	g.dispatch("name_tab")
+	g.dispatch("strip_clip")
+	var ev := g.dispatch("seal")
+	check(g.flag("P14") and g.has_item("nora_frame") and g.has_item("nora_register_card"),
+		"P14: her frame sealed; the card kept")
+	check(not has_ev(ev, "fx", "tide"), "P14: Tide V waits for the bearing")
+	g.dispatch("back")
+	g.dispatch("back")
+	check(lab.local_view == "room", "P14: back in the laboratory")
+
+# ---------------------------------------------------------------------------
+# Tide VIII
+# ---------------------------------------------------------------------------
+## R06 P22: her card on the record rest, her sketch beside it, NO SURVIVING EFFECTS amended
+## to REPAIRED CUP, NORA BELL; APPEND.
+func play_p22() -> void:
+	g.dispatch("slope")
+	g.dispatch("item:nora_register_card")
+	g.dispatch("rest_record")
+	g.dispatch("rest_evidence")
+	check(bunks.state.card_on_rest and bunks.state.sketch_on_rest, "P22: card and sketch on the rests")
+	var names := ["fin_next", "obj_next", "own_next"]
+	for i in 3:
+		var guard := 0
+		while int(bunks.state.wheels[i]) != int(R06Sim.WHEEL_SOLUTION[i]) and guard < 8:
+			g.dispatch(names[i])
+			guard += 1
+	var ev := g.dispatch("append")
+	check(g.flag("P22") and g.has_item("amended_nora_card") and not g.has_item("nora_register_card"),
+		"P22: the record amended; the card swapped")
+	check(not has_ev(ev, "fx", "tide"), "P22: Tide VIII waits for the witness bridge")
+	g.dispatch("back")
 
 # ---------------------------------------------------------------------------
 # Tides VI-VII

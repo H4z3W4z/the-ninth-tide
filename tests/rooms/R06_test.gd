@@ -561,6 +561,7 @@ func test_p22_refusals() -> void:
 	check(says(g.dispatch("rest_record")) == "The left rest is for the record being amended. Her card is in my bag.", "P22: rest_record with the card in hand")
 	# Her book unread: no sketch to lay.
 	var u := game_at(8, ROOM)
+	u.state.notebook.erase("R05.nora_ledger")  # the built kitchen's tide-8 prep has read it
 	u.give("nora_register_card")
 	to_slope(u)
 	ev = u.dispatch("rest_evidence")

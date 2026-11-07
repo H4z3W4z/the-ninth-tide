@@ -379,9 +379,16 @@ func test_hints() -> void:
 		var g: GameSim = games[o]
 		check(r01(g).objective() == o, "17: objective %s (got %s)" % [o, r01(g).objective()])
 		var before := JSON.stringify(g.to_dict().rooms.R01)
+		# With live work in a built room elsewhere the core sends her there first (GameSim._hint);
+		# the jetty's own ladder is still what the room answers.
+		var away := g.work_elsewhere()
 		for lvl in 3:
+			check(r01(g).hint_line(lvl) == R01Sim.HINTS[o][lvl], "17: %s hint %d" % [o, lvl])
 			var ev := g.dispatch("hint")
-			check(says(ev) == R01Sim.HINTS[o][lvl], "17: %s hint %d" % [o, lvl])
+			if away == "":
+				check(says(ev) == R01Sim.HINTS[o][lvl], "17: %s hint %d dispatched" % [o, lvl])
+			elif lvl == 0:
+				check(says(ev).begins_with("Something in the"), "17: %s hint points to %s" % [o, away])
 		check(JSON.stringify(g.to_dict().rooms.R01) == before, "17: hints change no room state")
 		check(R01Sim.OBJECTIVES.has(o), "17: objective text for %s" % o)
 

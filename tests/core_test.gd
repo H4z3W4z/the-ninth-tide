@@ -931,19 +931,21 @@ func test_card_and_slab() -> void:
 func test_placeholder() -> void:
 	var scene = new_scene("user://core_ph_test.json")
 	await process_frame
-	scene.tide_jump(3)
-	scene.dispatch("go:R05")
-	check(scene.room_view.rid == "R05" and scene.room_view.is_skeleton(), "the kitchen is a skeleton")
+	# Wave 2 built R05-R08: the stair landing (R11) is the unbuilt room off a built one.
+	scene.tide_jump(4, "R03")
+	scene.dispatch("go:R11")
+	check(scene.room_view.rid == "R11" and scene.room_view.is_skeleton(), "the stair landing is a skeleton")
 	var live: Dictionary = scene.room_view.live_exit_rects()
-	check(live.keys() == ["R02"], "one exit, back to the office (%s)" % [live.keys()])
-	check(scene.action_at(live["R02"].get_center()) == "go:R02", "the way back answers")
-	var other: Rect2 = scene.room_view.exit_rects()["R06"]
+	check(live.keys() == ["R03"], "one exit, back to the chart room (%s)" % [live.keys()])
+	check(scene.action_at(live["R03"].get_center()) == "go:R03", "the way back answers")
+	var other: Rect2 = scene.room_view.exit_rects()["R09"]
 	check(scene.action_at(other.get_center()) == "", "the other exits are shut on the card")
 	var hs: Array = scene.room_view.c("HOTSPOTS")
 	check(scene.action_at(hs[0][1].get_center()) == hs[0][0], "the hotspots stay live")
-	scene.dispatch("go:R06")
-	check(scene.sim.state.room == "R06", "the sim still walks on (chain_test)")
-	check(scene.room_view.live_exit_rects().keys() == ["R05"], "the bunk room offers the way back to the kitchen")
+	scene.tide_jump(9, "R11")
+	scene.dispatch("go:R12")
+	check(scene.sim.state.room == "R12", "the sim still walks on (chain_test)")
+	check(scene.room_view.live_exit_rects().keys() == ["R11"], "the chamber offers the way back to the stair")
 	var built: RoomView = load("res://game/rooms/R02/R02_view.tscn").instantiate()
 	check(not built.is_skeleton(), "a built room is not a skeleton")
 	built.free()
