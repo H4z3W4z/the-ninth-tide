@@ -41,9 +41,25 @@ const REF_PUMP := {
 }
 const REF_RESPIRATION := "With the gate loop running, one belt stopped. The diaphragm kept breathing without it. Under the belt, a nameplate: REFERENCE RESPIRATION."
 const REF_HINTS := [
-	"The machine room's valve board routes pressure. The drawing above shows the loop.",
-	"Pressure has to go out through the gate and come back, without reaching the sealed line.",
-	"SUPPLY open, GATE open, RETURN open, INDEX closed. Then the pump.",
+	"The valve toggles have numbers, not names. Venn tagged everything he repaired: his tags hang behind the middle belt.",
+	"Match each toggle's number to its tag, then route the drawing's loop: out through the gate and back, never into the sealed line.",
+	"No. 07 (SUPPLY), No. 12 (GATE) and No. 31 (RETURN) open, No. 44 (INDEX) shut. Then the pump.",
+]
+## The stamped tag number on each toggle, and the four valve tags, written out independently.
+const REF_VALVE_TAGS := {"SUPPLY": "07", "GATE": "12", "RETURN": "31", "INDEX": "44"}
+const REF_TAG_LINES := [
+	"No. 07: SUPPLY valve reseated, 11 Jan 1926. E.V.",
+	"No. 12: GATE valve repacked, 3 Mar 1926. E.V.",
+	"No. 31: RETURN line flushed, 9 Sep 1927. E.V.",
+	"No. 44: INDEX resealed. Wire cut again. Do not open. E.V.",
+]
+## The P11 reveal chain, [text, delay], in order.
+const REF_CHAIN := [
+	["It takes. The gate line's holding pressure.", 0.6],
+	["One of the belts is stopping.", 3.6],
+	["The diaphragm didn't.", 8.4],
+	["It breathed in. The dust came to it. Sideways.", 10.8],
+	["There's a plate where the belt was. REFERENCE RESPIRATION.", 12.8],
 ]
 
 func run_tests() -> void:
@@ -68,6 +84,8 @@ func run_tests() -> void:
 	test_room_lines()
 	test_debug()
 	test_p01_untouched()
+	test_valve_tags()
+	test_way_in_hint()
 	test_view_static()
 	if _view_ready():
 		await view_checks(ROOM)
@@ -220,16 +238,26 @@ func test_commit_chain() -> void:
 	check(ev_delay(ev, "sfx", "pump_engage") == 0.0, "pump_engage at 0.0")
 	check(ev_delay(ev, "sfx", "belt_wind_down") > ev_delay(ev, "sfx", "pump_engage"), "the belt winds down after the pump engages")
 	check(ev_delay(ev, "sfx", "breath_alone") > ev_delay(ev, "sfx", "belt_drop"), "the breath comes after the belt drops")
-	for line in ["It takes. The gate line's holding pressure.", "One of the belts is stopping.",
-			"The diaphragm didn't.", "It breathed in, and the dust came to it. Sideways.",
-			"There's a plate where the belt was. REFERENCE RESPIRATION."]:
-		var e := say_ev(ev, line)
-		check(not e.is_empty() and e.story, "reveal line '%s' is a story line" % line)
-	var last := -1.0
+	var said := []
 	for e in ev:
 		if e.type == "say":
-			check(float(e.delay) > last, "reveal lines in order")
-			last = float(e.delay)
+			said.append([e.text, float(e.delay)])
+			check(e.story, "reveal line '%s' is a story line" % e.text)
+	check(said == REF_CHAIN, "the reveal's lines, in order, at their times (got %s)" % [said])
+	check(ev_delay(ev, "sfx", "belt_drop") == 6.6, "belt_drop at 6.6")
+	check(ev_delay(ev, "sfx", "breath_alone") == 8.2, "breath_alone at 8.2, after the silence")
+	check(ev_delay(ev, "sfx", "dust_drag") == R08Sim.DUST_DRAG_AT and VIEW.RV_DUST == R08Sim.DUST_DRAG_AT
+		and VIEW.RV_INHALE == ev_delay(ev, "sfx", "breath_alone"), "dust_drag rides the reveal's inhale")
+	check(VIEW.RV_DUST > VIEW.RV_INHALE and VIEW.RV_DUST < VIEW.RV_INHALE + VIEW.RV_INHALE_TIME, "the dust moves inside the inhale")
+	var order := []
+	for e in ev:
+		if e.type == "sfx" and e.id in ["belt_drop", "breath_alone"]:
+			order.append([e.id, float(e.delay)])
+		if e.type == "say" and e.text in ["One of the belts is stopping.", "The diaphragm didn't."]:
+			order.append([e.text, float(e.delay)])
+	order.sort_custom(func(a, b): return a[1] < b[1])
+	check(order.map(func(x): return x[0]) == ["One of the belts is stopping.", "belt_drop", "breath_alone",
+		"The diaphragm didn't."], "belt line, drop, breath alone, then 'The diaphragm didn't.'")
 	check(r.OBSERVATIONS.reference_respiration == REF_RESPIRATION, "reference_respiration exact")
 	check(r.has_seen("reference_respiration"), "the R08 page has reference_respiration")
 	check(has_ev(ev, "fx", "p11_reveal"), "fx p11_reveal")
@@ -301,7 +329,7 @@ func test_board_first_open() -> void:
 		check(r.view == "c_valves", "%s opens c_valves" % h)
 		check(r.has_seen("valve_board") and r.has_seen("drawing") and r.has_seen("index_seal_cut"),
 			"%s first open observes board, drawing and the cut seal" % h)
-		check(says(ev) == "Someone left INDEX open. The seal wire on it has been cut.", "first-open line")
+		check(says(ev) == "No names on the toggles, only stamped numbers. Someone left 44 open. Its seal wire has been cut.", "first-open line")
 		g.dispatch("back")
 		check(r.view == "room", "back from c_valves")
 		check(says(g.dispatch(h)) == "", "reopening the board is silent")
@@ -364,7 +392,7 @@ func test_malformed() -> void:
 	var g := GameSim.new()
 	g.from_dict(dd)
 	var r := r08(g)
-	check(r.state.tag == 8 and r.state.tag_max == 8, "tag 99 -> 8, tag_max follows")
+	check(r.state.tag == R08Sim.TAG_LAST and r.state.tag_max == R08Sim.TAG_LAST, "tag 99 -> the last page, tag_max follows")
 	check(r.state.notices == ["cycle_pause"], "unknown and duplicate notices dropped")
 	check(r.state.misses == 999, "misses clamped")
 	check(r.state.previewed_codes == ["loop"], "previewed codes validated")
@@ -375,7 +403,7 @@ func test_malformed() -> void:
 	g.from_dict(dd)
 	r = r08(g)
 	check(r.state.notices == [] and r.state.tag == 0 and r.state.misses == 0, "bogus notices, fractional tag, negative misses")
-	check(not r.state.p11_complete and not r.state.tags_opened and not g.flag("o04_found"), "tags need P11")
+	check(not r.state.p11_complete and r.state.tags_opened and not g.flag("o04_found"), "tags read before P11 load; O04 needs P11")
 	check(not g.flag("P11"), "a non-bool p11_complete is ignored")
 	g = GameSim.new()
 	dd.rooms[ROOM] = "garbage"
@@ -417,32 +445,41 @@ func test_parallel_pair() -> void:
 func test_repair_tags() -> void:
 	var g := game_at(4, ROOM)
 	var r := r08(g)
+	# The tags are the key to P11: readable past the running belt, before the commit.
 	var ev := g.dispatch("repair_tags")
-	check(r.view == "room" and not g.flag("o04_found"), "no tags before P11")
-	check(says(ev) == "A ring of brass tags hangs behind the middle belt. Not with the belt running.", "tags line before P11")
-	check(not r.has_seen("o04_tags"), "nothing observed before P11")
+	check(r.view == "c_tags" and has_ev(ev, "sfx", "tag_lift"), "c_tags opens before P11")
+	check(says(ev) == "A ring of brass tags behind the belt. I can reach it past the lacing. His repair tags.", "tags line before P11")
+	check(r.has_seen("o04_tags") and r.has_seen("tag_07") and not g.flag("o04_found"), "first tag read; O04 waits for P11")
+	g.dispatch("back")
 	solve_p11(g)
-	ev = g.dispatch("repair_tags")
-	check(r.view == "c_tags" and has_ev(ev, "sfx", "tag_lift"), "c_tags opens after P11")
-	check(g.flag("o04_found") and r.has_seen("o04_tags"), "O04 found")
-	check(says(ev) == "His repair tags. Four years of them.", "first tags line")
-	for i in 8:
+	check(g.flag("o04_found"), "tags read before the commit: O04 found at P11")
+	var f := game_at(4, ROOM)
+	var rf := r08(f)
+	solve_p11(f)
+	check(not f.flag("o04_found"), "tags unread: no O04 at the commit")
+	ev = f.dispatch("repair_tags")
+	check(f.flag("o04_found") and rf.view == "c_tags", "O04 found on opening the tags after P11")
+	check(says(ev) == "His repair tags. Years of them.", "first tags line after P11")
+	g.dispatch("repair_tags")
+	for i in R08Sim.TAG_LAST:
 		ev = g.dispatch("tag_next")
 		check(has_ev(ev, "sfx", "tag_flip"), "page flips")
-		if i == 3:
-			check(not r.has_seen("o04_keeps_time"), "keeps_time waits for page 5")
-		if i == 4:
-			check(r.has_seen("o04_keeps_time"), "page 5 observes keeps_time")
-	check(r.state.tag == 8 and r.state.tag_max == 8, "eight nexts reach page 8")
+		if i + 1 == R08Sim.TAG_KEEPS_TIME - 1:
+			check(not r.has_seen("o04_keeps_time"), "keeps_time waits for 4 JUN 30")
+		if i + 1 == R08Sim.TAG_KEEPS_TIME:
+			check(r.has_seen("o04_keeps_time"), "4 JUN 30 observes keeps_time")
+	check(r.TAGS[R08Sim.TAG_KEEPS_TIME].begins_with("4 JUN 30.") and r.TAGS[R08Sim.TAG_LEANING].begins_with("14 OCT 31."),
+		"keeps_time and leaning pages")
+	check(r.state.tag == R08Sim.TAG_LAST and r.state.tag_max == R08Sim.TAG_LAST, "nexts reach the last page")
 	check(r.has_seen("o04_keeps_time") and r.has_seen("o04_leaning") and r.has_seen("o04_new_tag"), "tag observations")
 	check(says(ev) == "New brass. Dated tomorrow. Nothing written on it." and has_ev(ev, "sfx", "tag_settle"), "page 8 line")
 	check(r.tag_stamp() == ["18 OCT 31"] and not r.has_seen("o04_am"), "no A.M. at band 2")
 	g.dispatch("tag_next")
-	check(r.state.tag == 8, "a ninth next stays at 8")
+	check(r.state.tag == R08Sim.TAG_LAST, "a next past the end stays on the last page")
 	g.dispatch("tag_prev")
-	check(r.state.tag == 7 and r.state.tag_max == 8, "tag_prev -> 7")
-	check(says(g.dispatch("tag")) == "", "page 8 again says nothing new")
-	check(r.TAGS.size() == 9 and r.TAGS[7] == "14 OCT 31. Rim rebolted. It is not pushing. It is leaning. E.V.", "tag text")
+	check(r.state.tag == R08Sim.TAG_LAST - 1 and r.state.tag_max == R08Sim.TAG_LAST, "tag_prev steps back")
+	check(says(g.dispatch("tag")) == "", "the last page again says nothing new")
+	check(r.TAGS.size() == 13 and r.TAGS[11] == "14 OCT 31. Rim rebolted. It is not pushing. It is leaning. E.V.", "tag text")
 	g.dispatch("back")
 	check(r.view == "room", "back from c_tags")
 	check(says(g.dispatch("repair_tags")) == "", "reopening the tags is quiet")
@@ -450,7 +487,7 @@ func test_repair_tags() -> void:
 	var t := game_at(9, ROOM)
 	var rt := r08(t)
 	t.dispatch("repair_tags")
-	for i in 8:
+	for i in R08Sim.TAG_LAST:
 		ev = t.dispatch("tag_next")
 	check(rt.has_seen("o04_am") and "A.M." in rt.tag_stamp(), "band 7: page 8 stamped A.M.")
 	check(says(ev).ends_with("Someone has stamped it again. A.M."), "A.M. line")
@@ -487,8 +524,8 @@ func test_escalation() -> void:
 		["b3", game_at(5, ROOM), [true, false, true], "alone", "lines", false, "", "room_s3", "dust_lines"],
 		["b4", game_at(6, ROOM), [true, false, true], "alone", "lines", true, "", "room_s4", "bolts_out"],
 		["b5", game_at(7, ROOM), [true, false, true], "nora", "raked", true, "", "room_s4", "breath_nora"],
-		["b6", game_at(8, ROOM), [false, false, false], "nora", "raked", true, "", "room_s4", "belts_still"],
-		["b7", game_at(9, ROOM), [false, false, false], "nora", "raked", true, "late", "room_s4", "late_reflection"],
+		["b6", game_at(8, ROOM), [false, false, false], "nora", "raked", true, "late", "room_s4", "late_reflection"],
+		["b7", game_at(9, ROOM), [false, false, false], "nora", "raked", true, "late", "room_s4", "far_horizon"],
 		["sever", ending_game("sever"), [false, false, false], "still", "flat", false, "", "room_sever", "end_sever"],
 		["continue", ending_game("continue"), [false, false, false], "even", "raked", true, "now", "room_s4", "end_continue"],
 	]
@@ -508,6 +545,8 @@ func test_escalation() -> void:
 	h.dispatch("valve_board")
 	h.dispatch("tog_supply")
 	check(r08(h).held() and r08(h).belts_running() == [true, true, true], "held keeps belts_running")
+	check(R08Sim.NOTICE_LINES.late_reflection == "The room is in its surface. A moment late.", "band 6 notice line")
+	check(R08Sim.NOTICE_LINES.far_horizon == "Further back than the wall goes. A long way further.", "band 7 notice line")
 	# Weather is progress, not a clock: the same flags give the same matrix.
 	check(r08(game_at(7, ROOM)).breath_mode() == r08(game_at(7, ROOM)).breath_mode(), "deterministic")
 
@@ -604,7 +643,7 @@ func test_use_item() -> void:
 	check(says(use(g, "inspection_lens", "bolts")) == "The paint stripe is unbroken on all twelve.", "lens on bolts at band 2")
 	check(says(use(g, "inspection_lens", "belt")) == "The lacing is all one hand.", "lens on belt")
 	check(says(use(g, "inspection_lens", "flywheel")) == "Oil and old paint. Nothing to see but it turning.", "lens on flywheel")
-	check(says(use(g, "inspection_lens", "repair_tags")) == "That isn't what it's for.", "lens on tags before P11 is generic")
+	check(says(use(g, "inspection_lens", "repair_tags")) == "The writing slopes backwards. Left-handed. Venn.", "lens on tags before P11")
 	check(says(use(g, "pencil", "drawing")) == "I won't add anything to his drawing.", "pencil on the drawing")
 	check(says(use(g, "pencil", "bolts")) == "That isn't what it's for.", "pencil elsewhere is generic")
 	solve_p11(g)
@@ -612,7 +651,7 @@ func test_use_item() -> void:
 	check(says(use(g, "inspection_lens", "nameplate")) == "The plate is older than the frame. The rivets were set round it.", "lens on nameplate after P11")
 	check(says(use(g, "inspection_lens", "repair_tags")) == "The writing slopes backwards. Left-handed. Venn.", "lens on tags after P11")
 	g.dispatch("repair_tags")
-	for i in 8:
+	for i in R08Sim.TAG_LAST:
 		g.dispatch("tag_next")
 	check(says(use(g, "pencil", "tag")) == "Not yet. I don't know what was repaired.", "pencil on the new tag")
 	check(g.has_item("pencil"), "pencil kept")
@@ -643,13 +682,18 @@ func test_room_lines() -> void:
 		6: {"diaphragm": "A finger's width further out than it was. I can see the bolts' threads.",
 			"bolts": "The paint's cracked on every one. They haven't turned. They've been pushed."},
 		7: {"diaphragm": "Two short. A pause. One long. I know that breath.", "dust": "Raked: two short marks, a gap, one long."},
-		8: {"diaphragm": "Everything else in the room has stopped.", "belt": "All three belts, still.", "flywheel": "Still."},
-		9: {"diaphragm": "The room is in it, a little late. The belts are still running in there."},
+		8: {"diaphragm": "Everything else has stopped. In its surface there's a horizon where the room should be.",
+			"belt": "All three belts, still.", "flywheel": "Still."},
+		9: {"diaphragm": "Nine pale points along that horizon. It goes back further than the wall does."},
 	}
 	for t in lines:
 		var s := game_at(t, ROOM)
 		for h in lines[t]:
 			check(says(s.dispatch(h)) == lines[t][h], "tide %d %s" % [t, h])
+	var b6 := game_at(8, ROOM)
+	b6.dispatch("diaphragm")
+	b6.dispatch("belt")
+	check(r08(b6).has_seen("late_reflection") and r08(b6).has_seen("belts_still"), "band 6: the horizon and the still belts noted")
 	check(r08(game_at(6, ROOM)).has_seen("bolts_out") == false, "bolts_out waits for a look or a return")
 	var b4 := game_at(6, ROOM)
 	b4.dispatch("bolts")
@@ -707,6 +751,66 @@ func test_p01_untouched() -> void:
 	check(not f.room(ROOM).can_enter() and says(f.dispatch("go:R08")) == R08Sim.LOCKED, "sealed without P09")
 
 # ---------------------------------------------------------------------------------------------
+# P11: the tags are the key
+# ---------------------------------------------------------------------------------------------
+func test_valve_tags() -> void:
+	check(R08Sim.VALVE_TAGS == REF_VALVE_TAGS, "toggles stamped 07, 12, 31, 44")
+	# every toggle's number names exactly one tag on the ring, and that tag names its valve
+	var used := []
+	for v in VALVES:
+		var num: String = REF_VALVE_TAGS[v]
+		var hits := []
+		for i in R08Sim.TAGS.size():
+			if R08Sim.tag_number(i) == num:
+				hits.append(i)
+		check(hits.size() == 1, "tag No. %s hangs on the ring exactly once (got %s)" % [num, hits])
+		if hits.size() == 1:
+			var text: String = R08Sim.TAGS[hits[0]]
+			check(text.begins_with("No. %s: %s " % [num, v]), "tag No. %s names %s ('%s')" % [num, v, text])
+			check(R08Sim.valve_for_tag(num) == v, "valve_for_tag(%s) == %s" % [num, v])
+			used.append(hits[0])
+	var numbered := 0
+	for i in R08Sim.TAGS.size():
+		if R08Sim.tag_number(i) != "":
+			numbered += 1
+	check(numbered == 4 and used.size() == 4, "four valve tags, one per toggle: a 1:1 map")
+	for line in REF_TAG_LINES:
+		check(line in R08Sim.TAGS, "tag text exact: %s" % line)
+	# the old tags keep their order, and the new brass is still last
+	check(R08Sim.TAGS[R08Sim.TAG_LAST] == "18 OCT 31", "the stamped tag is last")
+	check(R08Sim.TAGS.find("3 NOV 27. Fitted restraining bolts, twelve. Rim weeps oil. E.V.") < R08Sim.TAGS.find(
+		"30 JAN 29. Replaced bolt 5, sheared. Sheared outward. E.V."), "dated tags in order")
+	# the drawing keeps the names; PREVIEW names faults by them
+	check(R08Sim.DRAWING_LINE.contains("SUPPLY") and R08Sim.DRAWING_LINE.contains("INDEX"), "the drawing keeps the names")
+	check(R08Sim.FAULT_NAMES.index == "DIVERTED TO INDEX", "faults named by the drawing's names")
+	# reading the ring: each valve tag goes into the notebook with its number and line
+	var g := game_at(4, ROOM)
+	var r := r08(g)
+	g.dispatch("repair_tags")
+	for i in R08Sim.TAG_LAST:
+		g.dispatch("tag_next")
+	for v in VALVES:
+		var id: String = "tag_" + REF_VALVE_TAGS[v]
+		check(r.has_seen(id) and R08Sim.OBSERVATIONS[id].contains("No. " + REF_VALVE_TAGS[v]) and R08Sim.OBSERVATIONS[id].contains(v),
+			"notebook keeps %s" % id)
+	check(not g.flag("P11"), "reading the tags solves nothing")
+	# the solution is unchanged: 07, 12 and 31 open, 44 shut, then PUMP
+	g.dispatch("back")
+	g.dispatch("valve_board")
+	for v in VALVES:
+		var open: bool = R08Sim.VALVE_TAGS[v] in ["07", "12", "31"]
+		if r.state.toggles[v] != open:
+			g.dispatch("tog_" + v.to_lower())
+	check(r.state.toggles == SOLUTION, "07, 12, 31 open and 44 shut is the solution")
+	g.dispatch("pump")
+	check(g.flag("P11"), "then PUMP solves P11")
+	# the hints point at the tags first
+	check(R08Sim.HINTS.p11[0].contains("tags") and R08Sim.HINTS.p11 == REF_HINTS, "hints start at the tags")
+
+func test_way_in_hint() -> void:
+	check(R08Sim.WAY_IN_HINT == "The hatch in the kitchen floor is open: the laboratory and the machine room.", "WAY_IN_HINT exact")
+
+# ---------------------------------------------------------------------------------------------
 # the view (presentation only)
 # ---------------------------------------------------------------------------------------------
 const VIEW := preload("res://game/rooms/R08/R08_view.gd")
@@ -745,6 +849,65 @@ func test_view_static() -> void:
 			var r: Rect2 = h[1]
 			check(CANVAS.encloses(r) and r.size.x >= 64 and r.size.y >= 64, "control %s is on canvas and >= 64 px" % h[0])
 
+## The belt drop's silence, driven frame by frame from the view's own hooks.
+func test_view_drop() -> void:
+	var scene = await _scene_at(0)
+	var v = scene.room_view
+	check(not "DUCK_IDS" in load("res://game/rooms/R08/R08_view.gd").get_script_constant_map(), "the old breath_alone duck is gone")
+	scene.dispatch("valve_board")
+	for t in ["tog_supply", "tog_gate", "tog_return", "tog_index"]:
+		scene.dispatch(t)
+	scene.dispatch("pump")
+	await process_frame
+	v.on_sfx("belt_drop")
+	check(v.drop_t == 0.0 and is_equal_approx(v.drop_in, 0.25), "belt_drop starts the duck over 0.25 s")
+	var dt := 1.0 / 60.0
+	var t := 0.0
+	while t < 0.3:
+		v._tick_audio(dt)
+		t += dt
+	for id in VIEW.LOOPS:
+		check(v.mixer.mix.get(id, 0.0) <= db_to_linear(-59.0), "after 0.25 s %s is at -60 dB (%f)" % [id, v.mixer.mix.get(id, 0.0)])
+	check(v.drop_silent(), "the room is held silent")
+	while t < 1.6:
+		v._tick_audio(dt)
+		t += dt
+	check(v.drop_silent(), "still silent 1.6 s after the drop")
+	v.on_sfx("breath_alone")
+	var target: float = v.loop_targets()["r08_breath"]
+	t = 0.0
+	while t < 1.05:
+		v._tick_audio(dt)
+		t += dt
+	check(absf(v.mixer.mix["r08_breath"] - target) < 0.01, "r08_breath back to its target in 1.0 s")
+	check(v.mixer.mix["r08_room"] <= db_to_linear(-59.0), "the other loops stay down while the reveal's lines remain")
+	check(v.room_back_t < 0.0, "the room waits for the last line")
+	# the last line goes up: the room comes back over 3.0 s
+	scene.lines = scene.lines.filter(func(l): return int(l.click) != v.reveal_click)
+	v._tick_audio(dt)
+	check(v.room_back_t >= 0.0, "the room starts back after the last line")
+	t = 0.0
+	while t < 1.5:
+		v._tick_audio(dt)
+		t += dt
+	var room_target: float = v.loop_targets()["r08_room"]
+	var mid: float = v.mixer.mix["r08_room"]
+	check(mid > db_to_linear(-59.0) and mid < room_target, "half way back at 1.5 s (%f)" % mid)
+	while t < 3.1:
+		v._tick_audio(dt)
+		t += dt
+	check(v.drop_t < 0.0 and absf(v.mixer.mix["r08_room"] - room_target) < 0.01, "back at target after 3.0 s")
+	# Soften sudden sounds: a gentler 0.6 s duck
+	scene.sim.settings.soft_audio = true
+	v.on_sfx("belt_drop")
+	check(is_equal_approx(v.drop_in, 0.6), "soft audio ducks over 0.6 s")
+	v._tick_audio(0.25)
+	check(v.mixer.mix["r08_room"] > db_to_linear(-59.0), "soft duck still on its way down at 0.25 s")
+	scene.sim.settings.soft_audio = false
+	v.apply_instantly()
+	check(v.drop_t < 0.0, "apply_instantly clears the duck")
+	await free_scene(scene)
+
 func _scene_at(n: int) -> Node:
 	var scene = new_scene("user://room_test_R08_view.json")
 	await process_frame
@@ -772,7 +935,7 @@ func test_view_live() -> void:
 	check(v.action_at(Vector2(1060, 830)) == "preview", "c_valves: PREVIEW answers")
 	check(v.action_at(Vector2(700, 300)) == "look_drawing", "c_valves: the drawing answers")
 	check(v.hover_at(Vector2(875, 750)) == "tog_index", "c_valves: hover mirrors the click")
-	check(v.label_for("tog_gate") == "GATE toggle", "c_valves: hover label")
+	check(v.label_for("tog_gate") == "Toggle No. 12", "c_valves: hover label is the stamped number")
 	# SUPPLY open with INDEX open: the hold
 	scene.dispatch("tog_supply")
 	await process_frame
@@ -817,10 +980,13 @@ func test_view_live() -> void:
 	check(v.reveal_t < 0.0 and v.belts() == [true, false, true], "apply_instantly ends the reveal at the stopped belt")
 	check(v.exits_active(), "exits back once the reveal is done")
 	check(v.label_for("nameplate") == "Nameplate", "after P11 the nameplate is named")
+	check(v.nameplate_alpha() == 1.0, "after P11 the nameplate is engraved at full contrast")
+	check(v.dust_layers() == [["dust_streaks", 1.0]], "after P11 the dragged dust is a still at full alpha")
 	t = v.loop_targets()
 	check(t["r08_cycle"] == 0.0 and t["r08_cycle_two"] > 0.0 and is_equal_approx(t["r08_breath"], 0.75),
 		"after P11: the pump cycle and the breath alone")
 	await free_scene(scene)
+	await test_view_drop()
 	# the tags: arrows hidden at the ends
 	scene = await _scene_at(2)
 	v = scene.room_view
@@ -828,14 +994,14 @@ func test_view_live() -> void:
 	await process_frame
 	check(v.action_at(Vector2(240, 500)) == "", "c_tags: no Previous on the first tag")
 	check(v.action_at(Vector2(1200, 500)) == "tag_next", "c_tags: Next answers")
-	for i in 8:
+	for i in R08Sim.TAG_LAST:
 		scene.dispatch("tag_next")
 	await process_frame
 	check(v.action_at(Vector2(1200, 500)) == "", "c_tags: no Next on the last tag")
 	check(v.action_at(Vector2(240, 500)) == "tag_prev", "c_tags: Previous answers")
 	await free_scene(scene)
 	# escalation loops and hotspots that never move
-	var expect := {5: "r08_breath_nora", 7: "r08_late", 8: "r08_drip", 9: "r08_breath_even"}
+	var expect := {5: "r08_breath_nora", 6: "r08_late", 7: "r08_late", 8: "r08_drip", 9: "r08_breath_even"}
 	for n in expect:
 		scene = await _scene_at(n)
 		v = scene.room_view
@@ -843,4 +1009,17 @@ func test_view_live() -> void:
 		check(t[expect[n]] > 0.0, "stage %d plays %s" % [n, expect[n]])
 		check(t["r08_cycle"] == 0.0, "stage %d: no driven cycle" % n)
 		check(v.dev_rects().size() == VIEW.HOTSPOTS.size(), "stage %d: every hotspot rect is live" % n)
+		await free_scene(scene)
+	# every later visit keeps the fan of dust and the plate; from band 6 the surface holds the horizon
+	for n in range(2, 8):
+		scene = await _scene_at(n)
+		v = scene.room_view
+		var layers: Array = v.dust_layers()
+		var fan := false
+		for l in layers:
+			fan = fan or (l[0] in ["dust_streaks", "dust_lines"] and l[1] == 1.0)
+		check(fan, "stage %d: the dust fan is drawn still at full alpha (%s)" % [n, layers])
+		check(v.nameplate_alpha() == 1.0, "stage %d: the nameplate at full alpha" % n)
+		check((v.r.reflection_mode() == "late") == (n >= 6), "stage %d: the horizon only from band 6" % n)
+		check(v._tex("a_surface_horizon_b6") != null, "the horizon plate loads")
 		await free_scene(scene)

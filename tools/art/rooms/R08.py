@@ -9,7 +9,7 @@ Writes, and only writes, assets/rooms/R08/*.png:
   flywheel, pulley, crank_disc           rotating sprites (the view turns them)
   diaphragm, diaphragm_hollow, diaphragm_sheen, diaphragm_slack,
   diaphragm_in, diaphragm_out, diaphragm_gap, diaphragm_rim,
-  diaphragm_reflect, diaphragm_reflect_now
+  diaphragm_reflect, diaphragm_reflect_now, a_surface_horizon_b6
                                          the breathing membrane and its layers (400x400, centre 200,200):
                                          fold plates the view crossfades with the breath (in: a pucker at
                                          the boss; out: a slack dome), the peak-inhale rim gap, the band 5+
@@ -1283,6 +1283,35 @@ def paint_reflect(rng, slack):
     return p
 
 
+HORIZON_Y, HORIZON_SAG = 214, 26   # the far horizon in the membrane (sprite px): its crest, its fall at the rim
+HORIZON_POINTS = 9
+
+
+def horizon_y(x):
+    """The far horizon's curve: a shallow arc, highest at the disc's centre line."""
+    u = (x - 200) / 186.0
+    return HORIZON_Y + HORIZON_SAG * u * u
+
+
+def paint_surface_horizon(rng):
+    """Band 6+: what the membrane holds instead of the room. Stark flat shapes only: one far
+    horizon curve in storm navy, the far water under it a flat storm-navy field (translucent, so
+    the breath's folds still read through it), and nine evenly spaced pale points along it.
+    Masked inside the membrane, so the bolts stay in front. The view lays it at full opacity."""
+    p = Pen(400, 400, rng)
+    lay = p.layer()
+    xs = [14 + 372 * i / 96 for i in range(97)]
+    curve = [(x, horizon_y(x)) for x in xs]
+    lay.poly(curve + [(386, 400), (14, 400)], rgba(STORM, 190), None)
+    lay.line(curve, rgba(STORM_HI), 4.0)
+    x0, x1 = 64, 336
+    for i in range(HORIZON_POINTS):
+        x = x0 + (x1 - x0) * i / (HORIZON_POINTS - 1)
+        lay.ell(x, horizon_y(x) - 1, 5.2, 5.2, rgba(PAPER, 204), None)
+    p.put(lay, 1.0, circle_mask((400, 400), (200, 200), 184))
+    return p
+
+
 # ----------------------------------------------------------------------------- dust overlays
 
 def floor_mask():
@@ -1854,6 +1883,7 @@ ASSETS = [  # name, seed index, painter, opaque, grain
     ("floor_front", 43, paint_floor_front, False, False),
     ("dust_streaks", 40, paint_dust_streaks, False, False),
     ("dust_raked", 41, paint_dust_raked, False, False),
+    ("a_surface_horizon_b6", 44, paint_surface_horizon, False, False),
     ("light_mul", 50, paint_light_mul, False, False),
     ("light_add", 51, paint_light_add, False, False),
     ("c_valves", 60, paint_c_valves, True, True),

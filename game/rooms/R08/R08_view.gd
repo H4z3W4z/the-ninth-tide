@@ -54,10 +54,10 @@ const EXIT_RECTS := {
 	"R07": Rect2(282, 922, 250, 64),
 }
 const VALVE_CONTROLS := [
-	["tog_supply", Rect2(230, 620, 150, 260), "SUPPLY toggle"],
-	["tog_gate", Rect2(420, 620, 150, 260), "GATE toggle"],
-	["tog_return", Rect2(610, 620, 150, 260), "RETURN toggle"],
-	["tog_index", Rect2(800, 620, 150, 260), "INDEX toggle"],
+	["tog_supply", Rect2(230, 620, 150, 260), "Toggle No. 07"],
+	["tog_gate", Rect2(420, 620, 150, 260), "Toggle No. 12"],
+	["tog_return", Rect2(610, 620, 150, 260), "Toggle No. 31"],
+	["tog_index", Rect2(800, 620, 150, 260), "Toggle No. 44"],
 	["preview", Rect2(1000, 780, 120, 110), "PREVIEW"],
 	["pump", Rect2(1140, 600, 120, 330), "PUMP lever"],
 	["look_drawing", Rect2(170, 100, 1108, 450), "Maintenance drawing"],
@@ -78,9 +78,18 @@ const SFX_SOFT := ["pump_engage", "cycle_stop", "fault_buzz", "pawl_lock", "belt
 
 const LOOPS := ["r08_room", "r08_cycle", "r08_cycle_two", "r08_breath", "r08_breath_nora",
 	"r08_breath_even", "r08_late", "r08_hold", "r08_drip"]
-const DUCK_IDS := ["breath_alone"]
-const DUCK_DB := 6.0
 const LOOP_RATE := 0.11
+## The belt drop's silence: every loop ducks to DROP_DB over DROP_IN (DROP_IN_SOFT with "Soften
+## sudden sounds") and holds DROP_HOLD s from the drop; breath_alone then plays into the silence
+## while r08_breath alone fades back over BREATH_BACK. The rest return over ROOM_BACK, once the
+## reveal's last line is up (ROOM_BACK_LATEST s after the drop at the latest).
+const DROP_DB := -60.0
+const DROP_IN := 0.25
+const DROP_IN_SOFT := 0.6
+const DROP_HOLD := 1.6
+const BREATH_BACK := 1.0
+const ROOM_BACK := 3.0
+const ROOM_BACK_LATEST := 20.0
 
 ## Interior tint per weather band (R04's grade); the released room is a flat grey daylight.
 const TINT := [Color(1, 1, 1), Color(0.9714, 0.9771, 0.9857), Color(0.9429, 0.9543, 0.9714),
@@ -119,9 +128,11 @@ const STITCH_STEP := 260.0
 const STITCH_SPEED := 120.0
 const TICK_STEP := 60.0
 const TICK_SPEED := 90.0
-## The reflected belt-2 band in diaphragm_reflect (sprite px), and the sprite's origin.
-const REFLECT_BAND := Rect2(212, 116, 14, 188)
+## The membrane sprites' origin.
 const MEM_ORIGIN := Vector2(90, 250)
+## Band 6+: the horizon in the surface rides the breath HORIZON_LAG s late, HORIZON_SWAY px deep.
+const HORIZON_LAG := 0.6
+const HORIZON_SWAY := 7.0
 const NAMEPLATE := Rect2(554, 514, 132, 90)
 const LAMP_AT := Vector2(440, 140)
 ## The breath, seen: the sheen's travel (px) and where the rim gap starts to open.
@@ -193,12 +204,12 @@ const RV_DROP := 6.6
 const RV_DROP_TIME := 0.35
 const RV_PLATE := 6.8
 const RV_PLATE_IN := 0.8
-const RV_INHALE := 7.8
+const RV_INHALE := R08Sim.BREATH_ALONE_AT
 const RV_INHALE_TIME := 2.6
-## The dust moves with the reveal's inhale, not after it.
-const RV_DUST := 8.1
+## The dust moves with the reveal's inhale, not after it (dust_drag plays at the same beat).
+const RV_DUST := R08Sim.DUST_DRAG_AT
 const RV_DUST_TIME := 2.3
-const RV_END := 12.0
+const RV_END := 12.4
 const GAUGE_SWEEP := 1.2
 
 ## Notice holds: focus rects.
@@ -211,6 +222,7 @@ const NOTICE_FOCUS := {
 	"breath_nora": Rect2(64, 224, 1000, 690),
 	"belts_still": Rect2(520, 100, 760, 820),
 	"late_reflection": Rect2(98, 258, 384, 384),
+	"far_horizon": Rect2(98, 258, 384, 384),
 	"end_sever": Rect2(64, 224, 452, 452),
 	"end_continue": Rect2(64, 224, 452, 452),
 }
@@ -237,7 +249,6 @@ var pulley_a := [0.0, 0.0]     # top pulley (belt 3), pump pulley (belt 1)
 var tick_off := 0.0            # belt 1/3 tick scroll, px
 var stitch_off := 0.0          # belt 2 stitch scroll, px
 var crank_a := 0.0
-var ghost_off := 0.0           # the reflected belt's stitches (band 7)
 var hold_k := 0.0              # 0 live .. 1 the held breath
 var v := STILL_V               # the membrane's inhale, 0..1
 var trace_t := -1.0            # seconds into the trace draw
@@ -253,6 +264,13 @@ var zoom_k := 0.0
 var pucker_t := 0.0
 var hand_font: FontVariation
 var clock0 := 0.0              # scene time the loops started at
+## The belt drop's duck (seconds since belt_drop, -1 = none), and when its two returns began.
+var drop_t := -1.0
+var breath_back_t := -1.0
+var room_back_t := -1.0
+var drop_in := DROP_IN
+var drop_from := {}            # loop id -> linear level when the duck began
+var reveal_click := -1
 
 func _ready() -> void:
 	clock0 = time
@@ -497,8 +515,6 @@ func _tick_motion(dt: float, held: bool) -> void:
 			var target := _crank_target(ph)
 			var err := wrapf(target - crank_a, -PI, PI)
 			crank_a = fposmod(crank_a + dt * TAU / CYCLE_UNITS * m + err * minf(1.0, dt * 2.0 * (1.0 - hold_k)), TAU)
-	if r.reflection_mode() == "late" and motion:
-		ghost_off = fposmod(ghost_off + dt * STITCH_SPEED * 0.3, STITCH_STEP * 0.3)
 	# the breath
 	var live := _live_v()
 	var target_v := lerpf(live, 1.0, smoothstep(0.0, 1.0, hold_k))
@@ -540,17 +556,71 @@ func loop_targets() -> Dictionary:
 	out["r08_late"] = 0.35 if r.reflection_mode() == "late" else 0.0
 	out["r08_hold"] = 0.5 if held else 0.0
 	out["r08_drip"] = 0.4 if r.ending() == "sever" else 0.0
-	if game != null and game.oneshot_playing(DUCK_IDS):
-		var d := db_to_linear(-DUCK_DB)
-		for id in out:
-			out[id] *= d
 	return out
 
 func _tick_audio(dt: float) -> void:
+	var targets := loop_targets()
 	var rates := {}
 	for id in LOOPS:
 		rates[id] = LOOP_RATE
-	mixer.tick(loop_targets(), rates, dt)
+	if drop_t >= 0.0:
+		_tick_drop(dt)
+		if drop_t >= 0.0:
+			# the duck draws its own envelope: the mixer follows it exactly
+			for id in LOOPS:
+				targets[id] = drop_level(id, float(targets.get(id, 0.0)))
+				rates[id] = 1000.0
+	mixer.tick(targets, rates, dt)
+
+## Starts the belt drop's duck from the loops' current levels.
+func _start_drop() -> void:
+	drop_t = 0.0
+	breath_back_t = -1.0
+	room_back_t = -1.0
+	drop_in = DROP_IN_SOFT if soft_audio else DROP_IN
+	drop_from = mixer.mix.duplicate() if mixer else {}
+
+func _tick_drop(dt: float) -> void:
+	drop_t += dt
+	if breath_back_t < 0.0 and drop_t >= DROP_HOLD + 0.5:
+		breath_back_t = 0.0   # breath_alone never came (a missing file): the breath comes back anyway
+	elif breath_back_t >= 0.0:
+		breath_back_t += dt
+	if room_back_t >= 0.0:
+		room_back_t += dt
+	elif breath_back_t >= 0.0 and (_reveal_lines_done() or drop_t >= ROOM_BACK_LATEST):
+		room_back_t = 0.0
+	if room_back_t >= ROOM_BACK and breath_back_t >= BREATH_BACK:
+		drop_t = -1.0
+
+## The reveal's lines are all up: none of them is still queued.
+func _reveal_lines_done() -> bool:
+	if game == null:
+		return true
+	for l in game.lines:
+		if int(l.click) == reveal_click:
+			return false
+	return true
+
+## A loop's level under the duck, given its normal `target` (linear). Down to DROP_DB, held; the
+## breath returns first (from breath_alone), the room after the reveal's last line. Fades run in dB.
+func drop_level(id: String, target: float) -> float:
+	var floor_db := DROP_DB
+	var from_db := linear_to_db(maxf(float(drop_from.get(id, target)), db_to_linear(floor_db)))
+	var db := lerpf(from_db, floor_db, clampf(drop_t / drop_in, 0.0, 1.0))
+	var back := room_back_t
+	var span := ROOM_BACK
+	if id == "r08_breath":
+		back = breath_back_t
+		span = BREATH_BACK
+	if back >= 0.0:
+		var to_db := linear_to_db(maxf(target, db_to_linear(floor_db)))
+		db = lerpf(floor_db, to_db, clampf(back / span, 0.0, 1.0))
+	return 0.0 if target <= 0.0 and back >= span else db_to_linear(db)
+
+## True while the drop holds the room silent (no loop has begun to return).
+func drop_silent() -> bool:
+	return drop_t >= drop_in and breath_back_t < 0.0 and room_back_t < 0.0
 
 # ---------------------------------------------------------------------------
 # hooks
@@ -563,6 +633,7 @@ func play_fx(id: String, _e: Dictionary) -> void:
 		"p11_reveal":
 			reveal_t = 0.0
 			trace_t = TRACE_TIME
+			reveal_click = int(game.click_id) if game != null else -1
 			if game != null:
 				_flush_for_reveal.call_deferred(game.click_id)
 		"hold":
@@ -608,6 +679,11 @@ func on_sfx(id: String) -> void:
 	match id:
 		"preview_key":
 			preview_t = 0.3
+		"belt_drop":
+			_start_drop()
+		"breath_alone":
+			if drop_t >= 0.0:
+				breath_back_t = 0.0
 
 func _start_hold(n: String) -> void:
 	var rect: Rect2 = NOTICE_FOCUS.get(n, Rect2())
@@ -628,6 +704,7 @@ func apply_instantly() -> void:
 	crank_a = _crank_target(phase()) if motion else 0.0
 	tag_shown = int(r.state.tag)
 	tag_t = 99.0
+	drop_t = -1.0
 	if mixer:
 		mixer.snap(loop_targets())
 	room.scale = Vector2.ONE
@@ -643,6 +720,7 @@ func reset_presentation() -> void:
 	hold_t = 0.0
 	zoom_k = 0.0
 	tag_t = 99.0
+	drop_t = -1.0
 
 func redraw() -> void:
 	room.queue_redraw()
@@ -768,19 +846,9 @@ func _draw_room() -> void:
 	_full(c, r.stage_plate())
 	if not sever and _band() >= 6:
 		_full_at(c, "lamp_ember", LAMP_AT - Vector2(40, 40))
-	# dust: the evidence of each state, one overlay each (the plate's plinth is even dust)
-	match r.dust_mode():
-		"streaks":
-			if _revealing():
-				# dragged in by the reveal's one inhalation, eased exactly as the membrane fills
-				var k := _k(t, RV_DUST, RV_DUST_TIME)
-				_full(c, "dust_streaks", Color(1, 1, 1, 0.5 - 0.5 * cos(PI * k)))
-			else:
-				_full(c, "dust_streaks")
-		"lines":
-			_full(c, "dust_lines")
-		"raked":
-			_full(c, "dust_raked")
+	# dust: the evidence of each state (the plate's plinth is even dust)
+	for layer in dust_layers():
+		_full(c, layer[0], Color(1, 1, 1, layer[1]))
 	if r.dust_mode() in ["streaks", "lines", "raked"]:
 		_full(c, "floor_front")   # the pedestal and pump stand in the dust, not under it
 	if _revealing() and t >= RV_DUST:
@@ -823,6 +891,31 @@ func _draw_room() -> void:
 		var a := 1.0 if not motion else smoothstep(0.0, 0.3, HOLD_TIME - hold_t)
 		_draw_focus(c, hold_rect, a)
 
+## The floor's dust overlays now, [[id, alpha], ...] bottom first. After P11 the dragged fan is
+## a still that stays: streaks, then the combed lines, and from band 5 the rake drawn over them.
+## Only the reveal itself eases the streaks in, with its one inhalation.
+func dust_layers() -> Array:
+	match r.dust_mode():
+		"streaks":
+			if _revealing():
+				var k := _k(reveal_t, RV_DUST, RV_DUST_TIME)
+				return [["dust_streaks", 0.5 - 0.5 * cos(PI * k)]]
+			return [["dust_streaks", 1.0]]
+		"lines":
+			return [["dust_lines", 1.0]]
+		"raked":
+			return [["dust_lines", 1.0], ["dust_raked", 1.0]]
+	return []
+
+## The engraved nameplate's alpha: 1.0 whenever the belt is off it, except while the reveal
+## brings it up.
+func nameplate_alpha() -> float:
+	if not r.nameplate_shown():
+		return 0.0
+	if _revealing():
+		return _k(reveal_t, RV_PLATE, RV_PLATE_IN)
+	return 1.0
+
 ## The breath reads in silhouette: two fold plates crossfade (relaxed, bowed ribs at exhale; a
 ## hard pucker at the boss at inhale), the sheen slides across the skin, and at the top of the
 ## inhale a thin bright gap opens between membrane and ring on the side away from the light.
@@ -847,8 +940,11 @@ func _draw_membrane(c: CanvasItem, sever: bool) -> void:
 		_full_at(c, "diaphragm_gap", MEM_ORIGIN, gap)
 	match r.reflection_mode():
 		"late":
-			_full_at(c, "diaphragm_reflect", MEM_ORIGIN, 0.5)
-			_ghost_stitches(c)
+			# not the room: a far horizon and nine pale points, following the breath a moment late
+			var dy := 0.0
+			if motion:
+				dy = HORIZON_SWAY * envelope(_breath_knots(), phase() - HORIZON_LAG)
+			_full_at(c, "a_surface_horizon_b6", MEM_ORIGIN + Vector2(0, dy))
 		"now":
 			_full_at(c, "diaphragm_reflect_now", MEM_ORIGIN, 0.5)
 
@@ -878,15 +974,6 @@ func _belt2_stitches(c: CanvasItem) -> void:
 				c.draw_line(a, a + Vector2(w, 11), lace, 2.2, true)
 				c.draw_line(a + Vector2(0, 11), a + Vector2(w, 0), lace, 2.2, true)
 		y += STITCH_STEP
-
-## The reflected belt is still running, stitches and all, though the real one has stopped.
-func _ghost_stitches(c: CanvasItem) -> void:
-	var band := Rect2(MEM_ORIGIN + REFLECT_BAND.position, REFLECT_BAND.size)
-	var step := STITCH_STEP * 0.3
-	var y := band.position.y + ghost_off
-	while y < band.end.y:
-		c.draw_line(Vector2(band.position.x + 3, y), Vector2(band.end.x - 3, y), Color(SEAGLASS, 0.75), 2.0)
-		y += step
 
 ## Ticks along both strands of a taut belt, travelling with it (the flywheel turns clockwise).
 func _belt_ticks(c: CanvasItem, pulley: Vector2) -> void:
@@ -935,11 +1022,7 @@ func _draw_grains(c: CanvasItem, t: float) -> void:
 
 func _draw_room_labels(c: CanvasItem) -> void:
 	# the exposed nameplate
-	var plate_a := 0.0
-	if r.nameplate_shown():
-		plate_a = 1.0
-		if _revealing():
-			plate_a = _k(reveal_t, RV_PLATE, RV_PLATE_IN)
+	var plate_a := nameplate_alpha()
 	if plate_a > 0.0:
 		# engraved: a dark cut fill, with the brass catching light on each letter's lower lip
 		var cx := NAMEPLATE.get_center().x
@@ -947,7 +1030,7 @@ func _draw_room_labels(c: CanvasItem) -> void:
 		while size > 16 and _tw("RESPIRATION", size) > NAMEPLATE.size.x - 22.0:
 			size -= 1
 		for pair in [["REFERENCE", 551.0], ["RESPIRATION", 579.0]]:
-			_ctext(c, pair[0], cx, pair[1] + 1.2, size, Color(BRASS_HI.lightened(0.25), 0.8 * plate_a))
+			_ctext(c, pair[0], cx, pair[1] + 1.2, size, Color(BRASS_HI.lightened(0.25), plate_a))
 			_ctext(c, pair[0], cx, pair[1], size, Color(ENGRAVE, plate_a))
 	# the mini valve board
 	var tog: Dictionary = r.state.toggles
@@ -960,8 +1043,8 @@ func _draw_room_labels(c: CanvasItem) -> void:
 		c.draw_line(Vector2(x, MINI_SOCKET_Y), tip, BRASS_HI, 5.0, true)
 		c.draw_circle(tip, 4.5, BRASS_HI)
 		c.draw_arc(tip, 4.5, 0, TAU, 12, INK, 1.5)
-		# the lever's throw is the signifier here; the close-up carries the words
-		_ctext(c, valve.substr(0, 1), x, 616, 13, PAPER_HI)
+		# the lever's throw is the signifier here; the close-up carries the stamped numbers
+		_ctext(c, R08Sim.VALVE_TAGS[valve], x, 616, 13, PAPER_HI)
 	# the mini PUMP lever: up idle, down once the gate line holds
 	var down := r.pump_on() or r.gauge_powered()
 	if _revealing():
@@ -1226,7 +1309,7 @@ func _draw_valves(c: CanvasItem) -> void:
 	for valve in R08Sim.VALVES:
 		var cx: float = C_SOCKETS[valve]
 		var open: bool = tog[valve]
-		_mtext(c, valve, cx, 647, 22, INK)
+		_toggle_number(c, "No. " + R08Sim.VALVE_TAGS[valve], cx, 647)
 		var t := _tex("c_toggle_open" if open else "c_toggle_shut")
 		if t:
 			c.draw_texture(t, Vector2(cx, C_SOCKET_Y) - t.get_size() / 2.0)
@@ -1273,6 +1356,12 @@ func _draw_valves(c: CanvasItem) -> void:
 		c.draw_texture(pump, PUMP_TOP + Vector2(0, PUMP_TRAVEL * lever_k))
 	_mtext(c, "PUMP", 1200, 623, 20, INK)
 
+## A toggle's tag number, struck into its plate: a dark cut with the light on each lower lip.
+func _toggle_number(c: CanvasItem, s: String, cx: float, cy: float) -> void:
+	var size := 24
+	_mtext(c, s, cx, cy + 1.4, size, Color(PAPER_HI, 0.9))
+	_mtext(c, s, cx, cy, size, ENGRAVE)
+
 ## OPEN / SHUT: the active word in paper on an ink pill; the other at 35%.
 func _pill(c: CanvasItem, word: String, cx: float, cy: float, active: bool) -> void:
 	var size := 17
@@ -1312,7 +1401,15 @@ func _draw_tags(c: CanvasItem) -> void:
 		if lines.size() > 1:
 			_stamp(c, lines[1], TAG_RECT.get_center().x - TAG_HOLE.x, 530 - TAG_HOLE.y, true)
 	else:
-		_tag_hand(c, R08Sim.TAGS[page], o + (TAG_TEXT.position - TAG_RECT.position))
+		var text: String = R08Sim.TAGS[page]
+		var at := o + (TAG_TEXT.position - TAG_RECT.position)
+		var num := R08Sim.tag_number(page)
+		if num != "":
+			# a valve tag: the toggle's number struck in, his note under it
+			_stamp(c, "No. " + num, TAG_RECT.get_center().x - TAG_HOLE.x, 414 - TAG_HOLE.y)
+			text = text.substr(text.find(": ") + 2)
+			at.y += 56.0
+		_tag_hand(c, text, at)
 	c.draw_set_transform_matrix(Transform2D.IDENTITY)
 	# counter and the arrows
 	_ctext(c, "%d / %d" % [page + 1, R08Sim.TAGS.size()], 724, 707, 20, PAPER_HI, Ink.serif())

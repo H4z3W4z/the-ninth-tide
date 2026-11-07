@@ -4723,6 +4723,15 @@
       "source_svg": null
     },
     {
+      "id": "R08/a_surface_horizon_b6",
+      "path": "assets/rooms/R08/a_surface_horizon_b6.png",
+      "width": 400,
+      "height": 400,
+      "sha256": "143b5e5c116f2e02b3ce0012f11cffb5a41d44d13a571a7e5663ae42cb66d863",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R08/belt1_slack",
       "path": "assets/rooms/R08/belt1_slack.png",
       "width": 1448,

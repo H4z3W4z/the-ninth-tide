@@ -338,8 +338,30 @@ def breath(rnd: random.Random, knots, dur: float, offset: float = 0.0, periodic:
 
 # ---------------------------------------------------------------- loops
 
+WRAP_MATCH_S = 0.002          # the raised-cosine wrap match after seamless()
+WRAP_MATCHED = {"r08_hold", "r08_late", "r08_breath_nora"}
+
+
+def wrap_match(xs: list[float], seconds: float = WRAP_MATCH_S) -> list[float]:
+    """Bends the loop's last `seconds` (raised cosine, 0 -> 1) so its final sample steps into
+    its first like any other sample: by the first step, clamped to the median step. seamless()
+    joins the material; this closes the one-sample seam where a creak or strain event placed by
+    mix_periodic (at t and at t - period) straddles the wrap."""
+    n = max(2, int(round(seconds * SR)))
+    steps = sorted(abs(b - a) for a, b in zip(xs, xs[1:]))
+    med = steps[len(steps) // 2]
+    lead = max(-med, min(med, xs[1] - xs[0]))
+    d = (xs[0] - lead) - xs[-1]
+    out = list(xs)
+    for k in range(n):
+        out[len(out) - n + k] += d * (0.5 - 0.5 * math.cos(math.pi * (k + 1) / n))
+    return out
+
+
 def write_loop(name: str, xs: list[float], rms_db: float = LOOP_RMS_DB, fade: float = 1.0) -> None:
     xs = seamless(xs, fade)
+    if name in WRAP_MATCHED:
+        xs = wrap_match(xs)
     r = rms(xs)
     m = max(abs(x) for x in xs)
     peak = min(0.98, 10 ** (rms_db / 20) * m / max(1e-9, r))
