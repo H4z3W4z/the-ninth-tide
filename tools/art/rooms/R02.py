@@ -1755,6 +1755,143 @@ def window_drowned(k: int) -> Image.Image:
 
 
 # ---------------------------------------------------------------------------
+# fix pass w2 (appended: earlier seeds unchanged)
+# ---------------------------------------------------------------------------
+POST = (61, 71, 80)            # the plate's own jetty pilings (sampled at 647, 480)
+MUD_FAR = (150, 132, 102)      # restrained brown, lit by the overcast near the horizon
+MUD_NEAR = (112, 95, 74)
+MUD_WET = (86, 76, 62)
+WINDOW_HORIZON = 474           # the plate's horizon in the lower pane
+PILING_FEET = [646, 665, 684, 700, 715, 731, 749, 768, 783, 797]
+
+
+def window_tenth_piling(k: int) -> Image.Image:
+    """Report stage, view A window: a tenth piling past the jetty's end, the size of the
+    plate's own (8 px by 55, rounded cap), flat matte post with a navy contour. Plain."""
+    rng = random.Random(SEED + k)
+    c = Canvas(W, H, SEED + k, 4)
+    x, top, bot, w = 556, 456, 511, 8
+    post = [(x, top + 3), (x + 1, top + 1), (x + 3, top), (x + w - 3, top), (x + w - 1, top + 1),
+            (x + w, top + 3), (x + w, bot), (x, bot)]
+    c.poly(post, POST, INK, 1.6, 0.12)
+    c.line([(x + 2, top + 6), (x + 2, bot - 4)], mix(POST, SEA_SKY, 0.25), 0.9, 0)   # one matte catch-light
+    # where it meets the water: a short flat skin either side, the plate's ripple tone
+    c.line([(x - 6, bot - 1), (x + w + 6, bot - 1)], mix(SEA_SKY, INK, 0.45), 1.2, 0.2)
+    return grain(c.result(), rng, 0.02)
+
+
+def tide_mark(k: int) -> Image.Image:
+    """View A, bands 4-7 and the continue ending: the high-water mark as a mark, not a seam.
+    A 4 px off-white salt crust on y 512, a 30-40 px storm-navy wet band under it at 25%
+    with a ragged lower edge, darker again where it crosses the wallpaper and the coat."""
+    rng = random.Random(SEED + k)
+    plate = Image.open(ROOT / "assets/stages/office_s3.png").convert("RGB")
+    y_line = 512
+    edge = ragged(rng, -4, W + 4, y_line, 1.2, 10.0)
+    low = []
+    x = -4.0
+    while x <= W + 4:
+        # the wet band's foot: 30-40 px down, ragged, with the odd short run where it wicked
+        d = 30 + 10 * (0.5 + 0.5 * math.sin(x * 0.013 + 1.7)) + rng.uniform(-2.5, 2.5)
+        if rng.random() < 0.08:
+            d += rng.uniform(5, 12)
+        low.append((x, y_line + min(d, 52.0)))
+        x += rng.uniform(5, 11)
+    band = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(band).polygon(edge + low[::-1], fill=255)
+    im = Image.new("RGBA", (W, H), rgba(STORM, 0))
+    lay = Image.new("RGBA", (W, H), rgba(STORM))
+    lay.putalpha(scale_mask(band, 0.25))
+    im.alpha_composite(lay)
+    # darker on the paper and the coat: the plaster drank it, the oilskin is still running
+    paper = colour_mask(plate, (0, 500, 1200, 570),
+                        lambda r, g, b: abs(r - g) < 22 and abs(g - b) < 20 and b - r < 16 and r > 48)
+    coat = colour_mask(plate, (1020, 500, 1150, 570),
+                       lambda r, g, b: r < 60 and g < 64 and b < 72 and b - r < 26)
+    soak = ImageChops.lighter(paper, coat).filter(ImageFilter.MaxFilter(3)).filter(ImageFilter.MinFilter(3))
+    lay = Image.new("RGBA", (W, H), rgba(mix(STORM, (8, 14, 20), 0.4)))
+    lay.putalpha(scale_mask(mmul(soak, band), 0.22))
+    im.alpha_composite(lay)
+    c = Canvas(W, H, SEED + k, 2)
+    c.im = im.resize((W * 2, H * 2), Image.NEAREST)
+    c.d = ImageDraw.Draw(c.im)
+    crust_top = [(x, y - 4.0 - rng.uniform(-0.4, 0.6)) for (x, y) in edge]
+    c.poly(crust_top + edge[::-1], SALT, None, 0)
+    c.line(edge, mix(INK, STORM, 0.3), 1.6, 0.12)                       # the crust's wet underside
+    c.line(crust_top, mix(SALT, (196, 190, 168), 0.6), 0.8, 0.15)
+    # a few salt beads hanging off the crust, the only texture in it
+    for _ in range(16):
+        bx = rng.uniform(0, W)
+        by = y_line + rng.uniform(1.0, 2.5)
+        c.circle(bx, by, rng.uniform(0.8, 1.2), mix(SALT, STORM, 0.2), None, 0, 0)
+    return grain(c.result(), rng, 0.03)
+
+
+def window_low_water(k: int) -> Image.Image:
+    """Tide II, view A window: the sea has gone out to the horizon and stayed out. Bare mud
+    flats in flat brown bands where the water was, the pilings' feet standing in it with dark
+    scour round each, sky-pale puddles, and one long straight groove from the jetty's end out
+    to the horizon, as if something was drawn out with the tide. The lighthouse is dark."""
+    rng = random.Random(SEED + k)
+    plate = Image.open(ROOT / "assets/backgrounds/office_arrival.png").convert("RGB")
+    x0, x1, y1 = 483, 800, 546
+    # the water's pixels: everything pale in the lower pane under the horizon (posts, deck and
+    # headland are dark and stay the plate's own)
+    water = colour_mask(plate, (x0, WINDOW_HORIZON, x1, y1),
+                        lambda r, g, b: r > 84 and b - r < 40)
+    water = water.filter(ImageFilter.MaxFilter(3)).filter(ImageFilter.MinFilter(3))
+    water = water.filter(ImageFilter.MinFilter(3)).filter(ImageFilter.MaxFilter(3))
+    c = Canvas(W, H, SEED + k, 2)
+    # flat bands, far to near
+    bands = [(WINDOW_HORIZON, 4, mix(STORM, SEA_SKY, 0.35)),       # a sliver of sea, very far out
+             (WINDOW_HORIZON + 4, 14, MUD_FAR),
+             (WINDOW_HORIZON + 18, 22, mix(MUD_FAR, MUD_NEAR, 0.5)),
+             (WINDOW_HORIZON + 40, y1 - WINDOW_HORIZON - 40, MUD_NEAR)]
+    for y, h, col in bands:
+        c.box(x0 - 2, y, x1 - x0 + 4, h, col, None, 0)
+    for y in (WINDOW_HORIZON + 4, WINDOW_HORIZON + 18, WINDOW_HORIZON + 40):
+        c.line(ragged(rng, x0, x1, y, 0.8, 9.0), mix(MUD_WET, INK, 0.3), 1.0, 0.1)
+    # puddles: flat lenses holding the sky
+    for cx, cy, rx, ry in [(512, 498, 18, 2.6), (566, 512, 26, 3.2), (642, 528, 30, 3.6),
+                           (735, 520, 22, 3.0), (532, 536, 34, 4.0), (690, 497, 14, 2.0)]:
+        c.circle(cx, cy, rx, mix(SEA_SKY, SEA_GLASS, 0.25), mix(MUD_WET, INK, 0.25), 1.0, 0.15, ry=ry)
+    # ripple marks the water left: short flat strokes, nearer = longer
+    for _ in range(34):
+        y = rng.uniform(WINDOW_HORIZON + 8, y1 - 4)
+        near = (y - WINDOW_HORIZON) / (y1 - WINDOW_HORIZON)
+        x = rng.uniform(x0 + 4, x1 - 20)
+        L = 6 + 18 * near
+        c.line([(x, y), (x + L * 0.5, y - 0.8), (x + L, y)], MUD_WET, 1.0 + near * 0.6, 0.1)
+    # the groove: dead straight from the jetty's end to the horizon, wet in the bottom
+    gx_far, gx_near = 604, 618
+    c.poly([(gx_far - 0.6, WINDOW_HORIZON + 4), (gx_far + 0.6, WINDOW_HORIZON + 4),
+            (gx_near + 5, y1), (gx_near - 5, y1)], MUD_WET, mix(MUD_WET, INK, 0.5), 0.9, 0.05)
+    c.line([(gx_far, WINDOW_HORIZON + 6), (gx_near, y1)], mix(SEA_SKY, SEA_GLASS, 0.3), 0.9, 0)
+    mud = c.result()
+    m = mmul(water, mask_rects([(x0 - 2, WINDOW_HORIZON, x1 - x0 + 4, y1 - WINDOW_HORIZON)]))
+    m = ImageChops.multiply(m, pane_mask())
+    mud.putalpha(ImageChops.multiply(mud.getchannel("A"), m))
+    im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    im.alpha_composite(mud)
+    # the pilings' feet: the plate's posts end at the old water line (~510); carry each one
+    # down into the mud, with a dark scour where the water ran round it
+    c2 = Canvas(W, H, SEED + k + 1, 2)
+    for px in PILING_FEET:
+        foot = 524 + rng.uniform(-1.5, 1.5)
+        c2.circle(px + 0.5, foot, 8.5, MUD_WET, None, 0, 0, ry=2.0)
+        # no top contour: the plate's post simply goes on down, darker where it was wet
+        c2.box(px - 3.5, 498, 8, foot - 498, mix(POST, (30, 38, 46), 0.4), None, 0)
+        c2.line([(px - 3.5, 500), (px - 3.5, foot), (px + 4.5, foot), (px + 4.5, 500)], INK, 1.2, 0.1)
+        c2.line([(px - 3, foot - 7), (px + 4, foot - 7)], mix(POST, MUD_FAR, 0.35), 1.2, 0)   # the weed line
+    # the lighthouse is out: its lantern and its windows filled dark
+    for bx, by, bw, bh in [(537, 409, 6, 5), (536, 417, 7, 11)]:
+        c2.box(bx, by, bw, bh, (14, 20, 28), None, 0)
+    im.alpha_composite(c2.result())
+    im.putalpha(ImageChops.multiply(im.getchannel("A"), pane_mask()))
+    return grain(im, rng, 0.03)
+
+
+# ---------------------------------------------------------------------------
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     jobs = [
@@ -1805,6 +1942,10 @@ def main() -> None:
         ("damp_window_hard", damp_window_hard),
         ("door_seep_hard", door_seep_hard),
         ("window_drowned", window_drowned),
+        # fix pass w2 (appended: earlier seeds unchanged)
+        ("window_tenth_piling", window_tenth_piling),
+        ("tide_mark", tide_mark),
+        ("window_low_water", window_low_water),
     ]
     for k, (name, fn) in enumerate(jobs):
         im = fn(k)

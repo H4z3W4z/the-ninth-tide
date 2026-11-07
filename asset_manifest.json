@@ -1069,6 +1069,15 @@
       "source_svg": null
     },
     {
+      "id": "R02/tide_mark",
+      "path": "assets/rooms/R02/tide_mark.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "165b3c73a1d2acf783bb8c9cf8425056d1d013c89d4543c615649b449e6066db",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R02/venn_seal",
       "path": "assets/rooms/R02/venn_seal.png",
       "width": 120,
@@ -1105,11 +1114,29 @@
       "source_svg": null
     },
     {
+      "id": "R02/window_low_water",
+      "path": "assets/rooms/R02/window_low_water.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "dc7e71513749399b7287fdbf25467dea52b6d5ccf92927ea4cef4e2814086821",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R02/window_surface",
       "path": "assets/rooms/R02/window_surface.png",
       "width": 1448,
       "height": 1086,
       "sha256": "5895fe9979f1f9909ec9344ed18a7a77828c3d67d1ad7292e00d3097d93de3ba",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R02/window_tenth_piling",
+      "path": "assets/rooms/R02/window_tenth_piling.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "1966a830a39e16b3392d6f5500cc584b58f39010cf12d0a96ce2ec00ec1bbe18",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },

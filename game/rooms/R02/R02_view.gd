@@ -85,6 +85,8 @@ const STUBS := [[62.0, 0.62], [58.0, 0.45], [54.0, 0.33], [50.0, 0.245], [46.0, 
 ## The tide's resting height (0 floor .. 1 top casing bar).
 const TIDE_REST := 0.10
 const GO_ON_LINE := "Go on, then."
+## The doorway's hover name once she may go on: the one verb the threshold hint names.
+const WALK_ON_LABEL := "Walk toward it"
 ## The window during the threshold: the horizon, the piling feet's mud line, the top bar.
 const WINDOW_HORIZON := 476.0
 const WINDOW_MUD_LOW := 532.0
@@ -101,8 +103,9 @@ const SEAT_HUSH_IN := 0.4
 const SEAT_HUSH_OUT := 3.0
 const SEAT_HUSH_LINE_AT := 6.6
 const SEAT_HUSH_LINE := "Low down. Below the sill. Where the wall goes straight down into the water."
-## Exit tabs at rest: faint, raised clear of the subtitle bar.
-const TAB_REST_ALPHA := 0.35
+## Exit tabs at rest: legible, a step down from hovered, raised clear of the subtitle bar.
+## A closed exit rests at 0.6 of this.
+const TAB_REST_ALPHA := 0.8
 const SHADOW_COL := Color(0.02, 0.04, 0.07, 0.42)
 const PRINT_COL := Color(0.06, 0.09, 0.12)
 const PILING_COL := Color(0.07, 0.08, 0.11, 0.92)
@@ -736,6 +739,9 @@ func _tick_still(dt: float, mouse: Vector2) -> void:
 		continue_t = threshold_t
 		# After anything still being said, never squeezed in front of it.
 		game._insert_line(R02Sim.THRESHOLD_STILL_LINE, game._story_backlog_end(), true)
+		# The pointer has not moved, so re-read what is under it: if it is resting on the
+		# corridor, the verb names itself now, not on the next twitch.
+		game.hover_id = game._hover_at(mouse)
 
 ## True once she has held still long enough that the corridor stops breathing.
 
@@ -1322,6 +1328,8 @@ func _notice_active() -> bool:
 	return notice_t >= 0.0 and notice_t < NOTICE_TIME
 
 func hover_at(p: Vector2) -> String:
+	if office.view == "threshold":
+		return "continue" if _walk_on_at(p) else ""
 	if office.view != "room":
 		return ""
 	if TURN_RECT.has_point(p):
@@ -1334,6 +1342,8 @@ func hover_at(p: Vector2) -> String:
 func label_for(id: String) -> String:
 	if id == "turn":
 		return "Entry wall" if office.facing == "A" else "Desk wall"
+	if id == "continue" and office.view == "threshold":
+		return WALK_ON_LABEL
 	if office.facing == "B" and game and game.hover_id == id:
 		return ""   # the entry wall anchors its names above each object (draw_hud), off its props
 	return _hotspot_label(id)
@@ -1426,14 +1436,25 @@ func action_at(p: Vector2) -> String:
 			p = _zoom_xform().affine_inverse() * p
 			if _hotspot_rect("chair").has_point(p):
 				return "turn"
-			if continue_ready and _hotspot_rect("door").has_point(p):
+			if continue_ready and (_hotspot_rect("door").has_point(p) or DOOR_SLAB.has_point(p)):
 				return "continue"
 			return ""
 	return ""
 
+## At the threshold, once she may go on: the doorway and the corridor painted in it (screen
+## point `p`, taken back through the lean) walk her in. The turn tab and the chair turn first.
+func _walk_on_at(p: Vector2) -> bool:
+	if not continue_ready or TURN_RECT.has_point(p):
+		return false
+	var q := _zoom_xform().affine_inverse() * p
+	if _hotspot_rect("chair").has_point(q):
+		return false
+	return _hotspot_rect("door").has_point(q) or DOOR_SLAB.has_point(q)
+
 ## The doors are ways out once there is somewhere to go: the corridor door leads to the
 ## chart room from P01 (the sim's exit rules still apply), except when it opens on the
-## threshold; the outer door leads to the jetty whenever that exit is open.
+## threshold; the outer door leads to the jetty whenever that exit is open, and the service
+## door to the kitchen once the capsule's key has turned in it.
 func _door_action(id: String) -> String:
 	if game == null:
 		return id
@@ -1442,6 +1463,9 @@ func _door_action(id: String) -> String:
 		return "go:R03"
 	if id == "outer_door" and game.sim.exit_open("R02", "R01"):
 		return "go:R01"
+	if id == "service_door" and not office.service_locked() and office.exit_block("R05") == "" \
+			and game.sim.exit_open("R02", "R05"):
+		return "go:R05"
 	return id
 
 func _hotspot_rect(id: String) -> Rect2:
@@ -1504,9 +1528,12 @@ func _draw_room() -> void:
 	if b == 3 and _tex("office_s2"):
 		_draw_tipped_panes(c, tilt, "office_s2")   # band 3: the s2 plate's sea, really turned
 	if ending == "":
+		if office.low_water():
+			_draw_full(c, "R02/window_low_water")   # Tide II: the sea out to the lighthouse, and stayed out
 		# The window darkens with the story, not with a clock. Painted water must still read.
 		c.draw_rect(GLASS, Color(0.04, 0.06, 0.12, DUSK.get(phase, 0.12)))
-		var sea_moves: bool = (s >= 2 and not office.state.finished) or (b >= 0 and b <= 4)
+		var sea_moves: bool = ((s >= 2 and not office.state.finished) or (b >= 0 and b <= 4)) \
+			and not office.low_water()
 		if sea_moves:
 			# The sea outside keeps moving, silently: a slow bruise-violet sheen on the water.
 			var sheen := 0.10 + (0.05 * sin(time * 0.8) if motion else 0.0)
@@ -1515,6 +1542,8 @@ func _draw_room() -> void:
 		c.draw_set_transform_matrix(_tilt_xform(tilt))
 		if (s >= 2 and not office.state.finished) or (b >= 0 and b <= 2):
 			_draw_ninth_piling(c, s)
+		if office.tenth_piling_shown():
+			_draw_full(c, "R02/window_tenth_piling")   # the report's tenth: a post past the jetty's end
 		if b == 3:
 			_draw_late_wave(c, tilt)
 		if b >= 4:
@@ -1536,8 +1565,9 @@ func _draw_room() -> void:
 		if drowned:
 			c.draw_texture_rect(drowned, full, false)
 	if b >= 4 or ending == "continue":
-		# The high-water mark from band 4: a hard line, salt on it, the plaster wet below.
-		_draw_full(c, "R02/tide_line_hard")
+		# The high-water mark from band 4: a salt crust with a wet band under it, a mark on
+		# the wall (not a seam in the plate), darker where it crosses the paper and the coat.
+		_draw_full(c, "R02/tide_mark")
 	if b >= 2 or ending == "continue":
 		var damp := _tex("R02/damp_sill")
 		if damp:

@@ -46,6 +46,11 @@ const ITEMS := {
 	"inspection_lens": {"name": "Inspection lens", "short": "Lens", "desc": "A brass-rimmed lens from Venn's drawer."},
 }
 
+## The framed chart while the report is the objective: its count has moved since she read it.
+const PILINGS_TEN_LINE := "Ten pilings now. I counted nine an hour ago."
+## The office window at Tide II: the sea has gone out and not come back (R03's lamp line).
+const LOW_WATER_LINE := "The sea has gone out past the lighthouse, and stayed out. Mud, all the way. The lighthouse is dark."
+
 ## The drawer plate wants the hour the log says she mends the lamp: 18:52.
 const DRAWER_CODE := [1, 8, 5, 2]
 
@@ -150,7 +155,7 @@ const HINTS := {
 	],
 	"report": [
 		"Each line has a witness. The evening's high water has to be worked out, not read.",
-		"Pilings: the chart as it is now. Observers: count the trails from the puddle. The evening tide: Venn's margin rule, from the last time in the log. The height: what the log wrote for itself.",
+		"Look at the chart again, as it is now.",
 		"Pilings 10. Observers 2. High water 19:34 (07:13 plus 12 h 21 m). Height 9.9 m. Then sign it.",
 	],
 	"filed": ["Put the report down.", "Step back from the desk.", "Use Back."],
@@ -211,7 +216,7 @@ const HINTS := {
 	],
 }
 ## At the threshold the hint ladder steps aside: there is only one thing to do.
-const THRESHOLD_HINT := "Hold still. Listen to it."
+const THRESHOLD_HINT := "Stand still until it finishes breathing. Then walk into it."
 
 ## Notebook text for each observation, in the order they read best.
 const OBSERVATIONS := {
@@ -222,6 +227,7 @@ const OBSERVATIONS := {
 	"map": "The 1889 survey shows nine jetty pilings. I counted eight from the launch.",
 	"chart": "The chart has been corrected in pencil: nine pilings.",
 	"chart_tenth": "Later, a tenth piling inked in, past where the jetty ends.",
+	"pilings_ten": "The chart shows ten pilings now. I counted nine an hour ago.",
 	"soundings": "Venn has re-sounded the Sound in pencil. Every depth is deeper than in 1889, by the same amount everywhere. Past the ninth piling he wrote no number, only: 'no bottom at 400 fm. Line came up warm.'",
 	"contours": "Venn's new contours close in rings. The centre of them is not the deep water. It is the ninth piling, at the end of this jetty.",
 	"mug": "His mug is rinsed, a clean spoon laid across it.",
@@ -450,6 +456,16 @@ func photo_variant() -> String:
 	if band() == 0:
 		return "drawer"
 	return "turned" if state.turned else "after"
+
+## The window shows a tenth piling past the jetty's end from the wet seat (the chart has it
+## inked) until she is past the threshold: the report's pilings line can be seen, not guessed.
+func tenth_piling_shown() -> bool:
+	return state.seat_wet and not state.finished and ending() == ""
+
+## Tide II in the office window: the sea pulled back to mud flats, the lighthouse out. From the
+## threshold until P06 (the core's tide() is 2 exactly then).
+func low_water() -> bool:
+	return state.finished and ending() == "" and game.tide() == 2
 
 ## T1X: from the wet seat until she is past the threshold.
 func _t1x() -> bool:
@@ -869,6 +885,9 @@ func _map(s: int, ev: Array) -> void:
 		if state.seat_wet:
 			_observe("chart_tenth")
 			_say(ev, "And someone has inked a tenth piling, further out than the jetty goes.", 9.0, true)
+			if objective() == "report":
+				_observe("pilings_ten")
+				_say(ev, PILINGS_TEN_LINE, 11.6, true)
 	elif band() >= 4 and state.soundings_heard and not state.contours_seen:
 		# The Sound is not a basin. It is an eye, and the jetty runs out to its pupil.
 		state.contours_seen = true
@@ -882,6 +901,11 @@ func _map(s: int, ev: Array) -> void:
 		_observe("chart")
 		if not state.seat_wet:
 			_say(ev, "The chart has been corrected. In pencil. Nine.")
+		elif objective() == "report":
+			# The report's first witness, fair at the moment it is asked for.
+			_observe("chart_tenth")
+			_observe("pilings_ten")
+			_say(ev, PILINGS_TEN_LINE)
 		else:
 			_observe("chart_tenth")
 			_say(ev, "Someone has inked a tenth piling. Further out than the jetty goes.")
@@ -1007,7 +1031,12 @@ func _window(s: int, ev: Array) -> void:
 		0:
 			_observe("silent")
 			_observe("piling")
-			lines.append([0.0, "Nine pilings. The sea moving against them, without a sound."])
+			if low_water():
+				lines.append([0.0, LOW_WATER_LINE])
+			elif tenth_piling_shown():
+				lines.append([0.0, "Ten pilings now. The sea moving against them, without a sound."])
+			else:
+				lines.append([0.0, "Nine pilings. The sea moving against them, without a sound."])
 		1:
 			lines.append([0.0, "Rain on the glass now. The cloud has come down to the water."])
 		2:
@@ -1479,17 +1508,16 @@ func _repair(action: String, ev: Array) -> void:
 # inventory
 # ---------------------------------------------------------------------------
 func use_item(item: String, target: String, ev: Array) -> bool:
+	if item == "service_key" and target in ["go:R05", "go:R06"] and local_view == "room" \
+			and game.flag("P06") and service_locked():
+		# The kitchen and bunk tabs are the service door's way out: the key goes in that door.
+		return _service_key_turn(ev)
 	var on_a: bool = local_view == "room" and facing == "A" and target in HOTSPOTS
 	var on_b: bool = local_view == "room" and facing == "B" and target in HOTSPOTS_B
 	match item:
 		"service_key":
 			if on_b and target == "service_door" and game.flag("P06") and service_locked():
-				game.take("service_key")
-				state.service_unlocked = true
-				_sfx(ev, "lock_turn")
-				_chain(ev, [[0.0, "The key turns."],
-					[1.6, "From the kitchen end of the passage, the smell of soup. Nobody has cooked here for days."]])
-				return true
+				return _service_key_turn(ev)
 			if on_a and target == "door":
 				_say(ev, "Wrong door. This one has no keyhole on this side.")
 				return true
@@ -1538,6 +1566,14 @@ func use_item(item: String, target: String, ev: Array) -> bool:
 				_say(ev, "His sheet goes with the chart room's sheet, not this chart.")
 				return true
 	return false
+
+func _service_key_turn(ev: Array) -> bool:
+	game.take("service_key")
+	state.service_unlocked = true
+	_sfx(ev, "lock_turn")
+	_chain(ev, [[0.0, "The key turns."],
+		[1.6, "From the kitchen end of the passage, the smell of soup. Nobody has cooked here for days."]])
+	return true
 
 func _load_board(ev: Array) -> void:
 	if not game.tide_done(6):
