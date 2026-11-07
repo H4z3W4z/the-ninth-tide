@@ -1017,8 +1017,10 @@ func _service_board(action: String, ev: Array) -> void:
 			if state.amend.name == "":
 				_say(ev, "The name field. It takes a tile.")
 			else:
+				var lifted: String = state.amend.name
 				state.amend.name = ""
 				_sfx(ev, "tile_lift")
+				_say(ev, "I take %s back off the board." % lifted)
 		"f_count":
 			state.amend.count = _cycle(COUNT_OPTIONS, state.amend.count)
 			_sfx(ev, "tile_flip")
