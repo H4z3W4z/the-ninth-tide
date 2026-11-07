@@ -31,7 +31,7 @@ const INCOMPLETE := "RECORD INCOMPLETE. Address it, release it, then record."
 const ENV := "Environmental. It doesn't answer to a name."
 const FLAT_TRACE := "A flat trace. That name doesn't answer to it."
 const RECORDED := "Recorded. I'll leave it as it is."
-const KITCHEN := "I don't know her breath yet. Her work card hangs in the kitchen, by the range."
+const KITCHEN := "I need her trace to compare. It's on the nail by the range."
 const STARTS := "Her breath starts with the short rises."
 const PAUSE_AFTER := "The pause comes after the short rises."
 const SEQS := [["record"], ["address", "record"], ["release", "record"], ["address", "release", "record"],
@@ -74,9 +74,15 @@ func run_tests() -> void:
 	test_debug_jumps()
 	test_chain_scripts()
 	test_tide_round_trips()
+	test_w2_p10_neutral()
+	test_w2_silent_vault()
+	test_w2_lines()
+	test_w2_glances()
+	test_w2_no_printed_answers()
 	if _view_ready():
 		await view_checks(ROOM)
 		await test_view_scene()
+		await test_w2_view()
 	else:
 		print("SKIP: R07 view_checks and scene test: the R07 view does not yet declare rects for every sim hotspot (view team)")
 
@@ -232,7 +238,7 @@ func test_p10_success() -> void:
 	var b := g.dispatch("back")
 	check(r.local_view == "room" and count_ev(b, "fx", "notice_lean") == 1 and count_ev(b, "sfx", "water_lean") == 1,
 		"back plays the lean once")
-	check(ev_delay(b, "sfx", "water_lean") == 0.8 and says(b) == "...It leaned. The water in C leaned toward me. | Now it's level with the brass again.",
+	check(ev_delay(b, "sfx", "water_lean") == 0.8 and says(b) == "...The water in C leaned toward me. | Now it's level again. It took longer than water should.",
 		"the lean's lines (got %s)" % says(b))
 	check(r.has_seen("lean") and r.state.lean_seen, "lean noted")
 	var b2 := g.dispatch("back")
@@ -463,7 +469,8 @@ func test_p14_unseen_reference() -> void:
 	var g := frame_game(false)
 	check(says(g.dispatch("ref_card")) == "Her work card isn't here. It hangs in the kitchen, by the range.", "ref_card unseen")
 	var s := frame_game(true)
-	check(says(s.dispatch("ref_card")) == "Her work card: two short rises, a pause, one long rise.", "ref_card seen")
+	check(says(s.dispatch("ref_card")) == "Her work card's trace, copied beside the frame. The sections have to match it.",
+		"ref_card seen")
 
 func test_p14_refusals() -> void:
 	var g := frame_game()
@@ -515,7 +522,7 @@ func test_p14_fog() -> void:
 	complete_frame(g)
 	var ev := g.dispatch("seal")
 	check(not has_ev(ev, "fx", "notice_fog"), "no fog at the seal")
-	check(says(ev).ends_with("The label was printed before I came: CATEGORY: BODY."), "the label without the belt")
+	check(says(ev).ends_with(P14_TAIL), "the P14 tail line")
 	var b := g.dispatch("back")
 	check(r.local_view == "bench" and count_ev(b, "fx", "notice_fog") == 1 and count_ev(b, "sfx", "breath_hiss") == 1,
 		"back plays the fog once")
@@ -524,12 +531,12 @@ func test_p14_fog() -> void:
 	check(says(g.dispatch("frame_stand")) == "The stand's empty. Her frame is with me." and r.local_view == "bench", "the stand after")
 	var b2 := g.dispatch("back")
 	check(r.local_view == "room" and not has_ev(b2, "fx", "notice_fog"), "no second fog")
-	# With the respiration reference from the machine room, the belt line follows.
+	# The tail line is the same with the machine room's respiration reference seen.
 	var h := frame_game()
 	h.observe("R08", "reference_respiration")
 	place(h, REF_SOLUTION)
 	complete_frame(h)
-	check(says(h.dispatch("seal")).ends_with("CATEGORY: BODY. Like the nameplate under the belt."), "the label with the belt")
+	check(says(h.dispatch("seal")).ends_with(P14_TAIL), "the tail line, belt reference seen")
 
 func test_p14_swaps() -> void:
 	var g := frame_game()
@@ -727,8 +734,8 @@ func test_notices() -> void:
 # objectives, hints, items
 # ---------------------------------------------------------------------------------------------
 const REF_HINTS := {
-	"p10": ["The laboratory's three jars don't agree about level.",
-		"The card wants a surface that follows the brass datum line, whatever the jar does. Test each one.",
+	"p10": ["The laboratory's three jars look alike at rest. The tilt rack tests them.",
+		"The card wants the brass: a surface that keeps the datum's level, whatever the jar does. Tip each one.",
 		"Test all three. C stays parallel to the datum. Put C in the reference socket."],
 	"wait_p12": ["The laboratory has given the stair what it needs.", "The stair gate wants the socket's target: 2.",
 		"Take target 2 to the dry stair gate, through the chart room hatch."],
@@ -736,7 +743,7 @@ const REF_HINTS := {
 		"One sample changes only when it is addressed. Its stamp matches one card in the register.",
 		"Put N on the balance, address it as NORA BELL, release, then RECORD 0 / 3 / 0."],
 	"p14": ["The specimen frame wants a trace, a name and the measurement.",
-		"Nora's work card shows the order of her breath. The register card gives the name; the balance gave the strip.",
+		"Nora's work card shows the shape of her breath. Match the sections to it. The register card gives the name; the balance gave the strip.",
 		"Short rises, pause, long rise. Name tab from her card, clip the 0/3/0 strip, seal the frame."],
 	"done": ["The laboratory is finished with me.", "Nora's frame belongs at the lantern.",
 		"Take the frame up the stair to the lantern gallery."],
@@ -840,6 +847,9 @@ func test_doors() -> void:
 	check(says(g.dispatch("return_door")) == "The stair's through here." and g.exit_open(ROOM, "R11"), "stair after P12")
 	check(says(g.dispatch("vault_door")).begins_with("A steel door"), "vault still latched at tide V")
 	g = game_at(6, ROOM)
+	ev = g.dispatch("vault_door")
+	check(says(ev) == VAULT_AJAR and not has_ev(ev, "sfx", "door_rattle") and r07(g).state.vault_ajar_said,
+		"vault after P15: the silent notice's line on the first click (got %s)" % says(ev))
 	ev = g.dispatch("vault_door")
 	check(says(ev) == "The vault's through here." and not has_ev(ev, "sfx", "door_rattle") and g.exit_open(ROOM, "R10"), "vault after P15")
 
@@ -992,8 +1002,175 @@ func test_view_scene() -> void:
 	scene.tide_jump(6, ROOM)
 	await process_frame
 	v = scene.room_view
-	check(scene.action_at(v.hotspot_rect("vault_door").get_center()) == "go:R10", "view: vault_door after P15 goes to R10")
+	var vc: Vector2 = v.hotspot_rect("vault_door").get_center()
+	check(scene.action_at(vc) == "vault_door", "view: the first vault_door click after P15 says the silent notice's line")
+	scene.dispatch("vault_door")
+	check(scene.action_at(vc) == "go:R10", "view: then vault_door goes to R10")
 	var soft: Array = v.c("SFX_SOFT", [])
 	for id in ["breath_hiss", "socket_refuse", "key_refuse", "door_rattle"]:
 		check(id in soft, "SFX_SOFT has %s" % id)
+	await free_scene(scene)
+
+# ---------------------------------------------------------------------------------------------
+# round w2 fixes
+# ---------------------------------------------------------------------------------------------
+const P14_TAIL := "CATEGORY: BODY. Printed, not written. The frame was waiting to be filled."
+const VAULT_AJAR := "The vault door's open a hand's width."
+const RULE_WORDS := ["GRAVITY", "JAR", "DATUM"]
+const REF_CARD_W2 := "A valid sample keeps the station's own level: the brass, not the bob, not the glass."
+
+func _has_rule_word(t: String) -> bool:
+	for w in RULE_WORDS:
+		if t.to_upper().contains(w):
+			return true
+	return false
+
+## P10 is a test, not a word match: the looks are neutral, the rest angle is one angle, and the
+## card names the brass, not a rule word.
+func test_w2_p10_neutral() -> void:
+	for j in R07Sim.JARS:
+		var g := fresh()
+		var ev := g.dispatch("jar_" + j.to_lower())
+		check(says(ev) == "Jar %s. Half full. Sealed with wax." % j, "jar %s: the neutral look (got %s)" % [j, says(ev)])
+		check(not says(ev).contains("slant") and not says(ev).contains("square"), "jar %s: no rule in the look" % j)
+	check(R07Sim.REF_CARD == REF_CARD_W2, "the reference card")
+	check(R07Sim.OBSERVATIONS.reference_card.contains("'" + REF_CARD_W2 + "'"), "the notebook quotes the card")
+	check(not _has_rule_word(R07Sim.REF_CARD), "the card carries no rule word")
+	var rest := R07Sim.rack_rest_deg("A")
+	check(rest == R07Sim.surface_deg(R07Sim.JAR_RULE.A, R07Sim.RACK_CANT_DEG), "the rest angle is jar A's")
+	check(R07Sim.rack_rest_deg("B") == rest and R07Sim.rack_rest_deg("C") == rest, "the rack rest angle is the same for A, B and C")
+	# the tank's own look still names the slant
+	var t := fresh()
+	check(says(t.dispatch("tank")).contains("plumb bob's slant"), "the tank's look stays")
+	# the answer is still C; the wrong-seat lines are unchanged
+	var g := fresh()
+	solve_p10(g)
+	check(g.flag("P10"), "seat C solves")
+
+## vault_ajar arrives silent (fx and sound only); its line is said on her first click on the
+## door, once, and the flag saves and loads.
+func test_w2_silent_vault() -> void:
+	var g := game_at(5, "R05")
+	var r := r07(g)
+	for f in ["P13", "P14", "P15"]:
+		g.set_flag(f)
+	var ev := g.dispatch("go:R07")
+	check(count_ev(ev, "fx", "notice_vault_ajar") == 1 and has_ev(ev, "sfx", "vault_settle"), "vault_ajar: the visual and the sound")
+	check(not says(ev).contains(VAULT_AJAR), "vault_ajar: no line on arrival (got %s)" % says(ev))
+	check(r.has_seen("vault_ajar") and not r.state.vault_ajar_said, "noted, not yet said")
+	# a save before the click keeps it unsaid
+	var b := GameSim.new()
+	b.from_dict(JSON.parse_string(JSON.stringify(g.to_dict())))
+	check(not r07(b).state.vault_ajar_said, "unsaid survives a load")
+	ev = g.dispatch("vault_door")
+	check(says(ev) == VAULT_AJAR and r.state.vault_ajar_said, "the first click says it (got %s)" % says(ev))
+	check(says(g.dispatch("vault_door")) == "The vault's through here.", "then the door is a way through")
+	var c := GameSim.new()
+	c.from_dict(JSON.parse_string(JSON.stringify(g.to_dict())))
+	check(r07(c).state.vault_ajar_said, "said survives a load")
+	c.state.room = ROOM
+	check(says(c.dispatch("vault_door")) == "The vault's through here.", "and is never said twice")
+	var m := load_with({"vault_ajar_said": "yes"})
+	check(m.state.vault_ajar_said == false, "a malformed said flag is dropped")
+	check(R07Sim.NOTICE_LINES.vault_ajar == VAULT_AJAR, "the terser notice line")
+
+func test_w2_lines() -> void:
+	check(R07Sim.LEAN_LINES == ["...The water in C leaned toward me.", "Now it's level again. It took longer than water should."],
+		"the lean pair")
+	var g := balance_game()
+	var ev := play(g, ["smp_n", "reg_bell", "key_address", "key_release", "key_record"])
+	check(says(ev).ends_with("Pressed into the felt. The nap hasn't risen back yet."), "the thumb follow-up (got %s)" % says(ev))
+	var f := frame_game(false)
+	place(f, ["long", "pause", "short"])
+	complete_frame(f)
+	check(says(f.dispatch("seal")) == "I need her trace to compare. It's on the nail by the range.", "the seen-gate line")
+
+## Rewards are seen: each commit chain ends with a glance fx at the socket / the bench frame.
+func test_w2_glances() -> void:
+	var g := fresh()
+	var ev := solve_p10(g)
+	var gi := ev_index(ev, "fx", "glance")
+	check(gi >= 0 and ev[gi].get("glance") == "p10" and ev[gi].get("rect") == Rect2(716, 318, 130, 362), "P10 glances at the socket")
+	check(gi > ev_index(ev, "fx", "tag") and gi == ev.size() - 1, "the P10 glance ends the chain")
+	var f := frame_game()
+	place(f, REF_SOLUTION)
+	complete_frame(f)
+	ev = f.dispatch("seal")
+	gi = ev_index(ev, "fx", "glance")
+	check(gi >= 0 and ev[gi].get("glance") == "p14" and ev[gi].get("rect") == Rect2(720, 330, 250, 270),
+		"P14 glances at the bench frame")
+	check(gi == ev.size() - 1, "the P14 glance ends the chain")
+	check(not has_ev(f.dispatch("seal"), "fx", "glance"), "a re-seal has no glance")
+	check(R07Sim.WAY_IN_HINT == "The hatch in the kitchen floor is open: the laboratory and the machine room.", "WAY_IN_HINT")
+
+## P13 and P14 without printed answers: the cards' line and notebook carry no readings, the
+## sections no names.
+func test_w2_no_printed_answers() -> void:
+	for t in [R07Sim.SAMPLE_CARDS_LINE, R07Sim.OBSERVATIONS.sample_cards]:
+		for pat in ["0 → 3", "3 → 0", "nought, three", "2 → 2", "two all"]:
+			check(not t.contains(pat), "sample cards carry no reading: %s" % pat)
+	for s in ["N-27", "W-27", "F-27"]:
+		check(s in R07Sim.CARD_STAMPS.values(), "card stamp %s" % s)
+	var f := frame_game()
+	for s in ["short", "pause", "long"]:
+		var line := says(f.dispatch("sec_" + s))
+		check(line == "A trace section.", "picking up %s names nothing (got %s)" % [s, line])
+	for w in ["SHORT RISES", "LONG RISE", "PAUSE"]:
+		check(not R07Sim.OBSERVATIONS.frame_stand.contains(w), "the frame_stand note names no section: %s" % w)
+
+## View-side: nothing in the test cells spells a rule; rest surfaces agree; the frame's tiles
+## carry no words; the RECORDS and STAIR exits point at their doors; a glance brackets.
+func test_w2_view() -> void:
+	var scene = new_scene("user://room_test_R07_w2.json")
+	await process_frame
+	scene.room_jump(ROOM, 2)
+	await process_frame
+	var v: RoomView = scene.room_view
+	var r := scene.room_sim() as R07Sim
+	var words: Dictionary = v.c("REF_WORD", {})
+	r.local_view = "c_tilt_rack"
+	for j in R07Sim.JARS:
+		r.state.cradle = j
+		scene.dispatch("tip")
+		for t in v.test_cell_texts():
+			for w in words.values():
+				check(not str(t).contains(w), "after tipping %s, test cell text %s has no %s" % [j, t, w])
+		check(is_nan(v.test_surface_deg(j)) or v.test_surface_deg(j) == v.REF_ANGLES[R07Sim.JAR_RULE[j]],
+			"%s: the pen draws its surface" % j)
+	# rest surfaces agree, on the rack and in the close-up
+	var a: float = v.jar_surface_deg("A", Vector2(916, 668), 12.0)
+	check(v.jar_surface_deg("B", Vector2(1028, 668), 12.0) == a and v.jar_surface_deg("C", Vector2(1140, 668), 12.0) == a,
+		"room rack: the three surfaces agree at rest")
+	check(v._close_theta("A", 12.0, Vector2(190, 690)) == v._close_theta("B", 12.0, Vector2(390, 690))
+		and v._close_theta("C", 12.0, Vector2(590, 690)) == v._close_theta("A", 12.0, Vector2(190, 690)),
+		"close-up: the three surfaces agree at rest")
+	check(v._close_theta("B", 90.0, Vector2(860, 600), 1.0) == 90.0 and v._close_theta("C", 90.0, Vector2(860, 600), 1.0) == 0.0,
+		"only the tip shows a jar's own rule")
+	# the frame's sections: no labels
+	for s in R07Sim.SECTIONS:
+		check(v.label_for("sec_" + s) == "Trace section", "hover on %s names nothing" % s)
+	# exit arrows
+	check(v.exit_arrow("R10") == "right" and v.exit_arrow("R11") == "left" and v.exit_arrow("R05") == "",
+		"exit arrows point to the painted doors")
+	# a glance: the hold's brackets on the socket (in the close-up, on the close layer)
+	r.local_view = "c_tilt_rack"
+	check(v.start_glance(Rect2(716, 318, 130, 362)) and v.hold_active(), "start_glance holds")
+	check(v.hold_close == Rect2(1110, 380, 240, 400), "in the rack close-up the glance brackets the socket there")
+	v.reset_presentation()
+	r.local_view = "room"
+	v.play_fx("glance", {"id": "glance", "glance": "p14", "rect": Rect2(720, 330, 250, 270), "delay": 0.5})
+	check(not v.hold_active(), "a glance waits for its delay")
+	v.tick(0.6)
+	check(v.hold_active() and v.hold_rect == Rect2(720, 330, 250, 270), "then holds on its rect")
+	# sounds: the louder bed, the ducks kept
+	var lt: Dictionary = v.loop_targets()
+	check(absf(linear_to_db(lt["r07_room"]) - (-6.0)) < 0.01, "r07_room at -6 dB in the room")
+	var sdb: Dictionary = v.c("SFX_DB", {})
+	for id in sdb:
+		check(float(sdb[id]) <= 0.0, "SFX %s capped at 0 dB" % id)
+	check(float(sdb.get("socket_click", -99)) == -1.0 and float(sdb.get("breath_hiss", -99)) == 0.0, "SFX raised 6 dB, capped")
+	r.local_view = "c_tilt_rack"
+	lt = v.loop_targets()
+	check(linear_to_db(lt["r07_tank_hum"]) <= -13.99, "the close-up duck is kept (-4 dB)")
+	r.local_view = "room"
 	await free_scene(scene)

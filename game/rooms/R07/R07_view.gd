@@ -27,6 +27,8 @@ const BRUISE := Color("746577")
 const SEAGLASS_HI := Color("96b2a6")
 const WATER := Color(0.302, 0.431, 0.392, 0.96)          # #4d6e64: a filled matte mass
 const STORM := Color("22384a")
+## Below the surface the water is 15% darker than its fill colour.
+const WATER_BODY := 0.85
 
 ## [id, rect, label]; first match wins, so small objects come first.
 const HOTSPOTS := [
@@ -108,13 +110,13 @@ const TRAY_RECTS := [Rect2(170, 720, 360, 170), Rect2(545, 720, 360, 170), Rect2
 
 ## One-shot levels (dB) and the sudden ones "Soften sudden sounds" turns down.
 const SFX_DB := {
-	"jar_slide": -10.0, "cradle_clamp": -11.0, "rack_tip": -9.0, "slosh_a": -9.0, "glass_creak_b": -10.0,
-	"slosh_c": -9.0, "test_pen": -14.0,
-	"socket_refuse": -9.0, "socket_click": -7.0, "tag_drop": -10.0, "water_lean": -6.0, "door_rattle": -9.0,
-	"vault_settle": -12.0, "glass_tap": -10.0, "tap_turn": -12.0,
-	"pan_place": -10.0, "beam_swing": -11.0, "key_press": -10.0, "key_refuse": -10.0, "strip_print": -12.0,
-	"card_flick": -11.0, "felt_press": -6.0,
-	"section_slide": -11.0, "name_write": -12.0, "strip_clip": -10.0, "frame_seal": -7.0, "breath_hiss": -5.0,
+	"jar_slide": -4.0, "cradle_clamp": -5.0, "rack_tip": -3.0, "slosh_a": -3.0, "glass_creak_b": -4.0,
+	"slosh_c": -3.0, "test_pen": -8.0,
+	"socket_refuse": -3.0, "socket_click": -1.0, "tag_drop": -4.0, "water_lean": 0.0, "door_rattle": -3.0,
+	"vault_settle": -6.0, "glass_tap": -4.0, "tap_turn": -6.0,
+	"pan_place": -4.0, "beam_swing": -5.0, "key_press": -4.0, "key_refuse": -4.0, "strip_print": -6.0,
+	"card_flick": -5.0, "felt_press": 0.0,
+	"section_slide": -5.0, "name_write": -6.0, "strip_clip": -4.0, "frame_seal": -1.0, "breath_hiss": 0.0,
 }
 const SFX_SOFT := ["socket_refuse", "key_refuse", "door_rattle", "breath_hiss"]
 ## The breath must still be heard: it is only taken down 8 dB.
@@ -165,9 +167,10 @@ const DRIP_HANG := Vector2(278, 590)
 const DRIP_PERIOD := 2.2
 const DRIP_FALL := 0.5
 const DRIP_RING := 0.5
-## The lean: C's surface goes 0 -> +34 -> 0.
+## The lean: C's surface goes 0 -> +34, holds as a still frame for 1.5 s (Motion off: only the
+## still), then settles to 0.
 const LEAN_RISE := 0.6
-const LEAN_HOLD := 1.2
+const LEAN_HOLD := 1.5
 const LEAN_SETTLE := 0.8
 
 # --- c_tilt_rack geometry -----------------------------------------------------------------
@@ -214,7 +217,20 @@ const SHAPES := {
 	"long": [Vector2(0, 0.2), Vector2(0.05, 0.2), Vector2(0.75, 0.85), Vector2(0.95, 0.2), Vector2(1, 0.2)],
 }
 const REF_HEADING := "REFERENCE: N. BELL, KITCHEN WORK CARD, CALIBRATION 1927"
-const REF_TRANSCRIPT := "two short rises, a pause, one long rise"
+## The kitchen work card's trace (R05_view _draw_card_trace, card px, baseline y 95), cut into
+## the three sections; the frame's sections show their piece at twice the card's scale.
+const CARD_BASE := 95.0
+const CARD_SCALE := 2.0
+const CARD_PIECES := {
+	"short": [Vector2(8, 95), Vector2(12, 95), Vector2(19, 75), Vector2(26, 95), Vector2(28, 95), Vector2(35, 75),
+		Vector2(42, 95)],
+	"pause": [Vector2(42, 95), Vector2(62, 95)],
+	"long": [Vector2(62, 95), Vector2(65, 86.5), Vector2(68, 78.5), Vector2(71, 71.67), Vector2(74, 66.4),
+		Vector2(77, 63.1), Vector2(80, 62.0), Vector2(83, 63.1), Vector2(86, 66.4), Vector2(89, 71.3),
+		Vector2(92, 78.5), Vector2(95, 86.5), Vector2(98, 95), Vector2(102, 95)],
+}
+## The hover label of every loose section (they carry no names).
+const SECTION_HOVER := "Trace section"
 const REF_UNSEEN := "(card not to hand: kitchen, by the range)"
 ## The fog's three breaths, synced to breath_hiss (tools/audio/rooms/R07.py BREATH_WINDOWS).
 const FOG_BLOOMS := [0.0, 0.55, 1.80]
@@ -280,6 +296,9 @@ var key_down := ""
 var key_down_t := 0.0
 var seal_t := 0.0
 var close_ada := ADA_DEFAULT    # band 7 in c_tilt_rack: where the water turns (last click there)
+var glance_wait := -1.0         # seconds until a queued reward glance starts, -1 = none
+var glance_rect := Rect2()
+var hold_close := Rect2()       # the hold's rect on the close-up layer (a glance seen in a close-up)
 
 func _ready() -> void:
 	narrow = SystemFont.new()
@@ -369,10 +388,9 @@ func jar_surface_deg(j: String, centre: Vector2, rot: float) -> float:
 			return _leaning_deg(centre, VAULT_C)
 		"ada":
 			return _facing_deg(centre, ada_point())
-	var base := R07Sim.surface_deg(R07Sim.JAR_RULE[j], rot)
 	if j == "C" and r.state.socket == "C":
-		base += lean_deg()
-	return base
+		return R07Sim.surface_deg(R07Sim.JAR_RULE[j], rot) + lean_deg()
+	return R07Sim.rack_rest_deg(j)
 
 ## Band 5-6: the water still lies down, but pulled hard toward `to`: its surface rises on the
 ## side facing it, about 60 degrees off level for the vault.
@@ -401,10 +419,10 @@ func tank_surface_deg() -> float:
 
 ## C's lean right now (0 when still).
 func lean_deg() -> float:
-	if not motion:
-		return R07Sim.LEAN_DEG if hold_t > 0.0 and hold_id == "lean" else 0.0
 	if lean_t < 0.0:
 		return 0.0
+	if not motion:
+		return R07Sim.LEAN_DEG if lean_t < LEAN_HOLD else 0.0
 	var t := lean_t
 	if t < LEAN_RISE:
 		return R07Sim.LEAN_DEG * smoothstep(0.0, 1.0, t / LEAN_RISE)
@@ -474,8 +492,12 @@ func tick(dt: float) -> void:
 	ada_t = minf(1.0, ada_t + dt / ADA_TURN) if motion else 1.0
 	if lean_t >= 0.0:
 		lean_t += dt
-		if lean_t > LEAN_RISE + LEAN_HOLD + LEAN_SETTLE:
+		if lean_t > (LEAN_RISE + LEAN_HOLD + LEAN_SETTLE if motion else LEAN_HOLD):
 			lean_t = -1.0
+	if glance_wait >= 0.0:
+		glance_wait -= dt
+		if glance_wait < 0.0:
+			start_glance(glance_rect)
 	if tip_t >= 0.0:
 		tip_t += dt
 		if tip_t > _tip_len():
@@ -527,23 +549,23 @@ func loop_targets() -> Dictionary:
 	var b := _band()
 	var sever := _sever()
 	var hangs := r.drip_hangs()
-	var db := {"r07_room": -16.0}
+	var db := {"r07_room": -6.0}
 	if sever:
-		db["r07_tank_hum"] = -20.0
+		db["r07_tank_hum"] = -10.0
 	elif b <= 2:
-		db["r07_tank_hum"] = -20.0
+		db["r07_tank_hum"] = -10.0
 	elif b <= 5:
-		db["r07_tank_hum"] = -18.0
+		db["r07_tank_hum"] = -8.0
 	if not hangs:
 		if _p("tap_on"):
-			db["r07_trickle"] = -20.0
+			db["r07_trickle"] = -10.0
 		else:
-			db["r07_drip"] = -22.0
+			db["r07_drip"] = -12.0
 	if not sever:
 		if b >= 5:
-			db["r07_glass_sing"] = [-30.0, -26.0, -23.0][b - 5]
+			db["r07_glass_sing"] = [-20.0, -16.0, -13.0][b - 5]
 		if b >= 4:
-			db["r07_undertow"] = [-30.0, -27.0, -24.0, -21.0][b - 4]
+			db["r07_undertow"] = [-20.0, -17.0, -14.0, -11.0][b - 4]
 	var in_close := r.is_closeup()
 	var duck := game != null and game.oneshot_playing(DUCK_IDS)
 	var out := {}
@@ -569,7 +591,7 @@ func _tick_audio(dt: float) -> void:
 # ---------------------------------------------------------------------------
 # hooks
 # ---------------------------------------------------------------------------
-func play_fx(id: String, _e: Dictionary) -> void:
+func play_fx(id: String, e: Dictionary) -> void:
 	if id.begins_with("notice_"):
 		_start_hold(id.substr(7))
 		match id:
@@ -578,6 +600,9 @@ func play_fx(id: String, _e: Dictionary) -> void:
 				fog_t = -1.0
 		return
 	match id:
+		"glance":
+			glance_rect = e.get("rect", Rect2())
+			glance_wait = maxf(0.0, float(e.get("delay", 0.0)))
 		"tip":
 			tip_jar = r.last_test
 			tip_t = 0.0
@@ -598,7 +623,10 @@ func play_fx(id: String, _e: Dictionary) -> void:
 func on_sfx(id: String) -> void:
 	match id:
 		"water_lean":
-			lean_t = 0.0 if motion else -1.0
+			lean_t = 0.0
+			# the notice's hold (zoom or brackets) stays on the jar until the still has held
+			if hold_id == "lean" and hold_t > 0.0:
+				hold_t = maxf(hold_t, (LEAN_RISE + LEAN_HOLD) if motion else LEAN_HOLD)
 		"test_pen":
 			_reveal("pen")
 		"tag_drop":
@@ -625,13 +653,44 @@ func _reveal(id: String) -> void:
 		"fog":
 			fog_t = 0.0
 
-func _start_hold(n: String) -> void:
-	var rect: Rect2 = NOTICE_FOCUS.get(n, Rect2())
+func _start_hold(n: String, rect := Rect2()) -> void:
+	if rect.size == Vector2.ZERO:
+		rect = NOTICE_FOCUS.get(n, Rect2())
 	if rect.size == Vector2.ZERO:
 		return
 	hold_id = n
 	hold_rect = rect
+	hold_close = Rect2()
 	hold_t = HOLD_TIME
+
+## Where a reward glance lands on the close-up layer when she is in that close-up: the socket
+## (P10, c_tilt_rack) and the sealed frame (P14, c_frame).
+const GLANCE_CLOSE := {
+	"c_tilt_rack": [Rect2(716, 318, 130, 362), Rect2(1110, 380, 240, 400)],
+	"c_frame": [Rect2(720, 330, 250, 270), Rect2(140, 340, 1170, 340)],
+}
+
+## A reward is seen: the notice hold's brackets and zoom on `rect` (view A/B space). In a
+## close-up the brackets go round the same thing there. Motion off: still brackets.
+func start_glance(rect: Rect2) -> bool:
+	glance_wait = -1.0
+	if rect.size == Vector2.ZERO:
+		return false
+	_start_hold("glance", rect)
+	var m: Array = GLANCE_CLOSE.get(_view(), [])
+	if not m.is_empty() and m[0] == rect:
+		hold_close = m[1]
+	return true
+
+## Exit tabs point to the side their painted door is on: RECORDS is on the right of view A, the
+## STAIR door on the left. "" keeps the core's default.
+func exit_arrow(to: String) -> String:
+	match to:
+		"R10":
+			return "right"
+		"R11":
+			return "left"
+	return ""
 
 func hold_active() -> bool:
 	return hold_t > 0.0
@@ -670,6 +729,9 @@ func reset_presentation() -> void:
 	key_down_t = 0.0
 	seal_t = 0.0
 	close_ada = ADA_DEFAULT
+	glance_wait = -1.0
+	glance_rect = Rect2()
+	hold_close = Rect2()
 
 func redraw() -> void:
 	room.queue_redraw()
@@ -700,7 +762,7 @@ func closeup_controls(cid: String) -> Array:
 			var tray := r.tray_sections()
 			for k in tray.size():
 				if tray[k] != "":
-					out.append(["sec_" + tray[k], TRAY_RECTS[k], R07Sim.SECTION_LABELS[tray[k]]])
+					out.append(["sec_" + tray[k], TRAY_RECTS[k], SECTION_HOVER])
 			return out + FRAME_FIXED
 	return []
 
@@ -722,7 +784,7 @@ func action_at(p: Vector2) -> String:
 		if h[1].has_point(p):
 			var id: String = h[0]
 			if _view() == "room" and gsim():
-				if id == "vault_door" and gsim().exit_open(rid, "R10"):
+				if id == "vault_door" and gsim().exit_open(rid, "R10") and r.state.vault_ajar_said:
 					return "go:R10"
 				if id == "return_door" and gsim().exit_open(rid, "R11"):
 					return "go:R11"
@@ -757,7 +819,7 @@ func label_for(id: String) -> String:
 			if h[0] == id:
 				return h[2]
 	if id.begins_with("sec_") and R07Sim.SECTION_LABELS.has(id.substr(4)):
-		return R07Sim.SECTION_LABELS[id.substr(4)]
+		return SECTION_HOVER
 	return ""
 
 func hotspot_rect(id: String) -> Rect2:
@@ -902,12 +964,19 @@ func _water(c: CanvasItem, poly: PackedVector2Array, centre: Vector2, theta: flo
 	var n := surface_normal(theta)
 	var res := clip_half(poly, centre, n)
 	var body: PackedVector2Array = res[0]
+	var col := _water_col()
 	if body.size() >= 3:
-		c.draw_colored_polygon(body, _water_col())
+		c.draw_colored_polygon(body, Color(col.r * WATER_BODY, col.g * WATER_BODY, col.b * WATER_BODY, col.a))
 	var chord: Array = res[1]
 	if chord.size() < 2:
 		return
-	c.draw_polyline(_shimmer(chord[0], chord[1], n, ripple, phase), INK, 3.0, true)
+	# a sea-glass highlight just under the surface, then the storm-navy meniscus on the line
+	var line := _shimmer(chord[0], chord[1], n, ripple, phase)
+	var under := PackedVector2Array()
+	for q in line:
+		under.append(q + n * 2.5)
+	c.draw_polyline(under, SEAGLASS_HI, 2.0, true)
+	c.draw_polyline(line, STORM, 3.0, true)
 
 func _shimmer(a: Vector2, b: Vector2, n: Vector2, amp: float, phase: float) -> PackedVector2Array:
 	var pts := PackedVector2Array()
@@ -971,6 +1040,7 @@ func _draw_view_a(c: CanvasItem) -> void:
 	var sever := _sever()
 	var p10: bool = r.state.p10_complete
 	_full(c, plate_id())
+	_draw_sea(c, "a")
 	# the tank: water, the lagging reflection, then the glass and frame over both
 	var tpoly := interior(TANK_C, TANK_IN.size / 2.0, 0.0)
 	var tr := 0.0 if r.tank_mode() == "pane" else _ripple()
@@ -980,12 +1050,18 @@ func _draw_view_a(c: CanvasItem) -> void:
 	if glass:
 		c.draw_texture_rect(glass, Rect2(Vector2.ZERO, SIZE), false,
 			Color(0.93, 0.93, 0.93) if sever else Color.WHITE)
+	# the wall lamp, redrawn over the water's overlays: from band 6 it hangs 40 px lower, over the
+	# tank's rim
+	if sea_tier() >= 2:
+		_full(c, "a_lamp_low" if sea_tier() >= 6 else "a_lamp")
 	if r.vault_ajar():
 		_full(c, "a_vault_ajar")
+		if sea_tier() >= 6:
+			_full(c, "a_sea_b6_slot")
 	if r.return_unbolted():
 		_full(c, "a_return_unbolted")
 	if p10:
-		_full(c, "a_rack_salt")
+		_full(c, "a_rack_salt_v2")
 	# the brass datum and the plumb that disagrees with it
 	_on_plate(c, DATUM_TAG, "DATUM", 18)
 	_plumb(c, "plumb", PLUMB_PIVOT, PLUMB_SPRITE_PIV, 108.0)
@@ -1016,6 +1092,29 @@ func _draw_view_a(c: CanvasItem) -> void:
 	_on_plate(c, STAIR_TAG, "STAIR", 20)
 	_on_plate(c, RECORDS_TAG, "RECORDS", 20)
 	_draw_basin_water(c)
+
+## The lab takes on water (tools/art/rooms/R07.py "the sea comes in"): the highest overlay tier
+## due now, 0 for none. Bands are game.weather_band(); R07 opens at band 2. Sever releases it.
+func sea_tier() -> int:
+	if _sever():
+		return 0
+	var b := _band()
+	for t in [7, 6, 4, 3, 2]:
+		if b >= t:
+			return t
+	return 0
+
+## Every tier up to the current one, over the stage plate: condensation (2), the waterline at
+## the datum (3), navy grout and the porthole (4), wet tiles and the lowered lamp's wall (6), the
+## band-7 handprint and bloom contours (7). From band 6 a patch of the plate's own wall first
+## takes the painted lamp away; the lamp is redrawn above the overlays.
+func _draw_sea(c: CanvasItem, side: String) -> void:
+	var t := sea_tier()
+	if t >= 6:
+		_full(c, "%s_lamp_patch_s%d" % [side, mini(_band(), 7)])
+	for k in [2, 3, 4, 6, 7]:
+		if t >= k:
+			_full(c, "%s_sea_b%d" % [side, k])
 
 ## The rack as the tank glass remembers it: faint, and from band 3 its ripples run the wrong way.
 func _draw_reflection(c: CanvasItem, b: int) -> void:
@@ -1089,6 +1188,9 @@ func _draw_view_b(c: CanvasItem) -> void:
 	var p13: bool = r.state.p13_complete
 	var p14: bool = r.state.p14_complete
 	_full(c, plate_id())
+	_draw_sea(c, "b")
+	if sea_tier() >= 6:
+		_full(c, "b_lamp_low")
 	_full(c, "b_stand_empty" if p14 else "b_frame")
 	_full(c, "b_lid_open" if p13 and not p14 else "b_lid_closed")
 	_full(c, "b_shells_rings" if r.shells_aligned() else "b_shells_loose")
@@ -1103,15 +1205,12 @@ func _draw_view_b(c: CanvasItem) -> void:
 		var ia := clampf((fa - 0.66) / 0.34, 0.0, 1.0)
 		if ia > 0.0:
 			_inscription(c, ia)
-	# the sample cards' letters and readings
-	var cards := [["N", "0→3→0"], ["W", "0→0→0"], ["F", "2→2→2"]]
+	# the sample cards: a letter and its stamp; the readings are found on the balance
 	for k in 3:
 		var x0 := 60.0 + k * 76
-		_ctext(c, cards[k][0], x0 + 34, 182, 20, INK, Ink.serif())
-		_ctext(c, cards[k][1], x0 + 34, 258, 16, INK, narrow)
-		_ctext(c, "dr", x0 + 34, 280, 16, INK, narrow)
-		if k == 0:
-			_ctext(c, "N-27", x0 + 34, 212, 16, BRUISE, narrow)
+		var sm: String = R07Sim.SAMPLES[k]
+		_ctext(c, sm, x0 + 34, 182, 20, INK, Ink.serif())
+		_ctext(c, R07Sim.CARD_STAMPS[sm], x0 + 34, 212, 16, BRUISE, narrow)
 	if not (p13 and not p14):
 		_on_plate(c, Rect2(180, 672, 100, 26), "REGISTER", 16)
 
@@ -1141,11 +1240,15 @@ func _draw_close() -> void:
 			_draw_frame(close)
 		_:
 			return
+	if hold_t > 0.0 and hold_close.size != Vector2.ZERO:
+		_brackets(close, hold_close)
 
 # --- c_tilt_rack --------------------------------------------------------------------------
-## A close-up jar's surface follows the same band rule as the room: its own rule until band 5,
-## then leaning to the vault (off to the right), then at band 7 facing her last click here.
-func _close_theta(j: String, rot: float, centre: Vector2) -> float:
+## A close-up jar's surface follows the same band rule as the room: at rest all three lie alike
+## (jar A's resting slant); only the tip shows a jar's own rule, blended in with the cradle's
+## turn so nothing jumps. From band 5 every jar leans to the vault (off to the right), at band 7
+## faces her last click here. `rule_k` 0..1: how far into the tip the jar is.
+func _close_theta(j: String, rot: float, centre: Vector2, rule_k := 0.0) -> float:
 	match r.anomaly():
 		"level":
 			return 0.0
@@ -1153,7 +1256,9 @@ func _close_theta(j: String, rot: float, centre: Vector2) -> float:
 			return _leaning_deg(centre, VAULT_C_CLOSE)
 		"ada":
 			return _facing_deg(centre, close_ada)
-	return R07Sim.surface_deg(R07Sim.JAR_RULE[j], rot)
+	if rule_k <= 0.0:
+		return R07Sim.rack_rest_deg(j)
+	return lerpf(R07Sim.rack_rest_deg(j), R07Sim.surface_deg(R07Sim.JAR_RULE[j], rot), clampf(rule_k, 0.0, 1.0))
 
 func _draw_rack(c: CanvasItem) -> void:
 	var st: Dictionary = r.state
@@ -1172,8 +1277,8 @@ func _draw_rack(c: CanvasItem) -> void:
 	var cj: String = st.cradle
 	var phi := tip_deg() if (tip_t >= 0.0 and cj != "" and cj == tip_jar) else 0.0
 	if cj != "":
-		_jar(c, "c_jar", CJAR_SPRITE_C, CJAR_HALF, CJAR_LABEL, CRADLE_PIVOT, phi, _close_theta(cj, phi, CRADLE_PIVOT), cj, 22,
-			_ripple() if tip_t < 0.0 else 0.0)
+		_jar(c, "c_jar", CJAR_SPRITE_C, CJAR_HALF, CJAR_LABEL, CRADLE_PIVOT, phi,
+			_close_theta(cj, phi, CRADLE_PIVOT, phi / R07Sim.TIP_DEG), cj, 22, _ripple() if tip_t < 0.0 else 0.0)
 	c.draw_set_transform(CRADLE_PIVOT, deg_to_rad(phi), Vector2.ONE)
 	_sprite(c, "c_cradle", -CRADLE_SPRITE_C)
 	c.draw_set_transform_matrix(Transform2D.IDENTITY)
@@ -1188,8 +1293,8 @@ func _draw_rack(c: CanvasItem) -> void:
 	_para(c, R07Sim.REF_CARD, Vector2(1126, 188), 20, INK, 208, Ink.serif(), 1.25)
 	# the socket: C seated after P10, and its tag
 	if st.socket == "C":
-		_jar(c, "c_jar", CJAR_SPRITE_C, CJAR_HALF, CJAR_LABEL, C_SOCKET, 0.0, _close_theta("C", 0.0, C_SOCKET), "C", 22,
-			_ripple())
+		_jar(c, "c_jar", CJAR_SPRITE_C, CJAR_HALF, CJAR_LABEL, C_SOCKET, 0.0, _close_theta("C", 0.0, C_SOCKET, 1.0), "C",
+			22, _ripple())
 	if r.state.p10_complete and not pending.has("tag"):
 		var rest := TAG_REST
 		if tag_t >= 0.0:
@@ -1236,6 +1341,7 @@ func _draw_test_card(c: CanvasItem) -> void:
 			_dashed(c, a, b, INK, 2.5, pat)
 		c.draw_string(narrow, Vector2(lx + 52, 138), REF_WORD[rule], HORIZONTAL_ALIGNMENT_LEFT, -1, 18, INK)
 		lx += 128.0
+	var cells := test_cell_texts()
 	for k in 3:
 		var j: String = R07Sim.JARS[k]
 		var box := Rect2(TEST_BOX_X[k], TEST_BOX_Y, TEST_BOX.x, TEST_BOX.y)
@@ -1243,11 +1349,23 @@ func _draw_test_card(c: CanvasItem) -> void:
 			_ref_line(c, box, rule, Color(INK, 0.6), 2.0)
 		c.draw_rect(Rect2(box.position + Vector2(6, 6), Vector2(28, 28)), PAPER_HI)
 		c.draw_rect(Rect2(box.position + Vector2(6, 6), Vector2(28, 28)), INK, false, 1.5)
-		_ctext(c, j, box.position.x + 20, box.position.y + 28, 20, INK, narrow)
-		if r.state.tested[j] and pen_jar != j:
-			var rule: String = R07Sim.JAR_RULE[j]
-			_ref_line(c, box, rule, INK, 4.5)
-			_ctext(c, "FOLLOWS: " + REF_WORD[rule], box.get_center().x, 389, 16, INK, narrow)
+		_ctext(c, cells[k], box.position.x + 20, box.position.y + 28, 20, INK, narrow)
+		# the pen draws the surface the tipped jar showed, one plain heavy line: which printed
+		# line it lies on is for her to see
+		var deg := test_surface_deg(j)
+		if not is_nan(deg):
+			var ends := _line_in_box(box.get_center(), deg, box.grow(-6))
+			c.draw_line(ends[0], ends[1], INK, 4.5, true)
+
+## Every string drawn inside the test cells, in cell order: the jar letters, nothing else.
+func test_cell_texts() -> Array:
+	return R07Sim.JARS.duplicate()
+
+## The pen line in jar `j`'s test cell (degrees, as REF_ANGLES), or NAN while untested.
+func test_surface_deg(j: String) -> float:
+	if not r.state.tested[j] or pen_jar == j:
+		return NAN
+	return REF_ANGLES[R07Sim.JAR_RULE[j]]
 
 # --- c_balance ----------------------------------------------------------------------------
 func _beam_end(sign_: float) -> Vector2:
@@ -1305,19 +1423,16 @@ func _draw_balance(c: CanvasItem) -> void:
 	_draw_register(c)
 
 func _draw_sample_cards(c: CanvasItem) -> void:
-	var cards := [["N", "0→3→0"], ["W", "0→0→0"], ["F", "2→2→2"]]
 	for k in 3:
 		var x0 := 90.0 + k * 96
 		var cx := x0 + 42
-		_ctext(c, cards[k][0], cx, 129, 20, INK, Ink.serif())
-		if k == 0:
-			var stamp := Rect2(cx - 37, 133, 74, 42)
-			c.draw_rect(stamp, PAPER_HI)
-			c.draw_rect(stamp, BRUISE, false, 2.0)
-			_ctext(c, "SPECIMEN", cx, 151, 14, BRUISE, narrow_reg)
-			_ctext(c, "N-27", cx, 168, 16, BRUISE, narrow_reg)
-		_ctext(c, cards[k][1], cx, 206, 18, INK, narrow)
-		_ctext(c, "dr", cx, 230, 18, INK, narrow)
+		var sm: String = R07Sim.SAMPLES[k]
+		_ctext(c, sm, cx, 129, 20, INK, Ink.serif())
+		var stamp := Rect2(cx - 37, 133, 74, 42)
+		c.draw_rect(stamp, PAPER_HI)
+		c.draw_rect(stamp, BRUISE, false, 2.0)
+		_ctext(c, "SPECIMEN" if sm == "N" else "SAMPLE", cx, 151, 14, BRUISE, narrow_reg)
+		_ctext(c, R07Sim.CARD_STAMPS[sm], cx, 168, 16, BRUISE, narrow_reg)
 
 func _draw_strip(c: CanvasItem) -> void:
 	var cells := r.strip_cells()
@@ -1378,10 +1493,22 @@ func _draw_section(c: CanvasItem, s: String, rect: Rect2, raised: bool) -> void:
 		c.draw_texture_rect(t, rect, false)
 	if raised:
 		c.draw_rect(rect.grow(3), INK, false, 3.0)
-	c.draw_string(narrow, rect.position + Vector2(12, 26), R07Sim.SECTION_LABELS[s], HORIZONTAL_ALIGNMENT_LEFT, -1, 18,
-		INK)
-	c.draw_polyline(_trace_pts(s, rect.position.x + 6, rect.end.x - 6, rect.end.y - 6, rect.position.y + 6),
-		INK, 3.0, true)
+	# no label: the bare piece of her trace, at twice the work card's scale, on a faint baseline
+	var base := rect.end.y - 44.0
+	c.draw_line(Vector2(rect.position.x + 14, base), Vector2(rect.end.x - 14, base), Color(INK, 0.35), 1.5)
+	c.draw_polyline(section_pts(s, rect), INK, 3.0, true)
+
+## A section's trace: its piece of the kitchen work card's trace (R05, card px) at CARD_SCALE,
+## centred on the tile, baseline 44 px above its bottom.
+func section_pts(s: String, rect: Rect2) -> PackedVector2Array:
+	var piece: Array = CARD_PIECES[s]
+	var x0: float = piece[0].x
+	var x1: float = piece[-1].x
+	var o := Vector2(rect.get_center().x - (x1 - x0) * CARD_SCALE / 2.0, rect.end.y - 44.0)
+	var pts := PackedVector2Array()
+	for q in piece:
+		pts.append(o + Vector2((q.x - x0) * CARD_SCALE, (q.y - CARD_BASE) * CARD_SCALE))
+	return pts
 
 func _draw_frame(c: CanvasItem) -> void:
 	var st: Dictionary = r.state
@@ -1393,7 +1520,6 @@ func _draw_frame(c: CanvasItem) -> void:
 			var x0: float = SLOT_X[k] + 16
 			c.draw_polyline(_trace_pts(R07Sim.SOLUTION_SLOTS[k], x0, x0 + SECTION.x - 12, REF_TRACE_BOTTOM,
 				REF_TRACE_TOP), INK, 3.0, true)
-		_ctext(c, REF_TRANSCRIPT, 725, 296, 20, INK, Ink.serif())
 	else:
 		_ctext(c, REF_UNSEEN, 725, 226, 22, INK, Ink.serif())
 	# the slots and what is in them

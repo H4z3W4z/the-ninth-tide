@@ -8,7 +8,10 @@ Writes, and only writes, assets/rooms/R07/*.png:
   view_b, view_b_s3 .. view_b_s7, view_b_sever
                       the bench stage plates (same staging)
   a_tank_glass, a_reflect_three, a_reflect_two, a_vault_ajar, a_return_unbolted,
-  a_socket_tag, a_rack_salt                       view A overlays (RGBA, registered)
+  a_socket_tag, a_rack_salt, a_rack_salt_v2       view A overlays (RGBA, registered)
+  a_sea_b2/b3/b4/b6/b7, a_sea_b6_slot, a_lamp, a_lamp_low, a_lamp_patch_s6/s7,
+  b_sea_b2/b3/b4/b6/b7, b_lamp_low, b_lamp_patch_s6/s7
+                      the lab taking on water by band (see "the sea comes in")
   b_shells_loose, b_shells_rings, b_thumb, b_strip, b_frame, b_stand_empty, b_register_open,
   b_lid_closed, b_lid_open, b_fog                 view B overlays (RGBA, registered)
   c_tilt_rack, c_balance, c_frame                 close-up plates (opaque)
@@ -898,7 +901,10 @@ A_STREAK_AVOID = ((STAIR[0], STAIR[2]), (TANK[0] - 6, TANK[2] + 6), (SOCKET[0], 
                   (VAULT[0], VAULT[2]))
 
 
-def paint_view_a(rng, stage):
+def paint_view_a(rng, stage, lamp=True, objects=True):
+    """The tank wall plate. `lamp` False leaves the wall lamp out and `objects` False stops at the
+    bare wall (the sea overlays' masks and lamp patch); the defaults paint the approved plate,
+    stroke for stroke."""
     p = Pen(W, H, rng, PAPER)
     srng = rng_for(700 + (0 if stage == "sever" else stage))
     shell(p, stage, A_FLOOR)
@@ -915,6 +921,13 @@ def paint_view_a(rng, stage):
         lamp_pool(p, LAMP_A[0], LAMP_A[1] + 18, 170, 100, 0.36)
     else:
         lamp_pool(p, 724, 300, 700, 280, 0.18)
+    if not objects:
+        return p.done()
+    view_a_objects(p, stage, lamp)
+    return grade(p.done(), stage)
+
+
+def view_a_objects(p, stage, lamp=True):
     plate(p, 878, 270, 974, 296)
     plumb_bracket(p, PLUMB_A[0], PLUMB_A[1])
     conduit(p)
@@ -922,14 +935,14 @@ def paint_view_a(rng, stage):
     bolt_closed(p)
     basin(p)
     tank(p)
-    wall_lamp(p, LAMP_A[0], LAMP_A[1], stage != "sever")
+    if lamp:
+        wall_lamp(p, LAMP_A[0], LAMP_A[1], stage != "sever")
     socket(p)
     rack(p)
     vault_door(p)
     if stage in (7,):
         floor_rings(p)
     turn_plate(p)
-    return grade(p.done(), stage)
 
 
 PLUMB_A = (1004, 300)
@@ -1275,7 +1288,8 @@ B_STREAK_AVOID = ((60, 290),)
 B_CABINET_TIDE = ((24, 482), (618, 716), (984, 1424))
 
 
-def paint_view_b(rng, stage):
+def paint_view_b(rng, stage, lamp=True, objects=True):
+    """The bench plate; `lamp` and `objects` as paint_view_a."""
     p = Pen(W, H, rng, PAPER)
     shell(p, stage)
     wet_zone(p, stage)
@@ -1290,7 +1304,18 @@ def paint_view_b(rng, stage):
         lamp_pool(p, 490, 210, 190, 130, 0.36)
     else:
         lamp_pool(p, 724, 300, 700, 280, 0.18)
-    pendant(p, 490, 120, stage != "sever")
+    if not objects:
+        return p.done()
+    view_b_objects(p, stage, lamp)
+    return grade(p.done(), stage)
+
+
+PENDANT_B = (490, 120)
+
+
+def view_b_objects(p, stage, lamp=True):
+    if lamp:
+        pendant(p, PENDANT_B[0], PENDANT_B[1], stage != "sever")
     sample_cards(p)
     bench(p, stage)
     if stage in TIDE_Y and TIDE_Y[stage] > 624:
@@ -1304,7 +1329,6 @@ def paint_view_b(rng, stage):
     bell_jar(p)
     tube_rack(p)
     turn_plate(p)
-    return grade(p.done(), stage)
 
 
 # ----------------------------------------------------------------------------- view A overlays
@@ -2138,6 +2162,369 @@ def sprite(w, h, fn):
     return run
 
 
+# ----------------------------------------------------------------------------- the sea comes in
+#
+# Wall overlays the view lays over the stage plate as the weather band climbs (game.weather_band();
+# R07 opens at band 2). Each is a full-plate RGBA layer, transparent except on the glazed tiles,
+# so every door, the tank, socket, rack and basin keep their painted contrast. The tiles are
+# found exactly: a plate painted without its objects against the objects painted alone.
+#
+#   a_sea_b2 / b_sea_b2   band >= 2: condensation beads on the tiles in the 140 px above DATUM_Y
+#   a_sea_b3 / b_sea_b3   band >= 3: a hard sea-glass waterline flush under the datum rail, and
+#                         the tiles below it a little deeper (12% sea-glass)
+#   a_sea_b4 / b_sea_b4   band >= 4: storm-navy grout below the waterline; view A a porthole above
+#                         the STAIR door, the sea standing high in it
+#   a_sea_b6 / b_sea_b6   band >= 6: the tiles below the line wet (20% darker, specular runs)
+#   a_sea_b6_slot         band >= 6, vault ajar: the RECORDS door's black slot 60% taller
+#   a_sea_b7 / b_sea_b7   band 7: the wet handprint storm navy and 1.5x; navy contours on the blooms
+#   a_lamp, a_lamp_low, b_lamp_low   the lamps over the overlays: in place, and from band 6 40 px lower
+#   a_lamp_patch_s6/s7, b_lamp_patch_s6/s7   the plate's own wall where the painted lamp hung
+#   a_rack_salt_v2        the salt crust where C stood (replaces a_rack_salt)
+
+DATUM_Y = (DATUM_Y0 + DATUM_Y1) // 2       # 300: the datum rail's centre line (rail 296-304)
+# The waterline stands at the datum: flush under the rail, so the brass and its ticks still read.
+WATERLINE = (DATUM_Y1 + 1, DATUM_Y1 + 7)   # 6 px
+BEADS = (DATUM_Y - 140, DATUM_Y0 - 2)      # the 140 px above DATUM_Y, off the brass
+SEA_LINE = SEAGLASS                        # the palette's sea-glass green #617d74: reads on pale tile
+SKIRT = {"a": A_FLOOR - 18, "b": 900 - 18}
+LAMP_DROP = 40
+LAMP_A_BOX = (484, 266, 590, 392)          # every pixel of wall_lamp at LAMP_A
+PENDANT_B_BOX = (430, 46, 550, 154)        # every pixel of pendant at PENDANT_B
+PORTHOLE = (102, 226, 60)                  # above the STAIR door (frame 12-192, top 314)
+SLOT_X = (VAULT_LEAF[2] - VAULT_GAP, VAULT_LEAF[2] + 2)   # the ajar door's void, x
+SLOT_TOP = VAULT_LEAF[1] - round((VAULT_LEAF[3] - VAULT_LEAF[1]) * 0.6)
+
+_cache = {}
+
+
+def _cached(key, fn):
+    if key not in _cache:
+        _cache[key] = fn()
+    return _cache[key]
+
+
+def _objects_alpha(side):
+    """Where the plate's objects stand (L, 1x): painted alone, solid alpha only, so soft shadows
+    and lamp pools count as wall. Lamps are left out: they are redrawn over the overlays."""
+    def run():
+        p = Pen(W, H, rng_for(0 if side == "a" else 10))
+        (view_a_objects if side == "a" else view_b_objects)(p, 2, lamp=False)
+        a = p.done().getchannel("A").point(lambda v: 255 if v > 150 else 0)
+        return a.filter(ImageFilter.MaxFilter(5))
+    return _cached(("obj", side), run)
+
+
+def tile_mask(side, y0=WALL_TOP, y1=None):
+    """L mask (1x) of the glazed tiles between y0 and y1 (default: down to the skirting)."""
+    y1 = SKIRT[side] if y1 is None else y1
+    m = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(m).rectangle((0, y0, W, y1 - 1), fill=255)
+    return ImageChops.subtract(m, _objects_alpha(side))
+
+
+def _apply_mask(im, mask):
+    im = im.copy()
+    im.putalpha(ImageChops.multiply(im.getchannel("A"), mask))
+    return im
+
+
+def _flat(col, alpha):
+    return Image.new("RGBA", (W, H), tuple(col[:3]) + (int(round(alpha * 255)),))
+
+
+def _below(side):
+    return tile_mask(side, WATERLINE[1])
+
+
+def paint_sea_b2(side):
+    """Condensation: seeded beads, 2-5 px, paper white at half strength with a 1 px navy lower
+    contour, thicker toward the datum."""
+    rng = rng_for(800 if side == "a" else 810)
+    fill = Pen(W, H, rng)
+    rim = Pen(W, H, rng)
+    glint = Pen(W, H, rng)
+    n = 0
+    while n < 700:
+        x = rng.uniform(0, W)
+        t = rng.random() ** 0.6                     # denser toward the rail
+        y = lerp(BEADS[0], BEADS[1] - 3, t)
+        d = rng.uniform(2.0, 5.0)
+        r = d / 2.0
+        fill.ell(x, y, r, r * 1.08, PAPER_HI, None)
+        rim.arc(x, y, r, r * 1.08, 35, 145, INK, 1.0)
+        if d >= 3.0:
+            glint.ell(x - r * 0.35, y - r * 0.4, 0.6, 0.6, PAPER_HI, None)
+        if rng.random() < 0.08:                      # a few have started to run
+            ln = rng.uniform(5, 14)
+            fill.rect(x - r * 0.45, y, x + r * 0.45, min(BEADS[1], y + ln), PAPER_HI, None, r=r * 0.45)
+        n += 1
+    im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    f = fill.done()
+    f.putalpha(f.getchannel("A").point(lambda v: v // 2))
+    im.alpha_composite(f)
+    k = rim.done()
+    k.putalpha(k.getchannel("A").point(lambda v: v * 11 // 20))
+    im.alpha_composite(k)
+    im.alpha_composite(glint.done())
+    return _apply_mask(im, tile_mask(side, BEADS[0] - 4, BEADS[1]))
+
+
+def _datum_ticks():
+    m = Image.new("L", (W, H), 255)
+    d = ImageDraw.Draw(m)
+    x = 96
+    while x < W:
+        d.rectangle((x - 2, DATUM_Y1 - 1, x + 2, DATUM_Y1 + 8), fill=0)
+        x += 96
+    return m
+
+
+def paint_sea_b3(side):
+    """The waterline: hard, level, flush under the datum rail, with a navy contour under it;
+    the tiles below take a 12% sea-glass multiply (an over of sea-glass at 13%)."""
+    im = _apply_mask(_flat(SEAGLASS, 0.13), _below(side))
+    p = Pen(W, H, rng_for(820))
+    p.rect(-4, WATERLINE[0], W + 4, WATERLINE[1], SEA_LINE, None)
+    p.line([(-4, WATERLINE[1] + 0.5), (W + 4, WATERLINE[1] + 0.5)], INK, 1.2)
+    p.line([(-4, WATERLINE[0] + 1.0), (W + 4, WATERLINE[0] + 1.0)], SEAGLASS_HI, 1.2)   # the sheen on its surface
+    line = p.done()
+    line.putalpha(line.getchannel("A").point(lambda v: v * 9 // 10))
+    m = ImageChops.multiply(tile_mask(side, WATERLINE[0] - 1, WATERLINE[1] + 2), _datum_ticks())
+    im.alpha_composite(_apply_mask(line, m))
+    return im
+
+
+def porthole(p, cx, cy, r):
+    """A brass porthole: inside, the sea stands flat and storm navy almost to the top of the
+    glass, higher than its own sill, with a sea-glass surface line."""
+    sh = p.layer()
+    sh.ell(cx + 6, cy + 7, r + 2, r + 2, SHADOW, None)
+    p.put_soft(sh, 4, 0.3)
+    # the sill under it, which the sea outside stands well above
+    p.rect(cx - r * 0.8, cy + r + 4, cx + r * 0.8, cy + r + 14, BRASS_LO, INK, 2.2, r=2)
+    p.line([(cx - r * 0.8 + 3, cy + r + 7), (cx + r * 0.8 - 3, cy + r + 7)], BRASS_HI, 1.4)
+    p.ell(cx, cy, r, r, BRASS, INK, 3)
+    p.arc(cx, cy, r - 4, r - 4, 200, 320, BRASS_HI, 2.2)
+    for k in range(8):
+        a = math.radians(22.5 + k * 45)
+        screw(p, cx + (r - 7) * math.cos(a), cy + (r - 7) * math.sin(a), 3.0)
+    gr = r - 15
+    p.ell(cx, cy, gr + 3, gr + 3, BRASS_LO, INK, 2.2)
+    glass = p.layer()
+    glass.ell(cx, cy, gr, gr, GLASS, None)
+    surf = cy - gr * 0.68
+    glass.rect(cx - gr - 2, surf, cx + gr + 2, cy + gr + 2, STORM, None)
+    glass.rect(cx - gr - 2, surf - 1.5, cx + gr + 2, surf + 1.5, SEA_LINE, None)
+    m = Image.new("L", (W * SS, H * SS), 0)
+    ImageDraw.Draw(m).ellipse(((cx - gr) * SS, (cy - gr) * SS, (cx + gr) * SS, (cy + gr) * SS), fill=255)
+    p.put(glass, 1.0, m)
+    p.line([(cx - gr * 0.55, surf - 3), (cx - gr * 0.2, surf - gr * 0.25)], GLASS_HI, 2.0)
+    p.ell(cx, cy, gr, gr, None, INK, 2.4)
+
+
+def _grid_lines(side):
+    p = Pen(W, H, rng_for(830))
+    y = DADO_Y - G * math.floor((DADO_Y - WATERLINE[1]) / G)
+    while y < SKIRT[side]:
+        if abs(y - DADO_Y) > 10:
+            p.line([(-4, y), (W + 4, y)], STORM, 2.0)
+        y += G
+    x = 0
+    while x <= W:
+        p.line([(x, WATERLINE[1]), (x, SKIRT[side])], STORM, 2.0)
+        x += G
+    im = p.done()
+    dado = Image.new("L", (W, H), 255)
+    ImageDraw.Draw(dado).rectangle((0, DADO_Y - 9, W, DADO_Y + 9), fill=0)
+    return _apply_mask(im, ImageChops.multiply(_below(side), dado))
+
+
+def paint_sea_b4(side):
+    im = _grid_lines(side)
+    if side == "a":
+        p = Pen(W, H, rng_for(831))
+        porthole(p, *PORTHOLE)
+        im.alpha_composite(p.done())
+    return im
+
+
+def paint_sea_b6(side):
+    """Wet tiles below the line: 20% darker (black at 20%), with thin vertical specular runs."""
+    im = _apply_mask(_flat((0, 0, 0), 0.20), _below(side))
+    rng = rng_for(840 if side == "a" else 841)
+    p = Pen(W, H, rng)
+    for _ in range(140):
+        x = rng.uniform(0, W)
+        y0 = rng.uniform(WATERLINE[1] + 4, SKIRT[side] - 30)
+        ln = rng.uniform(18, 90)
+        wd = rng.choice((1.0, 1.0, 1.5, 2.0))
+        p.rect(x, y0, x + wd, min(SKIRT[side] - 4, y0 + ln), PAPER_HI, None)
+    runs = p.done()
+    runs.putalpha(runs.getchannel("A").point(lambda v: v * 35 // 100))
+    im.alpha_composite(_apply_mask(runs, _below(side)))
+    return im
+
+
+def paint_sea_b6_slot():
+    """The ajar RECORDS door's void climbs 60% higher than the door: flat, over the transom and
+    the wall, round the RECORDS plate (which stays legible), its sea-glass sliver running up."""
+    p = Pen(W, H, rng_for(850))
+    x0, x1 = SLOT_X
+    y1 = VAULT_LEAF[1] + 2
+    p.rect(x0, SLOT_TOP, x1, y1, VOID, None)
+    p.rect(x1 - 8, SLOT_TOP + 4, x1 - 4, y1, SEAGLASS_HI, None)
+    p.line([(x0, SLOT_TOP), (x0, y1)], INK, 2)
+    p.line([(x0, SLOT_TOP), (x1, SLOT_TOP)], INK, 2)
+    im = p.done()
+    keep = Image.new("L", (W, H), 255)
+    px0, py0, px1, py1 = VAULT_PLATE
+    ImageDraw.Draw(keep).rectangle((px0 - 4, py0 - 4, px1 + 4, py1 + 4), fill=0)
+    return _apply_mask(im, keep)
+
+
+def _bloom_rings(cx, cy, r, rng):
+    """bloom()'s outer ring, drawing from `rng` exactly as bloom() does (six rings per bloom)."""
+    out = None
+    for scale in (1.0, 0.66, 0.36, 0.84, 0.56, 0.3):
+        pts = []
+        for i in range(30):
+            a = 2 * math.pi * i / 30
+            rr = r * scale * (1.0 + 0.07 * math.sin(a * 3 + cx) + rng.uniform(-0.03, 0.03))
+            pts.append((cx + math.cos(a) * rr, cy + math.sin(a) * rr * 0.9))
+        if out is None:
+            out = pts
+    return out
+
+
+def paint_sea_b7(side):
+    """Band 7: navy contours on the plate's damp blooms; in view A the wet handprint by the
+    basin again, storm navy at 55% and half as big again."""
+    im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    brng = rng_for(595 if side == "a" else 596)
+    p = Pen(W, H, rng_for(860))
+    for cx, cy, r in (A_BLOOMS if side == "a" else B_BLOOMS):
+        ring = _bloom_rings(cx, cy, r, brng)
+        p.poly(ring, None, INK, 1.5)
+    keep = tile_mask(side)
+    if side == "a":
+        hole = Image.new("L", (W, H), 255)
+        cx, cy, pr = PORTHOLE
+        ImageDraw.Draw(hole).ellipse((cx - pr - 4, cy - pr - 4, cx + pr + 4, cy + pr + 18), fill=0)
+        keep = ImageChops.multiply(keep, hole)
+    im.alpha_composite(_apply_mask(p.done(), keep))
+    if side == "a":
+        hp = Pen(W, H, rng_for(861))
+        hand_shape(hp, A_HAND[0], A_HAND[1], 1.5, STORM)
+        h = hp.done()
+        h.putalpha(h.getchannel("A").point(lambda v: v * 55 // 100))
+        im.alpha_composite(_apply_mask(h, tile_mask("a")))
+    return im
+
+
+def hand_shape(p, cx, cy, s, col):
+    """handprint()'s palm and fingers, flat, in `col`."""
+    p.ell(cx, cy + 14 * s, 27 * s, 31 * s, col, None)
+    for dx, top, wd in ((-21, -46, 9.5), (-7, -58, 10), (8, -56, 10), (22, -44, 9)):
+        p.rect(cx + (dx - wd / 2) * s, cy + top * s, cx + (dx + wd / 2) * s, cy, col, None, r=wd / 2 * s)
+    p.poly([(cx - 24 * s, cy + 10 * s), (cx - 50 * s, cy - 14 * s), (cx - 42 * s, cy - 22 * s),
+            (cx - 16 * s, cy - 2 * s)], col, None)
+    p.ell(cx - 46 * s, cy - 18 * s, 6 * s, 6 * s, col, None)
+
+
+def wall_lamp_low(p, cx, cy, drop):
+    """wall_lamp() on the same wall mount, its arm let out so the shade hangs `drop` px lower."""
+    p.rect(cx - 9, cy - 88, cx + 9, cy - 62, BRASS_LO, INK, 2.2, r=3)
+    arm = bezier((cx, cy - 70), (cx + 34 + drop * 0.4, cy - 70 + drop * 0.4), (cx, cy - 22 + drop), 18)
+    p.line(arm, INK, 7)
+    p.line(arm, BRASS, 3.5)
+    y = cy + drop
+    p.ell(cx, y - 22, 6, 6, BRASS_HI, INK, 1.8)
+    p.poly([(cx - 14, y - 18), (cx + 14, y - 18), (cx + 44, y + 14), (cx - 44, y + 14)], SEAGLASS, INK, 3)
+    p.line([(cx - 8, y - 13), (cx - 34, y + 9)], SEAGLASS_HI, 2.4)
+    p.rect(cx - 46, y + 12, cx + 46, y + 18, BRASS_LO, INK, 2)
+    p.ell(cx, y + 21, 9, 5, AMBER, INK, 1.6)
+    p.ell(cx - 2, y + 21, 3, 2, PAPER_HI, None)
+
+
+def paint_lamp(low):
+    p = Pen(W, H, rng_for(870))
+    if low:
+        wall_lamp_low(p, LAMP_A[0], LAMP_A[1], LAMP_DROP)
+    else:
+        wall_lamp(p, LAMP_A[0], LAMP_A[1], True)
+    return p
+
+
+def paint_b_lamp_low(rng):
+    p = Pen(W, H, rng)
+    pendant(p, PENDANT_B[0], PENDANT_B[1] + LAMP_DROP, True)
+    return p
+
+
+def paint_lamp_patch(side, stage):
+    """The stage plate's own wall where the painted lamp hung: the plate repainted without its
+    lamp and grained exactly as the approved plate, cropped to the lamp's box. Nothing painted
+    after the lamp reaches into the box, so the crop meets the plate seamlessly."""
+    if side == "a":
+        im = paint_view_a(rng_for(0), stage, lamp=False)
+        im = grain(im, rng_for(1000))
+        box = LAMP_A_BOX
+    else:
+        im = paint_view_b(rng_for(10), stage, lamp=False)
+        im = grain(im, rng_for(1010))
+        box = PENDANT_B_BOX
+    out = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    out.paste(im.convert("RGB").crop(box), box[:2])
+    return out
+
+
+def paint_a_rack_salt_v2(rng):
+    """Where C stood: an irregular salt crust (#c9d3cc) over a sea-glass grey stain (#8fa59d) in
+    the cup, 18-28 px tall, with 6-10 runs dripping off it; a faint ghost of the jar behind.
+    Never white."""
+    crust, stain = (201, 211, 204), (143, 165, 157)
+    p = Pen(W, H, rng)
+    cx, cy = RACK_CUPS[2]
+    s = 0.55
+    ghost = p.layer()
+    body = [(-44, -66), (44, -66), (44, 72), (-44, 72)]
+    ghost.poly([rot((cx + x, cy + y), (cx, cy), CANT) for x, y in body], mix(PAPER_HI, SEAGLASS_HI, 0.3), None)
+    p.put(ghost, 0.2)
+    a = rot((cx - 92 * s, cy + 120 * s), (cx, cy), CANT)
+    b = rot((cx + 92 * s, cy + 120 * s), (cx, cy), CANT)
+    nx, ny = math.sin(math.radians(CANT)), -math.cos(math.radians(CANT))     # up the jar's axis
+    dx, dy = -nx, -ny
+    n = 14
+    top, mid = [], []
+    for i in range(n + 1):
+        t = i / n
+        h = rng.uniform(18, 28)
+        bx, by = lerp(a[0], b[0], t), lerp(a[1], b[1], t)
+        top.append((bx + nx * h, by + ny * h))
+        mid.append((bx + nx * h * rng.uniform(0.45, 0.7), by + ny * h * rng.uniform(0.45, 0.7)))
+    base = [b, a]
+    p.poly(top + base, stain, INK, 1.6)
+    p.poly(mid + base, crust, None)
+    # crystals on the crust's edge
+    for x, y in mid[1:-1]:
+        if rng.random() < 0.6:
+            r = rng.uniform(1.6, 3.0)
+            p.poly([(x - r, y), (x, y - r * 1.4), (x + r, y), (x, y + r)], crust, mix(INK, stain, 0.5), 1.0)
+    # runs off the lip, down the cup
+    k = rng.randint(6, 10)
+    for i in range(k):
+        t = (i + 0.5) / k + rng.uniform(-0.03, 0.03)
+        x, y = lerp(a[0], b[0], t), lerp(a[1], b[1], t)
+        ln = rng.uniform(10, 30)
+        wd = rng.uniform(2.2, 4.0)
+        ex, ey = x + dx * ln, y + dy * ln
+        p.line([(x, y - 2), (ex, ey)], stain, wd)
+        p.ell(ex, ey, wd * 0.7, wd * 0.9, stain, None)
+        p.line([(x - wd * 0.3, y), (ex - wd * 0.3, ey - 2)], crust, 1.0)
+    p.line([a, b], INK, 1.4)
+    return p
+
+
 # ----------------------------------------------------------------------------- the list
 
 ASSETS = [  # name, seed index, painter, opaque, grain
@@ -2162,6 +2549,25 @@ ASSETS = [  # name, seed index, painter, opaque, grain
     ("a_return_unbolted", 23, paint_a_return_unbolted, False, False),
     ("a_socket_tag", 24, paint_a_socket_tag, False, False),
     ("a_rack_salt", 25, paint_a_rack_salt, False, False),
+    ("a_rack_salt_v2", 26, paint_a_rack_salt_v2, False, False),
+    ("a_sea_b2", 80, lambda r: paint_sea_b2("a"), False, False),
+    ("a_sea_b3", 81, lambda r: paint_sea_b3("a"), False, False),
+    ("a_sea_b4", 82, lambda r: paint_sea_b4("a"), False, False),
+    ("a_sea_b6", 83, lambda r: paint_sea_b6("a"), False, False),
+    ("a_sea_b6_slot", 84, lambda r: paint_sea_b6_slot(), False, False),
+    ("a_sea_b7", 85, lambda r: paint_sea_b7("a"), False, False),
+    ("a_lamp", 86, lambda r: paint_lamp(False), False, False),
+    ("a_lamp_low", 87, lambda r: paint_lamp(True), False, False),
+    ("a_lamp_patch_s6", 88, lambda r: paint_lamp_patch("a", 6), False, False),
+    ("a_lamp_patch_s7", 88, lambda r: paint_lamp_patch("a", 7), False, False),
+    ("b_sea_b2", 90, lambda r: paint_sea_b2("b"), False, False),
+    ("b_sea_b3", 91, lambda r: paint_sea_b3("b"), False, False),
+    ("b_sea_b4", 92, lambda r: paint_sea_b4("b"), False, False),
+    ("b_sea_b6", 93, lambda r: paint_sea_b6("b"), False, False),
+    ("b_sea_b7", 95, lambda r: paint_sea_b7("b"), False, False),
+    ("b_lamp_low", 96, paint_b_lamp_low, False, False),
+    ("b_lamp_patch_s6", 98, lambda r: paint_lamp_patch("b", 6), False, False),
+    ("b_lamp_patch_s7", 98, lambda r: paint_lamp_patch("b", 7), False, False),
     ("b_shells_loose", 30, paint_b_shells_loose, False, False),
     ("b_shells_rings", 31, paint_b_shells_rings, False, False),
     ("b_thumb", 32, paint_b_thumb, False, False),
