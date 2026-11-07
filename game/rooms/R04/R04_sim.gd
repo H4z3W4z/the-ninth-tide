@@ -634,8 +634,10 @@ func _spindle(action: String, ev: Array) -> bool:
 	elif state.spindle[slot] == "":
 		pass
 	elif dir == 0:
+		var lifted: String = state.spindle[slot]
 		state.spindle[slot] = ""
 		_sfx(ev, "band_lift")
+		_say(ev, "I take band %s back off." % lifted)
 	else:
 		var b: String = state.spindle[slot]
 		state.band_rot[b] = posmod(int(state.band_rot[b]) + dir, 3)
