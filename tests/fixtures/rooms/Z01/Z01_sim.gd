@@ -34,6 +34,10 @@ func act(action: String, ev: Array) -> void:
 			_say(ev, "Locked.")
 
 func use_item(item: String, target: String, ev: Array) -> bool:
+	if item == "key" and target == "go:Z02":
+		# An item on an exit tab: this room takes it there (core_test, item on exit).
+		_say(ev, "The key is for the box, not the door.")
+		return true
 	if item == "key" and target == "box":
 		state.box_open = true
 		game.take("key")

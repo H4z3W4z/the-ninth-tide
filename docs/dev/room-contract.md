@@ -49,6 +49,8 @@ The manifest is a generated file: if two teams regenerate it, either result is c
 | `REQUIRES` | flags that must all be set to enter, e.g. `["P06"]` (GDD §5 gates; already set in your skeleton) |
 | `LOCKED` | what Ada says at the locked way in (override `locked_line()` for more) |
 | `RESUME` | the line on loading a save in this room ("Back in the kitchen.") |
+| `WAY_IN_HINT` | the Hint's first step toward this room before she has been in it ("The service hatch under the board is open now."). Default: `"The way into the <title> is open now."` |
+| `SKELETON` | `true` only in a room not built yet (R09–R12 until their teams land; delete it with your first real `act()`). The core marks its exit tabs "(not yet built)", never sends her there for work, and when it is the only place left, "Now:" reads "The station ends here, for now. The rest is not yet built." |
 | `ARRIVAL` | one line on the first visit (override `arrive()` for more) |
 | `EXITS` | `[[to_rid, label, extra_flags], ...]` — ways out; the target's `REQUIRES` also apply |
 | `HOTSPOTS` | the room-view hotspot ids (actions) |
@@ -86,6 +88,36 @@ _fx(ev, "lamp_on")                                                 # your view's
 Delays are seconds after the click. `story = true` marks a reveal chain line: the player
 advances it by clicking, it is never dropped or interleaved, and nothing new starts while it
 plays. Feedback lines (`story = false`) are short and replaceable.
+
+`_fx(ev, id, extra)` takes a dictionary of extra JSON-safe fields for the event (`type` and
+`id` stay the event's own; an extra `"id"` is carried as `"target"`).
+
+**The glance: the reward is seen.** End a commit whose reward sits in the room (a drawer
+that is now open, a plate that changed) with a glance:
+
+```gdscript
+_say(ev, "Below, bolts drew back. The service hatch is open.", 11.8, true)
+_fx(ev, "glance", {"rect": [610, 700, 260, 180], "target": "hatch"})   # x, y, w, h; hotspot id
+```
+
+The core holds it until the story chain has played out, then puts any close-up down with the
+sim's own `back` (at most four times, so it stays deterministic) and calls the view's
+`start_glance(target, rect)`. Return `true` if your view shows the reward itself (a
+zoom, a light, the thing moving); the default `false` lets the core draw four storm-navy
+corner brackets round `rect` for 2.5 s (eased in with Motion on, simply there with it off).
+A glance waiting for its chain is dropped on travel, the title and a new game.
+
+**The tide card waits for the reveal.** `game.solve()`'s `{fx: "tide"}` no longer puts the
+card up at once: it waits until no story chain is playing and the last story line has been
+readable for a second (travel to another room starts it at once). A card that starts over a
+close-up sits low, above the subtitles, in the nearest band clear of the close-up's controls.
+A view that times the card to its own beat may still take it over from `play_fx` of an event
+in the same list (set `game.tide_card_t = 99.0`, release it later, as R01's withdrawal does);
+`game.tide_card_busy()` is true while a card waits or shows.
+
+**Items on exit tabs.** With an item in hand, a click on an exit tab first offers
+`use_item(item, "go:<rid>", ev)` (a key on its door). Return `true` and she stays, the item put
+away; `false` and she puts it away and goes.
 
 Other hooks: `back(ev)` (Back from a close-up; default returns to `"room"`), `arrive(ev, first)`,
 `exit_block(to)` (return a line to keep her in the room; R02 latches its doors during the
@@ -147,8 +179,11 @@ room+objective and restarts it when the objective changes. Override `hint_line(l
 or it has no `HINTS` ladder), or its objective is idle (an id starting `away`, `done` or `wait`),
 the core points at the open, reachable room that has work: the office first, then the rooms in
 order, a room's opening survey (`explore`) only when nothing else is waiting. "Now:" reads
-`"<TITLE>: <that room's objective>"`; the Hint says `"Something in the <title> has changed."`,
-then climbs that room's own ladder. So: return `""` (or an idle id) when your room is done for
+`"<TITLE>: <that room's objective>"`; the Hint first says where (`WAY_IN_HINT`, or "The way
+into the <title> is open now.", for a room she hasn't been in; `"Something in the <title> has
+changed."` for one she has), then climbs that room's own ladder. A step that repeats the one
+before it is skipped (a room whose own first step is already "Something in the ... has
+changed." starts there), and the ladder's level is clamped to 0..3 and survives saves. So: return `""` (or an idle id) when your room is done for
 the tide, and use the `away`/`done`/`wait` prefixes for idle objectives.
 
 ### Debug
@@ -188,7 +223,30 @@ test walks through. Your view stops being a skeleton the moment it overrides any
 `tick(dt)` (every frame), `apply_instantly()` (snap to state on entry, load, jump),
 `reset_presentation()`, `play_fx(id, e)`, `on_sfx(id)`, `on_sfx_pending(id, left)`,
 `action_at(p)` (your close-ups' controls), `hover_at(p)`, `label_for(id)`, `back_visible()`,
-`chain_gates()`, `hud_hidden()`, `esc_action()`, `exits_active()`, `draw_hud(c)`, `dev_rects()`.
+`chain_gates()`, `hud_hidden()`, `esc_action()`, `exits_active()`, `draw_hud(c)`, `dev_rects()`,
+`consume_click(p)`, `start_glance(target, rect)`, `back_label()`, `exit_arrow(to_rid)`,
+`control_rect(id)` / `control_rows()`.
+
+**Hit-tests are pure.** `action_at(p)` and `hover_at(p)` are called for hover, by drivers and
+by tests, at any point and any number of times: they must not change anything. A click that
+should only skip your arrival hold goes in `consume_click(p)`: the core calls it for every
+click it did not take itself (after the HUD, Back and the exits), before `action_at`; return
+`true` to use the click up.
+
+**Clicks are never eaten.** Exits, Back, the inventory and the notebook's tabs, plan rows and
+page turners always act: during a story chain the chain advances and the click acts, in the
+same press. Only hotspot and close-up control clicks are spent advancing a chain. An exit or
+plan click within 0.4 s of arriving is ignored (a double click moves one room). In a view where
+`hud_hidden()` is true, N, H and the HUD buttons do nothing.
+
+**Presentation hooks.** `back_label()` is the Back button's text (default `"Back"`).
+`exit_arrow(to_rid)` points an exit tab: `""` (by the side of the screen the tab sits on),
+`"left"` (`◂ X`), `"right"` (`X ▸`) or `"down"` (`▾ X`). Hover labels are placed by the core:
+for a close-up control, or a hotspot taller than 120 px, the label sits just above the rect
+(else below it, else in the row above the subtitles), never over the clue it names; the
+core finds the rect with `control_rect(id)`, which reads your `closeup_controls(view)` and
+`_controls()` rows if you have them, then `hotspot_rect(id)`. Inventory slot labels (`short`,
+else `name`) are 14 characters at most (`tests/core_test.gd`).
 Draw with `Ink` (`game/core/ink.gd`): palette, fonts, `button`, `text`, `wrapped`, `handwriting`.
 Close-ups go on your own `CanvasLayer` at layer 5 (R02 does this); the core's notebook, menu and
 title are on layer 8, the tide card 9, the HUD 10.
@@ -218,7 +276,10 @@ check(g.flag("P07"), "the table for nine solves P07")
 
 Run: `godot --headless --path . --script tests/rooms/<rid>_test.gd` after
 `godot --headless --path . --editor --import`. The whole suite (every `tests/*.gd` and
-`tests/rooms/*.gd`, plus `python3 tools/validate_assets.py`) must stay green.
+`tests/rooms/*.gd`, plus `python3 tools/validate_assets.py`) must stay green. Two of those
+play the whole game: `tests/chain_test.gd` (the canonical chain on the sim; every step's save
+must round-trip byte-identical) and `tests/click_chain_test.gd` (the same chain as real
+clicks on the game scene: every action must be clickable where `action_at` says it is).
 
 ## 5. Art and sound sources
 

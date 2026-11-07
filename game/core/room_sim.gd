@@ -163,8 +163,18 @@ func _say(ev: Array, text: String, delay := 0.0, story := false) -> void:
 func _sfx(ev: Array, sid: String, delay := 0.0) -> void:
 	ev.append({"type": "sfx", "id": sid, "delay": delay})
 
-func _fx(ev: Array, fid: String) -> void:
-	ev.append({"type": "fx", "id": fid})
+## A view effect. `extra` adds fields to the event (JSON-safe values), e.g. the glance:
+## _fx(ev, "glance", {"rect": [x, y, w, h], "target": "drawer"}). "type" and "id" stay the
+## event's own; an extra "id" (the thing the fx is about) is carried as "target".
+func _fx(ev: Array, fid: String, extra := {}) -> void:
+	var e := {"type": "fx", "id": fid}
+	for k in extra:
+		if k == "id":
+			if not extra.has("target"):
+				e["target"] = extra[k]
+		elif k != "type":
+			e[k] = extra[k]
+	ev.append(e)
 
 # Test and driver conveniences: the whole game, through this room.
 func dispatch(action: String) -> Array:

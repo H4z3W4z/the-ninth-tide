@@ -5,11 +5,14 @@ extends RoomSim
 ## docs/dev/room-contract.md. Until then every hotspot says one line and notes it.
 
 const ID := "R10"
+## Not built yet: the core marks its exit tabs "(not yet built)" and never sends her here
+## for work (GameSim.is_unbuilt). The room team deletes this line with its first real act().
+const SKELETON := true
 const TITLE := "Records Vault"
 const REQUIRES := ["P15"]
 const LOCKED := "The vault latch is shut fast. Something in the station has to let it go."
 const RESUME := "Back in the records vault."
-const ARRIVAL := "The records vault. The shelves go back further than the floor plan does."
+const ARRIVAL := "The records vault. The shelves go back further than the floor plan does. This is as far as the station goes, for now."
 ## [to, label, extra flags]: the ways out. The target's REQUIRES also apply.
 const EXITS := [
 	["R07", "Laboratory", []],
@@ -36,15 +39,15 @@ const OBJECTIVES := {
 }
 const HINTS := {
 	"explore": [
-		"Everything in this room can be looked at.",
-		"Each thing I look at goes into the notebook.",
-		"Look at each object in the room.",
+		"This is as far as the station goes, for now. The way back is behind me.",
+		"This is as far as the station goes, for now. The way back is behind me.",
+		"This is as far as the station goes, for now. The way back is behind me.",
 	],
 }
 ## Items this room hands out (docs/design/puzzle-cards/flags.md section 4).
 const ITEMS := {
-	"contact_sheet": {"name": "Contact sheet, 18 Oct 1927", "desc": "A contact sheet from the Index session."},
-	"venn_correspondence": {"name": "Venn's correspondence", "desc": "Letters from Venn's drawer in the vault."},
+	"contact_sheet": {"name": "Contact sheet, 18 Oct 1927", "short": "Contact sheet", "desc": "A contact sheet from the Index session."},
+	"venn_correspondence": {"name": "Venn's correspondence", "short": "Venn's letters", "desc": "Letters from Venn's drawer in the vault."},
 	"witness_bridge": {"name": "Witness bridge", "desc": "A bridge part from the Index model, marked WITNESS."},
 }
 

@@ -424,7 +424,14 @@ func dispatch(action: String) -> Array:
 				if has_item(item):
 					selected_item = "" if selected_item == item else item
 			elif action.begins_with("go:"):
-				if room().local_view == "room":
+				# An item in hand on an exit tab: the room may take it (a key on its door);
+				# otherwise she puts it away and goes.
+				var handled := false
+				if selected_item != "":
+					var held := selected_item
+					selected_item = ""
+					handled = room().use_item(held, action, ev)
+				if not handled and room().local_view == "room":
 					_travel(action.substr(3), ev)
 			elif selected_item != "":
 				var item := selected_item
@@ -462,6 +469,9 @@ func _hint(ev: Array) -> void:
 	if r.hint_frozen():
 		ev.append({"type": "say", "text": r.hint_line(0), "delay": 0.0, "story": false})
 		return
+	if build_end():
+		ev.append({"type": "say", "text": BUILD_END_HINT, "delay": 0.0, "story": false})
+		return
 	var away := work_elsewhere()
 	var key: String = state.room + (":" + r.objective() if away == "" else ":->" + away)
 	if state.hint["for"] != key:
@@ -474,20 +484,74 @@ func _hint(ev: Array) -> void:
 		text = r.hint_line(level)
 	else:
 		# Nothing to do here: first where, then that room's own ladder.
-		level = mini(int(state.hint["level"]), 3)
-		var there := room(away)
-		if level == 0:
-			text = "Something in the %s has changed." % str(there.c("TITLE", away)).to_lower()
-		else:
-			text = there.hint_line(level - 1)
+		var ladder := _elsewhere_ladder(away)
+		level = mini(int(state.hint["level"]), ladder.size() - 1)
+		text = ladder[level]
 	ev.append({"type": "say", "text": text, "delay": 0.0, "story": false})
-	state.hint["level"] = level + 1
+	state.hint["level"] = mini(level + 1, 3)
+
+## The Hint's ladder toward room `away`: where (the way in, for a room she hasn't been in;
+## "Something ... has changed" for one she has), then that room's own ladder. A step that
+## repeats the one before it is dropped, so no press says the same thing twice.
+func _elsewhere_ladder(away: String) -> Array:
+	var there := room(away)
+	var title := str(there.c("TITLE", away)).to_lower()
+	var first: String
+	if not away in state.visited:
+		first = there.c("WAY_IN_HINT", "The way into the %s is open now." % title)
+	else:
+		first = "Something in the %s has changed." % title
+	var steps := [first, there.hint_line(0), there.hint_line(1), there.hint_line(2)]
+	if away in state.visited and _changed_line(steps[1]):
+		steps.pop_front()   # the room's own first step already says where: start there
+	var ladder := []
+	for line in steps:
+		if line != "" and (ladder.is_empty() or _hint_key(line) != _hint_key(ladder[-1])):
+			ladder.append(line)
+	return ladder
+
+## A "Something in the <room> has changed." line (the where-step of a ladder).
+static func _changed_line(line: String) -> bool:
+	var l := line.to_lower()
+	return l.begins_with("something in the ") and l.ends_with(" has changed.")
+
+## Two hint lines carry the same information when they match ignoring case and punctuation.
+static func _hint_key(line: String) -> String:
+	var out := ""
+	for ch in line.to_lower():
+		if (ch >= "a" and ch <= "z") or (ch >= "0" and ch <= "9"):
+			out += ch
+	return out
 
 ## Objective ids that mean "nothing to do here": never offered as the work elsewhere.
 const IDLE_OBJECTIVES := ["away", "done", "wait"]
 ## A room's opening survey (skeleton rooms): offered elsewhere only when nothing better is.
 const SURVEY_OBJECTIVE := "explore"
 const NOTHING_HERE := "Nothing here needs me yet."
+## The end of what is built: "Now:" and the Hint when the only work left is in a room that
+## is not built yet.
+const BUILD_END_NOW := "The station ends here, for now. The rest is not yet built."
+const BUILD_END_HINT := "This is as far as the station goes, for now."
+
+## True for a room that is not built yet: its sim declares SKELETON := true (the R09-R12
+## skeletons until their teams land). Its exits are marked and it is never offered as work.
+func is_unbuilt(rid: String) -> bool:
+	return rooms.has(rid) and bool(rooms[rid].c("SKELETON", false))
+
+## The build ends here: nothing built has work for her (here or anywhere reachable), and an
+## unbuilt room she can reach is where the story goes on.
+func build_end() -> bool:
+	var r := room()
+	if r == null or tide_done(9):
+		return false
+	if not is_unbuilt(state.room) and _room_has_work(r) and not _idle(r.objective()):
+		return false
+	if elsewhere(true) != "":
+		return false
+	for rid in reachable():
+		if is_unbuilt(rid) and room_open(rid):
+			return true
+	return false
 
 ## True when `r` shows a goal of its own and has a hint ladder for it.
 func _room_has_work(r: RoomSim) -> bool:
@@ -513,7 +577,7 @@ func work_elsewhere() -> String:
 	var r := room()
 	if r == null:
 		return ""
-	if not _room_has_work(r):
+	if not _room_has_work(r) or is_unbuilt(state.room):
 		return elsewhere(true)
 	if _idle(r.objective()):
 		var e := elsewhere(false)
@@ -533,7 +597,7 @@ func elsewhere(survey := true) -> String:
 			ids.append(rid)
 	for pass_n in (2 if survey else 1):
 		for rid in ids:
-			if rid == state.room or not rid in reach or not room_open(rid):
+			if rid == state.room or not rid in reach or not room_open(rid) or is_unbuilt(rid):
 				continue
 			var r: RoomSim = rooms[rid]
 			var o := r.objective()
@@ -550,6 +614,8 @@ func objective_text() -> String:
 	var r := room()
 	if r == null:
 		return ""
+	if build_end():
+		return BUILD_END_NOW
 	var away := work_elsewhere()
 	if away == "":
 		var own := r.objective_text()
