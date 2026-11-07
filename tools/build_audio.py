@@ -115,7 +115,7 @@ def decay(t: float, tau: float) -> float:
 
 
 # Beds re-voiced for small speakers; write() reports how much of them is audible.
-HI_SHARE_REPORT = ("drone", "heartbeat", "sting")
+HI_SHARE_REPORT = ("drone", "heartbeat", "sting", "breath", "knock_glass", "sea")
 
 
 def write(name: str, xs: list[float]) -> None:
@@ -133,17 +133,28 @@ def write(name: str, xs: list[float]) -> None:
 # ---------------------------------------------------------------------------
 # loops
 # ---------------------------------------------------------------------------
+# 500-1600 Hz wash riding the swell: the spec 0.22 on the raw band, scaled (as the
+# drone upper chord is) to the level that puts >= 40% of the sea above 180 Hz.
+SEA_WASH_GAIN = 0.22 * 4.2
+SEA_HISS_CREST = 0.20   # spray at the top of each wave (was 0.08)
+
+
 def sea() -> list[float]:
+    """13 s seamless surf: a brown-noise body swelling every 6 s, a mid wash so
+    the sea (and its later silence) reads on small speakers, spray on the crest."""
     rnd = random.Random(11)
     n = int(13 * SR)
     body = lowpass(brown(n, rnd), 420)
     hiss = highpass(white(n, rnd), 2500)
+    # Drawn after the original voices so body and hiss keep their exact samples.
+    wash = band(white(n, rnd), 500, 1600)   # the mid band small speakers can carry
     out = []
     for i in range(n):
         t = i / SR
         swell = math.sin(math.pi * t / 6.0) ** 2           # a wave every 6 s
         crest = max(0.0, swell - 0.7) / 0.3
-        out.append(body[i] * (0.35 + 0.65 * swell) + hiss[i] * 0.08 * crest)
+        out.append(body[i] * (0.35 + 0.65 * swell) + wash[i] * SEA_WASH_GAIN * swell
+                   + hiss[i] * SEA_HISS_CREST * crest)
     return seamless(out)
 
 
@@ -355,12 +366,39 @@ def sting() -> list[float]:
 # ---------------------------------------------------------------------------
 # new loops
 # ---------------------------------------------------------------------------
+# The tide-breath contract. The view mirrors these exact constants (BREATH_PERIOD,
+# BREATH_IN, BREATH_OUT_END, peak) to drive the room swell and the threshold
+# phase-lock; change them here and the room stops breathing in time.
+BREATH_PERIOD = 11.0
+BREATH_IN = 4.0
+BREATH_OUT_END = 8.8
+BREATH_PEAK = 1.1
+BREATH_THROAT_IN = 0.15    # throat weight on the inhale
+BREATH_THROAT_OUT = 0.22   # ...and on the exhale: it breathes out wetter
+BREATH_SUB = 0.08          # 40 Hz swell under the chest, so it is large on headphones
+
+
+def breath_env(t: float) -> float:
+    """Envelope at phase t in [0, BREATH_PERIOD): inhale, exhale, then stillness."""
+    if t < BREATH_IN:
+        return math.sin(math.pi / 2 * t / BREATH_IN) ** 2
+    if t < BREATH_OUT_END:
+        return BREATH_PEAK * math.cos(math.pi / 2 * (t - BREATH_IN) / (BREATH_OUT_END - BREATH_IN)) ** 2
+    return 0.0
+
+
 def breath() -> list[float]:
-    """Something vast breathing at tide rate: two 8 s breaths of wet low-band
-    noise. Inhale 3.0 s (sin^2 rise), exhale 3.6 s (falling, x1.15), 1.4 s still.
-    The envelope is 0 at both ends, so the loop needs no crossfade."""
+    """Something vast breathing at tide rate, exactly one breath per 11.0 s:
+    inhale 0-4.0 s (sin^2), exhale 4.0-8.8 s (1.1 x cos^2), still 8.8-11.0 s.
+    Two identical-envelope cycles, 22.0 s. Voices: a chest of brown noise
+    (120-700 Hz), a throat of white noise (900-1800 Hz) with a slow gurgle that
+    is wetter on the exhale, and a faint 40 Hz sub-swell.
+
+    The room has been playing this exact loop since the game started; it was
+    only ever too faint to notice. The envelope is 0 at both file ends, so the
+    loop needs no crossfade."""
     rnd = random.Random(31)
-    n = int(16.0 * SR)
+    n = int(2 * BREATH_PERIOD * SR)
     chest = band(brown(n, rnd), 120, 700)
     throat = band(white(n, rnd), 900, 1800)
     wet = smooth_walk(n, rnd, 0.11)           # slow gurgle on the throat band
@@ -368,14 +406,11 @@ def breath() -> list[float]:
     rt = (energy(throat) / n) ** 0.5
     out = []
     for i in range(n):
-        t = (i / SR) % 8.0
-        if t < 3.0:
-            e = math.sin(math.pi / 2 * t / 3.0) ** 2
-        elif t < 6.6:
-            e = 1.15 * math.cos(math.pi / 2 * (t - 3.0) / 3.6) ** 2
-        else:
-            e = 0.0
-        out.append(e * (chest[i] / rc + 0.15 * (0.4 + 0.6 * wet[i]) * throat[i] / rt))
+        t = (i / SR) % BREATH_PERIOD
+        e = breath_env(t)
+        tw = BREATH_THROAT_IN if t < BREATH_IN else BREATH_THROAT_OUT
+        out.append(e * (chest[i] / rc + tw * (0.4 + 0.6 * wet[i]) * throat[i] / rt
+                        + BREATH_SUB * math.sin(TAU * 40 * i / SR)))
     return out
 
 
@@ -414,25 +449,47 @@ def pen() -> list[float]:
 # ---------------------------------------------------------------------------
 # new one-shots
 # ---------------------------------------------------------------------------
+KNOCK_TAPS = ((0.00, 1.0), (0.42, 0.85), (0.95, 0.7))   # onset s, level; the third is late
+KNOCK_BODY = ((420, 1.0), (640, 0.7))                   # hollow knuckle-on-frame pair, Hz / amp
+KNOCK_SLIDE_DELAY = 0.6    # after the third tap
+KNOCK_SLIDE_LEN = 0.35
+KNOCK_SLIDE_GAIN = 0.6
+
+
 def knock_glass() -> list[float]:
-    """Three soft knuckle taps on the window pane, heard from inside; the third
-    is late. Low-passed and given a short room echo so it is never sharp."""
+    """Three soft knuckle taps on second-floor glass, heard from inside, then a
+    palm drawn slowly down the pane. Each tap is a glass ring, a hollow 420/640 Hz
+    body (the wooden frame answering, which carries on laptop speakers) and a
+    180 Hz thump, behind a 2 ms onset ramp. Low-passed at 2600 Hz with a short
+    room echo, so nothing in it is ever sharp."""
     rnd = random.Random(32)
     n = int(2.0 * SR)
     out = [0.0] * n
-    for onset, level in ((0.00, 1.0), (0.42, 0.85), (0.95, 0.7)):
+    for onset, level in KNOCK_TAPS:
         s = int(onset * SR)
         for j in range(int(0.5 * SR)):
             if s + j >= n:
                 break
             t = j / SR
             glass = sum(a * math.sin(TAU * f * t) for f, a in ((1180, 1.0), (2310, 0.5), (3470, 0.25)))
-            v = glass * decay(t, 0.05) + 0.8 * math.sin(TAU * 180 * t) * decay(t, 0.03)
+            body = sum(a * math.sin(TAU * f * t) for f, a in KNOCK_BODY)
+            v = (glass * decay(t, 0.05) + body * decay(t, 0.04)
+                 + 1.0 * math.sin(TAU * 180 * t) * decay(t, 0.03))
             if t < 0.003:
                 v += rnd.uniform(-1, 1) * (1 - t / 0.003)
             soft = min(1.0, t / 0.002)       # 2 ms onset ramp: a knuckle, not a click
             out[s + j] += v * level * soft
-    return echo(lowpass(out, 2600), 0.07, 0.2, 3)[:n]
+    # The wet slide: drawn after the taps so the taps keep their exact samples.
+    s = int((KNOCK_TAPS[-1][0] + KNOCK_SLIDE_DELAY) * SR)
+    m = int(KNOCK_SLIDE_LEN * SR)
+    slide = band(white(m, rnd), 700, 2000)
+    for j, x in enumerate(slide):
+        out[s + j] += x * KNOCK_SLIDE_GAIN * math.sin(math.pi * j / m) ** 2
+    xs = echo(lowpass(out, 2600), 0.07, 0.2, 3)[:n]
+    tail = int(0.03 * SR)                    # the echo of the slide is cut at 2.0 s: fade it out
+    for j in range(tail):
+        xs[n - tail + j] *= 1 - j / tail
+    return xs
 
 
 def dial() -> list[float]:
@@ -481,6 +538,77 @@ def drawer() -> list[float]:
     return out
 
 
+# ---------------------------------------------------------------------------
+# closure report
+# ---------------------------------------------------------------------------
+def nib() -> list[float]:
+    """One dry pencil tick as a report field changes: 0.18 s of 1.8-5 kHz grit
+    under a 4 ms attack / 60 ms decay, with a tiny 900 Hz tap of the lead
+    meeting paper. Made to sit under dialogue (the view plays it at -14 dB)."""
+    rnd = random.Random(41)
+    n = int(0.18 * SR)
+    grit = band(white(n, rnd), 1800, 5000)
+    env = env_ad(n, 0.004, 0.060)
+    tail = int(0.02 * SR)
+    out = []
+    for i in range(n):
+        t = i / SR
+        tap = 0.3 * math.sin(TAU * 900 * t) * min(1.0, t / 0.002) * decay(max(0.0, t - 0.002), 0.002)
+        v = grit[i] * env[i] + tap
+        if i >= n - tail:
+            v *= (n - i) / tail              # no cut at the end of the file
+        out.append(v)
+    return out
+
+
+SIGN_STROKES = (0.00, 0.22, 0.41, 0.70, 0.98)   # onset s
+SIGN_RAMP = 0.008       # soft stroke edges
+SIGN_FLICK = 0.080      # the last stroke lifts off over 80 ms
+SIGN_RUB = 0.15
+
+
+def sign() -> list[float]:
+    """A pen signature, 1.3 s: five strokes of scratchy nib noise (2-6 kHz,
+    amplitude-modulated by a 30 ms smooth walk, so the pressure wavers) with
+    8 ms ramps, over a soft paper rub (300-900 Hz brown) that follows the
+    hand. The last stroke is a flick that decays over 80 ms. No attack is
+    shorter than 8 ms."""
+    rnd = random.Random(42)
+    n = int(1.3 * SR)
+    scratch = band(white(n, rnd), 2000, 6000)
+    press = smooth_walk(n, rnd, 0.03)
+    rub = band(brown(n, rnd), 300, 900)
+    rs = (energy(scratch) / n) ** 0.5
+    rr = (energy(rub) / n) ** 0.5
+    gate = [0.0] * n
+    ramp = int(SIGN_RAMP * SR)
+    for k, onset in enumerate(SIGN_STROKES):
+        s = int(onset * SR)
+        m = int(rnd.uniform(0.12, 0.24) * SR)
+        last = k == len(SIGN_STROKES) - 1
+        release = int(SIGN_FLICK * SR) if last else ramp
+        level = rnd.uniform(0.75, 1.0)
+        for j in range(m):
+            if s + j >= n:
+                break
+            a = math.sin(math.pi / 2 * min(1.0, j / ramp)) ** 2
+            r = min(1.0, (m - j) / release)
+            if last and m - j < release:
+                r = math.exp(-3.0 * (1 - (m - j) / release)) * (m - j) / release   # flick: fast fall, clean end
+            gate[s + j] = max(gate[s + j], level * a * r)
+    hand = lowpass(lowpass(gate, 8), 8)    # the paper rub lags the nib: the hand resting on the sheet
+    hp = max(1e-9, max(hand))
+    out = []
+    for i in range(n):
+        v = scratch[i] / rs * gate[i] * (0.35 + 0.65 * press[i])
+        v += SIGN_RUB * rub[i] / rr * hand[i] / hp
+        out.append(v)
+    tail = int(0.03 * SR)
+    for j in range(tail):
+        out[n - tail + j] *= 1 - j / tail
+    return out
+
+
 def main() -> None:
     print(f"Writing to {OUT}")
     for name, fn in [
@@ -491,6 +619,7 @@ def main() -> None:
         ("door", door), ("sting", sting),
         ("breath", breath), ("ring", ring), ("pen", pen),
         ("knock_glass", knock_glass), ("dial", dial), ("clunk", clunk), ("drawer", drawer),
+        ("nib", nib), ("sign", sign),
     ]:
         write(name, fn())
 

@@ -1,15 +1,22 @@
 extends SceneTree
 ## Renders the office slice at key beats and saves PNGs, for visual review.
 ## Needs a display (not --headless):
-##   godot --path . --script tools/capture_office.gd -- <out_dir> [shots.json]
+##   godot --path . --fixed-fps 60 --disable-vsync --script tools/capture_office.gd -- <out_dir> [shots.json]
+## --fixed-fps makes every frame exactly 1/60 s, so a shot's settle time is scene time and
+## captures are deterministic; --disable-vsync keeps it fast when a locked session throttles
+## the window to ~1 fps. Without the flags it still works, just slowly on a locked desktop.
 ## Each shot: [file, setup actions, mouse position, seconds to settle].
-## Actions are sim actions ("begin", "lamp", "fit"...) or "@N" = dev jump to stage N.
+## Actions are sim actions ("begin", "lamp", "fit"...), "@N" = dev jump to stage N (0-4, 4 = report
+## filed), or "@seen" = mark every observation seen (for the full-notebook layout check).
 ## Actions go straight to scene.dispatch, so time-gated clicks ("continue") work at once.
 ## shots.json (optional) replaces the default list:
 ##   [{"name": "x", "actions": ["begin","coat"], "mouse": [700,500], "settle": 1.0}]
 
+## The drawer code by up-dial clicks from 0-0-0-0 (the code is still 1-8-5-2).
 const DIAL_1852 := ["dial_0", "dial_1", "dial_1", "dial_1", "dial_1", "dial_1", "dial_1", "dial_1",
 	"dial_1", "dial_2", "dial_2", "dial_2", "dial_2", "dial_2", "dial_3", "dial_3"]
+## The closure report's answer (2, 1, 1, 1) by clicks, then filed.
+const REPORT_RIGHT := ["papers", "field_0", "field_0", "field_1", "field_2", "field_3", "file_report"]
 
 var shots := [
 	["01_title", [], Vector2(700, 500), 0.3],
@@ -24,15 +31,29 @@ var shots := [
 	["10_prints", ["@2", "puddle"], Vector2(1100, 920), 2.0],
 	["11_seat_wet", ["@3"], Vector2(640, 650), 2.5],
 	["12_notebook", ["@3", "notebook"], Vector2(700, 500), 0.4],
-	["13_end", ["@3", "door"], Vector2(700, 500), 0.6],
+	["13_end", ["@4", "door"], Vector2(700, 500), 0.6],
 	["14_menu", ["begin", "menu"], Vector2(700, 500), 0.3],
 	["15_drawer_locked", ["@2", "puddle", "drawer"], Vector2(700, 900), 0.6],
 	["16_drawer_open", ["@2", "puddle", "drawer"] + DIAL_1852 + ["try_drawer"], Vector2(700, 900), 1.5],
 	["17_log_rewritten", ["@2", "puddle", "drawer"] + DIAL_1852 + ["try_drawer", "back", "logbook"],
 		Vector2(700, 1040), 3.0],
 	["18_stage3_room", ["@3"], Vector2(640, 650), 7.0],
-	["19_threshold", ["@3", "door"], Vector2(700, 500), 6.0],
-	["20_end", ["@3", "door", "continue"], Vector2(700, 500), 1.0],
+	["19_threshold", ["@4", "door"], Vector2(700, 500), 6.0],
+	["19b_threshold_still", ["@4", "door"], Vector2(700, 500), 13.0],
+	["20_end", ["@4", "door", "continue"], Vector2(700, 500), 14.0],
+	["21_log_blot", ["@1", "logbook"], Vector2(700, 1040), 3.0],
+	["22_drawer_brass", ["@2", "puddle", "drawer"], Vector2(700, 900), 0.6],
+	["23_photo_behind", ["@2", "puddle", "drawer"] + DIAL_1852 + ["try_drawer", "look_photo", "look_photo"],
+		Vector2(700, 1040), 1.5],
+	["24_report_blank", ["@3", "papers"], Vector2(700, 1040), 0.6],
+	["25_report_filed", ["@4", "papers"], Vector2(700, 1040), 0.6],
+	["26_stage3_palms", ["@3", "chair"], Vector2(640, 500), 8.0],
+	["27_soundings_map", ["@2", "drawer"] + DIAL_1852 + ["try_drawer", "back", "map"], Vector2(250, 330), 8.0],
+	["28_notebook_full", ["@4", "@seen", "notebook"], Vector2(700, 1040), 0.6],
+	["29_log_full", ["@3", "toggle_motion", "coat", "window", "mug"] + REPORT_RIGHT + ["logbook"],
+		Vector2(700, 1040), 0.6],
+	["30_stage3_left", ["@3"], Vector2(100, 500), 7.0],
+	["31_stage3_static", ["@3", "toggle_motion"], Vector2(640, 650), 2.0],
 ]
 
 func _initialize() -> void:
@@ -58,7 +79,10 @@ func run() -> void:
 		root.add_child(scene)
 		await process_frame
 		for a in shot[1]:
-			if a.begins_with("@"):
+			if a == "@seen":
+				for id in OfficeSim.OBSERVATIONS:
+					scene.sim._observe(id)
+			elif a.begins_with("@"):
 				scene.debug_jump(int(a.substr(1)))
 			else:
 				scene.dispatch(a)
