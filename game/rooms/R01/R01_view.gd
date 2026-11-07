@@ -11,11 +11,11 @@ extends RoomView
 ## [id, rect, label]; first match wins. Every hotspot answers in every state and never moves.
 const HOTSPOTS := [
 	["gangway", Rect2(750, 600, 130, 200), "Gangway"],
-	["line", Rect2(1300, 680, 72, 240), "Mooring line"],
+	["line", Rect2(1290, 680, 64, 240), "Mooring line"],
 	["bell", Rect2(620, 590, 130, 290), "Mooring bell"],
 	["panel", Rect2(280, 580, 140, 190), "Mooring panel"],
 	["launch", Rect2(880, 510, 410, 360), "Boat"],
-	["stump", Rect2(1380, 790, 68, 120), "Past the jetty's end"],
+	["stump", Rect2(1356, 790, 80, 120), "Past the jetty's end"],
 	["station", Rect2(60, 300, 180, 150), "Office window"],
 	["roof_light", Rect2(110, 150, 120, 140), "Over the roof"],
 	["lighthouse", Rect2(1150, 300, 120, 150), "Lighthouse"],
@@ -69,8 +69,10 @@ const RAIN_SLOW := 1.2           # s3-s6: the rain hangs slower than the waves m
 const REFLECT_AMP := 6.0
 const REFLECT_PERIOD := 1.6
 const SOUND_LAG := 0.45          # the chop leads the slap; the reflections lag the chop
-## Heavy rain is a veil, not a wall: the art under it must still read at 1024x768.
+## Heavy rain is a veil, not a wall: the art under it must still read at 1024x768. At s4
+## it thins further so the slanted horizon reads first.
 const RAIN_HEAVY_ALPHA := 0.7
+const RAIN_S4_ALPHA := 0.4
 const DRIFT_CENTRE := 900.0
 const DRIFT_SPAN := 300.0
 const DRIFT_CYCLE := 40.0
@@ -86,9 +88,16 @@ const HUSH_RATE := 6.0
 const RESTORE_RATE := 0.4
 const BOAT_GO := 5.0
 const BOAT_TRAVEL := 6.0
-const BOAT_DX := 700.0
-const BOAT_STILL_DX := 350.0
+## The withdrawal: stern first, bow still toward the station, shrinking toward the horizon
+## until it is the arrival launch's dot past the lighthouse. The stern's waterline corner is
+## the anchor; it travels from the mooring to the dot while the boat scales down about it.
+const BOAT_STERN := Vector2(1290, 870)
+const BOAT_END := Vector2(1352, 470)
+const BOAT_END_SCALE := 0.12
+const BOAT_STILL_SCALE := 0.4
 const BOAT_STILL_GONE := 8.0
+## The TIDE III card waits for the capsule's knock instead of landing on "Bell two".
+const TIDE_CARD_AT := 15.6
 const RISE_AT := 11.5
 const RISE_TIME := 3.0
 const RISE_DY := 120.0
@@ -106,9 +115,9 @@ const PANEL_RECTS := {
 }
 const PEER_RECT := Rect2(404, 280, 640, 400)
 const CAPSULE_RECTS := {
-	"cap": Rect2(594, 200, 260, 120),
-	"key": Rect2(630, 320, 90, 280),
-	"note": Rect2(726, 320, 100, 280),
+	"cap": Rect2(592, 230, 264, 100),
+	"key": Rect2(586, 160, 134, 140),
+	"note": Rect2(728, 160, 96, 140),
 }
 const HEADER_RECT := Rect2(300, 140, 848, 64)
 const TALLY_LABEL_RECTS := {"verified": Rect2(344, 420, 320, 50), "unverified": Rect2(784, 420, 320, 50)}
@@ -119,9 +128,13 @@ const PLACARD_SIZE := 19
 const PLACARD_LEADING := 23
 const PENCIL_AT := Vector2(360, 694)
 const ADA_AT := Vector2(380, 718)
-const KEY_TAG_AT := Vector2(675, 438)   # the paper tag on the key (a little tilted)
+const KEY_TAG_AT := Vector2(624, 250)   # the paper tag on the key (a little tilted)
 const NOTE_PAPER := Rect2(424, 300, 600, 360)
 const PENCIL_COL := Color("3d4148")
+## Ada's line under Venn's: graphite too, a shade darker, a size heavier, more upright.
+const ADA_PENCIL := Color("2e3238")
+const VENN_SKEW := 0.08
+const ADA_SKEW := -0.04
 
 var jetty: R01Sim:
 	get:
@@ -143,6 +156,7 @@ var figure_k := 1.0            # 0..1 fade of the figure in the boat's window
 var note_open := false
 var pull_t := INF              # seconds since a bell pull
 var pull_n := 1
+var tide_defer := 0            # a tide card held back during the withdrawal
 
 func _ready() -> void:
 	narrow = SystemFont.new()
@@ -197,6 +211,8 @@ func tick(dt: float) -> void:
 	pull_t += dt
 	if figure_k < 1.0:
 		figure_k = minf(1.0, figure_k + dt / FIGURE_FADE)
+	if tide_defer > 0 and withdraw_t >= TIDE_CARD_AT:
+		_release_tide_card()
 	if holding() and game and notice_state in R01Sim.NOTICE and game.cur_text == R01Sim.NOTICE[notice_state]:
 		notice_t = INF   # the noticed line went up (its time, or a click advanced it)
 	_tick_audio(dt)
@@ -279,18 +295,33 @@ func drift_dx() -> float:
 	var half := DRIFT_CYCLE / 2.0
 	return -DRIFT_SPAN + 2.0 * DRIFT_SPAN * pingpong(time, half) / half
 
-## The boat layers' x offset during the withdrawal, or -1 when they are not drawn.
-func boat_dx(s: String) -> float:
+## The boat layers' placement: [offset, scale], or [] when they are not drawn. Moored it is
+## [(0, 0), 1]; withdrawing it shrinks about the stern toward the horizon dot.
+func boat_xform(s: String) -> Array:
 	if withdrawing():
 		if withdraw_t < BOAT_GO:
-			return 0.0
+			return [Vector2.ZERO, 1.0]
 		if not motion:
-			return BOAT_STILL_DX if withdraw_t < BOAT_STILL_GONE else -1.0
+			return _boat_at(BOAT_STILL_SCALE) if withdraw_t < BOAT_STILL_GONE else []
 		var k := (withdraw_t - BOAT_GO) / BOAT_TRAVEL
 		if k >= 1.0:
-			return -1.0
-		return BOAT_DX * k * k   # ease-in: stern first, to the right
-	return 0.0 if s == "boat" else -1.0
+			return []
+		# Ease-in on distance, perspective on size: it backs off slowly, then goes.
+		var e := k * k
+		return _boat_at(1.0 / (1.0 + e * (1.0 / BOAT_END_SCALE - 1.0)))
+	return [Vector2.ZERO, 1.0] if s == "boat" else []
+
+func _boat_at(scale: float) -> Array:
+	var u := clampf((1.0 - scale) / (1.0 - BOAT_END_SCALE), 0.0, 1.0)
+	var anchor := BOAT_STERN.lerp(BOAT_END, u)
+	return [anchor - BOAT_STERN * scale, scale]
+
+## The boat's fade at the very end of its travel (it ends as the dot, then is gone).
+func boat_alpha() -> float:
+	if not withdrawing() or withdraw_t < BOAT_GO or not motion:
+		return 1.0
+	var k := (withdraw_t - BOAT_GO) / BOAT_TRAVEL
+	return clampf((1.0 - k) / 0.12, 0.0, 1.0)
 
 ## The capsule's y offset while it rises, 0 at rest, -1 hidden.
 func capsule_dy() -> float:
@@ -325,7 +356,7 @@ func layer_stack() -> Array:
 	if early or (mid and r <= 6):
 		var a := 1.0 if r <= 2 else (0.8 if r <= 4 else 0.5)
 		out.append(["waves_%d" % wave_frame(s), Vector2.ZERO, Color(1, 1, 1, a), -1.0])
-	if s != "s7":
+	if s != "s7" and s != "A":
 		out.append(["bell_calm", Vector2.ZERO, Color.WHITE, -1.0])
 	if not gsim().flag("P05"):
 		out.append(["launch_departing", Vector2.ZERO, Color.WHITE, -1.0])
@@ -333,6 +364,10 @@ func layer_stack() -> Array:
 		out.append(["lighthouse_roof", Vector2.ZERO, Color.WHITE, -1.0])
 	if s == "s7":
 		out.append(["surface_drift", Vector2(drift_dx(), 0), Color.WHITE, -1.0])
+	# Once it pulls away it is further off than the jetty: it goes behind the deck and pilings.
+	var receding := withdrawing() and withdraw_t >= BOAT_GO
+	if receding:
+		_boat_layers(out, s, fg)
 	out.append(["fg_jetty", Vector2.ZERO, fg, -1.0])
 	# The office window is painted in fg_jetty, so its lamp and figure sit just above it.
 	if gsim().flag("P01") and s != "A":
@@ -345,15 +380,8 @@ func layer_stack() -> Array:
 	out.append(["gangway_down" if down else "gangway_up", Vector2.ZERO, fg, -1.0])
 	if s == "A":
 		out.append(["launch_real", Vector2.ZERO, fg, -1.0])
-	else:
-		var dx := boat_dx(s)
-		if dx >= 0.0:
-			var at := Vector2(dx, 0)
-			out.append(["boat", at, fg, -1.0])
-			out.append(["boat_window_lit", at, Color.WHITE, -1.0])
-			if jetty.figure_seen() or withdrawing():
-				var fig := "figure_window_turned" if gsim().flag("t1x_turned") else "figure_window"
-				out.append([fig, at, Color.WHITE, -1.0])
+	elif not receding:
+		_boat_layers(out, s, fg)
 	if mid and r >= 2 and r <= 6:
 		out.append(["mist_far", Vector2.ZERO, Color.WHITE, -1.0])
 	out.append(["line", Vector2.ZERO, fg, -1.0])
@@ -364,10 +392,26 @@ func layer_stack() -> Array:
 	if s == "s1":
 		out.append(["rain_light_%d" % rain_frame(s), Vector2.ZERO, Color.WHITE, -1.0])
 	elif mid and r >= 2 and r <= 6:
-		out.append(["rain_heavy_%d" % rain_frame(s), Vector2.ZERO, Color(1, 1, 1, RAIN_HEAVY_ALPHA), -1.0])
+		var ra := RAIN_S4_ALPHA if s == "s4" else RAIN_HEAVY_ALPHA
+		out.append(["rain_heavy_%d" % rain_frame(s), Vector2.ZERO, Color(1, 1, 1, ra), -1.0])
 	if cutting():
 		out.append(["ada_door", Vector2.ZERO, Color.WHITE, -1.0])
 	return out
+
+## The boat, its lit window and (once seen, or while it leaves) the figure: one placement.
+## Entries carry a fifth field, the scale about the plate origin.
+func _boat_layers(out: Array, s: String, fg: Color) -> void:
+	var x := boat_xform(s)
+	if x.is_empty():
+		return
+	var at: Vector2 = x[0]
+	var sc: float = x[1]
+	var a := boat_alpha()
+	out.append(["boat", at, Color(fg.r, fg.g, fg.b, a), -1.0, sc])
+	out.append(["boat_window_lit", at, Color(1, 1, 1, a), -1.0, sc])
+	if jetty.figure_seen() or withdrawing():
+		var fig := "figure_window_turned" if gsim().flag("t1x_turned") else "figure_window"
+		out.append([fig, at, Color(1, 1, 1, a), -1.0, sc])
 
 func _draw() -> void:
 	for l in layer_stack():
@@ -376,11 +420,21 @@ func _draw() -> void:
 			continue
 		var at: Vector2 = l[1]
 		var clip_y: float = l[3]
+		var sc: float = l[4] if l.size() > 4 else 1.0
 		if clip_y > 0.0:
-			# Clipped below the waterline: it comes up out of the water.
+			# Clipped at the waterline: it comes up out of the water, and the part that will
+			# hang under the surface fades in as it arrives.
 			var h := clip_y - at.y
 			if h > 0.0:
 				draw_texture_rect_region(tex, Rect2(at, Vector2(SIZE.x, h)), Rect2(0, 0, SIZE.x, h), l[2])
+				var under := 1.0 - clampf(at.y / RISE_DY, 0.0, 1.0)
+				var m: Color = l[2]
+				draw_texture_rect_region(tex, Rect2(Vector2(at.x, clip_y), Vector2(SIZE.x, SIZE.y - h)),
+					Rect2(0, h, SIZE.x, SIZE.y - h), Color(m.r, m.g, m.b, m.a * under * under))
+		elif sc != 1.0:
+			draw_set_transform(at, 0.0, Vector2(sc, sc))
+			draw_texture(tex, Vector2.ZERO, l[2])
+			draw_set_transform(Vector2.ZERO)
 		else:
 			draw_texture(tex, at, l[2])
 
@@ -438,14 +492,30 @@ func _draw_panel(c: CanvasItem) -> void:
 func _draw_pencil() -> void:
 	if jetty == null or jetty.local_view != R01Sim.C_PANEL:
 		return
-	var s := R01Sim.PLACARD_PENCIL
-	Ink.handwriting(pencil_line, s, s.length(), Vector2.ZERO, 22, 3, false, PENCIL_COL, null, 0.08)
+	_hand(pencil_line, R01Sim.PLACARD_PENCIL, 22, 3, PENCIL_COL, VENN_SKEW, false)
 
 func _draw_ada() -> void:
 	if jetty == null or jetty.local_view != R01Sim.C_PANEL or not jetty.has_seen("placard_ada"):
 		return
-	var s := R01Sim.PLACARD_ADA
-	Ink.handwriting(ada_line, s, s.length(), Vector2.ZERO, 22, 11, false, Ink.BLUE_INK)
+	_hand(ada_line, R01Sim.PLACARD_ADA, 23, 11, ADA_PENCIL, ADA_SKEW, true)
+
+## Pencil handwriting with the font's own spacing (kerning-aware advances, so no letter
+## drifts off its word), a little per-letter wobble, and `heavy` laying a second pass a
+## hair to the right for a firmer hand.
+func _hand(c: CanvasItem, s: String, size: int, row: int, col: Color, skew: float, heavy: bool) -> void:
+	var font := Ink.hand()
+	var g := RandomNumberGenerator.new()
+	for i in s.length():
+		if s[i] == " ":
+			continue
+		g.seed = 18 + row * 97 + i
+		var dy := g.randf_range(-0.7, 0.7)
+		var rot := g.randf_range(-0.015, 0.015)
+		var x := font.get_string_size(s.substr(0, i), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		for pass_dx in ([0.0, 0.35] if heavy else [0.0]):
+			c.draw_set_transform_matrix(Transform2D(rot, Vector2.ONE, skew, Vector2(x + pass_dx, dy)))
+			c.draw_char(font, Vector2.ZERO, s[i], size, col)
+	c.draw_set_transform_matrix(Transform2D.IDENTITY)
 
 func _draw_capsule(c: CanvasItem) -> void:
 	_blit(c, "c_capsule")
@@ -454,7 +524,7 @@ func _draw_capsule(c: CanvasItem) -> void:
 		_blit(c, "c_capsule_open")
 		if not st.key_taken:
 			_blit(c, "c_capsule_key")
-			c.draw_set_transform(KEY_TAG_AT, deg_to_rad(-4.0))
+			c.draw_set_transform(KEY_TAG_AT, deg_to_rad(-7.0))
 			Ink.text(c, R01Sim.KEY_TAG, Vector2(-30, 6), 16, Ink.INK, narrow, 60)
 			c.draw_set_transform(Vector2.ZERO)
 		_blit(c, "c_capsule_note")
@@ -494,7 +564,17 @@ func _wrap(s: String, size: int, width: float, font: Font) -> Array:
 # ---------------------------------------------------------------------------
 # hooks
 # ---------------------------------------------------------------------------
+func _release_tide_card() -> void:
+	if game and is_instance_valid(game) and tide_defer > 0:
+		game.tide_card_n = tide_defer
+		game.tide_card_t = 0.0 if motion else 1.0
+	tide_defer = 0
+
+func _exit_tree() -> void:
+	_release_tide_card()
+
 func apply_instantly() -> void:
+	_release_tide_card()
 	notice_t = INF
 	withdraw_t = INF
 	loop_t = INF
@@ -523,6 +603,10 @@ func play_fx(id: String, e: Dictionary) -> void:
 		"withdraw":
 			withdraw_t = 0.0
 			loop_t = INF
+			# The core has just put up the TIDE card for this commit; hold it until the knock.
+			if game and game.tide_card_t < 0.5 and game.tide_card_n > 0:
+				tide_defer = game.tide_card_n
+				game.tide_card_t = 99.0
 		"gangway_loop":
 			loop_t = 0.0   # a hard cut, the same in both motion modes
 		"figure":

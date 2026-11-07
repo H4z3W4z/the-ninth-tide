@@ -443,7 +443,7 @@ func test_view_presentation() -> void:
 		check(ids[0] == BACK[s], "V: %s backdrop is %s" % [s, BACK[s]])
 		check(ids.has("fg_jetty") and ids.has("line"), "V: %s draws the jetty and the line" % s)
 		check(ids.has("stump") == (n >= 3), "V: %s stump only from s3" % s)
-		check(ids.has("bell_calm") == (s != "s7"), "V: %s bell disc" % s)
+		check(ids.has("bell_calm") == (s != "s7" and s != "A"), "V: %s bell calm rim (not s7, not the ending)" % s)
 		check(ids.has("lighthouse_roof") == (s == "s6"), "V: %s roof lighthouse only at s6" % s)
 		check(ids.has("surface_drift") == (s == "s7") and ids.has("station_window_figure") == (s == "s7"),
 			"V: %s surface and office figure only at s7" % s)
@@ -518,14 +518,37 @@ func test_view_presentation() -> void:
 	v = scene.room_view
 	var r01s: R01Sim = scene.sim.room(ROOM)
 	check(scene.sim.flag("P06") and v.withdrawing(), "V: the commit starts the withdrawal")
+	check(v.tide_defer == 3 and scene.tide_card_t >= 99.0, "V: the TIDE III card is held off 'Bell two'")
+	v.withdraw_t = 15.0
+	v.tick(0.016)
+	check(v.tide_defer == 3, "V: still held at the knock")
+	v.withdraw_t = 15.7
+	v.tick(0.016)
+	check(v.tide_defer == 0 and scene.tide_card_n == 3 and scene.tide_card_t < 1.0, "V: the card comes up after the knock")
 	check(r01s.jetty_state() == "s1", "V: the jetty is already s1 underneath")
 	v.withdraw_t = 4.9
-	check(layer_ids(v).has("gangway_down") and layer(v, "boat")[1].x == 0.0, "V: moored until 5.0 s")
+	var moored := layer(v, "boat")
+	check(layer_ids(v).has("gangway_down") and moored[1] == Vector2.ZERO and moored[4] == 1.0, "V: moored until 5.0 s")
+	check(layer_ids(v).find("boat") > layer_ids(v).find("fg_jetty"), "V: moored, it lies in front of the jetty")
 	check(layer_ids(v).has("figure_window") or layer_ids(v).has("figure_window_turned"),
 		"V: the figure is in the window during the withdrawal")
+	# Its stern's waterline corner, where the transform puts it.
+	var stern := func(l: Array) -> Vector2: return l[1] + v.BOAT_STERN * float(l[4])
+	v.withdraw_t = 6.0
+	var b6 := layer(v, "boat")
 	v.withdraw_t = 8.0
-	var bx: float = layer(v, "boat")[1].x
-	check(layer_ids(v).has("gangway_up") and bx > 0.0 and bx < 350.0, "V: stern first, easing in (%.0f)" % bx)
+	var b8 := layer(v, "boat")
+	check(layer_ids(v).has("gangway_up") and b8[4] < b6[4] and b6[4] < 1.0, "V: it shrinks as it goes (%.2f, %.2f)" % [b6[4], b8[4]])
+	var s6: Vector2 = stern.call(b6)
+	var s8: Vector2 = stern.call(b8)
+	check(s8.x > s6.x and s8.y < s6.y and s6.x >= 1290.0, "V: stern first, toward the horizon (%s -> %s)" % [s6, s8])
+	check(layer_ids(v).find("boat") < layer_ids(v).find("fg_jetty"), "V: receding, it goes behind the jetty")
+	check(layer(v, "boat_window_lit")[4] == b8[4] and layer(v, "boat_window_lit")[1] == b8[1], "V: its window goes with it")
+	v.withdraw_t = 10.95
+	var bend := layer(v, "boat")
+	var send: Vector2 = stern.call(bend)
+	check(bend[4] < 0.15 and send.distance_to(v.BOAT_END) < 12.0 and bend[2].a < 1.0,
+		"V: it ends as the dot past the lighthouse (%.2f at %s)" % [bend[4], send])
 	check(not layer_ids(v).has("capsule_closed"), "V: no capsule before the rise")
 	v.withdraw_t = 11.2
 	check(not layer_ids(v).has("boat"), "V: the boat has gone by 11 s")
@@ -543,7 +566,7 @@ func test_view_presentation() -> void:
 	# Still withdrawal.
 	scene.sim.settings.motion = false
 	v.withdraw_t = 6.0
-	check(layer(v, "boat")[1].x == 350.0, "V: still, the boat stands off at +350")
+	check(layer(v, "boat")[4] == v.BOAT_STILL_SCALE, "V: still, the boat stands off, small")
 	v.withdraw_t = 8.5
 	check(not layer_ids(v).has("boat"), "V: still, gone after 8 s")
 	v.withdraw_t = 11.6
@@ -571,9 +594,15 @@ func test_view_presentation() -> void:
 	scene.room_jump(ROOM, 3)
 	scene.dispatch("line")
 	scene.dispatch("cap")
+	scene.dispatch("key")
+	check(not scene.chain_active() and scene.lines.all(func(l): return not l.story),
+		"V: the key's line is not queued behind a story chain from the cap")
+	scene.room_jump(ROOM, 3)
+	scene.dispatch("line")
+	scene.dispatch("cap")
 	scene.dispatch("note")
 	v = scene.room_view
 	check(v.note_open, "V: the note card opens")
 	check(scene.room_view.action_at(Vector2(100, 900)) == "" and not v.note_open, "V: a click dismisses it")
-	check(scene.action_at(Vector2(660, 400)) == "key", "V: the key under the note")
+	check(scene.action_at(Vector2(668, 200)) == "key", "V: the key standing in the capsule's mouth")
 	await free_scene(scene)

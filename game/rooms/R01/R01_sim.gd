@@ -145,7 +145,7 @@ const HINTS := {
 }
 ## Items this room hands out (docs/design/puzzle-cards/flags.md section 4).
 const ITEMS := {
-	"service_key": {"name": "Kitchen service key", "desc": "A key from the capsule on the mooring line. It fits the office's service door."},
+	"service_key": {"name": "Service key", "desc": "A key from the capsule on the mooring line. It fits the office's service door."},
 }
 
 const KEY_LINE := "That's for the office's service door, not anything out here."
@@ -631,8 +631,8 @@ func _capsule(action: String, ev: Array) -> void:
 			state.capsule_opened = true
 			_sfx(ev, "cap_unscrew")
 			_fx(ev, "cap_off")
-			_say(ev, "The cap turns easily. It's warm.", 0.0)
-			_say(ev, "Inside: a key, and a rolled note.", 1.6, true)
+			# One feedback line, not a chain: a quick click on the key must not queue behind it.
+			_say(ev, "The cap turns easily. It's warm. Inside: a key, and a rolled note.", 0.0)
 		"key":
 			if not state.capsule_opened:
 				_say(ev, CAP_ON)
