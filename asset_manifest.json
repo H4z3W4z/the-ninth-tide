@@ -7216,6 +7216,15 @@
       "source_svg": null
     },
     {
+      "id": "R12/a_surface_wide",
+      "path": "assets/rooms/R12/a_surface_wide.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "67c589d34d459b9358d9e1371c71e62df62b85f229113d84a500faa132358ebd",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R12/a_surface_withdrawn",
       "path": "assets/rooms/R12/a_surface_withdrawn.png",
       "width": 1448,
@@ -7455,6 +7464,15 @@
       "width": 1448,
       "height": 1086,
       "sha256": "4c47777810cb6526cb3fff59e5aa452175f5e666c9903f72dab109024f4307f0",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R12/end_b_field",
+      "path": "assets/rooms/R12/end_b_field.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "beb301295cdd6e8fc57571ab03a45c886b874c2e28c18b793994964429f2c591",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },

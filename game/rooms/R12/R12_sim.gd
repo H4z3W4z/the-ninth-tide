@@ -31,8 +31,10 @@ const FRAMES_HOTSPOTS := ["nameplate", "indicators", "frame_body", "frame_place"
 ## View C, the routing wall.
 const ROUTING_HOTSPOTS := ["plate_sever", "plate_continue", "cards", "handle", "yoke_tray",
 	"contacts", "bridge_seat"]
+## The rack controls are rack_<card id> in RACK_ORDER (seven fixed slots, left to right).
 const FRAMES_CONTROLS := ["f_body", "f_place", "f_name", "look_body", "look_place", "look_name",
-	"rack_identity", "rack_trace", "rack_position", "look_strip", "switch", "route"]
+	"rack_position_b", "rack_trace_a", "rack_identity", "rack_trace", "rack_identity_b", "rack_trace_b",
+	"rack_position", "look_strip", "switch", "route"]
 const ROUTING_CONTROLS := ["look_sever", "look_continue", "preview_sever", "preview_continue",
 	"slot_sever", "slot_continue", "confirm", "cc_restored", "cc_remains", "cc_returns", "cc_ends"]
 const FINAL_CONTROLS := ["contacts", "look_lamps", "bridge_seat", "tray", "preview", "look_handle",
@@ -53,25 +55,44 @@ const STAFF := ["ROOK", "BELL", "IVES", "LUSK", "PRYCE", "DOANE", "HART", "TULL"
 const BRIDGE := "witness_bridge"
 
 # ---------------------------------------------------------------------------------------------
-# P25: Ada's three cards (room-local; never in the inventory)
+# P25: seven cards in her name (room-local; never in the inventory). Three are true: the
+# MOVEMENT card is her stored P05 trace, the POSITION and CONTRACT cards are the evidence's
+# words. The others are near misses she must tell apart by what she saw and read.
 # ---------------------------------------------------------------------------------------------
-const CARD_IDS := ["trace", "position", "identity"]
-## The rack, left to right.
-const RACK_ORDER := ["identity", "trace", "position"]
-const CARD_HEADER := {
-	"trace": "MOVEMENT · A. MERCER",
-	"position": "POSITION · A. MERCER",
-	"identity": "CONTRACT · A. MERCER",
+const CARD_IDS := ["trace", "trace_a", "trace_b", "position", "position_b", "identity", "identity_b"]
+## The rack, left to right: fixed slots, deliberately not grouped and not true-first.
+const RACK_ORDER := ["position_b", "trace_a", "identity", "trace", "identity_b", "trace_b", "position"]
+## The frame each card's category belongs to.
+const CARD_FRAME := {
+	"trace": "body", "trace_a": "body", "trace_b": "body",
+	"position": "place", "position_b": "place",
+	"identity": "name", "identity_b": "name",
 }
-## The fixed card faces; the trace card is body_card_lines() (the stored p05_trace).
+const CARD_HEADER := {
+	"trace": "MOVEMENT · A. MERCER", "trace_a": "MOVEMENT · A. MERCER", "trace_b": "MOVEMENT · A. MERCER",
+	"position": "POSITION · A. MERCER", "position_b": "POSITION · A. MERCER",
+	"identity": "CONTRACT · A. MERCER", "identity_b": "CONTRACT · A. MERCER",
+}
+## The fixed card faces; the MOVEMENT cards are body_card_lines() / decoy_card_lines().
 const CARD_TEXT := {
 	"position": "Ninth position. Centre of the station outline.",
+	"position_b": "Eighth position. Seat beside the window.",
 	"identity": "Miss Ada Mercer, cataloguer. Requested by E. Venn.",
+	"identity_b": "Miss Ada Mercer, cataloguer. Requested by S. Rook.",
 }
+## What she says lifting a card the first time. Neutral: the card is in her name, not hers yet.
 const CARD_LIFT := {
-	"position": "My position: 'Ninth position. Centre of the station outline.'",
-	"identity": "My contract: 'Miss Ada Mercer, cataloguer. Requested by E. Venn.'",
+	"position": "A POSITION card: 'Ninth position. Centre of the station outline.'",
+	"position_b": "A POSITION card: 'Eighth position. Seat beside the window.'",
+	"identity": "A CONTRACT card: 'Miss Ada Mercer, cataloguer. Requested by E. Venn.'",
+	"identity_b": "A CONTRACT card: 'Miss Ada Mercer, cataloguer. Requested by S. Rook.'",
 }
+## Decoy MOVEMENT runs when swapping the real trace can't make two that differ from it (a trace
+## under three events, or one whose swaps repeat it): fixed whitelist runs, taken in order.
+const DECOY_FALLBACK := [["held_still", "turned_round", "log_read"],
+	["interval_set", "charts_aligned", "lamp_mended"], ["report_signed", "recording_played", "drawer_opened"]]
+## The plate of a frame holding a card of its own category that is not hers.
+const NOT_OBSERVER := "DOES NOT CORRESPOND TO OBSERVER"
 const FRAME_IDS := ["body", "place", "name"]
 const FRAME_LABEL := {"body": "BODY", "place": "PLACE", "name": "NAME"}
 const CATEGORY := {
@@ -124,14 +145,15 @@ const ENDING_SEVER := [
 	{"tableau": "c_sever", "lines": [
 		[0.0, "I pull the handle. It is heavier than it looks, and then it isn't."],
 		[2.6, "Above the frames the eight indicators go out. Not together. One, and a wait, and the next."]],
-	"sfx": [["handle_pull", 0.0], ["line_out_1", 3.0], ["line_out_2", 3.9], ["line_out_3", 4.8],
-		["line_out_4", 5.7], ["line_out_5", 6.6], ["line_out_6", 7.5], ["line_out_7", 8.4],
-		["line_out_8", 9.3]],
+	# each wait a little longer than the last; the view spaces the lamps from this table
+	"sfx": [["handle_pull", 0.0], ["line_out_1", 3.0], ["line_out_2", 3.8], ["line_out_3", 4.9],
+		["line_out_4", 6.3], ["line_out_5", 8.0], ["line_out_6", 10.1], ["line_out_7", 12.6],
+		["line_out_8", 16.2]],
 	"change": ""},
 	{"tableau": "m_funnels", "lines": [
 		[0.0, "In the listening room the funnels stop hissing."],
 		[2.6, "In the quiet, for a moment, someone clears their throat."]],
-	"sfx": [["funnel_stop", 0.4], ["throat", 2.8]], "change": "funnel_stop"},
+	"sfx": [["funnel_stop", 0.4], ["throat", 3.6]], "change": "funnel_stop"},
 	{"tableau": "m_diaphragm", "lines": [
 		[0.0, "In the machine room the diaphragm lets out its last breath against the bolts."],
 		[2.8, "It doesn't take another."]],
@@ -211,7 +233,8 @@ const ENDING_CONTINUE := [
 	"sfx": [], "change": ""},
 	{"tableau": "end_b_wide", "lines": [
 		[0.0, "Far out in the dark, one small lit window. The kitchen."],
-		[3.0, "Around it, more windows than I can count. None of them lit."]],
+		# 1.2 s of silence before the count (the view ducks the ambient in the gap)
+		[4.2, "Around it, more windows than I can count. None of them lit."]],
 	"sfx": [], "change": ""},
 	{"tableau": "end_b_cover", "lines": [
 		[0.0, "The recorder starts a new heading: LOCAL SURVEY: ONE OF"],
@@ -220,6 +243,12 @@ const ENDING_CONTINUE := [
 	"sfx": [["counter_type", 0.4], ["paper_cover", 3.2], ["motif_human_b", 5.8]], "change": ""},
 ]
 const CHOSEN_LINE := "Not now. I've chosen."
+## The still the core's end card shows for an ending (CONTINUE: the kitchen among the field of
+## dark stations). Read by the core; a missing key means no still.
+const END_STILL := {"continue": "res://assets/rooms/R12/end_b_field.png"}
+
+static func end_still(choice: String) -> String:
+	return END_STILL.get(choice, "")
 
 # ---------------------------------------------------------------------------------------------
 # notebook, objectives, hints
@@ -238,11 +267,16 @@ const OBSERVATIONS := {
 	"indicators": "Eight shuttered indicators: ROOK, BELL, IVES, LUSK, PRYCE, DOANE, HART, TULL. Each hums on its own note. Closed.",
 	"shutters_turned": "After the record was routed, the eight shutters turned a little toward my terminal.",
 	"nameplate": "Over three empty frames, a freshly engraved brass plate: ADA MERCER.",
-	"frames_procedure": "Three frames, BODY, PLACE, NAME; a rack of my three cards; a switch, WITNESS or COPY; a ROUTE key.",
+	"frames_procedure": "Three frames, BODY, PLACE, NAME; a rack of seven cards, all in my name; a switch, WITNESS or COPY; a ROUTE key.",
 	"frame_categories": "The frame plates: BODY, what the subject did, in the order it was done. PLACE, where the subject stands in the survey. NAME, who the subject is, and who asked for them.",
 	"card_trace": "My MOVEMENT card: the recorder's departure record word for word, the three things I did and its fourth line under them.",
 	"card_position": "My POSITION card: 'Ninth position. Centre of the station outline.'",
 	"card_identity": "My CONTRACT card: 'Miss Ada Mercer, cataloguer. Requested by E. Venn.'",
+	"card_trace_a": "A second MOVEMENT card in my name, with a different run of moves on it.",
+	"card_trace_b": "A third MOVEMENT card in my name, with another run of moves on it.",
+	"card_position_b": "A second POSITION card: 'Eighth position. Seat beside the window.'",
+	"card_identity_b": "A second CONTRACT card: 'Miss Ada Mercer, cataloguer. Requested by S. Rook.'",
+	"plate_mismatch": "A frame given a card of its own kind that isn't mine lights its plate: DOES NOT CORRESPOND TO OBSERVER.",
 	"copy_port": "A COPY port under a warm brass dust cap.",
 	"copy_uncapped": "After the record was routed, the COPY port's cap came off by itself.",
 	"copy_preview": "With the switch on COPY, the strip reads: WOULD FINALIZE OBSERVER.",
@@ -270,7 +304,7 @@ const HINTS := {
 		"The chamber wants a record of you.",
 		"Your movements are a body record, your position is a place, your contract is your name. Route as the model showed.",
 		"Trace to BODY, position to PLACE, identity to NAME, switch to WITNESS, then ROUTE.",
-	],
+	],   # hint_line() spells the third step out card by card
 	"routing": [
 		"Before choosing, make sure you know what each choice does.",
 		"Preview each route and match it to what Venn said and what the model showed.",
@@ -365,6 +399,8 @@ func load_state(d: Variant) -> void:
 		state.chosen = ""
 	if state.chosen != "" and _all_whole([d.get("ending_step")]):
 		state.ending_step = clampi(int(d.ending_step), 0, steps(state.chosen).size() - 1)
+	if state.chosen != "":
+		local_view = V_ENDING   # harmless; the core resets it, reconcile() puts it back
 	if state.p25_complete:
 		state.frames = SOLUTION_FRAMES.duplicate()
 		state.switch = "witness"
@@ -424,6 +460,9 @@ func reconcile() -> void:
 	if game.flag("P27") and not state.p27_complete:
 		state.p27_complete = true
 	_bridge_net([])
+	# A load lands every room in "room"; once she has chosen, this one stands in the ending.
+	if state.chosen != "":
+		local_view = V_ENDING
 
 func _set_p25_state() -> void:
 	state.p25_complete = true
@@ -496,11 +535,60 @@ func strip_lines() -> Array:
 
 ## The MOVEMENT card: the stored P05 trace (never recomputed) and the recorder's fourth line.
 func body_card_lines() -> Array:
+	return _move_lines(game.value("p05_trace"))
+
+func _move_lines(trace: Array) -> Array:
 	var out := []
-	for t in game.value("p05_trace"):
+	for t in trace:
 		out.append(GameSim.move_text(t))
 	out.append(line4())
 	return out
+
+## The two decoy MOVEMENT runs for `trace`: the first two events swapped, and the last two
+## swapped. A decoy that would repeat the trace or the other decoy, or any decoy of a trace
+## under three events, is the next DECOY_FALLBACK run that differs from both. Deterministic.
+static func decoys_for(trace: Array) -> Array:
+	var made := []
+	if trace.size() >= 3:
+		var a := trace.duplicate()
+		a[0] = trace[1]
+		a[1] = trace[0]
+		var b := trace.duplicate()
+		b[-2] = trace[-1]
+		b[-1] = trace[-2]
+		made = [a, b]
+	else:
+		made = [[], []]
+	var out := []
+	for d in made:
+		var pick: Array = d
+		if pick.size() < 3 or pick == trace or pick in out:
+			for f in DECOY_FALLBACK:
+				if f != trace and not f in out:
+					pick = f.duplicate()
+					break
+		out.append(pick)
+	return out
+
+## The move ids printed on MOVEMENT card `cid` ("trace", "trace_a" or "trace_b").
+func movement_of(cid: String) -> Array:
+	var trace: Array = game.value("p05_trace")
+	match cid:
+		"trace":
+			return trace
+		"trace_a":
+			return decoys_for(trace)[0]
+		"trace_b":
+			return decoys_for(trace)[1]
+	return []
+
+## True while frame `f` holds a card of its own category that is not hers: its plate is lit
+## with NOT_OBSERVER. Derived from the frames, so it survives saves; nothing locks.
+func plate_mismatch(f: String) -> bool:
+	if p25_done() or not f in FRAME_IDS:
+		return false
+	var cid: String = state.frames[f]
+	return cid != "" and CARD_FRAME.get(cid, "") == f and cid != SOLUTION_FRAMES[f]
 
 func line4() -> String:
 	return LINE4_TURNED if game.flag("t1x_turned") else LINE4_STILL
@@ -508,10 +596,12 @@ func line4() -> String:
 func card_header(cid: String) -> String:
 	return CARD_HEADER.get(cid, "")
 
-## The card's face as lines (the MOVEMENT card has several).
+## The card's face as lines (a MOVEMENT card has several).
 func card_text(cid: String) -> Array:
 	if cid == "trace":
 		return body_card_lines()
+	if cid in ["trace_a", "trace_b"]:
+		return _move_lines(movement_of(cid))
 	return [CARD_TEXT[cid]] if CARD_TEXT.has(cid) else []
 
 func routes() -> Dictionary:
@@ -562,7 +652,7 @@ func arrive(ev: Array, first: bool) -> void:
 		_observe("chamber")
 		_say(ev, ARRIVAL, 0.0, true)
 		_say(ev, "Every arm of the instrument ends where a part of a seated person would be. Head. Hands. Feet.", 2.4, true)
-		_say(ev, "On the left wall, three frames. One of them already has a name on it.", 5.0, true)
+		_say(ev, "Through the left arch, a wall of frames. One of them already has a name on it.", 5.0, true)
 		_say(ev, "Mine.", 7.2, true)
 	if gave:
 		if chain:
@@ -589,6 +679,31 @@ func back(_ev: Array) -> void:
 
 func hint_frozen() -> bool:
 	return local_view == V_ENDING
+
+## P25's third step names each true card by what is printed on it.
+const HINT_FRAMES_3 := "The true cards: %s to BODY; 'Ninth position. Centre of the station outline.' to PLACE; 'Requested by E. Venn.' to NAME. Then the switch to WITNESS, and ROUTE."
+func hint_line(level: int) -> String:
+	if objective() == "frames" and level >= 2:
+		var moves := body_card_lines()
+		moves.pop_back()
+		var body := "the MOVEMENT card reading '" + " ".join(moves) + "'" if not moves.is_empty() \
+			else "the MOVEMENT card that is my own departure record"
+		return HINT_FRAMES_3 % body
+	return super.hint_line(level)
+
+## Where a loaded game stands in this room (the core's resume hook): in the ending once she
+## has chosen, else the room.
+func resume_view() -> String:
+	return V_ENDING if state.chosen != "" else V_ROOM
+
+## A load in this room. Mid-ending there is no "Back in the observation chamber.": the page she
+## was on is played again, so the view redraws it. Returns true if it handled the resume.
+func resume(ev: Array) -> bool:
+	if state.chosen == "":
+		return false
+	local_view = V_ENDING
+	_emit_step(ev)
+	return true
 
 func objective() -> String:
 	if state.chosen != "":
@@ -732,9 +847,9 @@ func _frames_wall(action: String, ev: Array) -> void:
 					_say(ev, FRAMES_READ_ONLY)
 			elif first:
 				if state.switch == "copy":
-					_say(ev, "Three frames: BODY, PLACE, NAME. A rack of three cards. The switch is on COPY, and the strip under it already reads: WOULD FINALIZE OBSERVER.")
+					_say(ev, "Three frames: BODY, PLACE, NAME. A rack of seven cards, all in my name. The switch is on COPY, and the strip under it already reads: WOULD FINALIZE OBSERVER.")
 				else:
-					_say(ev, "Three frames: BODY, PLACE, NAME. A rack of three cards. The switch is on WITNESS.")
+					_say(ev, "Three frames: BODY, PLACE, NAME. A rack of seven cards, all in my name. The switch is on WITNESS.")
 			else:
 				_say(ev, "The frames, the cards, the switch.")
 
@@ -768,6 +883,8 @@ func _frames_control(action: String, ev: Array) -> void:
 		_route(ev)
 
 func _rack(cid: String, ev: Array) -> void:
+	if not cid in CARD_IDS:
+		return
 	if _frame_of(cid) != "":
 		_say(ev, "That card's in a frame.")
 		return
@@ -778,14 +895,12 @@ func _rack(cid: String, ev: Array) -> void:
 		return
 	_held_card = cid
 	_sfx(ev, "card_lift")
-	if has_seen("card_" + cid):
-		_say(ev, CARD_HEADER[cid])
-		return
+	# every lift reads the card aloud: seven cards in her name, told apart only by their words
 	_observe("card_" + cid)
-	if cid == "trace":
-		var moves := body_card_lines()
+	if CARD_FRAME[cid] == "body":
+		var moves := card_text(cid)
 		moves.pop_back()
-		_say(ev, "My movements: '" + " ".join(moves) + "' And under them: '" + line4() + "'")
+		_say(ev, "A MOVEMENT card: '" + " ".join(moves) + "' And under them: '" + line4() + "'")
 	else:
 		_say(ev, CARD_LIFT[cid])
 
@@ -798,10 +913,15 @@ func _frame(f: String, ev: Array) -> void:
 			last_lamp_frame = ""
 		_sfx(ev, "card_seat")
 		_fx(ev, "card_seat", {"frame": f})
+		var line := "It clips into the %s frame." % FRAME_LABEL[f]
 		if occupant != "":
-			_say(ev, "It clips into the %s frame. The other card goes back to the rack." % FRAME_LABEL[f])
-		else:
-			_say(ev, "It clips into the %s frame." % FRAME_LABEL[f])
+			line += " The other card goes back to the rack."
+		if plate_mismatch(f):
+			_sfx(ev, "frame_lamp", 0.2)
+			_fx(ev, "plate_mismatch", {"frame": f})
+			_observe("plate_mismatch")
+			line += " The plate lights: " + NOT_OBSERVER + "."
+		_say(ev, line)
 	elif state.frames[f] != "":
 		state.frames[f] = ""
 		if last_lamp_frame == f:
@@ -842,6 +962,12 @@ func _route(ev: Array) -> void:
 		if state.frames[f] != SOLUTION_FRAMES[f]:
 			_sfx(ev, "route_refuse")
 			_sfx(ev, "frame_lamp", 0.2)
+			if plate_mismatch(f):
+				# the right kind of card, not hers: the plate is already lit and says so
+				_fx(ev, "plate_mismatch", {"frame": f})
+				_observe("plate_mismatch")
+				_say(ev, "ROUTE won't turn. The %s plate reads: %s." % [FRAME_LABEL[f], NOT_OBSERVER])
+				return
 			_fx(ev, "frame_lamp", {"frame": f})
 			last_lamp_frame = f
 			_say(ev, "ROUTE won't turn. The %s plate lights: '%s'" % [FRAME_LABEL[f], CATEGORY[f]])

@@ -21,6 +21,8 @@ Writes, and only writes, assets/rooms/R12/*.png:
   end_card (+ the eighteen m_* room fragments, 1288x760, shown in its brass frame at M_AT)
   end_a_record, end_a_jetty, end_a_inquiry, end_a_page, end_b_terminal, end_b_wide, end_b_cover
   cover_sheet
+  a_surface_wide                          wave 3: the surface across the whole back wall (the view's GLASS)
+  end_b_field                             wave 3: CONTINUE at night, the kitchen among countless dark stations
 
 Flat front elevation, approved palette, navy ink contours, matte colour, a low seeded paper
 grain. No text, numerals or diagrams: every label field is a blank enamel or brass plate and
@@ -3049,6 +3051,186 @@ def paint_cover_sheet(rng):
     return grain(out, rng_for(5900), amp=4, mottle=4, speck=8)
 
 
+# ============================================================================ wave 3: the wall of glass
+# The surface fills the back wall: one wide pane between the side arches, from just under the deckhead
+# pipe to just above the head cup of the armatures. The view draws it in place of a_surface at every
+# stage (R12_view.gd GLASS); the lid band and the withdrawn margin are drawn by the view over it.
+GLASS = (200, 86, 1248, 430)            # x0, y0, x1, y1: the pane, frame included
+GLASS_FRAME = 12                        # the iron frame inside that rect
+SURFW_TOP = mix(SEAGLASS, BULK, 0.35)   # flat sea-glass at the top ...
+SURFW_BOT = mix(STORM, BULK, 0.25)      # ... to storm navy at the sill
+WIDE_EYE_C, WIDE_EYE_R = (930, 290), 318    # off-centre right; cropped top and bottom by the pane
+WIDE_PUPIL_C, WIDE_PUPIL_R = (792, 344), 78  # turned down and left, toward the chair
+
+
+def foreground_mask():
+    """What hangs in front of the glass in view_a (the conduit and the column, the caged lamp, the
+    gauge): painted on a blank pen with the same calls, solid parts only, at 1x."""
+    p = Pen(W, H, rng_for(0))
+    column(p, rng_for(0))
+    gauge(p)
+    lamp = Pen(W, H, rng_for(0))
+    caged_lamp(lamp, 250, 36)
+    a = p.im.getchannel("A").point(lambda v: 255 if v > 24 else 0)
+    b = lamp.im.getchannel("A").point(lambda v: 255 if v > 200 else 0)
+    m = ImageChops.lighter(a, b).resize((W, H), Image.NEAREST)
+    return m.filter(ImageFilter.MaxFilter(3))
+
+
+def paint_surface_wide(rng):
+    """The surface across the whole back wall: one flat sea-glass to storm-navy field, no horizon,
+    no waves, nothing of the room in it; one huge ring eye in a few flat navy bands, off-centre and
+    cropped by the pane so it is never seen whole. Transparent outside the glass."""
+    x0, y0, x1, y1 = GLASS
+    f = GLASS_FRAME
+    p = Pen(W, H, rng)
+    p.vgrad(x0, y0, x1, y1, SURFW_TOP, SURFW_BOT)
+    inner = poly_mask((W, H), [(x0 + f, y0 + f), (x1 - f, y0 + f), (x1 - f, y1 - f), (x0 + f, y1 - f)])
+    # the eye: four flat bands drawing in toward the pupil, each a step darker, each a little
+    # further toward the chair; navy ink between them. Not a target: close values, eccentric.
+    eye = p.layer()
+    bands = (
+        (1.00, mix(SURFW_TOP, STORM, 0.30)),
+        (0.78, mix(SURFW_TOP, STORM, 0.52)),
+        (0.56, mix(STORM, BULK, 0.35)),
+    )
+    for k, (s, col) in enumerate(bands):
+        t = k / 3
+        c = (lerp(WIDE_EYE_C[0], WIDE_PUPIL_C[0], t), lerp(WIDE_EYE_C[1], WIDE_PUPIL_C[1], t))
+        r = WIDE_EYE_R * s
+        eye.ell(c[0], c[1], r, r, col, INK, 3.2 if k == 0 else 2.6)
+    eye.ell(WIDE_PUPIL_C[0], WIDE_PUPIL_C[1], WIDE_PUPIL_R, WIDE_PUPIL_R, mix(STORM, BLACK, 0.45), INK, 3.4)
+    p.put(eye, mask=inner)
+    # one thin pale rim on the outer band, upper left only: the light from the room catching it
+    rim = p.layer()
+    rim.arc(WIDE_EYE_C[0], WIDE_EYE_C[1], WIDE_EYE_R - 6, WIDE_EYE_R - 6, 196, 252,
+            mix(SURFW_TOP, SEAGLASS_HI, 0.6), 2.4)
+    p.put(rim, 0.8, mask=inner)
+    # the frame: iron, inked, a brass bead inside, a deeper sill along the bottom
+    fr = p.layer()
+    fr.rect(x0, y0, x1, y1, IRON, INK, 3.0)
+    p.put(fr, mask=ImageChops.subtract(poly_mask((W, H), [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]), inner))
+    p.rect(x0 + f, y0 + f, x1 - f, y1 - f, None, INK, 2.6)
+    p.rect(x0 + f - 3, y0 + f - 3, x1 - f + 3, y1 - f + 3, None, BRASS_LO, 1.6)
+    p.line([(x0 + 2, y0 + 3), (x1 - 2, y0 + 3)], IRON_HI, 1.4)
+    for x in range(int(x0) + 30, int(x1) - 10, 60):
+        rivet(p, x, y0 + f / 2, 2.2, IRON_HI)
+        rivet(p, x, y1 - f / 2, 2.2, IRON_HI)
+    im = grain(p.done(), rng_for(2015), amp=4, mottle=4, speck=6)
+    # transparent outside the glass, and wherever the room hangs in front of it
+    a = im.getchannel("A")
+    a = ImageChops.subtract(a, foreground_mask())
+    im.putalpha(a)
+    return im
+
+
+# ============================================================================ wave 3: the field of stations
+FIELD_SKY = (0x1D, 0x2A, 0x3A)
+FIELD_SEA = (0x12, 0x1A, 0x22)
+FIELD_SIL = (0x2A, 0x38, 0x46)
+FIELD_WIN = (0x3A, 0x4A, 0x58)
+FIELD_LIT = (0xE8, 0xC2, 0x7A)
+FIELD_N = 450
+FIELD_ROWS = 9
+# The kitchen: one small station near the centre. Its window's centre (the view's glow) is
+# FIELD_LIT_AT; R12_view.gd FIELD_GLOW matches it.
+FIELD_HOME = (724, 600, 38)              # foot centre x, foot y (sea level), box width
+FIELD_LIT_AT = (724, 573)
+
+
+def station_shape(d, cx, base, w, body, win, lit=None):
+    """A station in flat front elevation, at 1x: stilts into the sea, a box, a pitched roof, one
+    window. `base` is where the stilts meet the water; `w` the box width in pixels."""
+    w = max(3, int(round(w)))
+    bh = max(2, int(round(w * 0.56)))           # box
+    rh = max(1, int(round(w * 0.30)))           # roof
+    sh = max(1, int(round(w * 0.42)))           # stilts
+    x0 = int(round(cx - w / 2))
+    x1 = x0 + w - 1
+    by1 = int(round(base)) - sh
+    by0 = by1 - bh + 1
+    # stilts: three at w >= 9, two below
+    legs = 3 if w >= 9 else 2
+    lw = max(1, int(round(w * 0.07)))
+    for i in range(legs):
+        lx = int(round(lerp(x0 + 1, x1 - 1 - (lw - 1), i / (legs - 1))))
+        d.rectangle((lx, by1 + 1, lx + lw - 1, int(round(base))), fill=body)
+    if w >= 14:   # a cross-brace between the outer stilts
+        d.line((x0 + 1, by1 + 2, x1 - 1, int(round(base)) - 1), fill=body, width=max(1, lw // 2))
+        d.line((x0 + 1, int(round(base)) - 1, x1 - 1, by1 + 2), fill=body, width=max(1, lw // 2))
+    d.rectangle((x0, by0, x1, by1), fill=body)
+    over = max(1, int(round(w * 0.08)))
+    d.polygon([(x0 - over, by0), ((x0 + x1) / 2, by0 - rh), (x1 + over, by0)], fill=body)
+    # the window: a rectangle, at least 1x1, centred in the box, a little above the middle
+    ww = max(1, int(round(w * 0.22)))
+    wh = max(1, int(round(bh * 0.36)))
+    wx = int(round((x0 + x1) / 2 - (ww - 1) / 2))
+    wy = int(round(by0 + (bh - wh) * 0.4))
+    d.rectangle((wx, wy, wx + ww - 1, wy + wh - 1), fill=lit if lit else win)
+    return (wx, wy, wx + ww - 1, wy + wh - 1), (x0 - over - 1, by0 - rh - 1, x1 + over + 1, int(round(base)) + 1)
+
+
+def field_layout(rng):
+    """FIELD_N stations in FIELD_ROWS rough perspective rows: [(cx, base, w)], back rows first.
+    Each row is smaller than the one in front of it, down to a few pixels at the back."""
+    fronts = []
+    # row 0 is the back. Sizes fall geometrically from the front (40 px) to the back (~3 px).
+    sizes = [40.0 * (0.72 ** (FIELD_ROWS - 1 - i)) for i in range(FIELD_ROWS)]
+    ys = [lerp(470, 1040, (i / (FIELD_ROWS - 1)) ** 1.35) for i in range(FIELD_ROWS)]
+    weights = [1.0 / (s ** 0.55) for s in sizes]
+    total = sum(weights)
+    counts = [max(8, int(round(FIELD_N * wgt / total))) for wgt in weights]
+    while sum(counts) > FIELD_N:
+        counts[counts.index(max(counts))] -= 1
+    while sum(counts) < FIELD_N:
+        counts[counts.index(max(counts))] += 1
+    hx, hy, hw = FIELD_HOME
+    for i in range(FIELD_ROWS):
+        n, s, y = counts[i], sizes[i], ys[i]
+        span = W + 2 * s
+        step = span / n
+        ph, amp = rng.uniform(0, math.tau), rng.uniform(0.6, 1.4) * s
+        for k in range(n):
+            cx = -s + step * (k + 0.5) + rng.uniform(-0.38, 0.38) * step
+            # a rough row: a slow swell along it, and each station a little off it
+            base = y + amp * math.sin(cx / 260.0 + ph) + rng.uniform(-0.9, 0.9) * s * 0.7
+            w = s * rng.uniform(0.9, 1.1)
+            # keep a clear berth round the kitchen station so it reads alone
+            if abs(cx - hx) < hw * 1.1 + w and abs(base - hy) < hw * 1.3 + w * 0.8:
+                cx = hx + math.copysign(hw * 1.1 + w + rng.uniform(4, 30), cx - hx if cx != hx else 1)
+            fronts.append((cx, base, w))
+    return fronts
+
+
+def paint_end_b_field(rng):
+    """CONTINUE, the wide plate at night. Storm-navy sky darkening straight into the sea (no
+    horizon line); the ring eye, enormous, cropped by the top edge, faint; and the kitchen --
+    one small station near the centre with the only warm window in the frame -- among FIELD_N
+    identical stations in rough rows going back, every window unlit."""
+    p = Pen(W, H, rng)
+    p.vgrad(-4, -4, W + 4, 640, FIELD_SKY, FIELD_SEA)
+    p.rect(-4, 639, W + 4, H + 4, FIELD_SEA, None)
+    # the eye behind everything: a few flat navy bands, centre above the frame, at 0.25
+    eye = p.layer()
+    ec, er = (690, -260), 1180
+    pc = (650, 40)
+    for k, (s, col) in enumerate(((1.00, (0x2E, 0x40, 0x52)), (0.80, (0x0E, 0x16, 0x1E)),
+                                  (0.62, (0x26, 0x36, 0x46)), (0.46, (0x0A, 0x10, 0x16)))):
+        t = k / 4
+        c = (lerp(ec[0], pc[0], t), lerp(ec[1], pc[1], t))
+        eye.ell(c[0], c[1], er * s, er * s, col, INK, 3.0)
+    eye.ell(pc[0], pc[1] + 60, 300, 300, (0x06, 0x0A, 0x0E), INK, 3.0)
+    p.put(eye, 0.25)
+    im = grain(p.done(), rng_for(7080), amp=3, mottle=3, speck=4).convert("RGB")
+    # the stations, crisp at 1x, back rows first
+    d = ImageDraw.Draw(im)
+    for cx, base, w in field_layout(random.Random(SEED + 7081)):
+        station_shape(d, cx, base, w, FIELD_SIL, FIELD_WIN)
+    hx, hy, hw = FIELD_HOME
+    station_shape(d, hx, hy, hw, FIELD_SIL, FIELD_WIN, lit=FIELD_LIT)
+    return im
+
+
 # ============================================================================ registry
 def opaque_grain(k, painter):
     return lambda rng: grain(painter(rng).done(), rng_for(1000 + k))
@@ -3127,6 +3309,8 @@ ASSETS = [  # name, seed index, painter, opaque
     ("end_b_wide", 705, opaque_grain(705, paint_end_b_wide), True),
     ("end_b_cover", 706, opaque_grain(706, paint_end_b_cover), True),
     ("cover_sheet", 707, paint_cover_sheet, False),
+    ("a_surface_wide", 25, paint_surface_wide, False),
+    ("end_b_field", 708, paint_end_b_field, True),
 ]
 
 

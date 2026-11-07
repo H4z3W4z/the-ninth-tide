@@ -54,9 +54,13 @@ const FRAMES_CONTROLS := [
 	["look_body", Rect2(180, 540, 260, 64), "BODY plate"],
 	["look_place", Rect2(594, 540, 260, 64), "PLACE plate"],
 	["look_name", Rect2(1008, 540, 260, 64), "NAME plate"],
-	["rack_identity", Rect2(110, 660, 300, 200), "Card: CONTRACT"],
-	["rack_trace", Rect2(430, 660, 300, 200), "Card: MOVEMENT"],
-	["rack_position", Rect2(750, 660, 300, 200), "Card: POSITION"],
+	["rack_position_b", Rect2(98, 656, 130, 216), "Card: POSITION"],
+	["rack_trace_a", Rect2(236, 656, 130, 216), "Card: MOVEMENT"],
+	["rack_identity", Rect2(374, 656, 130, 216), "Card: CONTRACT"],
+	["rack_trace", Rect2(512, 656, 130, 216), "Card: MOVEMENT"],
+	["rack_identity_b", Rect2(650, 656, 130, 216), "Card: CONTRACT"],
+	["rack_trace_b", Rect2(788, 656, 130, 216), "Card: MOVEMENT"],
+	["rack_position", Rect2(926, 656, 130, 216), "Card: POSITION"],
 	["look_strip", Rect2(1110, 600, 300, 80), "Strip"],
 	["switch", Rect2(1110, 700, 300, 120), "Switch: WITNESS / COPY"],
 	["route", Rect2(1110, 840, 300, 130), "ROUTE"],
@@ -105,7 +109,9 @@ const SFX_DB := {
 	"cup_warm": -16, "counter_type": -12, "paper_cover": -12, "motif_human_b": -8,
 }
 const SFX_SOFT := ["handle_pull", "confirm_stamp", "frames_slide", "slots_close", "yoke_fit", "shutters_open",
-	"launch_engine"]
+	"launch_engine", "throat"]
+## "Soften sudden sounds" cuts 12 dB unless listed here: the throat in the silence is capped at -18.
+const SFX_SOFT_CUT := {"throat": 4.0}
 const LOOPS := ["r12_hum", "r12_pressure", "r12_pressure_low", "r12_surface", "r12_terminal", "end_sea_day",
 	"end_wide"]
 const CROSSFADE := 3.0          # s, a stage's loop change
@@ -141,31 +147,42 @@ const COVER_SLIDE := 1.0
 const GAUGE_C := Vector2(1170, 490)
 const GAUGE_NUM_R := 27.0
 const NEEDLE_PIVOT := Vector2(6, 54)
-const WIN_C := Vector2(724, 346)
-const WIN_RI := 224.0
-## The lid: a thick pale band (a_lid_line, 448 x 22) bent along a sagging curve, clipped to the
-## arch. Before the third look it sweeps top to bottom and waits; after the third look it comes
-## down once and rests across the iris, over a_surface_lid, for good. The curve and the rest
-## line match tools/art/rooms/R12.py (LID_REST, LID_SAG, LID_THICK, LID_HW).
-const LID_X := 500.0
-const LID_HW := 224.0
-const LID_SAG := 44.0
-const LID_REST := 226.0
-const LID_TOP := 60.0           # the band's side edge when it starts above the arch
-const LID_BOT := 380.0
-const LID_RUN := 40.0
-const LID_WAIT := 50.0
-const LID_SETTLE := 6.0         # s, the lid coming down to rest after the third look
-const WIN_BOT := 380.0
-const LID_ALPHA := 1.0
-const LID_ALPHA_STILL := 0.85
+## The surface fills the back wall: a_surface_wide's pane (tools/art/rooms/R12.py GLASS; its iron
+## frame is 12 px inside). GLASS_IN is the water inside the frame.
+const GLASS := Rect2(200, 86, 1048, 344)
+const GLASS_IN := Rect2(212, 98, 1024, 320)
+## What hangs in front of the glass (the conduit, the caged lamp, the column's capital): the lid
+## and the margin are cut round them, so the room stays in front of the water.
+const GLASS_HOLES := [
+	Rect2(964, 0, 32, 404),                                                  # the conduit
+	Rect2(956, 88, 48, 18), Rect2(956, 228, 48, 18), Rect2(956, 358, 48, 18),  # its brass bands
+	Rect2(247, 0, 7, 104), Rect2(232, 100, 36, 22), Rect2(230, 112, 40, 44),  # the caged lamp
+	Rect2(884, 398, 192, 40),                                                # the column's capital
+]
+## The lid: a stark dark band across the whole pane. With Motion it slides top to bottom over
+## LID_RUN once every LID_PERIOD; still, it holds with its top a third of the way down.
+const LID_COLOR := Color("141d29")
+const LID_H := 70.0
+const LID_RUN := 6.0
+const LID_PERIOD := 20.0
+## After P26: the margin of darker water inside the glass edge (storm navy at 0.85).
+const MARGIN_W := 40.0
+const MARGIN_COLOR := Color(0x22 / 255.0, 0x30 / 255.0, 0x3a / 255.0, 0.85)
+## Ending B's morning: warm light on the wall round the pane, never on the water.
+const MORNING := Color("e8c27a")
 const LAMP_B_X0 := 214.0
 const LAMP_B_STEP := 146.0
 const LAMP_B_Y := 160.0
 const FRAMES_B := [130.0, 554.0, 978.0]
 const FRAMES_C := [140.0, 554.0, 968.0]
-const RACK_C := [110.0, 430.0, 750.0]
+## c_frames: seven rack slots (R12Sim.RACK_ORDER), slot i at RACK_X0 + RACK_STEP i.
+const RACK_X0 := 98.0
+const RACK_STEP := 138.0
+const RACK_SLOT := Vector2(130, 216)
+const RACK_Y := 656.0
+const TAB := Vector2(118, 196)  # a card standing in its slot
 const RACK_B_X0 := 572.0        # view B: pocket i at RACK_B_X0 + 108 i
+const FELT := Color("30463f")
 const STRIP_RECT := Rect2(1122, 612, 236, 56)
 const SWITCH_AT := Vector2(1110, 700)
 const ROUTE_AT := Vector2(1110, 840)
@@ -199,6 +216,12 @@ const TERM_LINES := [
 const COVER_STRIP := "LOCAL SURVEY: ONE OF…"
 const COVER_LINE := "Nora Bell took her tea without sugar. Begin there."
 const COVER_LINE_ROWS := ["Nora Bell took her tea without sugar.", "Begin there."]
+## The kitchen's window in end_b_field (tools/art/rooms/R12.py FIELD_LIT_AT).
+const FIELD_GLOW := Vector2(724, 573)
+## The ending's 'click to continue' mark, bottom right above the subtitles.
+const CONT_RECT := Rect2(1262, 940, 150, 40)
+const CONT_HZ := 0.5
+const AUTO_NEXT := 12.0         # s after the mark appears, the page turns by itself
 
 var r: R12Sim:
 	get:
@@ -214,8 +237,6 @@ var mixer: LoopMixer
 # --- presentation clocks (never saved) ---------------------------------------------------------
 var hold_t := 0.0              # the arrival hold, seconds left
 var needle_a := 133.0          # the gauge needle's resting angle, degrees from straight up
-var lid_looks_seen := -1       # window_looks last seen by the view (-1 = not yet read)
-var lid_rest_t0 := -1.0        # time the lid began coming down to rest (-1 = already resting)
 var withdraw_pending := false  # P26 committed; the surface has not yet drawn back on screen
 var withdraw_t0 := -1.0        # time the withdrawal began (-1 = none)
 var slide_pending := false     # P25: the frames wait for the frames_slide sound
@@ -251,6 +272,10 @@ var pencil_t0 := []
 var counter_t0 := -1.0
 var paper_t0 := -1.0
 var cover_line_t0 := -1.0
+var page_spoke := false        # the page's first line has gone up (ends SEVER's silence)
+var wide_second := false       # CONTINUE's wide page: its second line has gone up
+var wide_second_t := -1.0
+var cont_t0 := -1.0            # the 'continue' mark appeared (-1 = not yet)
 
 func _ready() -> void:
 	var layer := CanvasLayer.new()
@@ -300,16 +325,6 @@ func _stage() -> int:
 			return 1
 	return 0
 
-func _window_looks() -> int:
-	return int(r.state.get("window_looks", 0)) if r != null else 0
-
-## The lid has been seen to cross (the third look) and now rests over the iris.
-func _lid_rested() -> bool:
-	return _window_looks() >= 3
-
-func _lid_rest_k() -> float:
-	return _k(lid_rest_t0, LID_SETTLE) if lid_rest_t0 >= 0.0 else 1.0
-
 func _now() -> float:
 	return time
 
@@ -338,10 +353,6 @@ func tick(dt: float) -> void:
 		hold_t = maxf(0.0, hold_t - dt)
 	var target := 118.0 if _stage() >= 2 else 133.0
 	needle_a = move_toward(needle_a, target, dt * 6.0) if motion else target
-	var looks := _window_looks()
-	if lid_looks_seen >= 0 and lid_looks_seen < 3 and looks >= 3:
-		lid_rest_t0 = _now()
-	lid_looks_seen = looks
 	if strip_since >= 0.0 and _now() - strip_since > 14.0:
 		_strip_clear()
 	if not strip_queue.is_empty() and strip_starts.size() == strip_queue.size():
@@ -362,6 +373,7 @@ func tick(dt: float) -> void:
 	if _in_ending() and cur_tab == "end_b_cover" and cover_line_t0 < 0.0 and game != null \
 			and game.cur_text == COVER_LINE:
 		cover_line_t0 = _now()
+	_tick_ending()
 	tab_prev.visible = _in_ending() and prev_tab != "" and _since(fade_t0) < TAB_FADE
 	tab_cur.visible = _in_ending()
 	caption_node.visible = _in_ending()
@@ -369,6 +381,49 @@ func tick(dt: float) -> void:
 	close.visible = _view() in ["c_frames", "c_routing", "c_final"]
 	_tick_audio(dt)
 	redraw()
+
+## The ending's own clock: which of the page's lines have gone up, and the 'continue' mark once
+## the page has finished (its lines read, its sounds played). Unanswered, the mark turns the
+## page itself after AUTO_NEXT: presentation timing only; the sim just sees ending_next.
+func _tick_ending() -> void:
+	if not _in_ending() or game == null or r.chosen() == "":
+		cont_t0 = -1.0
+		return
+	var st: Dictionary = R12Sim.steps(r.chosen())[r.ending_step()]
+	var said: Array = st.lines
+	if not page_spoke and not said.is_empty() and game.cur_text == said[0][1]:
+		page_spoke = true
+	if cur_tab == "end_b_wide" and not wide_second and said.size() > 1 and game.cur_text == said[1][1]:
+		wide_second = true
+		wide_second_t = _now()
+	if page_finished():
+		if cont_t0 < 0.0:
+			cont_t0 = _now()
+		elif _now() - cont_t0 >= AUTO_NEXT:
+			cont_t0 = -1.0
+			game.dispatch("ending_next")
+	else:
+		cont_t0 = -1.0
+
+## The page on show has said everything and played every sound, and its last line has had
+## its read time.
+func page_finished() -> bool:
+	if not _in_ending() or game == null:
+		return false
+	if not tab_done and (cur_step != r.ending_step() or _now() - tab_t0 < 0.5):
+		return false
+	return not game.chain_active() and game.lines.is_empty() and game.pending_sfx.is_empty()
+
+func cont_visible() -> bool:
+	return cont_t0 >= 0.0
+
+## The mark's alpha: a 0.5 Hz pulse between 0.45 and 1.0, or a still 0.8 with Motion off.
+func cont_alpha() -> float:
+	if not cont_visible():
+		return 0.0
+	if not motion:
+		return 0.8
+	return lerpf(0.45, 1.0, 0.5 + 0.5 * cos(TAU * CONT_HZ * (_now() - cont_t0)))
 
 func redraw() -> void:
 	queue_redraw()
@@ -384,14 +439,26 @@ func redraw() -> void:
 static func _lin(db: float) -> float:
 	return db_to_linear(db)
 
+## The chamber's bed, loud enough to be heard on a laptop: the eight hums lift a dB after P25.
+func hum_db() -> float:
+	return -9.0 if _stage() == 0 else -8.0
+
+const PRESSURE_DB := -10.0
+const SURFACE_DB := -14.0
+const TERMINAL_DB := -20.0
+const R12_LOOPS := ["r12_hum", "r12_pressure", "r12_pressure_low", "r12_surface", "r12_terminal"]
+const LINE_OUT_FADE := 0.5      # s, each eighth of the hum after its line goes out
+const WIDE_DUCK_DB := -40.0     # the silence before "Around it, more windows..."
+const WIDE_DUCK_AT := 3.0       # s into the page: the first line has been read
+
 func loop_targets() -> Dictionary:
 	var s := _stage()
 	var t := {
-		"r12_hum": _lin(-16.0 if s == 0 else -15.0),
-		"r12_pressure": _lin(-15.0) if s < 2 else 0.0,
-		"r12_pressure_low": _lin(-15.0) if s >= 2 else 0.0,
-		"r12_surface": _lin(-22.0),
-		"r12_terminal": _lin(-20.0) if s >= 1 and not terminal_pending else 0.0,
+		"r12_hum": _lin(hum_db()),
+		"r12_pressure": _lin(PRESSURE_DB) if s < 2 else 0.0,
+		"r12_pressure_low": _lin(PRESSURE_DB) if s >= 2 else 0.0,
+		"r12_surface": _lin(SURFACE_DB),
+		"r12_terminal": _lin(TERMINAL_DB) if s >= 1 and not terminal_pending else 0.0,
 		"end_sea_day": 0.0,
 		"end_wide": 0.0,
 	}
@@ -401,7 +468,11 @@ func loop_targets() -> Dictionary:
 	var step := r.ending_step()
 	if choice == "sever":
 		var out := lines_out if step == 0 and not tab_done else 8
-		t["r12_hum"] = _lin(-15.0) * float(8 - out) / 8.0
+		t["r12_hum"] = _lin(hum_db()) * float(8 - out) / 8.0
+		if sever_silence():
+			# the last line has gone out: nothing at all, no bed, until the next page speaks
+			for id in R12_LOOPS:
+				t[id] = 0.0
 		if step >= 7:
 			t["r12_terminal"] = 0.0
 		if step >= 8:
@@ -409,13 +480,28 @@ func loop_targets() -> Dictionary:
 			t["r12_surface"] = 0.0
 			t["end_sea_day"] = _lin(-12.0)
 	else:
-		t["r12_hum"] = _lin(-15.0)
-		t["r12_terminal"] = _lin(-20.0)
+		t["r12_hum"] = _lin(hum_db())
+		t["r12_terminal"] = _lin(TERMINAL_DB)
 		if step >= 8:
-			for id in ["r12_hum", "r12_pressure", "r12_pressure_low", "r12_surface", "r12_terminal"]:
+			for id in R12_LOOPS:
 				t[id] = 0.0
-			t["end_wide"] = _lin(-14.0)
+			t["end_wide"] = _lin(WIDE_DUCK_DB) if wide_duck() else _lin(-14.0)
 	return t
+
+## SEVER: from the moment the eighth line goes out until the next page's first line types,
+## every chamber loop holds at 0.
+func sever_silence() -> bool:
+	if r == null or r.chosen() != "sever" or tab_done:
+		return false
+	var step := r.ending_step()
+	if step == 0:
+		return lines_out >= 8
+	return step == 1 and not page_spoke
+
+## CONTINUE's wide page: the gap between its two lines is silence.
+func wide_duck() -> bool:
+	return r != null and r.chosen() == "continue" and cur_tab == "end_b_wide" and not tab_done \
+		and not wide_second and _now() - tab_t0 >= WIDE_DUCK_AT
 
 func loop_rates() -> Dictionary:
 	var rates := {}
@@ -426,8 +512,15 @@ func loop_rates() -> Dictionary:
 		if step >= 8:
 			for id in LOOPS:
 				rates[id] = _lin(-12.0) / ENDING_FADE
-		elif r.chosen() == "sever" and step == 0:
-			rates["r12_hum"] = _lin(-15.0) / 8.0 / 0.5   # each eighth over half a second
+		elif r.chosen() == "sever" and step <= 1:
+			# each eighth of the hum over half a second as its line goes out (the gaps come from
+			# the step's sfx table); after the eighth, the rest of the bed goes as fast
+			rates["r12_hum"] = _lin(hum_db()) / 8.0 / LINE_OUT_FADE
+			if sever_silence():
+				for id in ["r12_pressure", "r12_pressure_low", "r12_surface", "r12_terminal"]:
+					rates[id] = _lin(PRESSURE_DB) / LINE_OUT_FADE
+		if wide_duck() or (cur_tab == "end_b_wide" and wide_second and _now() - wide_second_t < 1.0):
+			rates["end_wide"] = _lin(-14.0) / 0.3
 	return rates
 
 func _tick_audio(dt: float) -> void:
@@ -544,6 +637,10 @@ func _start_step(step: int, tab: String, change: String) -> void:
 	counter_t0 = -1.0
 	paper_t0 = -1.0
 	cover_line_t0 = -1.0
+	page_spoke = false
+	wide_second = false
+	wide_second_t = -1.0
+	cont_t0 = -1.0
 
 func start_glance(target: String, _rect: Rect2) -> bool:
 	if target != "window" or _view() != "room":
@@ -560,8 +657,6 @@ func consume_click(_p: Vector2) -> bool:
 
 func apply_instantly() -> void:
 	hold_t = 0.0
-	lid_looks_seen = -1
-	lid_rest_t0 = -1.0
 	needle_a = 118.0 if _stage() >= 2 else 133.0
 	withdraw_pending = false
 	withdraw_t0 = -1.0
@@ -580,6 +675,10 @@ func apply_instantly() -> void:
 	fit_what = ""
 	prev_tab = ""
 	fade_t0 = -99.0
+	cont_t0 = -1.0
+	page_spoke = false
+	wide_second = false
+	wide_second_t = -1.0
 	if r != null and r.chosen() != "":
 		cur_tab = r.tableau()
 		cur_step = r.ending_step()
@@ -779,16 +878,14 @@ func _draw_view_a(c: CanvasItem, tab: String) -> void:
 	match tab:
 		"a_day":
 			_full(c, "a_daylight")
-		"a_sit":
-			_full(c, "a_surface_withdrawn")
-		"a_morning":
-			_full(c, "a_morning")
+		"a_sit", "a_morning":
+			# it stays drawn back from the glass; the morning never reaches the water
+			_full(c, "a_surface_wide")
+			_draw_margin(c, 1.0)
 		_:
-			_full(c, "a_surface")
-			if _lid_rested():
-				_full(c, "a_surface_lid", _lid_rest_k())
-			if s >= 2 and not withdraw_pending:
-				_full(c, "a_surface_withdrawn", _withdraw_k())
+			_full(c, "a_surface_wide")
+			if s >= 2:
+				_draw_margin(c, _withdraw_k())
 	if tab == "":
 		_draw_lid(c)
 	# the stage marks on the chamber itself: the tide line rising up the wainscot, the gauge's
@@ -807,58 +904,92 @@ func _draw_view_a(c: CanvasItem, tab: String) -> void:
 	if tab in ["a_sit", "a_morning"]:
 		_full(c, "a_ada_seated")
 	_draw_gauge(c, tab)
+	if tab == "a_morning":
+		_draw_morning(c)
 
 func _withdraw_k() -> float:
 	if _stage() < 2 or withdraw_pending:
 		return 0.0
 	return _k(withdraw_t0, WITHDRAW_TIME) if withdraw_t0 >= 0.0 else 1.0
 
-## The lid: before the third look a band sweeping top to bottom, then a long wait; after it,
-## the band comes down once and rests across the iris. Gone once the surface has drawn back.
+## Where the lid band's top edge is now (y), or NAN while it waits between passes. With Motion
+## it slides from just above the water to just below it over LID_RUN, once every LID_PERIOD;
+## still, its top holds a third of the way down the glass.
+func lid_top() -> float:
+	if not motion:
+		return GLASS_IN.position.y + GLASS_IN.size.y / 3.0
+	var ph := fposmod(time, LID_PERIOD)
+	if ph > LID_RUN:
+		return NAN
+	return lerpf(GLASS_IN.position.y - LID_H, GLASS_IN.end.y, ph / LID_RUN)
+
+## The lid: a stark dark band across the full width of the glass, clipped to it. Gone once the
+## surface has drawn back (P26).
 func _draw_lid(c: CanvasItem) -> void:
-	var t := _tex("a_lid_line")
-	if t == null:
+	var a := 1.0 - _withdraw_k()
+	var y := lid_top()
+	if a <= 0.0 or is_nan(y):
 		return
-	var a := LID_ALPHA * (1.0 - _withdraw_k())
-	if a <= 0.0:
+	_glass_rect(c, Rect2(GLASS_IN.position.x, y, GLASS_IN.size.x, LID_H), Color(LID_COLOR, a))
+
+## The margin of darker water inside the glass edge, faded in by k.
+func _draw_margin(c: CanvasItem, k: float) -> void:
+	if k <= 0.0:
 		return
-	var y_edge := LID_REST
-	if _lid_rested():
-		y_edge = lerpf(LID_TOP, LID_REST, _lid_rest_k())
-	elif motion:
-		var ph := fposmod(time, LID_RUN + LID_WAIT)
-		if ph > LID_RUN:
-			return
-		y_edge = lerpf(LID_TOP, LID_BOT, ph / LID_RUN)
-	else:
-		a *= LID_ALPHA_STILL
-	_draw_lid_band(c, t, y_edge, a)
+	var col := Color(MARGIN_COLOR, MARGIN_COLOR.a * k)
+	var g := GLASS_IN
+	var m := MARGIN_W
+	_glass_rect(c, Rect2(g.position.x, g.position.y, g.size.x, m), col)
+	_glass_rect(c, Rect2(g.position.x, g.end.y - m, g.size.x, m), col)
+	_glass_rect(c, Rect2(g.position.x, g.position.y + m, m, g.size.y - 2.0 * m), col)
+	_glass_rect(c, Rect2(g.end.x - m, g.position.y + m, m, g.size.y - 2.0 * m), col)
 
-## The band bent along the lid curve (side edge at y_edge, sagging LID_SAG at the centre),
-## each vertex clamped into the arch so the band thins to nothing at the glass's edge.
-static func _lid_arch_top(x: float) -> float:
-	var dx := x - WIN_C.x
-	return WIN_C.y - sqrt(maxf(0.0, WIN_RI * WIN_RI - dx * dx))
+## Fills `rect` clipped to the water and cut round what hangs in front of it.
+func _glass_rect(c: CanvasItem, rect: Rect2, col: Color) -> void:
+	var parts := [rect.intersection(GLASS_IN)]
+	for hole in GLASS_HOLES:
+		var next := []
+		for p in parts:
+			next.append_array(_minus(p, hole))
+		parts = next
+	for p in parts:
+		if p.size.x > 0.0 and p.size.y > 0.0:
+			c.draw_rect(p, col)
 
-func _draw_lid_band(c: CanvasItem, t: Texture2D, y_edge: float, a: float) -> void:
-	var th := t.get_size().y
-	var n := 28
-	var col := Color(1, 1, 1, a)
-	for i in n:
-		var xs := [WIN_C.x - LID_HW + 2.0 * LID_HW * i / n, WIN_C.x - LID_HW + 2.0 * LID_HW * (i + 1) / n]
-		var pts := PackedVector2Array()
-		var uvs := PackedVector2Array()
-		for j in [0, 1, 1, 0]:
-			var x: float = xs[j]
-			var dx := (x - WIN_C.x) / LID_HW
-			var yt := y_edge + LID_SAG * maxf(0.0, 1.0 - dx * dx)
-			var top := _lid_arch_top(x)
-			var edge_y := yt if (pts.size() < 2) else yt + th
-			var y := clampf(edge_y, top, WIN_BOT)
-			pts.append(Vector2(x, y))
-			uvs.append(Vector2((x - LID_X) / t.get_size().x, (y - yt) / th))
-		if pts[3].y - pts[0].y > 0.5 or pts[2].y - pts[1].y > 0.5:
-			c.draw_polygon(pts, PackedColorArray([col, col, col, col]), uvs, t)
+## `a` less `b`, as up to four rectangles.
+static func _minus(a: Rect2, b: Rect2) -> Array:
+	if a.size.x <= 0.0 or a.size.y <= 0.0:
+		return []
+	if not a.intersects(b):
+		return [a]
+	var i := a.intersection(b)
+	var out := []
+	if i.position.y > a.position.y:
+		out.append(Rect2(a.position.x, a.position.y, a.size.x, i.position.y - a.position.y))
+	if i.end.y < a.end.y:
+		out.append(Rect2(a.position.x, i.end.y, a.size.x, a.end.y - i.end.y))
+	if i.position.x > a.position.x:
+		out.append(Rect2(a.position.x, i.position.y, i.position.x - a.position.x, i.size.y))
+	if i.end.x < a.end.x:
+		out.append(Rect2(i.end.x, i.position.y, a.end.x - i.end.x, i.size.y))
+	return out
+
+## Ending B's morning: warm light down the wall round the pane (strongest high up, gone by the
+## wainscot), never on the water. Flat bands, no flicker.
+func _draw_morning(c: CanvasItem) -> void:
+	var g := GLASS
+	var bands := [
+		Rect2(0, 0, SIZE.x, g.position.y),                                  # over the pane
+		Rect2(0, g.position.y, g.position.x, g.size.y),                     # left of it
+		Rect2(g.end.x, g.position.y, SIZE.x - g.end.x, g.size.y),           # right of it
+	]
+	for b in bands:
+		_vgrad(c, b, Color(MORNING, 0.34), Color(MORNING, 0.24))
+	_vgrad(c, Rect2(0, g.end.y, SIZE.x, 700.0 - g.end.y), Color(MORNING, 0.24), Color(MORNING, 0.0))
+
+static func _vgrad(c: CanvasItem, r: Rect2, top: Color, bot: Color) -> void:
+	var pts := PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
+	c.draw_polygon(pts, PackedColorArray([top, top, bot, bot]))
 
 func _draw_gauge(c: CanvasItem, tab: String) -> void:
 	# Nine tide ticks at the rim; the odd numerals inside them. The face (r 46) is too small for
@@ -911,16 +1042,19 @@ func _draw_view_b(c: CanvasItem, tab: String) -> void:
 		for line in ["AUTOMATIC", "COUNTERSIGN", "AVAILABLE."]:
 			_ctext(c, line, 328, y, 12, INK, f)
 			y += 15.0
-	# the cards: in a frame window or in the rack, until the record is routed
+	# the cards: in a frame window or in the rack, until the record is routed. The three painted
+	# pockets are covered and the seven cards stand in a row across them, in their rack order.
 	var fr := r.frames()
 	for i in 3:
-		var px: float = RACK_B_X0 + 108 * i
-		var cid: String = R12Sim.RACK_ORDER[i]
-		if s >= 1 or not r.card_in_rack(cid):
-			# its pocket is empty: the painted card above the pocket front is covered
-			c.draw_rect(Rect2(px + 6, 762, 88, 37), TIMBER)
-		else:
-			_sprite(c, "card", Vector2(px + 2, 764), 1.0, 0.32)
+		c.draw_rect(Rect2(RACK_B_X0 + 108 * i + 6, 762, 88, 37), TIMBER)
+	if s == 0:
+		for i in R12Sim.RACK_ORDER.size():
+			var cid: String = R12Sim.RACK_ORDER[i]
+			if r.card_in_rack(cid):
+				var at := Vector2(RACK_B_X0 + 2 + 46 * i, 760)
+				c.draw_rect(Rect2(at, Vector2(42, 40)), ENAMEL)
+				c.draw_rect(Rect2(at, Vector2(42, 40)), INK, false, 1.5)
+				c.draw_line(at + Vector2(6, 10), at + Vector2(36, 10), Color(INK, 0.6), 1.5)
 	if s == 0:
 		for i in 3:
 			var cid: String = fr[R12Sim.FRAME_IDS[i]]
@@ -1108,6 +1242,13 @@ func _draw_c_frames(c: CanvasItem) -> void:
 	for i in 3:
 		var fid: String = R12Sim.FRAME_IDS[i]
 		var plate := Rect2(FRAMES_C[i] + 40, 540, 260, 64)
+		if r.plate_mismatch(fid):
+			# a card of its own kind that isn't hers: the plate stays lit and says so (no flash)
+			c.draw_rect(plate, Color(AMBER_HI, 0.6))
+			c.draw_rect(plate.grow(2.0), BRUISE, false, 3.0)
+			_ctext(c, "DOES NOT CORRESPOND", plate.get_center().x, plate.position.y + 27, 18, INK, f)
+			_ctext(c, "TO OBSERVER", plate.get_center().x, plate.position.y + 51, 18, INK, f)
+			continue
 		if r.last_lamp_frame == fid and not done:
 			var lit := (not motion) or (lamp_t0 >= 0.0 and _now() - lamp_t0 < LAMP_LIT_TIME)
 			if lit:
@@ -1127,24 +1268,55 @@ func _draw_c_frames(c: CanvasItem) -> void:
 				_card(c, cid, cen - Vector2(150, 100) * s, s, Color(1, 1, 1).darkened(0.35 * slide))
 			else:
 				_card(c, cid, at)
-	for i in 3:
+	# the rack: seven slots over the painted wells, each card standing in its own
+	c.draw_rect(Rect2(104, 652, 960, 218), FELT)
+	for i in R12Sim.RACK_ORDER.size() + 1:
+		var x := RACK_X0 + RACK_STEP * i - 4.0
+		c.draw_rect(Rect2(x, 652, 4, 218), TIMBER)
+		c.draw_line(Vector2(x, 652), Vector2(x, 870), INK, 1.5)
+	for i in R12Sim.RACK_ORDER.size():
 		var cid: String = R12Sim.RACK_ORDER[i]
-		var at := Vector2(RACK_C[i], 660)
+		var at := Vector2(RACK_X0 + RACK_STEP * i, RACK_Y) + Vector2(6, 12)
 		if r.held_card() == cid:
+			# lifted out of its slot (Motion off: in place, ringed in brass); she reads it aloud
 			if motion:
-				c.draw_rect(Rect2(at + Vector2(8, 10 - LIFT), Vector2(300, 200)), SHADOW)
-				_card(c, cid, at - Vector2(0, LIFT))
+				c.draw_rect(Rect2(at + Vector2(6, 8 - LIFT), TAB), SHADOW)
+				_tab(c, cid, at - Vector2(0, LIFT), false)
 			else:
-				_card(c, cid, at)
-				c.draw_rect(Rect2(at, Vector2(300, 200)).grow(1.5), BRASS, false, 3.0)
+				_tab(c, cid, at, false)
+				c.draw_rect(Rect2(at, TAB).grow(2.0), BRASS, false, 3.0)
 		elif r.card_in_rack(cid):
-			_card(c, cid, at)
+			_tab(c, cid, at)
 	# the switch, the ROUTE key, the strip
 	_sprite(c, "switch_witness" if r.switch() == "witness" else "switch_copy", SWITCH_AT)
 	_rtext(c, "WITNESS", Rect2(SWITCH_AT + Vector2(22, 22), Vector2(82, 22)), 16, INK, f)
 	_rtext(c, "COPY", Rect2(SWITCH_AT + Vector2(196, 22), Vector2(82, 22)), 16, INK, f)
 	_sprite(c, "route_key_turned" if done else "route_key", ROUTE_AT)
 	_draw_strip(c)
+
+## A card standing in its rack slot: its category large, then the start of its face.
+func _tab(c: CanvasItem, cid: String, at: Vector2, shadow := true) -> void:
+	var rect := Rect2(at, TAB)
+	if shadow:
+		c.draw_rect(Rect2(at + Vector2(4, 5), TAB), Color(SHADOW, 0.25))
+	c.draw_rect(rect, ENAMEL)
+	c.draw_rect(rect, INK, false, 2.0)
+	var f := Ink.serif()
+	var cat: String = r.card_header(cid).get_slice(" ", 0)
+	_ctext(c, cat, rect.get_center().x, at.y + 26, 15, INK, f)
+	c.draw_line(at + Vector2(8, 34), at + Vector2(TAB.x - 8, 34), Color(INK, 0.5), 1.0)
+	var y := at.y + 54
+	var rows := []
+	for line in r.card_text(cid):
+		rows.append_array(_wrap(str(line), TAB.x - 14, 13, f))
+	for k in rows.size():
+		if y > at.y + TAB.y - 10:
+			break
+		var row: String = rows[k]
+		if y + 17 > at.y + TAB.y - 10 and k < rows.size() - 1:
+			row += " …"
+		_ltext(c, row, at.x + 7, y, 13, INK, f)
+		y += 17.0
 
 ## A card at `at` (top-left), scale s: the painted card with its printed face.
 func _card(c: CanvasItem, cid: String, at: Vector2, s := 1.0, mod := Color(1, 1, 1)) -> void:
@@ -1423,14 +1595,13 @@ func _draw_terminal(c: CanvasItem, id: String, done: bool) -> void:
 			Ink.handwriting(c, s, n, Vector2(250, y), 22, 40 + i, n < s.length(), PENCIL)
 
 func _draw_wide(c: CanvasItem) -> void:
-	_full(c, "end_b_wide")
+	_full(c, "end_b_field")
 	var a := 0.22
 	if motion:
 		a = 0.16 + 0.10 * (0.5 + 0.5 * sin(TAU * 0.1 * time))
-	var at := Vector2(875, 614)
 	# a smooth falloff: many faint discs, each a little smaller and stacked toward the window
-	for k in 16:
-		c.draw_circle(at, 76.0 - 4.2 * k, Color(AMBER_HI, a * 0.16))
+	for k in 12:
+		c.draw_circle(FIELD_GLOW, 40.0 - 3.0 * k, Color(AMBER_HI, a * 0.16))
 
 func _draw_cover(c: CanvasItem, done: bool) -> void:
 	_full(c, "end_b_cover")
@@ -1455,7 +1626,10 @@ func _draw_cover(c: CanvasItem, done: bool) -> void:
 
 ## Her lines while the HUD is hidden: the same typed subtitle, on the ending's own slab.
 func _draw_caption() -> void:
-	if game == null or game.cur_text == "":
+	if game == null:
+		return
+	_draw_cont(caption_node)
+	if game.cur_text == "":
 		return
 	var c := caption_node
 	var f := Ink.serif()
@@ -1473,3 +1647,18 @@ func _draw_caption() -> void:
 		y += 30.0
 	if game.chain_active():
 		_ltext(c, "▸", 1392, 1040, 22, Color(PAPER, 0.55), f)
+
+## 'continue': a small ink chevron and the word on a paper chip, pulsing at CONT_HZ between
+## 0.45 and 1.0 (Motion off: still, at 0.8).
+func _draw_cont(c: CanvasItem) -> void:
+	if not cont_visible():
+		return
+	var a := cont_alpha()
+	var rect := CONT_RECT
+	c.draw_rect(rect, Color(PAPER, 0.92 * a))
+	c.draw_rect(rect, Color(INK, a), false, 1.5)
+	var f := Ink.serif()
+	_ltext(c, "continue", rect.position.x + 16, rect.position.y + 27, 18, Color(INK, a), f)
+	var x := rect.end.x - 26.0
+	var y := rect.get_center().y
+	c.draw_polyline(PackedVector2Array([Vector2(x, y - 8), Vector2(x + 9, y), Vector2(x, y + 8)]), Color(INK, a), 2.5)
