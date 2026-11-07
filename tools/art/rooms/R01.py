@@ -607,7 +607,7 @@ def paint_lighthouse(cv, lamp: str, haze=0.0, sky=SEAGLASS):
     cv.ell(1210, 293, 2, 2, fill=INK, ink=None)
 
 
-def paint_sea_texture(cv, sea0, sea1, lay_seed, tilt=0.0, x_from=0):
+def paint_sea_texture(cv, sea0, sea1, lay_seed, tilt=0.0, x_from=0, calm=True):
     """Static, quiet sea: long flat strokes, darker and lighter, larger toward the viewer."""
     r = random.Random(lay_seed)
     dark = cv.layer()
@@ -624,8 +624,9 @@ def paint_sea_texture(cv, sea0, sea1, lay_seed, tilt=0.0, x_from=0):
         col = mix(sea1, INK, 0.35) if tgt is dark else mix(sea0, PAPER, 0.25)
         sag = 1 + t * 3
         tgt.stroke([(x, yy), (x + ln * 0.5, yy + sag * 0.6), (x + ln, yy)], 1.0 + t * 1.6, col, jitter=0.1)
-    cut_calm(dark, 1.0)
-    cut_calm(light, 1.0)
+    if calm:
+        cut_calm(dark, 1.0)
+        cut_calm(light, 1.0)
     cv.comp(dark, 0.45)
     cv.comp(light, 0.35)
 
@@ -714,35 +715,73 @@ def back_b7():
     # it is lit faintly from above: a paler upper band, then it goes on down, unlit
     tint(cv, mul_masks(sm, grad_mask(0, 170, W, 420, 0.3, 0.0)), mix(surf, SEAGLASS, 0.3))
     tint(cv, mul_masks(sm, grad_mask(0, 600, W, 868, 0.0, 0.45)), mix(surf, INK, 0.5))
-    # immense, faint vertical pleats: it is not flat, it is too big to be anything else
-    p = cv.layer()
-    for k in range(6):
-        cx = SURF_LEFT + 140 + k * 200 + r.uniform(-30, 30)
-        p.fillpoly([(cx - 34, 160), (cx + 34, 160), (cx + 40, 868), (cx - 40, 868)], mix(surf, INK, 0.6))
-    cv.comp(p, 0.2, mask=sm)
-    g = cv.layer()
-    for i in range(240):
-        x = r.uniform(SURF_LEFT, W)
-        y0 = r.uniform(surf_top(x) + 8, 520)
-        ln = r.uniform(200, 620)
-        col = mix(surf, SEAGLASS, 0.18) if r.random() < 0.3 else mix(surf, INK, 0.55)
-        g.stroke([(x, y0), (x + r.uniform(-0.5, 0.5), min(866, y0 + ln))], r.uniform(0.8, 1.3), col, jitter=0.03)
-    cv.comp(g, 0.3, mask=sm)
-    # the hard edge is a value step, not a line: only the shadowed left flank is darkened
-    tint(cv, mul_masks(sm, grad_mask(SURF_LEFT - 14, 0, SURF_LEFT + 40, H, 0.5, 0.0, axis="x")), mix(surf, INK, 0.6))
-    # what only the surface shows: the lit office window, registered, faint, mirrored on it
-    wx, wy = 1010, 300
-    refl = cv.layer()
-    refl.rect(wx - 6, wy - 6, wx + 66, wy + 66, fill=mix(surf, COPPER, 0.6), ink=None)
-    refl.rect(wx, wy, wx + 60, wy + 60, fill=mix(AMBER, surf, 0.2), ink=None)
-    refl.box(wx + 6, wy + 6, wx + 54, wy + 54, mix(AMBER, PAPER, 0.2))
-    # the figure at the desk, mirrored: head and shoulders, the head above the sill
-    refl.fillpoly(smooth([(wx + 12, wy + 60), (wx + 14, wy + 46), (wx + 22, wy + 40), (wx + 38, wy + 40),
-                          (wx + 46, wy + 46), (wx + 48, wy + 60)], 4), mix(SOOT, surf, 0.2))
-    refl.ell(wx + 30, wy + 30, 8, 9.5, fill=mix(SOOT, surf, 0.2), ink=None)
-    refl.box(wx + 28, wy, wx + 32, wy + 60, mix(INK, surf, 0.2))
-    refl.box(wx, wy + 28, wx + 60, wy + 32, mix(INK, surf, 0.2))
-    cv.comp(refl, 0.32)
+    # it is water, standing up: the band's own wave-line strokes, turned to run vertically,
+    # longer and heavier toward the bottom the way the near sea's are toward the viewer. No
+    # straight seams: every stroke sags sideways like a wave crest does downward.
+    wl = cv.layer()
+    lay_r = random.Random(seed_of("R01:b7_upright"))
+    for i in range(300):
+        x = lay_r.uniform(SURF_LEFT + 6, W + 20)
+        top = surf_top(x) + 10
+        y = top + (lay_r.random() ** 0.9) * (858 - top)
+        t = (y - top) / max(1.0, 858 - top)
+        ln = 16 + t * 70 * lay_r.uniform(0.6, 1.3)
+        if y + ln > 862:
+            continue
+        sag = (0.8 + t * 2.6) * (1 if lay_r.random() < 0.5 else -1)
+        pts = smooth([(x + sag * 0.3, y), (x - sag, y + ln * 0.3), (x - sag * 0.7, y + ln * 0.7),
+                      (x + sag * 0.2, y + ln)], 4)
+        light = lay_r.random() < 0.55
+        wl.stroke(pts, 1.0 + t * 1.6, mix(surf, SEAGLASS, 0.55) if light else mix(surf, INK, 0.55), jitter=0.06)
+    cv.comp(wl, 0.55, mask=sm)
+    # beyond the surface, small and wrong way up: the lighthouse, lamp lit, hanging from its
+    # own base line as if the headland were above it
+    deep = cv.layer()
+    lx, ly = 1246, 262          # the base line it hangs from
+    white = mix(PAPER, surf, 0.35)
+    bandc = mix(STORM, surf, 0.2)
+    deep.fillpoly(smooth([(lx - 76, ly), (lx - 50, ly - 10), (lx - 18, ly - 22), (lx + 26, ly - 22),
+                          (lx + 52, ly - 12), (lx + 80, ly)], 5), mix(mix(STORM, COPPER, 0.45), SEAGLASS, 0.3))
+    deep.fillpoly([(lx - 10, ly), (lx + 10, ly), (lx + 8, ly + 62), (lx - 8, ly + 62)], white)
+    deep.box(lx - 9.4, ly + 26, lx + 9.4, ly + 35, bandc)
+    deep.box(lx - 17, ly + 62, lx + 17, ly + 66, bandc)
+    deep.box(lx - 14, ly + 66, lx + 14, ly + 84, mix(AMBER, PAPER, 0.25))
+    deep.fillpoly([(lx - 16, ly + 84), (lx + 16, ly + 84), (lx, ly + 96)], bandc)
+    deep.box(lx - 0.8, ly + 96, lx + 0.8, ly + 102, bandc)
+    cv.comp(deep, 0.55, mask=sm)
+    # the station, faint and upside down in it (flat shapes), its office window lit, someone
+    # at the desk, head down
+    inv = cv.layer()
+    ox, top = 860, 226           # the inverted walls' top edge (the station's foot)
+    walls = mix(PAPER, SEAGLASS, 0.18)
+    inv.box(ox + 30, top, ox + 300, top + 220, walls)                 # walls 220 tall
+    inv.box(ox + 30, top + 93, ox + 300, top + 100, COPPER)           # floor band, inverted
+    inv.fillpoly([(ox + 18, top + 220), (ox + 312, top + 220), (ox + 252, top + 270),
+                  (ox + 78, top + 270)], mix(STORM, SEAGLASS, 0.55))  # roof, hanging below
+    inv.box(ox + 234, top + 270, ox + 254, top + 310, mix(TIMBER, PAPER, 0.2))   # chimney
+    inv.box(ox + 196, top, ox + 240, top + 80, STORM)                 # door
+    inv.box(ox + 70, top + 30, ox + 110, top + 74, mix(STORM, SEAGLASS, 0.18))
+    inv.box(ox + 190, top + 120, ox + 250, top + 180, mix(STORM, SEAGLASS, 0.18))
+    wx, wy = ox + 110, top + 120                                      # the office window
+    inv.box(wx - 6, wy - 6, wx + 66, wy + 66, COPPER)
+    inv.box(wx, wy, wx + 60, wy + 60, AMBER)
+    inv.box(wx + 6, wy + 6, wx + 54, wy + 54, mix(AMBER, PAPER, 0.3))
+    body = (24, 30, 36)
+    inv.fillpoly(smooth([(wx + 7, wy), (wx + 9, wy + 14), (wx + 16, wy + 22), (wx + 26, wy + 25),
+                         (wx + 34, wy + 25), (wx + 44, wy + 22), (wx + 51, wy + 14), (wx + 53, wy)], 4), body)
+    inv.ell(wx + 30, wy + 34, 7.5, 9, fill=body, ink=None)
+    inv.box(wx + 28, wy, wx + 32, wy + 60, INK)
+    inv.box(wx, wy + 28, wx + 60, wy + 32, INK)
+    cv.comp(inv, 0.25, mask=sm)
+    # its lit window again, a step stronger: the one thing in it that holds its colour
+    lit = cv.layer()
+    lit.box(wx + 6, wy + 6, wx + 54, wy + 54, mix(AMBER, PAPER, 0.3))
+    lit.fillpoly(smooth([(wx + 7, wy + 6), (wx + 9, wy + 14), (wx + 16, wy + 22), (wx + 26, wy + 25),
+                         (wx + 34, wy + 25), (wx + 44, wy + 22), (wx + 51, wy + 14), (wx + 53, wy + 6)], 4), body)
+    lit.ell(wx + 30, wy + 34, 7.5, 9, fill=body, ink=None)
+    lit.box(wx + 28, wy + 6, wx + 32, wy + 54, INK)
+    lit.box(wx + 6, wy + 28, wx + 54, wy + 32, INK)
+    cv.comp(lit, 0.2, mask=sm)
     # calm dark near-water strip: it reflects nothing at all
     near = hexc("#2A3A40")
     cv.box(0, 868, W, H, near)
@@ -1208,8 +1247,8 @@ def ov_bell_calm():
     return cv.finish(name, "RGBA", r)
 
 
-def wave_frame(k):
-    name = f"waves_{k}"
+def wave_frame(k, prefix="waves", col=PAPER, opacity=0.5, hull_gap=True):
+    name = f"{prefix}_{k}"
     r = random.Random(seed_of(f"{name}.png"))
     lay_r = random.Random(seed_of("R01:waves"))
     cv = Cv(r)
@@ -1231,14 +1270,14 @@ def wave_frame(k):
         if y > 500 and x0 < 470:
             continue
         # keep the hull's waterline clean (the bell's calm is cut out below, exactly)
-        if x1 > 856 and x0 < 1294 and 856 < y < 884:
+        if hull_gap and x1 > 856 and x0 < 1294 and 856 < y < 884:
             continue
         sag = 0.6 + t * 2.2
         pts = smooth([(x0, y + sag * 0.3), (x0 + ln * 0.3, y - sag), (x0 + ln * 0.7, y - sag * 0.7),
                       (x1, y + sag * 0.2)], 4)
-        lay.stroke(pts, 1.0 + t * 1.8, PAPER, jitter=0.06)
+        lay.stroke(pts, 1.0 + t * 1.8, col, jitter=0.06)
     cut_calm(lay, 0.5)
-    cv.comp(lay, 0.5)
+    cv.comp(lay, opacity)
     return cv.finish(name, "RGBA", r)
 
 
@@ -1282,12 +1321,16 @@ def paint_launch(cv, real: bool):
     tint(cv, mul_masks(hm, grad_mask(860, 792, 1290, 870, 0.0, 0.5, ease=1.3)), mix(hull, INK, 0.6))
     tint(cv, mul_masks(hm, grad_mask(860, 792, 1290, 812, 0.4, 0.0)), mix(hull, PAPER, 0.4))
     tint(cv, mul_masks(hm, grad_mask(860, 780, 1000, 870, 0.3, 0.0, axis="x")), mix(hull, PAPER, 0.3))
-    cv.box(880, 862, 1290, 870, mix(TIMBER, SOOT, 0.4))  # boot top
+    if real:
+        cv.box(880, 862, 1290, 870, mix(TIMBER, SOOT, 0.4))  # boot top
     cv.fillpoly([(864, 784), (1290, 784), (1290, 792), (868, 792)], strake)  # sheer strake
     for y in (808, 828, 848):
         cv.stroke([(870 + (y - 780) * 0.5, y), (1288, y)], 1.2, mix(hull, INK, 0.45), alpha=200, jitter=0.04)
     cv.rect(858, 776, 1294, 781, fill=mix(TIMBER, PAPER, 0.2), ink=INK, w=1.8)  # gunwale rail
     cv.stroke(hull_pts, 2.6, INK, closed=True)
+    if not real:
+        # where it meets the water: one ruled navy edge, no wobble, nothing round it
+        cv.box(908, 868, 1291, 870, INK)
     cv.stroke([(864, 784), (1290, 784)], 1.4, INK)
     cv.stroke([(868, 792), (1290, 792)], 1.4, INK)
     # cabin x960-1120 y680-780
@@ -1523,12 +1566,14 @@ def ov_surface_drift():
     for row in range(y0 * S, y1 * S):
         y = row / S
         a = min(1.0, (y - y0) / 80, (y1 - y) / 40)
-        md.line([(x0 * S, row), (x1 * S, row)], fill=int(255 * 0.2 * max(0, a)))
-    cv.comp(lay, mask=m)
-    edge = cv.layer()
-    edge.box(x0, y0 + 30, x0 + 4, y1 - 16, STORM)
-    edge.box(x1 - 4, y0 + 30, x1, y1 - 16, STORM)
-    cv.comp(edge, 0.55)
+        md.line([(x0 * S, row), (x1 * S, row)], fill=int(255 * 0.28 * max(0, a)))
+    # feathered sides, no edge line: a slow thickening in the water, not a panel
+    side = Image.new("L", (W * S, H * S), 0)
+    sd = ImageDraw.Draw(side)
+    for col_x in range(x0 * S, x1 * S):
+        u = (col_x / S - x0) / (x1 - x0)
+        sd.line([(col_x, 0), (col_x, H * S)], fill=int(255 * math.sin(math.pi * u) ** 0.8))
+    cv.comp(lay, mask=ImageChops.multiply(m, side))
     return cv.finish(name, "RGBA", r)
 
 
@@ -1950,11 +1995,11 @@ def c_boat_window():
     return cv.finish(name, "RGB", r)
 
 
-def c_boat_window_figure(turned):
+def c_boat_window_figure(turned, prefix="c_boat_window"):
     """The figure at the chart. Stark flat silhouette: Ada's own head and pinned hair (the
     door figure's shape at 1.8x), a featureless storm-navy face when it has turned to look out,
     two tiny amber glints for eyes, and hands as solid dark shapes, too long."""
-    name = "c_boat_window_figure_turned" if turned else "c_boat_window_figure"
+    name = f"{prefix}_figure_turned" if turned else f"{prefix}_figure"
     r = random.Random(seed_of(f"{name}.png"))
     cv = Cv(r)
     coat = (26, 32, 38)
@@ -2240,6 +2285,315 @@ def c_capsule_note():
     return cv.finish(name, "RGBA", r)
 
 
+
+# =================================================================== dusk (first visit)
+DUSK_TOP = hexc("#2f3b4a")
+DUSK_HOR = hexc("#4a5866")
+DUSK_SEA = hexc("#2c4448")
+DUSK_WAVE = hexc("#6f8790")
+LIFT = 1.10            # hotspot props: +10% value so they still read in the dusk
+
+
+def lift(lay, k=LIFT):
+    """Raise a layer's value by k (alpha untouched): the hotspot props' lift."""
+    rr, gg, bb, aa = lay.im.split()
+    up = [ch.point(lambda v: min(255, int(v * k + 0.5))) for ch in (rr, gg, bb)]
+    lay.im = Image.merge("RGBA", (*up, aa))
+    lay.d = ImageDraw.Draw(lay.im)
+
+
+def back_b0_dusk():
+    """The first visit: low flat overcast in hard bands, darkening upward; nothing lit from
+    anywhere, so nothing casts a shadow. A dark flat sea with pale cold wave marks, the
+    lighthouse dark on its headland. The bands are frozen; only the wave frames move."""
+    name = "back_b0_dusk"
+    r = random.Random(seed_of(f"{name}.png"))
+    cv = Cv(r, bg=DUSK_TOP)
+    # the overcast: seven flat bands, thinner toward the horizon, each edge a slow, low swell
+    n = 5
+    edges = [HORIZON * (1 - (1 - k / n) ** 1.35) for k in range(n + 1)]
+    for k in range(n):
+        col = mix(DUSK_TOP, DUSK_HOR, k / (n - 1))
+        y0 = edges[k]
+        if k == 0:
+            cv.box(0, 0, W, HORIZON, col)
+            continue
+        amp = 3 + 5 * (1 - k / n)
+        ph = r.uniform(0, 6.28)
+        per = r.uniform(380, 620)
+        top = [(x, y0 + amp * math.sin(ph + 2 * math.pi * x / per)) for x in range(-20, W + 41, 20)]
+        cv.fillpoly(top + [(W + 40, HORIZON + 2), (-20, HORIZON + 2)], col)
+    # the sea: one flat tone, static wave marks in the cold pale grey
+    cv.box(0, HORIZON, W, H, DUSK_SEA)
+    marks = cv.layer()
+    lay_r = random.Random(seed_of("R01:dusk_seatex"))
+    for i in range(420):
+        y = HORIZON + 8 + (lay_r.random() ** 1.35) * (H - HORIZON - 8)
+        x = lay_r.uniform(-40, W)
+        t = (y - HORIZON) / (H - HORIZON)
+        ln = 18 + t * 100 * lay_r.uniform(0.6, 1.3)
+        sag = 1 + t * 3
+        marks.stroke([(x, y), (x + ln * 0.5, y + sag * 0.6), (x + ln, y)], 1.0 + t * 1.4, DUSK_WAVE, jitter=0.1)
+    cut_calm(marks, 1.0)
+    cv.comp(marks, 0.3)
+    cv.stroke([(0, HORIZON), (W, HORIZON)], 2.0, mix(DUSK_HOR, DUSK_WAVE, 0.6), alpha=170, jitter=0.03)
+    cv.stroke([(0, HORIZON + 2), (W, HORIZON + 2)], 1.4, INK, alpha=110, jitter=0.03)
+    paint_calm(cv, DUSK_SEA, DUSK_HOR)
+    # the hotspot props out here (causeway, headland, the dark lighthouse), lifted to read
+    props = cv.layer()
+    props.wk = 0.6
+    paint_causeway(props, 0.35, DUSK_HOR, random.Random(seed_of("R01:causeway")))
+    land = mix(mix(STORM, COPPER, 0.45), DUSK_HOR, 0.25)
+    paint_headland(props, land, 200, mix(COPPER, DUSK_HOR, 0.35), random.Random(seed_of("R01:headland")))
+    props.wk = 0.8
+    paint_lighthouse(props, "off", 0.18, DUSK_HOR)
+    lift(props)
+    cv.comp(props)
+    cv.wk = 1.0
+    return cv.finish(name, "RGB", r)
+
+
+def ov_reflections_dusk():
+    """Every piling's reflection, all nine. The seven in open water break up with the chop;
+    the two standing in the bell's calm are mirrored still and whole. The boat has none."""
+    name = "reflections_dusk"
+    r = random.Random(seed_of(f"{name}.png"))
+    cv = Cv(r)
+    ink_l = cv.layer()
+    pale_l = cv.layer()
+    still = cv.layer()
+    for cx in PILINGS:
+        if cx in (680, 785):
+            pc = mix(mix(PILE, DUSK_SEA, 0.4), INK, 0.1)
+            still.box(cx - 13, 872, cx + 13, 952, pc)
+            still.box(cx - 13, 872, cx + 13, 890, mix((62, 74, 60), DUSK_SEA, 0.3))
+            still.box(cx - 13, 872, cx - 11, 952, mix(INK, DUSK_SEA, 0.2))
+            still.box(cx + 11, 872, cx + 13, 952, mix(INK, DUSK_SEA, 0.2))
+            continue
+        y = 872
+        k = 0
+        while y < 940:
+            t = (y - 870) / 70
+            half = 13 + r.uniform(-2, 5) * (1 - t * 0.4)
+            off = 5 * math.sin(k * 1.7 + cx * 0.01) + r.uniform(-2, 2)
+            wid = 2.6 - t
+            ink_l.stroke([(cx - half + off, y), (cx + half * 0.3 + off, y + 0.8), (cx + half + off, y)],
+                         max(1.0, wid + 0.8), INK, jitter=0.1)
+            pale_l.stroke([(cx - half * 0.6 - off * 0.5, y + 4), (cx + half * 0.4 - off * 0.5, y + 4.6)],
+                          max(1.0, wid), DUSK_WAVE, jitter=0.1)
+            y += 7 + t * 4
+            k += 1
+    cut_calm(ink_l, 0.5)
+    cut_calm(pale_l, 0.5)
+    cv.comp(ink_l, 0.7)
+    cv.comp(pale_l, 0.6)
+    cv.comp(still, 0.55, mask=calm_mask(-2))
+    return cv.finish(name, "RGBA", r)
+
+
+def ov_dusk_lamps():
+    """The dusk's two lights: the lamp-post lit over a pool on the deck, and the station's
+    second upstairs window lit amber (the office window beside it is the P01 lamp's)."""
+    name = "dusk_lamps"
+    r = random.Random(seed_of(f"{name}.png"))
+    cv = Cv(r)
+    lx = 508
+    # the pool: on the deck boards and the rail under the lantern, soft-edged, no beam
+    glow(cv, lambda d: d.ellipse([(lx - 92) * S, 700 * S, (lx + 92) * S, 786 * S], fill=255), AMBER, 16, 0.42)
+    glow(cv, lambda d: d.ellipse([(lx - 20) * S, 560 * S, (lx + 20) * S, 594 * S], fill=255), AMBER, 14, 0.75)
+    cv.rect(lx - 6, 568, lx + 6, 586, fill=mix(AMBER, PAPER, 0.45), ink=None)
+    cv.box(lx - 3, 571, lx + 3, 583, mix(AMBER, PAPER, 0.75))
+    cv.poly([(lx - 6, 568), (lx + 6, 568), (lx + 7, 586), (lx - 7, 586)], None, INK, 1.6)
+    cv.stroke([(lx, 569), (lx, 585)], 1.0, INK, alpha=180)
+    # the second upstairs window, lit
+    x0, y0 = 190, 340
+    glow(cv, lambda d: d.rectangle([(x0 - 6) * S, (y0 - 6) * S, (x0 + 66) * S, (y0 + 66) * S], fill=255), AMBER, 5, 0.6)
+    cv.rect(x0, y0, x0 + 60, y0 + 60, fill=AMBER, ink=None)
+    cv.box(x0 + 6, y0 + 6, x0 + 54, y0 + 54, mix(AMBER, PAPER, 0.3))
+    window_bars(cv, x0, y0)
+    cv.rect(x0, y0, x0 + 60, y0 + 60, fill=None, ink=INK, w=1.8)
+    return cv.finish(name, "RGBA", r)
+
+
+# =================================================================== band 4: the tilted sea
+TILT_PIVOT = (JETTY_END, WATERLINE)   # the jetty's end, at the waterline
+TILT_DEG = 3.0                        # clockwise on screen: the sea rises toward the station
+B4 = dict(sky0=hexc("#5A6B72"), sea0=hexc("#3A5052"), haze=0.45)
+
+
+def b4_colours():
+    sky0, sea0 = B4["sky0"], B4["sea0"]
+    return sky0, mix(sky0, PAPER, 0.07), sea0, mix(sea0, INK, 0.25)
+
+
+def b4_level(cv):
+    """What stays level at band 4: the causeway and the bell's calm."""
+    sky0, sky1, sea0, sea1 = b4_colours()
+    paint_calm(cv, mix(sea0, sea1, (CALM[1] - HORIZON) / (H - HORIZON)), mix(sky0, sky1, 0.6), B4["haze"])
+    cv.wk = 0.6
+    paint_causeway(cv, B4["haze"], sky1, random.Random(seed_of("R01:causeway")))
+    cv.wk = 1.0
+
+
+def back_b4():
+    """Band 4: the whole sea (its marks, the headland and the lit lighthouse) turned 3 degrees
+    about the jetty's end, rising toward the station. The sky, the causeway and the bell's
+    calm stay level, as does everything in the foreground. One plain horizon line."""
+    name = "back_b4"
+    r = random.Random(seed_of(f"{name}.png"))
+    sky0, sky1, sea0, sea1 = b4_colours()
+    cv = Cv(r, bg=sky0)
+    cv.hrows(0, H, sky0, sky1, ya=0, yb=HORIZON + 20)
+    cv.hrows(560, H, mix(sea0, sea1, 0.25), sea1, ya=560, yb=H)   # under the turned sea's corners
+    paint_clouds(cv, mix(sky0, sky1, 0.5), seed_of("R01:clouds"), 250, 420, count=9, ink_a=50)
+    paint_ceiling(cv, sky0, seed_of("R01:ceiling"), 220)
+    sea = cv.layer()
+    sea.hrows(HORIZON, H, sea0, sea1, ya=HORIZON, yb=H)
+    paint_sea_texture(sea, sea0, sea1, seed_of("R01:seatex"), calm=False)
+    hor = [(-200, HORIZON), (W + 200, HORIZON)]
+    sea.stroke(hor, 2.0, mix(sea0, PAPER, 0.35), alpha=150, jitter=0.05)
+    sea.stroke([(x, y + 2) for x, y in hor], 1.4, INK, alpha=90, jitter=0.05)
+    land = mix(mix(STORM, COPPER, 0.45), sky1, B4["haze"])
+    sea.wk = 0.6
+    paint_headland(sea, land, 255 - int(255 * B4["haze"]), mix(COPPER, sky1, B4["haze"]),
+                   random.Random(seed_of("R01:headland")))
+    sea.wk = 0.8
+    paint_lighthouse(sea, "lit", B4["haze"] * 0.6, sky1)
+    turned = sea.im.rotate(-TILT_DEG, resample=Image.BICUBIC,
+                           center=(TILT_PIVOT[0] * S, TILT_PIVOT[1] * S))
+    cv.im.alpha_composite(turned)
+    b4_level(cv)
+    return cv.finish(name, "RGB", r)
+
+
+def ov_b4_level():
+    """Laid over the turned wave frames so the calm and the causeway stay level and clean."""
+    name = "b4_level"
+    r = random.Random(seed_of(f"{name}.png"))
+    cv = Cv(r)
+    b4_level(cv)
+    return cv.finish(name, "RGBA", r)
+
+
+# =================================================================== the chart room in the boat
+R03_WALL = (163, 181, 161)
+R03_TEAL = (44, 83, 99)
+R03_BONE = (230, 223, 202)
+R03_FELT = (72, 96, 90)
+
+
+def boat_window_chart_base(cv, r):
+    """The lens on the boat's lit window, and through it R03, the chart room: the station
+    plan in its frame, the registration frame with the clipped composite chart, the brass
+    recorder. Ada's chart room, in a boat that was never here."""
+    cv.box(0, 0, W, H, INK)
+    tex = cv.layer()
+    for i in range(500):
+        x, y = r.uniform(0, W), r.uniform(0, H)
+        tex.stroke([(x, y), (x + r.uniform(20, 70), y + r.uniform(-2, 2))], 1.2,
+                   mix(INK, SEAGLASS, 0.25), jitter=0.05)
+    cv.comp(tex, 0.25)
+    inside = cv.layer()
+    for k, y in enumerate(range(80, 1010, 44)):
+        inside.box(260, y, 1200, y + 44, (52, 66, 76) if k % 2 == 0 else (46, 60, 70))
+        inside.stroke([(260, y), (1200, y)], 2.0, INK, alpha=220)
+    # the room: sea-glass wall, teal wainscot, dado and picture rails
+    wall = mix(R03_WALL, AMBER, 0.12)
+    inside.box(404, 280, 1044, 566, wall)
+    inside.box(404, 566, 1044, 680, R03_TEAL)
+    for x in range(420, 1044, 34):
+        inside.stroke([(x, 570), (x, 680)], 1.2, mix(R03_TEAL, INK, 0.45), alpha=200, jitter=0.03)
+    inside.box(404, 560, 1044, 568, mix(R03_TEAL, INK, 0.35))
+    inside.box(404, 300, 1044, 304, mix(R03_TEAL, INK, 0.25))
+    glow(inside, lambda d: d.ellipse([560 * S, 270 * S, 880 * S, 470 * S], fill=255), AMBER, 50, 0.3)
+    # the station plan, framed, at left
+    inside.rect(418, 318, 536, 470, fill=(80, 71, 62), ink=INK, w=2.2)
+    inside.rect(428, 328, 526, 460, fill=R03_BONE, ink=INK, w=1.4)
+    for bx0, by0, bx1, by1 in ((440, 340, 466, 354), (488, 340, 514, 354), (462, 362, 488, 392),
+                               (440, 398, 462, 420), (468, 398, 496, 420), (502, 398, 514, 420),
+                               (454, 428, 500, 450)):
+        inside.rect(bx0, by0, bx1, by1, fill=None, ink=mix(INK, R03_BONE, 0.25), w=1.2)
+    inside.stroke([(475, 392), (475, 398)], 1.0, mix(INK, R03_BONE, 0.25))
+    inside.stroke([(475, 420), (475, 428)], 1.0, mix(INK, R03_BONE, 0.25))
+    # the registration frame on its table, the composite chart clipped in it
+    inside.rect(548, 556, 896, 566, fill=(103, 93, 81), ink=INK, w=1.8)          # table top
+    for lgx in (562, 876):
+        inside.rect(lgx, 566, lgx + 10, 680, fill=(80, 71, 62), ink=INK, w=1.6)
+    inside.rect(556, 322, 888, 552, fill=BRASS, ink=INK, w=2.2)                  # brass frame
+    inside.rect(566, 332, 878, 542, fill=R03_BONE, ink=INK, w=1.4)               # table sheet
+    inside.rect(584, 346, 870, 530, fill=mix(R03_BONE, SEAGLASS, 0.18), ink=mix(INK, R03_BONE, 0.4),
+                w=1.0)                                                           # Venn's sheet over it
+    inside.stroke([(722, 334), (722, 540)], 0.9, mix(INK, R03_BONE, 0.55), jitter=0.02)
+    inside.stroke([(568, 437), (876, 437)], 0.9, mix(INK, R03_BONE, 0.55), jitter=0.02)
+    for k, (per, ph, amp, mid) in enumerate(((150, 0.2, 10, 372), (180, 1.4, 9, 404),
+                                             (140, 2.3, 11, 470), (170, 0.8, 10, 504))):
+        pts = [(570 + i * 4, mid + amp * math.sin(ph + 2 * math.pi * (i * 4) / per)) for i in range(77)]
+        inside.stroke(pts, 1.2, mix(SEAGLASS, INK, 0.3), alpha=200, jitter=0.03)
+    # the curve on neither sheet alone, in ink, heavier
+    pts = [(572 + i * 4, 448 + 34 * math.sin(0.6 + 2 * math.pi * (i * 4) / 230)) for i in range(76)]
+    inside.stroke(pts, 2.6, INK, jitter=0.04)
+    for (cx, cy) in ((576, 342), (868, 342), (576, 532), (868, 532)):
+        inside.ell(cx, cy, 3.2, 3.2, fill=mix(BRASS, INK, 0.3), ink=None)
+    # top rail and the spring clip, a paper tag hanging off it
+    inside.rect(548, 308, 896, 314, fill=BRASS, ink=INK, w=1.6)
+    inside.ell(548, 311, 5, 5, fill=BRASS, ink=INK, w=1.4)
+    inside.ell(896, 311, 5, 5, fill=BRASS, ink=INK, w=1.4)
+    inside.rect(800, 300, 840, 336, fill=mix(BRASS, PAPER, 0.15), ink=INK, w=1.8)
+    inside.ell(820, 300, 9, 7, fill=None, ink=mix(INK, BRASS, 0.3), w=1.6)
+    inside.poly([(846, 318), (866, 322), (862, 348), (842, 344)], R03_BONE, INK, 1.4)
+    # the brass recorder at right: green cabinet, paper window, two dials, lever
+    inside.rect(910, 330, 1052, 690, fill=R03_FELT, ink=INK, w=2.2)
+    inside.rect(904, 324, 1058, 334, fill=mix(R03_FELT, SEAGLASS, 0.25), ink=INK, w=1.6)
+    for rx in range(918, 1050, 16):
+        inside.ell(rx, 329, 1.6, 1.6, fill=INK, ink=None)
+    inside.rect(922, 346, 1040, 404, fill=(40, 50, 60), ink=INK, w=1.6)
+    inside.rect(928, 350, 1036, 386, fill=R03_BONE, ink=BRASS, w=3.0)
+    for gx in range(934, 1034, 10):
+        inside.stroke([(gx, 352), (gx, 384)], 0.6, mix(R03_BONE, SEAGLASS, 0.5), jitter=0.0)
+    inside.stroke([(932, 372), (950, 368), (968, 375), (986, 366), (1004, 371), (1022, 369), (1034, 370)],
+                  1.6, INK, jitter=0.05)
+    inside.rect(930, 390, 1032, 400, fill=R03_BONE, ink=INK, w=1.0)
+    inside.rect(934, 418, 1028, 438, fill=BRASS, ink=INK, w=1.6)
+    for dx in (946, 1012):
+        inside.ell(dx, 474, 16, 16, fill=R03_BONE, ink=BRASS, w=3.0)
+        inside.stroke([(dx, 474), (dx + 8, 466)], 1.4, INK, jitter=0.0)
+    inside.rect(934, 512, 1028, 560, fill=mix(R03_FELT, INK, 0.25), ink=INK, w=1.6)
+    for k in range(3):
+        inside.rect(940 + k * 30, 518, 964 + k * 30, 554, fill=(20, 26, 34), ink=BRASS, w=1.6)
+    inside.rect(1034, 440, 1042, 540, fill=BRASS, ink=INK, w=1.4)                 # lever
+    inside.rect(1030, 432, 1046, 442, fill=mix(BRASS, PAPER, 0.4), ink=INK, w=1.4)
+    # the hanging cone lamp over the frame
+    inside.stroke([(722, 280), (722, 290)], 2.0)
+    inside.poly([(702, 290), (742, 290), (756, 306), (688, 306)], BRASS, INK, 1.8)
+    inside.ell(722, 308, 8, 3.5, fill=mix(AMBER, PAPER, 0.6), ink=None)
+    # brass window frame, rivets, the teak sill and its shadow (as the plain window)
+    inside.rect(392, 268, 1056, 692, fill=None, ink=BRASS, w=12)
+    inside.rect(386, 262, 1062, 698, fill=None, ink=INK, w=2.4)
+    inside.rect(404, 280, 1044, 680, fill=None, ink=INK, w=2.4)
+    for (x, y) in ((396, 272), (1052, 272), (396, 688), (1052, 688), (724, 272), (724, 688)):
+        inside.ell(x, y, 3.4, 3.4, fill=mix(BRASS, INK, 0.3), ink=None)
+    sill = mix(TIMBER, PAPER, 0.12)
+    sh = inside.layer()
+    sh.box(380, 716, 1068, 736, INK)
+    inside.comp(sh, 0.35)
+    inside.rect(372, 698, 1076, 718, fill=sill, ink=None)
+    wood_grain(inside, r, 372, 700, 1076, 718, sill, vertical=False, lines=3, knots=False, alpha=0.6)
+    inside.box(372, 698, 1076, 702, mix(sill, PAPER, 0.35))
+    inside.rect(372, 698, 1076, 718, fill=None, ink=INK, w=2.4)
+    m = Image.new("L", (W * S, H * S), 0)
+    ImageDraw.Draw(m).ellipse([(724 - 400) * S, (540 - 400) * S, (724 + 400) * S, (540 + 400) * S], fill=255)
+    cv.comp(inside, mask=m)
+
+
+def c_boat_window_chart():
+    name = "c_boat_window_chart"
+    r = random.Random(seed_of(f"{name}.png"))
+    cv = Cv(r)
+    boat_window_chart_base(cv, r)
+    glass_sheen(cv)
+    lens_ring(cv, r)
+    return cv.finish(name, "RGB", r)
+
 # =================================================================== registry
 def _bd(name, *a, **k):
     return lambda: backdrop(name, *a, **k)
@@ -2247,6 +2601,12 @@ def _bd(name, *a, **k):
 
 ASSETS = {
     "back_b0": _bd("back_b0", hexc("#8FA3A6"), hexc("#A9B5B0"), hexc("#617D74"), hexc("#4E6A66")),
+    "back_b0_dusk": back_b0_dusk,
+    "reflections_dusk": ov_reflections_dusk,
+    "dusk_lamps": ov_dusk_lamps,
+    "waves_dusk_0": lambda: wave_frame(0, "waves_dusk", DUSK_WAVE, 0.75, hull_gap=False),
+    "waves_dusk_1": lambda: wave_frame(1, "waves_dusk", DUSK_WAVE, 0.75, hull_gap=False),
+    "waves_dusk_2": lambda: wave_frame(2, "waves_dusk", DUSK_WAVE, 0.75, hull_gap=False),
     "back_b1": _bd("back_b1", hexc("#7D8E92"), mix(hexc("#7D8E92"), PAPER, 0.12), hexc("#557069"),
                    mix(hexc("#557069"), INK, 0.2), haze=0.3, ceiling=220, cloud_band=(250, 420)),
     "back_b2": _bd("back_b2", hexc("#64767C"), mix(hexc("#64767C"), PAPER, 0.08), hexc("#3F5759"),
@@ -2255,9 +2615,8 @@ ASSETS = {
     "back_b3": _bd("back_b3", hexc("#5A6B72"), mix(hexc("#5A6B72"), PAPER, 0.07), hexc("#3A5052"),
                    mix(hexc("#3A5052"), INK, 0.25), haze=0.45, ceiling=220, cloud_band=(250, 420),
                    cloud_ink=50),
-    "back_b4": _bd("back_b4", hexc("#5A6B72"), mix(hexc("#5A6B72"), PAPER, 0.07), hexc("#3A5052"),
-                   mix(hexc("#3A5052"), INK, 0.25), haze=0.45, ceiling=220, cloud_band=(250, 420),
-                   cloud_ink=50, tilt=0.104, hor_bold=True),
+    "back_b4": back_b4,
+    "b4_level": ov_b4_level,
     "back_b5": _bd("back_b5", hexc("#4A5A62"), hexc("#4E5E66"), hexc("#4E5E66"), hexc("#4A5A62"),
                    haze=0.85, land_haze=0.4, hor_alpha=0.25, lighthouse=None, cloud_count=0),
     "back_b7": back_b7,
@@ -2298,6 +2657,9 @@ ASSETS = {
     "c_boat_window": c_boat_window,
     "c_boat_window_figure": lambda: c_boat_window_figure(False),
     "c_boat_window_figure_turned": lambda: c_boat_window_figure(True),
+    "c_boat_window_chart": c_boat_window_chart,
+    "c_boat_window_chart_figure": lambda: c_boat_window_figure(False, "c_boat_window_chart"),
+    "c_boat_window_chart_figure_turned": lambda: c_boat_window_figure(True, "c_boat_window_chart"),
     "c_capsule": c_capsule,
     "c_capsule_open": c_capsule_open,
     "c_capsule_key": c_capsule_key,
