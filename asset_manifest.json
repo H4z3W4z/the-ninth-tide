@@ -2509,6 +2509,582 @@
       "source_svg": null
     },
     {
+      "id": "R05/a_bowl",
+      "path": "assets/rooms/R05/a_bowl.png",
+      "width": 96,
+      "height": 64,
+      "sha256": "f0521c6c0249aa187aafe84fcf4cf4745e1595c6552c174753d94db0a6495083",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_bowl_sq",
+      "path": "assets/rooms/R05/a_bowl_sq.png",
+      "width": 96,
+      "height": 64,
+      "sha256": "8ef7b9c18a6c3e0c68b5d438c970ae406bb8070ae2fbb5db897970b74e5c0071",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_chair_out",
+      "path": "assets/rooms/R05/a_chair_out.png",
+      "width": 150,
+      "height": 300,
+      "sha256": "32fefa1c260b21ffbe7fd9b2790dafa69da8e4a6c68ceb5bb8200b19df0690c2",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_chair_tucked",
+      "path": "assets/rooms/R05/a_chair_tucked.png",
+      "width": 110,
+      "height": 140,
+      "sha256": "a011869faf9f2b79665aeff7162b125d0f201a8623a5f99ec4119744af83cb6f",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_condensation",
+      "path": "assets/rooms/R05/a_condensation.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "e18f5e234e4647a95d90294e3fda6fc9625d187e3fe67ad636cb701b73e86a5f",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_rain_1",
+      "path": "assets/rooms/R05/a_rain_1.png",
+      "width": 340,
+      "height": 190,
+      "sha256": "0a63658c1f8f310e37c1794f6f6e7ddb5f78e29bacb83b0870ed16980e1e3875",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_rain_2",
+      "path": "assets/rooms/R05/a_rain_2.png",
+      "width": 340,
+      "height": 190,
+      "sha256": "5af1aee114a2d1a0512a183a1aaf80b0453cd0ea8d6d63b6cc1fda378802add3",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_rain_hang",
+      "path": "assets/rooms/R05/a_rain_hang.png",
+      "width": 340,
+      "height": 190,
+      "sha256": "4d1e9ddc2bca581d7ca1182baba2e3d94eb94ce7f20287cbff927188a5ab5add",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_ring",
+      "path": "assets/rooms/R05/a_ring.png",
+      "width": 40,
+      "height": 12,
+      "sha256": "5c2f6d4dd3fa16d878aea3ff9b77822ce94a9a898563d0d50d179a0dbc0ae86d",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_ring_warm",
+      "path": "assets/rooms/R05/a_ring_warm.png",
+      "width": 40,
+      "height": 60,
+      "sha256": "32512c11f41ee0eb7ffe884bbb29f5851336b81c5bc8241ccbf88f9be96e4c58",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_soup",
+      "path": "assets/rooms/R05/a_soup.png",
+      "width": 96,
+      "height": 64,
+      "sha256": "8227772142e93498adc41c6ff221d4809d34bf862170cf019d006d9e987ecc55",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_spoon",
+      "path": "assets/rooms/R05/a_spoon.png",
+      "width": 56,
+      "height": 16,
+      "sha256": "450a591b8c5a89dc77ef09c0951dfc103cdefe41dd5af6eca7e95ffa0f809acc",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_stack_rim",
+      "path": "assets/rooms/R05/a_stack_rim.png",
+      "width": 104,
+      "height": 22,
+      "sha256": "cca9a48dd0c1c2042751467a9e23f6e42cdb822f4bbf1f89e9af55a4db7aa6c4",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_towel",
+      "path": "assets/rooms/R05/a_towel.png",
+      "width": 72,
+      "height": 40,
+      "sha256": "c7e5bb72f86a364a79413c4cecbade30b8ddec326b255261661f1f41b49c89cb",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_towel_refolded",
+      "path": "assets/rooms/R05/a_towel_refolded.png",
+      "width": 72,
+      "height": 44,
+      "sha256": "6311a93bc7b1bfee7433daa2861c8588e858d5fc17f2dfba45ac14b5af44c709",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_warm_b7",
+      "path": "assets/rooms/R05/a_warm_b7.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "044b3137146a228add6369854339131921c81a6133177935e40e7bde69bf7f94",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/b_board_swung",
+      "path": "assets/rooms/R05/b_board_swung.png",
+      "width": 380,
+      "height": 400,
+      "sha256": "766c0d229fbc2634e275e60aa9343f1845fe2162965c96eb9ac2c4f879250dcc",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/b_drawer_open",
+      "path": "assets/rooms/R05/b_drawer_open.png",
+      "width": 300,
+      "height": 150,
+      "sha256": "8022482339d0c1532cf64d5c9c71e57617111fef240ec324fd7aa72eaf61a787",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/b_fog",
+      "path": "assets/rooms/R05/b_fog.png",
+      "width": 340,
+      "height": 380,
+      "sha256": "4510e4e0b8cfe1f3c37094bd5165644873a1e88c1f6d3cdcc1263c4e5cd38755",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/b_fog_wiped",
+      "path": "assets/rooms/R05/b_fog_wiped.png",
+      "width": 340,
+      "height": 380,
+      "sha256": "8429a9724e6c854f68f0a93221118c21d2d445f7e93892d3479d2e2c1de07455",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/b_hatch_open",
+      "path": "assets/rooms/R05/b_hatch_open.png",
+      "width": 120,
+      "height": 320,
+      "sha256": "ba6500a62344829d1619298d2e5715675ac9405f0f5e270ddb56175117f7ad65",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/b_range_glow",
+      "path": "assets/rooms/R05/b_range_glow.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "46f2a1223cd39608528e4a4b5f79db71a9d51546af792c8e2e4e124cd077ff4b",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/b_work_card",
+      "path": "assets/rooms/R05/b_work_card.png",
+      "width": 110,
+      "height": 150,
+      "sha256": "200abbe50678c4d1110ddb9ae2a1ce617d88d1da65cd139ffb10a89968c67034",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_board",
+      "path": "assets/rooms/R05/c_board.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "49951e175fa0977c76b16538c7db35d7bf8d99f876e601eadbbdb2f894aaa9a3",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_board_swung",
+      "path": "assets/rooms/R05/c_board_swung.png",
+      "width": 760,
+      "height": 620,
+      "sha256": "14b1f5a0be42b0d16e2a18ee58a7d483ef61d8f5d6c40ec82cb507fc1d971bb2",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_bowl",
+      "path": "assets/rooms/R05/c_bowl.png",
+      "width": 104,
+      "height": 104,
+      "sha256": "7c20c0d21a7eafadf572d6dacddc8875ea378c335a39e3625e6cd7bf72110fa2",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_bowl_sq",
+      "path": "assets/rooms/R05/c_bowl_sq.png",
+      "width": 104,
+      "height": 104,
+      "sha256": "cd1bdb0fd7b53bad754cee72681e26456a97e77a4b58cac467412e02b8f7593f",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_condense_plan",
+      "path": "assets/rooms/R05/c_condense_plan.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "99122ee39b1b4d8c4b120efe4287955b6536932b766ce53413c078217dc90c81",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_flag_agree",
+      "path": "assets/rooms/R05/c_flag_agree.png",
+      "width": 150,
+      "height": 44,
+      "sha256": "98610d81c5c795e03f626c8733d2c9877d3c87f96cfcc25f1c527b78927b16a1",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_flag_disagree",
+      "path": "assets/rooms/R05/c_flag_disagree.png",
+      "width": 150,
+      "height": 44,
+      "sha256": "c1a60ac3ca1ba8826670262256227483c392989e7edb6af3bcb6bb2df95d5648",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_fog",
+      "path": "assets/rooms/R05/c_fog.png",
+      "width": 720,
+      "height": 620,
+      "sha256": "521ce215fa0a74e1574a7a8b9f149f3aca1fad6decc4f1bf30b831584eaeb1bc",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_fog_wiped",
+      "path": "assets/rooms/R05/c_fog_wiped.png",
+      "width": 720,
+      "height": 620,
+      "sha256": "358765ab016b3e4f319b9361a753f999854ce7e94ce068c6e9aaef829fa26498",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_knob",
+      "path": "assets/rooms/R05/c_knob.png",
+      "width": 100,
+      "height": 90,
+      "sha256": "b549c7526e01814c34d356bdfca07e1abca8f04fa85a46c87354e69983a304e8",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_knob_turned",
+      "path": "assets/rooms/R05/c_knob_turned.png",
+      "width": 100,
+      "height": 90,
+      "sha256": "0987baf82baf9bf13c313e292f6d6bbfadccf2b1324b4adeb1d09c6a2b8cd16e",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_ledger",
+      "path": "assets/rooms/R05/c_ledger.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "e5f07cb801dd10e7da594c2d05b35ed189f38d16a62df6c99cf7fdee8d27601f",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_lever_down",
+      "path": "assets/rooms/R05/c_lever_down.png",
+      "width": 120,
+      "height": 200,
+      "sha256": "0f523f85f766f7e7ccffe44729108851f5e616c07be58a40244b5b8246f04a61",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_lever_up",
+      "path": "assets/rooms/R05/c_lever_up.png",
+      "width": 120,
+      "height": 200,
+      "sha256": "b0224ffe0b69801f9dad1d836ff5948737b471e419cf7200c5ed4ab8af7e70bd",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_seal_marker",
+      "path": "assets/rooms/R05/c_seal_marker.png",
+      "width": 96,
+      "height": 40,
+      "sha256": "837d2a62f790d9ebdf84036eb2dea54d1bb381d211456e304eaf98451c760b49",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_shadow",
+      "path": "assets/rooms/R05/c_shadow.png",
+      "width": 120,
+      "height": 120,
+      "sha256": "b20156aa2ba0ac4fc9113b55255a91915a417f39c65427c74e5cbbae063d1327",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_sketch_bowl",
+      "path": "assets/rooms/R05/c_sketch_bowl.png",
+      "width": 300,
+      "height": 200,
+      "sha256": "889b8aed400f9032d60d0e3926ef4c4995336d13f17399c948d8aee0ade3a15f",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_sketch_cup",
+      "path": "assets/rooms/R05/c_sketch_cup.png",
+      "width": 300,
+      "height": 200,
+      "sha256": "1053b5d3a4ca89c38ed30ab28a5826fcf3d6e3564cebf68e94e0dafd2dd3fe13",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_soup",
+      "path": "assets/rooms/R05/c_soup.png",
+      "width": 104,
+      "height": 104,
+      "sha256": "44b9ed25cb3fcfdece3e47afa27df8bc0e7a0cae38a33840d3a53a3985a6301d",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_spoon",
+      "path": "assets/rooms/R05/c_spoon.png",
+      "width": 34,
+      "height": 96,
+      "sha256": "972366043fb38d4c1d1bed4deb6b2efba069031a813742af0452f4a9820c2f3b",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_stamp_down",
+      "path": "assets/rooms/R05/c_stamp_down.png",
+      "width": 290,
+      "height": 180,
+      "sha256": "a60bbda71e088ba102ec5991bc63a13d915712c398111254ede48d654538b14c",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_stamp_up",
+      "path": "assets/rooms/R05/c_stamp_up.png",
+      "width": 290,
+      "height": 180,
+      "sha256": "e32daef513a83d91675d19f77d99226c9585d3099c0794010684185f63ffe8cf",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_table",
+      "path": "assets/rooms/R05/c_table.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "77a16364e5c901c8f504bd8e137b945b720edc1aebb7257de4be045c4f0ad9b3",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_tally_wheel",
+      "path": "assets/rooms/R05/c_tally_wheel.png",
+      "width": 130,
+      "height": 96,
+      "sha256": "1282234daec5cf246916039822d226e784d077da05e9c2db1c27e8c127891537",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_tile",
+      "path": "assets/rooms/R05/c_tile.png",
+      "width": 210,
+      "height": 66,
+      "sha256": "7e4e43ec8f563a0120c2f1e6e24745d8221508441434b7e20a6cbd18e1c40390",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_tile_new",
+      "path": "assets/rooms/R05/c_tile_new.png",
+      "width": 210,
+      "height": 66,
+      "sha256": "bb2159febabf96c25fe6a6bc4ef044c83133ea356f688d1816d82b2a0a264c34",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_tile_small",
+      "path": "assets/rooms/R05/c_tile_small.png",
+      "width": 140,
+      "height": 86,
+      "sha256": "36cec74dd9f6e8d96528fc213a35e2d22fe7d972c91d79a95c6878b8ad7161a7",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_token_bunk",
+      "path": "assets/rooms/R05/c_token_bunk.png",
+      "width": 140,
+      "height": 190,
+      "sha256": "28816e84855e086cab9866fb03c4cd04e735608a2bfec64721bc77a3e2e86a6d",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_token_pantry",
+      "path": "assets/rooms/R05/c_token_pantry.png",
+      "width": 140,
+      "height": 190,
+      "sha256": "a328f0401a70e6ac96bbcc27077c3b46fe481c5ee431560b964009a4ddfaa73a",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/view_a",
+      "path": "assets/rooms/R05/view_a.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "7ee2db8d208e715ad9f54f52c8ca1d8670f689f37a91ec129c99389353a74e3e",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/view_a_b2",
+      "path": "assets/rooms/R05/view_a_b2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "d79634b7b0141e5191f12a504d5dec1e38c499ad6221f429ce6a9ab45dd65951",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/view_a_b4",
+      "path": "assets/rooms/R05/view_a_b4.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "a8d4f022a0c93cad827c1d01ab2803dbb147eba900ffecd9a08cd4169941a177",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/view_a_b6",
+      "path": "assets/rooms/R05/view_a_b6.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "778ffa6c12ba177d8e571ee88f6baf524b3d37f4c034d670415eb2355dc96ec3",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/view_a_b7",
+      "path": "assets/rooms/R05/view_a_b7.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "831ec508bd7ae04b24fbf7f00826a092f8bd6c1c299543fbdeb76e36ae6e36c3",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/view_a_sever",
+      "path": "assets/rooms/R05/view_a_sever.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "8826b1c48d5b0080be3c1315273d87cf59d8ea577963331bbf4df5c9138e256e",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/view_b",
+      "path": "assets/rooms/R05/view_b.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "518881399c7f2aea4175dbb8cc6ceaea4cf6f4d668ae075cb110000a41b9d8dd",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/view_b_b2",
+      "path": "assets/rooms/R05/view_b_b2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "62c8996012590de82c521afaba413c4609fd12ca8c67ecaa055169bf895ff572",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/view_b_b4",
+      "path": "assets/rooms/R05/view_b_b4.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "c5b9fe5af6fee5bb2a9855cb7977203be9be919573f69a5261f97657c33f6161",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/view_b_b6",
+      "path": "assets/rooms/R05/view_b_b6.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "192de85c765b1e7543eb298cc631147a280307241cff69ebed165843831807d6",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/view_b_b7",
+      "path": "assets/rooms/R05/view_b_b7.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "931f12635d0b90efe8a36c1ad0ff236fdeb85f038ef8c89f6bf600ba2ee5fd79",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/view_b_sever",
+      "path": "assets/rooms/R05/view_b_sever.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "aeb569f0074f40ed4f801376fc224f65f36c78a6396fdae3df8bceb0c0ee19e7",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "away_coat",
       "path": "assets/stages/away_coat.png",
       "width": 1448,
