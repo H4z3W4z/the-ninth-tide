@@ -30,6 +30,7 @@ func run_tests() -> void:
 	test_hints()
 	test_determinism()
 	test_service_door()
+	test_round_w1_lines()
 	await view_checks(ROOM)
 	await test_view_presentation()
 
@@ -223,6 +224,16 @@ func test_commit() -> void:
 	check(g.tide() == 3 and g.weather_band() == 1, "9: tide III, band 1")
 	check(r.has_seen("withdrew") and g.state.inventory == inv, "9: withdrew noted, no key yet")
 	check("Someone's standing at the chart table in its window." in says(ev), "9: figure line before peering")
+	# Peered first: the figure at the chart, and how far it has got.
+	var gp := lensed_game()
+	gp.dispatch("item:inspection_lens")
+	gp.dispatch("launch")
+	gp.dispatch("peer")
+	gp.dispatch("back")
+	var evp := ring(gp, "unverified", 2)
+	check("Whoever's at my chart doesn't look up. They've reached the part where I came in." in says(evp),
+		"9: the figure line after peering")
+	check(not ("doesn't look up. |" in says(evp)), "9: the old short line is gone")
 	ev = ring(g, "unverified", 2)
 	check(count_tide_fx(ev) == 0 and g.state.inventory == inv, "9: a repeat ring gives nothing")
 	check(says(ev) == "The boat's gone. I'm not calling it back.", "9: repeat line")
@@ -402,6 +413,27 @@ func test_service_door() -> void:
 	b.from_dict(g.to_dict())
 	check("R05" in b.reachable("R02") and not b.has_item("service_key"), "19: stays open after a load")
 
+## Round w1: the boat's notice and notebook line, the dusk lighthouse, item names.
+func test_round_w1_lines() -> void:
+	const BOAT := "A boat at the jetty. The water moves. The boat doesn't. It has no reflection."
+	check(R01Sim.OBSERVATIONS["boat"] == BOAT, "w1: the boat's notebook line")
+	check(R01Sim.NOTICE["boat"] == BOAT, "w1: the boat's notice says the same")
+	var g := boat_game()
+	var r := r01(g)
+	r.state.noticed = []
+	var ev := g.dispatch("launch")
+	check(r.has_seen("boat"), "w1: looking at the boat notes it")
+	check(g.state.notebook.has(ROOM + ".boat") or r.has_seen("boat"), "w1: the line is in the notebook")
+	ev = g.dispatch("lighthouse")
+	check("Dark" in says(ev), "w1: at dusk the lighthouse is dark (%s)" % says(ev))
+	var g4 := game_in("s4")
+	ev = g4.dispatch("lighthouse")
+	check("lean with the horizon" in says(ev), "w1: s4, the lighthouse leans with the sea")
+	for id in R01Sim.ITEMS:
+		var it: Dictionary = R01Sim.ITEMS[id]
+		var shown: String = it.get("short", it.name)
+		check(shown.length() <= 14, "w1: %s has a name of 14 characters or fewer" % id)
+
 # ---------------------------------------------------------------------------
 # view (presentation only: layer stacks, labels, mix, fx timelines)
 # ---------------------------------------------------------------------------
@@ -434,7 +466,7 @@ func layer(v, id: String) -> Array:
 func test_view_presentation() -> void:
 	var scene = new_scene("user://room_test_R01_view.json")
 	await process_frame
-	const BACK := {"arrival": "back_b0", "boat": "back_b0", "s1": "back_b1", "s2": "back_b2",
+	const BACK := {"arrival": "back_b0_dusk", "boat": "back_b0_dusk", "s1": "back_b1", "s2": "back_b2",
 		"s3": "back_b3", "s4": "back_b4", "s5": "back_b5", "s6": "back_b5", "s7": "back_b7",
 		"A": "back_end_a"}
 	for s in STATES:
@@ -456,7 +488,8 @@ func test_view_presentation() -> void:
 		check(ids.has("gangway_down") == (s == "boat") and (ids.has("gangway_up") != ids.has("gangway_down")),
 			"V: %s one gangway, down only for the boat" % s)
 		var rain := ids.filter(func(i): return i.begins_with("rain_"))
-		var want := "" if (n == 0 or n == 7 or s == "A") else ("rain_light" if n == 1 else "rain_heavy")
+		var want := "" if (n == 0 or n == 7 or s == "A") else ("rain_light" if n == 1
+			else ("rain_heavy" if n <= 4 else "rain_hang"))
 		check((rain.is_empty() and want == "") or (rain.size() == 1 and rain[0].begins_with(want)),
 			"V: %s rain %s" % [s, want])
 		check(ids.has("station_lamp") == (scene.sim.flag("P01") and s != "A"), "V: %s office lamp follows P01" % s)
@@ -467,10 +500,10 @@ func test_view_presentation() -> void:
 		for l in v.layer_stack():
 			var m: Color = l[2]
 			check(m.r >= 0.85, "V: %s %s modulate stays at or above 0.85" % [s, l[0]])
-		var w := layer(v, "waves_0") if not layer(v, "waves_0").is_empty() else []
-		for k in 3:
-			if w.is_empty():
-				w = layer(v, "waves_%d" % k)
+		var w := []
+		for l in v.layer_stack():
+			if str(l[0]).begins_with("waves_"):
+				w = l
 		if n <= 6 and s != "A":
 			var a: float = w[2].a if not w.is_empty() else -1.0
 			var wa := 1.0 if n <= 2 else (0.8 if n <= 4 else 0.5)
@@ -609,4 +642,84 @@ func test_view_presentation() -> void:
 	check(v.note_open, "V: the note card opens")
 	check(scene.room_view.action_at(Vector2(100, 900)) == "" and not v.note_open, "V: a click dismisses it")
 	check(scene.action_at(Vector2(668, 200)) == "key", "V: the key standing in the capsule's mouth")
+	await test_view_w1(scene)
 	await free_scene(scene)
+
+## Round w1 presentation: the dusk first visit, the band-4 tilt, hanging rain, the s7 mix,
+## the chart room in the boat's window.
+func test_view_w1(scene) -> void:
+	for s in ["arrival", "boat"]:
+		scene_in(scene, s)
+		var v = scene.room_view
+		var ids := layer_ids(v)
+		check(v.BACKDROP[s] == "back_b0_dusk" and ids[0] == "back_b0_dusk", "W1: %s is dusk" % s)
+		check(ids.has("reflections_dusk") and not ids.has("reflections"), "W1: %s every piling's reflection" % s)
+		check(ids.has("dusk_lamps") and ids.find("dusk_lamps") > ids.find("fg_jetty"), "W1: %s lamps over the jetty" % s)
+		# frozen sky, moving water: the backdrop never shifts, the wave frame does
+		var frames := {}
+		for t in [0.0, 0.5, 1.0, 1.5]:
+			scene.time = t
+			var st: Array = v.layer_stack()
+			check(st[0][1] == Vector2.ZERO, "W1: %s the overcast doesn't drift" % s)
+			for l in st:
+				if str(l[0]).begins_with("waves_dusk_"):
+					frames[l[0]] = true
+		check(frames.size() == 3, "W1: %s the waves keep animating (%s)" % [s, frames.keys()])
+		var fg: Color = layer(v, "fg_jetty")[2]
+		var ln: Color = layer(v, "line")[2]
+		check(is_equal_approx(ln.r, minf(1.0, fg.r * v.PROP_LIFT)) and ln.r > fg.r, "W1: %s props lifted over the dusk" % s)
+	scene_in(scene, "boat")
+	var vb = scene.room_view
+	var ids_b := layer_ids(vb)
+	check(ids_b.find("boat") > ids_b.find("reflections_dusk"), "W1: the boat lies over the reflections, with none of its own")
+	check(ResourceLoader.exists("res://assets/rooms/R01/back_b0.png"), "W1: back_b0 is kept")
+	# band 4: the waves turn about the jetty's end; the calm and causeway lie level over them
+	scene_in(scene, "s4")
+	var v4 = scene.room_view
+	var w4 := []
+	for l in v4.layer_stack():
+		if str(l[0]).begins_with("waves_"):
+			w4 = l
+	check(w4.size() > 5 and is_equal_approx(w4[5], deg_to_rad(v4.TILT_DEG)), "W1: s4 waves turned 3 degrees")
+	check(layer_ids(v4).find("b4_level") > layer_ids(v4).find(w4[0]), "W1: s4 the calm and causeway stay level over them")
+	scene.sim.settings.motion = false
+	var w4s := []
+	for l in v4.layer_stack():
+		if str(l[0]).begins_with("waves_"):
+			w4s = l
+	check(w4s.size() > 5 and w4s[5] == w4[5], "W1: s4 still is the same tilt")
+	scene.sim.settings.motion = true
+	for s in ["s3", "s5", "s6", "s7"]:
+		scene_in(scene, s)
+		for l in scene.room_view.layer_stack():
+			check(l.size() <= 5 or l[5] == 0.0, "W1: %s nothing turned outside band 4" % s)
+	# bands 5-6: the rain hangs, seeded per band, and is drawn in the tests' colour
+	for s in ["s5", "s6"]:
+		scene_in(scene, s)
+		var v = scene.room_view
+		var n := R01Sim.rank(s)
+		var a: Array = v.layer_stack()
+		scene.time = 3.7
+		var b: Array = v.layer_stack()
+		check(layer_ids(v).has("rain_hang_%d" % n), "W1: %s rain hangs" % s)
+		check(is_equal_approx(layer(v, "rain_hang_%d" % n)[2].a, v.RAIN_HANG_ALPHA), "W1: %s at 70%%" % s)
+		check(v.rain_frame(s) == 0, "W1: %s rain frames stop" % s)
+		var d1: PackedVector2Array = v.rain_hang_dashes(n)
+		v.rain_hang.clear()
+		check(d1 == v.rain_hang_dashes(n) and d1.size() > 600, "W1: %s dashes are deterministic" % s)
+		check(not v.MIX[s].has("rain_planks"), "W1: %s the rain is silent" % s)
+	check(scene.room_view.rain_hang_dashes(5) != scene.room_view.rain_hang_dashes(6), "W1: seeded per band")
+	# band 7: something under the hum that small speakers can play
+	scene_in(scene, "s7")
+	var m7: Dictionary = scene.room_view.MIX["s7"]
+	check(is_equal_approx(m7.pressure_hum, 0.35) and is_equal_approx(m7.sea_thin, 0.2), "W1: s7 mix")
+	# the lens on the boat's window: R03's chart room
+	scene.room_jump(ROOM, 1)
+	scene.dispatch("item:inspection_lens")
+	scene.dispatch("launch")
+	var vw = scene.room_view
+	check(scene.sim.room(ROOM).local_view == R01Sim.C_WINDOW, "W1: the lens opens the window")
+	for id in ["c_boat_window_chart", "c_boat_window_chart_figure", "c_boat_window_chart_figure_turned"]:
+		check(vw._tex(id) != null, "W1: %s exists" % id)
+	await process_frame
+

@@ -49,18 +49,33 @@ const MIX := {
 	"s4": {"sea_thin": 0.7, "wind_jetty": 0.5, "wind_whistle": 0.3, "rain_planks": 0.7},
 	"s5": {"sea_thin": 0.5},
 	"s6": {"sea_thin": 0.4},
-	"s7": {"pressure_hum": 0.9},
+	## The hum alone is all sub-bass: laptop speakers would play nothing. A thin sea under it.
+	"s7": {"pressure_hum": 0.35, "sea_thin": 0.2},
 	"A": {"sea_jetty": 1.0, "gulls": 0.7, "engine_idle": 0.6, "wind_jetty": 0.4},
 }
 const CLOSEUP_MIX := 0.7
 
-const BACKDROP := {"arrival": "back_b0", "boat": "back_b0", "s1": "back_b1", "s2": "back_b2",
+## The first visit is dusk (back_b0_dusk): a flat banded overcast, the lighthouse dark.
+const BACKDROP := {"arrival": "back_b0_dusk", "boat": "back_b0_dusk", "s1": "back_b1", "s2": "back_b2",
 	"s3": "back_b3", "s4": "back_b4", "s5": "back_b5", "s6": "back_b5", "s7": "back_b7",
 	"A": "back_end_a"}
 ## Foreground modulate (fg_jetty, gangway, boat, line, capsule). Never below 0.85: every
 ## painted change must read at 1024x768, so there is no CanvasModulate and no vignette.
-const FG_MOD := {"arrival": 1.0, "boat": 1.0, "s1": 0.96, "s2": 0.93, "s3": 0.90, "s4": 0.90,
+const FG_MOD := {"arrival": 0.9, "boat": 0.9, "s1": 0.96, "s2": 0.93, "s3": 0.90, "s4": 0.90,
 	"s5": 0.88, "s6": 0.88, "s7": 1.0, "A": 1.0}
+## Hotspot props laid as their own layers (line, gangway, boat, capsule) sit +10% in value
+## over the dusk foreground so they still read; capped at 1.0.
+const PROP_LIFT := 1.1
+## Band 4: the sea (backdrop and wave frames) is turned this far about the jetty's end; the
+## jetty, the causeway and the bell's calm (b4_level) stay level. The same in both motion modes.
+const TILT_PIVOT := Vector2(1330, 870)
+const TILT_DEG := 3.0
+## Bands 5-6: the rain makes no sound, and it doesn't fall either. Static dashes hang in the
+## air, seeded per band; thinned over the hotspots so every one stays legible.
+const RAIN_HANG_COL := Color("c9d3da")
+const RAIN_HANG_ALPHA := 0.7
+const RAIN_HANG_N := 900
+const RAIN_HANG_W := 1.5
 
 # --- motion -------------------------------------------------------------------------
 const WAVE_STEP := 0.5           # waves_0..2, one frame per half second
@@ -157,6 +172,7 @@ var note_open := false
 var pull_t := INF              # seconds since a bell pull
 var pull_n := 1
 var tide_defer := 0            # a tide card held back during the withdrawal
+var rain_hang := {}            # band -> PackedVector2Array of dash end pairs (seeded)
 
 func _ready() -> void:
 	narrow = SystemFont.new()
@@ -276,8 +292,8 @@ func wave_frame(s: String) -> int:
 	return int(floor(_wave_clock(s) / WAVE_STEP)) % 3
 
 func rain_frame(s: String) -> int:
-	if not _plays("rain"):
-		return 0
+	if not _plays("rain") or R01Sim.rank(s) >= 5:
+		return 0   # still, or hanging: from band 5 the rain no longer falls
 	var step := RAIN_FAST if R01Sim.rank(s) <= 2 else RAIN_SLOW
 	return int(floor(time / step)) % 2
 
@@ -288,6 +304,30 @@ func reflection_dx(s: String) -> float:
 	if not _plays("reflections"):
 		return REFLECT_AMP   # still: visibly displaced
 	return REFLECT_AMP * sin(TAU * (_wave_clock(s) - SOUND_LAG) / REFLECT_PERIOD)
+
+## The hanging rain's dashes for a band: deterministic, the same on every visit.
+func rain_hang_dashes(band: int) -> PackedVector2Array:
+	if rain_hang.has(band):
+		return rain_hang[band]
+	var g := RandomNumberGenerator.new()
+	g.seed = 0x52A10 + band
+	var pts := PackedVector2Array()
+	for i in RAIN_HANG_N:
+		var x := g.randf_range(0.0, SIZE.x)
+		var y := g.randf_range(90.0, 980.0)
+		var ln := g.randf_range(8.0, 14.0)
+		var thin := g.randf() < 0.6
+		var over := false
+		for h in HOTSPOTS:
+			if (h[1] as Rect2).has_point(Vector2(x, y)):
+				over = true
+				break
+		if over and thin:
+			continue
+		pts.append(Vector2(x, y))
+		pts.append(Vector2(x, y + ln))
+	rain_hang[band] = pts
+	return pts
 
 func drift_dx() -> float:
 	if not _plays("drift"):
@@ -345,17 +385,29 @@ func layer_stack() -> Array:
 	var mid := not early and s != "A"
 	var m: float = FG_MOD.get(s, 1.0)
 	var fg := Color(m, m, m)
+	var pm := minf(1.0, m * PROP_LIFT) if early else m
+	var prop := Color(pm, pm, pm)
 	var out := []
 	out.append([BACKDROP[s], Vector2.ZERO, Color.WHITE, -1.0])
-	if early or (mid and r <= 4):
+	if early:
+		# Every piling has its reflection; the boat, laid over them, has none.
+		out.append(["reflections_dusk", Vector2.ZERO, Color.WHITE, -1.0])
+	elif mid and r <= 4:
 		var rdx := Vector2(reflection_dx(s), 0)
 		out.append(["reflections", rdx, Color.WHITE, -1.0])
 		if r >= 3:
 			# Laid twice when they lag: under the rain the faint plate alone doesn't read.
 			out.append(["reflections", rdx, Color.WHITE, -1.0])
-	if early or (mid and r <= 6):
+	if early:
+		out.append(["waves_dusk_%d" % wave_frame(s), Vector2.ZERO, Color.WHITE, -1.0])
+	elif mid and r <= 6:
 		var a := 1.0 if r <= 2 else (0.8 if r <= 4 else 0.5)
-		out.append(["waves_%d" % wave_frame(s), Vector2.ZERO, Color(1, 1, 1, a), -1.0])
+		if s == "s4":
+			out.append(["waves_%d" % wave_frame(s), Vector2.ZERO, Color(1, 1, 1, a), -1.0, 1.0,
+				deg_to_rad(TILT_DEG)])
+			out.append(["b4_level", Vector2.ZERO, Color.WHITE, -1.0])
+		else:
+			out.append(["waves_%d" % wave_frame(s), Vector2.ZERO, Color(1, 1, 1, a), -1.0])
 	if s != "s7" and s != "A":
 		out.append(["bell_calm", Vector2.ZERO, Color.WHITE, -1.0])
 	if not gsim().flag("P05"):
@@ -367,31 +419,35 @@ func layer_stack() -> Array:
 	# Once it pulls away it is further off than the jetty: it goes behind the deck and pilings.
 	var receding := withdrawing() and withdraw_t >= BOAT_GO
 	if receding:
-		_boat_layers(out, s, fg)
+		_boat_layers(out, s, prop)
 	out.append(["fg_jetty", Vector2.ZERO, fg, -1.0])
 	# The office window is painted in fg_jetty, so its lamp and figure sit just above it.
 	if gsim().flag("P01") and s != "A":
 		out.append(["station_lamp", Vector2.ZERO, Color.WHITE, -1.0])
+	if early:
+		out.append(["dusk_lamps", Vector2.ZERO, Color.WHITE, -1.0])
 	if s == "s7":
 		out.append(["station_window_figure", Vector2.ZERO, Color.WHITE, -1.0])
 	if r >= 3:
 		out.append(["stump", Vector2.ZERO, Color.WHITE, -1.0])
 	var down := (s == "boat" and not cutting()) or (withdrawing() and withdraw_t < BOAT_GO)
-	out.append(["gangway_down" if down else "gangway_up", Vector2.ZERO, fg, -1.0])
+	out.append(["gangway_down" if down else "gangway_up", Vector2.ZERO, prop, -1.0])
 	if s == "A":
 		out.append(["launch_real", Vector2.ZERO, fg, -1.0])
 	elif not receding:
-		_boat_layers(out, s, fg)
+		_boat_layers(out, s, prop)
 	if mid and r >= 2 and r <= 6:
 		out.append(["mist_far", Vector2.ZERO, Color.WHITE, -1.0])
-	out.append(["line", Vector2.ZERO, fg, -1.0])
+	out.append(["line", Vector2.ZERO, prop, -1.0])
 	var dy := capsule_dy()
 	if dy >= 0.0:
 		var cap := "capsule_open" if jetty.capsule_state() == "open" else "capsule_closed"
-		out.append([cap, Vector2(0, dy), fg, WATERLINE if dy > 0.0 else -1.0])
+		out.append([cap, Vector2(0, dy), prop, WATERLINE if dy > 0.0 else -1.0])
 	if s == "s1":
 		out.append(["rain_light_%d" % rain_frame(s), Vector2.ZERO, Color.WHITE, -1.0])
-	elif mid and r >= 2 and r <= 6:
+	elif mid and r >= 5 and r <= 6:
+		out.append(["rain_hang_%d" % r, Vector2.ZERO, Color(1, 1, 1, RAIN_HANG_ALPHA), -1.0])
+	elif mid and r >= 2 and r <= 4:
 		var ra := RAIN_S4_ALPHA if s == "s4" else RAIN_HEAVY_ALPHA
 		out.append(["rain_heavy_%d" % rain_frame(s), Vector2.ZERO, Color(1, 1, 1, ra), -1.0])
 	if cutting():
@@ -415,13 +471,24 @@ func _boat_layers(out: Array, s: String, fg: Color) -> void:
 
 func _draw() -> void:
 	for l in layer_stack():
-		var tex := _tex(l[0])
+		var id: String = l[0]
+		if id.begins_with("rain_hang_"):
+			var m: Color = l[2]
+			draw_multiline(rain_hang_dashes(int(id.substr(10))), Color(RAIN_HANG_COL, m.a), RAIN_HANG_W, true)
+			continue
+		var tex := _tex(id)
 		if tex == null:
 			continue
 		var at: Vector2 = l[1]
 		var clip_y: float = l[3]
 		var sc: float = l[4] if l.size() > 4 else 1.0
-		if clip_y > 0.0:
+		var rot: float = l[5] if l.size() > 5 else 0.0
+		if rot != 0.0:
+			# Turned about the pivot: x -> pivot + R(x + at - pivot).
+			draw_set_transform(TILT_PIVOT + (at - TILT_PIVOT).rotated(rot), rot, Vector2(sc, sc))
+			draw_texture(tex, Vector2.ZERO, l[2])
+			draw_set_transform(Vector2.ZERO)
+		elif clip_y > 0.0:
 			# Clipped at the waterline: it comes up out of the water, and the part that will
 			# hang under the surface fades in as it arrives.
 			var h := clip_y - at.y
@@ -447,9 +514,11 @@ func _draw_close() -> void:
 		R01Sim.C_PANEL:
 			_draw_panel(c)
 		R01Sim.C_WINDOW:
-			_blit(c, "c_boat_window")
+			# Through the lens, the cabin is R03's chart room: recorder, plan, clipped chart.
+			_blit(c, "c_boat_window_chart")
 			if jetty.figure_seen():
-				var fig := "c_boat_window_figure_turned" if gsim().flag("t1x_turned") else "c_boat_window_figure"
+				var fig := "c_boat_window_chart_figure_turned" if gsim().flag("t1x_turned") \
+					else "c_boat_window_chart_figure"
 				_blit(c, fig, Vector2.ZERO, Color(1, 1, 1, figure_k))
 		R01Sim.C_CAPSULE:
 			_draw_capsule(c)

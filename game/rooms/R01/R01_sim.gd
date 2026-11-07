@@ -60,7 +60,7 @@ const OBSERVATIONS := {
 	"line": "The mooring line runs straight down into the Sound. Something is tied to it, far below. The water shows no reflection of the line.",
 	"pilings": "Nine pilings under the jetty. From the launch I counted eight.",
 	"tenth_stump": "A tenth piling stump stands past the end of the jetty. Its reflection comes after the water moves, like all of them now.",
-	"lighthouse": "The lighthouse on the headland is lit. Nobody is posted there.",
+	"lighthouse": "The lighthouse on the headland. Nobody is posted there. At dusk its lamp was dark.",
 	"launch_left": "The launch that brought me is just past the lighthouse. Every time I look, it is exactly there.",
 	"lighthouse_gone": "The lighthouse has gone from the headland. The headland is still there.",
 	"lighthouse_behind": "The lighthouse stands behind the station, above the roof, where there is no land.",
@@ -68,7 +68,7 @@ const OBSERVATIONS := {
 	"causeway_ladder": "Through the lens: an iron ladder goes down into the causeway's middle gap, and on below the water.",
 	"panel": "Mooring panel placard: compare the vessel's pennant with the contract. Matching: set VERIFIED, ring bell 1, board. Mismatched: set UNVERIFIED RETURN, ring bell 2, do not board. Bells 3 and 4 are weather and fire. In pencil, Venn: 'It comes when called. Not only then.'",
 	"placard_ada": "Under Venn's pencil line on the placard, a second line in my handwriting: 'It came when called. A.M.' I didn't write it.",
-	"boat": "The boat at the jetty flies a three-stripe pennant. It sits dead still while the water moves under it. It casts no reflection.",
+	"boat": "A boat at the jetty. The water moves. The boat doesn't. It has no reflection.",
 	"launch_mismatch": "The boat has a three-stripe pennant. The contract's launch has two. Through its window: the chart room, my chart on the table.",
 	"window_figure": "A second look through the lens: someone is standing at my chart table in the boat's window, writing on my chart, right-handed.",
 	"window_figure_turned": "A second look through the lens: someone is standing at my chart table in the boat's window. They had turned round. They were looking out at me.",
@@ -87,7 +87,7 @@ const OBSERVATIONS := {
 ## The first-time arrival hold per jetty state (rooms.md "Notice"), and what it notes.
 const NOTICE := {
 	"arrival": "The bell's lip is under the water. The water doesn't move round it.",
-	"boat": "A boat at the jetty. The water moves. The boat doesn't.",
+	"boat": "A boat at the jetty. The water moves. The boat doesn't. It has no reflection.",
 	"s1": "The capsule's still on the line.",
 	"s2": "I can't see the end of the jetty from here.",
 	"s3": "The reflections are late. They move after the water does.",
@@ -372,9 +372,11 @@ func _gangway(s: String, ev: Array) -> void:
 
 func _station(s: String, ev: Array) -> void:
 	if not game.flag("P01"):
-		_say(ev, "The station. The office window's dark.")
+		_say(ev, "The station. The office window's dark. The one beside it is lit.")
 		return
 	match s:
+		"arrival", "boat":
+			_say(ev, "The office window, lit. I left the lamp on. The one beside it is lit too.")
 		"s5", "s6":
 			_say(ev, "The office window's lit. The rest of the station is the colour of the sky.")
 		"s7":
@@ -392,15 +394,18 @@ func _lighthouse(s: String, ev: Array) -> void:
 			state.lighthouse_looks = mini(look + 1, 9)
 			if look == 0:
 				_observe("lighthouse")
-				_say(ev, "The lighthouse. Lit; nobody's posted there. The launch that brought me is just past it.")
+				_say(ev, "The lighthouse. Dark; nobody's posted there. The launch that brought me is just past it.")
 			else:
 				_observe("launch_left")
 				_say(ev, "The launch is exactly where it was. It hasn't got any further.")
-		"boat", "s1", "s2", "s3":
+		"boat":
 			_observe("lighthouse")
-			_say(ev, "The lighthouse. Lit. Nobody's posted there.")
+			_say(ev, "The lighthouse. Dark. Nobody's posted there to light it.")
+		"s1", "s2", "s3":
+			_observe("lighthouse")
+			_say(ev, "The lighthouse. Lit now. Nobody's posted there.")
 		"s4":
-			_say(ev, "The headland sits on the tilted horizon. The lighthouse stands straight up off it.")
+			_say(ev, "The headland and the lighthouse lean with the horizon. The jetty doesn't.")
 		"s5":
 			_observe("lighthouse_gone")
 			_say(ev, "The headland's there. The lighthouse isn't.")
@@ -504,7 +509,7 @@ func _commit(ev: Array) -> void:
 	_say(ev, "Nothing answers it. Not even the water.", 2.4, true)
 	_say(ev, "It's going. Stern first. Its bow never leaves the station.", 5.2, true)
 	_say(ev, "Someone's standing at the chart table in its window." if state.lens_looks < 2
-		else "Whoever's at my chart doesn't look up.", 8.6, true)
+		else "Whoever's at my chart doesn't look up. They've reached the part where I came in.", 8.6, true)
 	_sfx(ev, "water_close", 11.2)
 	_sfx(ev, "capsule_rise", 11.5)
 	_say(ev, "The mooring line's moving. Something's coming up it on its own.", 12.0, true)
@@ -597,6 +602,8 @@ func _use_lens(target: String, ev: Array) -> bool:
 		"lighthouse":
 			if s == "A":
 				_say(ev, "Through the lens, the gallery's empty and the lamp is out.")
+			elif n == 0:
+				_say(ev, "Through the lens, the gallery's empty and the lamp is dark.")
 			elif n < 5:
 				_say(ev, "Through the lens, the gallery's empty and the lamp is lit.")
 			elif n == 5:
