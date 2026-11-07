@@ -2563,6 +2563,15 @@
       "source_svg": null
     },
     {
+      "id": "R05/a_place10",
+      "path": "assets/rooms/R05/a_place10.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "60d2e88430329225f8d6ffd94e6182ac28ea657343cee30742b716b8d7028bae",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R05/a_rain_1",
       "path": "assets/rooms/R05/a_rain_1.png",
       "width": 340,
@@ -2752,11 +2761,29 @@
       "source_svg": null
     },
     {
+      "id": "R05/a_wet_b2v2",
+      "path": "assets/rooms/R05/a_wet_b2v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "d8abef65bd0c2478a9fb793613709fead1395b8d146428966f1609e2c55c49cb",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R05/a_wet_b3",
       "path": "assets/rooms/R05/a_wet_b3.png",
       "width": 1448,
       "height": 1086,
       "sha256": "4f2fbabf7da0382fb87f6856cfb52225c341c5e9b91825dd34133fb7acb66d6e",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_wet_b3v2",
+      "path": "assets/rooms/R05/a_wet_b3v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "c1210dfcf1d5e86f9ee9ec08c40b439cecb9383182872cefd9f1d94af55db9c1",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2770,11 +2797,29 @@
       "source_svg": null
     },
     {
+      "id": "R05/a_wet_b4v2",
+      "path": "assets/rooms/R05/a_wet_b4v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "7aa1a84b4e6b5cd9d8ce3b97bb2d917e99fcc42437759f07d5daa0bece632299",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R05/a_wet_b5",
       "path": "assets/rooms/R05/a_wet_b5.png",
       "width": 1448,
       "height": 1086,
       "sha256": "41ecb80c13137e826a8d479a055517c57b03230fa699f1465d9112e4b69618dc",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_wet_b5v2",
+      "path": "assets/rooms/R05/a_wet_b5v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "3389b81191e009a3f0fa72549928185d5f1d851325b7deb1bdf8af442d0cf1ab",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2788,11 +2833,38 @@
       "source_svg": null
     },
     {
+      "id": "R05/a_wet_b6v2",
+      "path": "assets/rooms/R05/a_wet_b6v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "5f36cc1a8e321a31511235152aaa9aa88f0f48e7bacbb6783cef690ad1fc9a45",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R05/a_wet_b7",
       "path": "assets/rooms/R05/a_wet_b7.png",
       "width": 1448,
       "height": 1086,
       "sha256": "a088541d092c9ece84903bce0bf38de374025a137581c093f4b21ebbca75d9eb",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_wet_b7v2",
+      "path": "assets/rooms/R05/a_wet_b7v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "9d6f824dd1bd9864a636417cc4e940621b88ccc5bd7ff822bbffa1fddc75dff6",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/a_window_eye_b7v2",
+      "path": "assets/rooms/R05/a_window_eye_b7v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "630a47d4728cb7e99df3adc5d177820e50aea73d0589a0bfbdb709b7dad3f75f",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -2932,6 +3004,15 @@
       "source_svg": null
     },
     {
+      "id": "R05/c_door_edge",
+      "path": "assets/rooms/R05/c_door_edge.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "64b23815db39dfbb633ac853673fe9059f525a3758b36efd4811c1155a14ffac",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R05/c_flag_agree",
       "path": "assets/rooms/R05/c_flag_agree.png",
       "width": 150,
@@ -3018,6 +3099,15 @@
       "width": 120,
       "height": 200,
       "sha256": "12a5a5bb6277f13fead2bcf7a8827e1f05b61914e80e0abfbf56d00cf38a71d0",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R05/c_place10",
+      "path": "assets/rooms/R05/c_place10.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "84f1d633c1ea3e1992cff4dd2b08db3c8909a8e5076ca4f1e7f07bf5e09c0e2a",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },

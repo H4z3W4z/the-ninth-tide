@@ -38,6 +38,13 @@ place 9, and the band 4-7 tide line as one straight salt crest at the office's s
 a_seat9/_wet, a_towel_wet, a_ring_amber/_wisp, a_wet_b2..b7, a_rain_still, b_board_back,
 b_book_blank, c_*_damp); the first-set files the view no longer draws are still painted unchanged.
 
+Fix pass w2 (new files only): a_place10 / c_place10 (P07's second blank place, at the rack end,
+no spoon, no dent), c_door_edge (the kitchen doorway past the door end of the c_table plan),
+a_wet_b2v2..b7v2 (the halo at his place becomes an irregular navy stain with a tide-ring edge and
+two drip runs) and a_window_eye_b7v2 (the band-7 eye made stark: slit pupil, sea-glass iris,
+paper-white sclera with a navy contour, glazing bars in front). Place 9 never had a painted
+square: the old mark was code-drawn, so no erase patch is needed.
+
 Python 3 + PIL only. Deterministic: each asset has its own random.Random(SEED + k), there is no
 clock and no PIL noise effect, so a rerun is byte-identical.
 
@@ -2375,6 +2382,179 @@ def paint_c_board_damp(rng):
 
 # ----------------------------------------------------------------------------- registry
 
+
+# ----------------------------------------------------------------------------- fix pass w2 (new files only)
+
+PLACE10_A = (218, 772)          # view A: the stool seat's top centre at the rack end (place_10)
+PLACE10_C = (186, 470)          # c_table: the place-10 mat's bowl centre, near side at the rack end
+
+
+def paint_a_place10(rng):
+    """View A, full frame: place_10, a second blank place at the rack end. A plain stool pulled
+    up under the end of the cloth, a blank stitched napkin laid square on its seat: a place set
+    for nobody, with no spoon and no dent. Seat top at PLACE10_A."""
+    p = Pen(W, H, rng)
+    cx, top = PLACE10_A
+    sh = p.layer()
+    sh.ell(cx, 884, 54, 6, INK, None)
+    p.put_soft(sh, 4, 0.5)
+    for x in (cx - 40, cx + 30):                                   # two legs, square, timber
+        p.rect(x, top + 14, x + 10, 880, TIMBER_XD, INK, 2.4)
+    p.rect(cx - 40, 838, cx + 40, 846, TIMBER_XD, INK, 1.8)        # stretcher
+    p.rect(cx - 50, top, cx + 50, top + 16, mix(TIMBER, TIMBER_DK, 0.3), INK, 2.6)
+    p.line([(cx - 46, top + 3), (cx + 46, top + 3)], TIMBER_HI, 1.4)
+    # the napkin: linen laid flat on the seat and hanging over its front edge, a chain-stitched
+    # blank field where initials would be
+    nap = [(cx - 42, top - 2), (cx + 42, top - 2), (cx + 40, top + 44), (cx + 30, top + 48),
+           (cx - 30, top + 48), (cx - 40, top + 44)]
+    p.poly(nap, PAPER_HI, INK, 2.2)
+    p.line([(cx - 38, top + 1), (cx + 38, top + 1)], (250, 248, 240), 1.4)
+    p.rect(cx - 24, top + 14, cx + 24, top + 38, (242, 238, 226), None)
+    chain_rect(p, cx - 24, top + 14, cx + 24, top + 38, INK, 7, 1.2)
+    return p
+
+
+def paint_c_place10(rng):
+    """c_table, full frame: place_10 on the cloth's near side at the rack end. A laid mat with a
+    blank stitched patch, no spoon, no dent; the cloth around it is undisturbed."""
+    p = Pen(W, H, rng)
+    cx, cy = PLACE10_C
+    x0, y0, x1, y1 = cx - 66, 388, cx + 66, 564
+    p.rect(x0, y0, x1, y1, (226, 218, 198), None)
+    chain_rect(p, x0, y0, x1, y1, mix(INK, SEAGLASS, 0.2), 8, 1.4)
+    p.rect(cx - 42, 516, cx + 42, 556, (242, 238, 226), None)
+    chain_rect(p, cx - 42, 516, cx + 42, 556)
+    return p
+
+
+def paint_c_door_edge(rng):
+    """c_table, full frame: the kitchen doorway past the door end of the cloth (right edge), so
+    the plan says which blank place sits by the door. A timber jamb and the dark gap beyond."""
+    p = Pen(W, H, rng)
+    sh = p.layer()
+    sh.rect(1356, 130, 1452, 594, INK, None)
+    p.put_soft(sh, 8, 0.35)
+    p.rect(1366, 130, 1452, 590, (30, 34, 38), INK, 2.6)           # the opening, seen from above
+    p.rect(1362, 130, 1380, 590, TIMBER_DK, INK, 2.4)              # the jamb and threshold
+    p.line([(1366, 134), (1366, 586)], TIMBER_HI, 1.4)
+    p.rect(1380, 560, 1452, 590, (40, 42, 44), None)
+    return p
+
+
+def paint_a_wet_v2(rng, band):
+    """Bands 2-7, full frame: as a_wet_b*, but the clean halo at his place becomes an irregular
+    stain: storm navy at alpha 0.3, a darker tide-ring edge, and two drip runs down the hem."""
+    f = (band - 1) / 6.0
+    p = Pen(W, H, rng)
+    x9 = PLACE_X[8]
+    wet = p.layer()
+    for i, x in enumerate(PLACE_X[:8]):
+        x_a = x - 26
+        x_b = x + 40 + f * (x9 - x - 40)
+        th = 5 + 11 * f
+        wet.poly([(x_a, 598 - th * 0.3), (x_b, 597), (x_b + 10, 600 + th * 0.4), (x_b, 602 + th * 0.6),
+                  (x_a, 602 + th * 0.4)], (84, 104, 112), None)
+    if f > 0.6:
+        wet.rect(PLACE_X[0], 596, x9 - 40, 606 + 8 * f, (84, 104, 112), None)
+    wet.im = wet.im.filter(ImageFilter.GaussianBlur(3 * SS))
+    keep = Image.new("L", wet.im.size, 0)
+    d = ImageDraw.Draw(keep)
+    d.polygon([(160 * SS, 592 * SS), (1340 * SS, 592 * SS), (1340 * SS, 712 * SS), (160 * SS, 712 * SS)], fill=255)
+    for x in PLACE_X[:8]:                                # the named patches stay dry
+        d.rectangle(((x - 48) * SS, 614 * SS, (x + 48) * SS, 682 * SS), fill=0)
+    p.put(wet, 0.55 + 0.3 * f, mask=keep)
+    # his place: an irregular blot with lobes, not an ellipse
+    srng = random.Random(SEED + 900 + band)
+    rx, ry = 44 + 40 * f, 30 + 26 * f
+    cy = 646
+    pts = []
+    n = 26
+    for k in range(n):
+        a = 2 * math.pi * k / n
+        r = 1.0 + 0.16 * math.sin(3 * a + 0.7) + 0.1 * math.sin(5 * a + 2.1) + srng.uniform(-0.07, 0.07)
+        pts.append((x9 + rx * r * math.cos(a), cy + ry * r * math.sin(a)))
+    blot = p.layer()
+    blot.poly(pts, STORM, None)
+    p.put(blot, 0.3, mask=keep)
+    ring = p.layer()                                     # the tide-ring: darker, a dried edge
+    ring.poly(pts, None, mix(STORM, DARK, 0.5), 3.0)
+    inner = [(x9 + (x - x9) * 0.62, cy + (y - cy) * 0.62 + 4) for x, y in pts]
+    ring.poly(inner, None, mix(STORM, DARK, 0.3), 1.4)
+    p.put(ring, 0.75, mask=keep)
+    # two drip runs from the stain down over the hem, ending in beads
+    runs = p.layer()
+    for dx, ln in ((-0.55, 46 + 30 * f), (0.35, 70 + 40 * f)):
+        x = x9 + dx * rx
+        y0 = cy + ry * 0.7
+        run = [(x + 1.6 * math.sin(t * 0.21), y0 + t) for t in range(0, int(ln), 3)]
+        runs.line(run, STORM, 4.0)
+        ex, ey = run[-1]
+        runs.ell(ex, ey + 3, 4.2, 5.2, STORM, None)
+    p.put(runs, 0.55)
+    edge = p.layer()
+    for dx, ln in ((-0.55, 46 + 30 * f), (0.35, 70 + 40 * f)):
+        x = x9 + dx * rx
+        y0 = cy + ry * 0.7
+        edge.line([(x - 2.2, y0 + 4), (x - 2.0, y0 + ln - 4)], mix(STORM, DARK, 0.5), 1.2)
+    p.put(edge, 0.6)
+    beads = p.layer()
+    for i, x in enumerate(PLACE_X[:8]):
+        for _ in range(3 + int(round(5 * f))):
+            bead(beads, x + rng.uniform(8, 40), rng.uniform(528, 546), rng.uniform(1.8, 2.8))
+    p.put(beads)
+    return p
+
+
+def eye_lids():
+    """The b7v2 eye's upper and lower lid curves (shared with R05_view.gd's lid drift)."""
+    upper = bezier((GLASS[0] - 120, 214), (730, 96), (GLASS[2] + 120, 214), 40)
+    lower = bezier((GLASS[0] - 120, 214), (730, 324), (GLASS[2] + 120, 214), 40)
+    return upper, lower
+
+
+def paint_a_window_eye_b7v2(rng):
+    """Band 7, full frame over the window glass: the eye pressed against the pane, made stark.
+    A paper-white sclera band with a navy contour, a sea-glass iris ring, a solid storm-navy
+    vertical slit pupil, dark lids, and the glazing bars still drawn in front."""
+    p = Pen(W, H, rng)
+    gx0, gy0, gx1, gy1 = GLASS
+    lid_dark = (14, 22, 28)
+    lay = p.layer()
+    lay.rect(gx0, gy0, gx1, gy1, lid_dark, None)
+    upper, lower = eye_lids()
+    almond = upper + lower[::-1]
+    lay.poly(almond, ENAMEL, None)                                     # paper-white sclera
+    clip = Pen(W, H, rng)
+    clip.poly(almond, (255, 255, 255), None)
+    iris = p.layer()
+    cx, cy = 770, 210
+    iris.ell(cx, cy, 74, 74, SEAGLASS, None)                           # sea-glass iris ring
+    iris.ell(cx, cy, 74, 74, None, INK, 3)
+    iris.ell(cx, cy, 52, 52, None, SEAGLASS_DK, 3)
+    iris.ell(cx, cy, 30, 30, mix(SEAGLASS_DK, STORM, 0.5), None)
+    iris.poly([(cx, cy - 66), (cx + 13, cy - 20), (cx + 14, cy + 20), (cx, cy + 66),
+               (cx - 14, cy + 20), (cx - 13, cy - 20)], STORM_LO, None)  # vertical slit pupil
+    iris.ell(cx - 30, cy - 28, 7, 5, (236, 244, 240), None)           # one wet highlight
+    lay.put(iris, 1.0, mask=clip.alpha())
+    lay.poly(almond, None, INK, 3.2)                                   # the sclera's navy contour
+    lay.line(upper, lid_dark, 7)
+    lay.line(lower, lid_dark, 5)
+    lay.line([(x, y - 10) for x, y in upper], (40, 54, 60), 2)        # the lid crease
+    glass = Pen(W, H, rng)
+    glass.rect(gx0, gy0, gx1, gy1, (255, 255, 255), None)
+    out = p.layer()
+    out.put(lay, 1.0, mask=glass.alpha())
+    p.put(out)
+    # the glazing bars and the frame, in front of it (as the plate draws them)
+    p.rect(*GLASS, None, INK, 3)
+    p.rect(MULL_X - 5, GLASS[1], MULL_X + 5, GLASS[3], STORM, INK, 2.2)
+    p.rect(GLASS[0], MULL_Y - 5, GLASS[2], MULL_Y + 5, STORM, INK, 2.2)
+    gl = p.layer()
+    gl.line([(600, 166), (626, 140)], (190, 204, 200), 2)
+    p.put(gl, 0.3)
+    return p
+
+
 ASSETS = [  # name, seed index, painter, opaque, grain
     ("view_a", 0, lambda r: paint_view_a(r, 0), True, True),
     ("view_a_b2", 0, lambda r: paint_view_a(r, 2), True, True),
@@ -2462,6 +2642,17 @@ ASSETS = [  # name, seed index, painter, opaque, grain
     ("c_table_damp", 81, paint_c_table_damp, False, False),
     ("c_ledger_damp", 82, paint_c_ledger_damp, False, False),
     ("c_board_damp", 83, paint_c_board_damp, False, False),
+    # fix pass w2: P07's second blank place, the door edge, the late stain and the eye
+    ("a_place10", 84, paint_a_place10, False, False),
+    ("c_place10", 85, paint_c_place10, False, False),
+    ("c_door_edge", 86, paint_c_door_edge, False, False),
+    ("a_wet_b2v2", 87, lambda r: paint_a_wet_v2(r, 2), False, False),
+    ("a_wet_b3v2", 87, lambda r: paint_a_wet_v2(r, 3), False, False),
+    ("a_wet_b4v2", 87, lambda r: paint_a_wet_v2(r, 4), False, False),
+    ("a_wet_b5v2", 87, lambda r: paint_a_wet_v2(r, 5), False, False),
+    ("a_wet_b6v2", 87, lambda r: paint_a_wet_v2(r, 6), False, False),
+    ("a_wet_b7v2", 87, lambda r: paint_a_wet_v2(r, 7), False, False),
+    ("a_window_eye_b7v2", 88, paint_a_window_eye_b7v2, False, False),
 ]
 
 
