@@ -14,6 +14,8 @@ Writes, and only writes, assets/rooms/R06/*.png:
   a_top_*, a_in_*, a_cup_mark, a_venn_open, a_dry_ring, a_steam, a_dent_*,
   a_fan_{b1..b7,sever}, a_fan_rain_*, a_fan_frame,
   b_dent_*, b_curtain_shape, b_pigeonhole_open          overlays (RGBA, registered to the plate)
+  {a,b}_dent_<bed>_s3v2, _s4v2  the hollows from s3 on: a body's flat storm-navy shape (s4 damp-ringed)
+  view_a_s4v2, view_b_s4v2      the s4 plates without the row of damp patches between the bunks
   c_lockers, c_slope                                    close-up plates (opaque)
   c_cup, c_calipers, c_pencils, c_glove, c_plate_down, c_venn_open, c_token_rubbing,
   c_cup_mark, c_card, c_sketch, c_key_down              close-up sprites / overlays
@@ -1108,7 +1110,7 @@ def fanlight(p):
     p.rect(gx0, gy0, gx1, gy1, GLASS, INK, 2.6)
 
 
-def paint_view_a(rng, st, hollows=()):
+def paint_view_a(rng, st, hollows=(), damp_row=True):
     p = Pen(W, H, rng)
     shell(p, rng, st)
     fanlight(p)
@@ -1130,7 +1132,7 @@ def paint_view_a(rng, st, hollows=()):
         bunk(p, spec, hollows)
     for box in ((770, 790, 900, 896), (912, 820, 1030, 896), (1150, 806, 1310, 896)):
         suitcase(p, *box)
-    if st == 4:
+    if st == 4 and damp_row:
         blisters(p, st, [1128 + 35 * k for k in range(8)], 590)
     return graded(p, st, LABELS_A, "a")
 
@@ -1326,7 +1328,7 @@ def cup_shelf(p, st):
     p.ell(1236, 585, 14, 3.5, None, ring, 2.2)
 
 
-def paint_view_b(rng, st, hollows=(), figure=False):
+def paint_view_b(rng, st, hollows=(), figure=False, damp_row=True):
     p = Pen(W, H, rng)
     shell(p, rng, st)
     damp(p, st, "b")
@@ -1343,7 +1345,7 @@ def paint_view_b(rng, st, hollows=(), figure=False):
     curtain(p, rng)
     if figure:
         p.put(paint_figure(rng_for(8800)))
-    if st == 4:
+    if st == 4 and damp_row:
         blisters(p, st, [870 + 30 * k for k in range(8)], 590)
     return graded(p, st, LABELS_B, "b")
 
@@ -2050,17 +2052,18 @@ SUFFIX = {1: "", 2: "_s2", 3: "_s3", 4: "_s4", 0: "_sever"}
 _PLATES = {}
 
 
-def plate_img(view, st, hollows=(), figure=False):
+def plate_img(view, st, hollows=(), figure=False, damp_row=True):
     """A finished plate (painted, lit, graded, grained). The hollow and figure variants differ
     from the clean plate only where they are painted: they use their own pens and the same
-    seeds, so a difference of the two is exactly the overlay."""
-    key = (view, st, tuple(hollows), figure)
+    seeds, so a difference of the two is exactly the overlay. damp_row=False is the v2 s4 plate:
+    the same plate without the row of eight damp patches between the bunks."""
+    key = (view, st, tuple(hollows), figure, damp_row)
     if key not in _PLATES:
         k = 0 if view == "a" else 1
         if view == "a":
-            im = paint_view_a(rng_for(k), st, hollows)
+            im = paint_view_a(rng_for(k), st, hollows, damp_row)
         else:
-            im = paint_view_b(rng_for(k), st, hollows, figure)
+            im = paint_view_b(rng_for(k), st, hollows, figure, damp_row)
         _PLATES[key] = grain(im, rng_for(1000 + k))
     return _PLATES[key]
 
@@ -2076,8 +2079,98 @@ def diff_overlay(view, st, **kw):
     return fn
 
 
-def _plate(view, st):
-    return lambda r: plate_img(view, st)
+def _plate(view, st, damp_row=True):
+    return lambda r: plate_img(view, st, damp_row=damp_row)
+
+
+# ----------------------------------------------------------------------------- bodies in the beds (v2)
+
+def _bed_geom(bed):
+    """(x0, x1, level) of a bed by name, from the BUNKS_* specs."""
+    for spec in BUNKS_A + BUNKS_B:
+        x0, x1, _posts, _tag, (upper, lower) = spec
+        if bed == upper:
+            return x0, x1, UP
+        if bed == lower:
+            return x0, x1, LO
+    raise KeyError(bed)
+
+
+def _body_depth(t):
+    """The trough's depth (0..1) at t, shoulders (0) to heels (1), as one smooth silhouette:
+    the shoulders broad, a waist, the hip deepest and round, the legs tapering to the heels."""
+    def ss(e0, e1, x):
+        x = min(1.0, max(0.0, (x - e0) / (e1 - e0)))
+        return x * x * (3 - 2 * x)
+    def bump(c, w):
+        return math.exp(-((t - c) / w) ** 2)
+    if t <= 0.0 or t >= 1.0:
+        return 0.0
+    d = 0.78 * ss(0.0, 0.09, t)                      # the shoulders
+    d -= 0.14 * bump(0.27, 0.07)                     # the waist
+    d += 0.30 * bump(0.43, 0.09)                     # the hip
+    d -= 0.40 * ss(0.50, 0.97, t)                    # the legs, tapering
+    d += 0.10 * bump(0.70, 0.05)                     # the knees
+    d *= 1.0 - ss(0.955, 1.0, t)                     # the heels
+    return max(0.0, min(1.0, d))
+
+
+def body_dent(bed, st):
+    """A body has lain in this bed and is not in it: one flat storm-navy shape (alpha about 0.5),
+    an oval head hollow cupped into the pillow joined by the neck to a long torso-and-hip trough
+    sunk into the blanket, with a navy ink contour. s4 adds a darker damp ring soaked out round
+    it, kept to the pillow and the mattress. Registered to the plate; nothing else is painted."""
+    def fn(_rng):
+        x0, x1, lvl = _bed_geom(bed)
+        py0, py1 = lvl["pillow"]
+        my0, my1 = lvl["matt"]
+        px0, px1 = x0 + 8, x0 + 96
+        S = SS
+        # the shape, as a supersampled mask
+        m = Image.new("L", (W * S, H * S), 0)
+        d = ImageDraw.Draw(m)
+        cx, cy = (px0 + px1) / 2 + 8, py0 + 14
+        rx, ry = 21.0, 11.5
+        egg = [((cx + rx * math.cos(a / 40 * math.tau) * (1.0 - 0.08 * math.cos(a / 40 * math.tau))) * S,
+                (cy + ry * math.sin(a / 40 * math.tau)) * S) for a in range(40)]
+        d.polygon(egg, fill=255)
+        bx0, bx1 = px1 - 4, x1 - 14
+        D = (my1 - my0) * 0.78
+        top = my0 - 0.5
+        pts = [(bx0 * S, top * S)]
+        n = 72
+        for i in range(n + 1):
+            t = i / n
+            x = bx0 + (bx1 - bx0) * t
+            y = my0 + D * _body_depth(t)
+            pts.append((x * S, y * S))
+        pts.append((bx1 * S, top * S))
+        d.polygon(pts, fill=255)
+        # the neck: pillow to shoulders, shallow
+        d.polygon([((cx + rx - 6) * S, (cy - 1) * S), (bx0 * S, (my0 - 0.5) * S), ((bx0 + 10) * S, (my0 + 9) * S),
+                   ((cx + rx - 6) * S, (cy + ry - 2) * S)], fill=255)
+        clip = Image.new("L", (W * S, H * S), 0)
+        cd = ImageDraw.Draw(clip)
+        cd.rectangle((px0 * S, (py0 + 1) * S, px1 * S, py1 * S), fill=255)
+        cd.rectangle(((x0 + 2) * S, (my0 - 1) * S, (x1 - 2) * S, (my1 - 3) * S), fill=255)
+        m = ImageChops.multiply(m, clip)
+        edge = ImageChops.subtract(m.filter(ImageFilter.MaxFilter(2 * S + 1)), m.filter(ImageFilter.MinFilter(2 * S + 1)))
+        out = Image.new("RGBA", (W * S, H * S), (0, 0, 0, 0))
+
+        def lay(mask, col, alpha):
+            layer = Image.new("RGBA", (W * S, H * S), rgba(col))
+            layer.putalpha(mask.point(lambda v: v * alpha // 255))
+            out.alpha_composite(layer)
+
+        if st == 4:
+            ring = m.filter(ImageFilter.MaxFilter(9 * S + 1)).filter(ImageFilter.GaussianBlur(2.5 * S))
+            ring = ImageChops.multiply(ImageChops.subtract(ring, m), clip)
+            lay(ring, mix(STORM, NIGHT, 0.55), 120)
+            lay(ImageChops.multiply(m.filter(ImageFilter.MaxFilter(5 * S + 1)), clip), mix(STORM, NIGHT, 0.4), 70)
+        lay(m, STORM, 140 if st == 3 else 150)
+        lay(edge, INK, 215)
+        return out.resize((W, H), Image.LANCZOS)
+    return fn
 
 
 A_BEDS = ("venn", "rook", "hart", "ives")
@@ -2091,6 +2184,11 @@ ASSETS = [  # name, seed index, painter, opaque, grain
     for v, beds in (("a", A_BEDS), ("b", B_BEDS)) for bed in beds for st in (1, 2, 3, 4, 0)
 ] + [
     (f"b_curtain_shape{SUFFIX[st]}", 0, diff_overlay("b", st, figure=True), False, False) for st in (1, 2, 3, 4)
+] + [
+    (f"{v}_dent_{bed}_s{st}v2", 0, body_dent(bed, st), False, False)
+    for v, beds in (("a", A_BEDS), ("b", B_BEDS)) for bed in beds for st in (3, 4)
+] + [
+    (f"view_{v}_s4v2", 0, _plate(v, 4, damp_row=False), True, False) for v in ("a", "b")
 ] + [
     ("a_top_pencils", 10, paint_top("pencils"), False, False),
     ("a_top_glove", 11, paint_top("glove"), False, False),

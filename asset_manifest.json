@@ -3310,11 +3310,29 @@
       "source_svg": null
     },
     {
+      "id": "R06/a_dent_hart_s3v2",
+      "path": "assets/rooms/R06/a_dent_hart_s3v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "97cec0e16656d404c70307e75b986326c4bb3aaf83001991e865192b5629fc6c",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R06/a_dent_hart_s4",
       "path": "assets/rooms/R06/a_dent_hart_s4.png",
       "width": 1448,
       "height": 1086,
       "sha256": "00c2facc2eeca334428b39174d918e42735bb0ea91387a78153caf86a104716f",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/a_dent_hart_s4v2",
+      "path": "assets/rooms/R06/a_dent_hart_s4v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "18d25821f8cb9a9b03355d21e4de40488bafe3506aea09b87290ee091d6bcf20",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -3355,11 +3373,29 @@
       "source_svg": null
     },
     {
+      "id": "R06/a_dent_ives_s3v2",
+      "path": "assets/rooms/R06/a_dent_ives_s3v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "a47132589db130f26de09a697268f60f56de753049849923ede2794f9823a21b",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R06/a_dent_ives_s4",
       "path": "assets/rooms/R06/a_dent_ives_s4.png",
       "width": 1448,
       "height": 1086,
       "sha256": "9076cbcdc2ec0accafdce7b9ac9fd36d152dba979d34e88e0cd4e4f25aac6eb8",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/a_dent_ives_s4v2",
+      "path": "assets/rooms/R06/a_dent_ives_s4v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "73e187e57b389d4bfd9bb19557e5be3a39ebe4506394268326c680f5a0183c27",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -3400,11 +3436,29 @@
       "source_svg": null
     },
     {
+      "id": "R06/a_dent_rook_s3v2",
+      "path": "assets/rooms/R06/a_dent_rook_s3v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "d8866dd9fded216ef169f854356331a081b92c98aa2fe8aeaf04d3ed1db27ad8",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R06/a_dent_rook_s4",
       "path": "assets/rooms/R06/a_dent_rook_s4.png",
       "width": 1448,
       "height": 1086,
       "sha256": "3a0967384c3d2833654ba5ef000a1f451ccf5e1169acc50e42d53cb79b4a120a",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/a_dent_rook_s4v2",
+      "path": "assets/rooms/R06/a_dent_rook_s4v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "56443a3068ccd2c33a33767fca6eb871a4cb709bd2c8ab4315ecb1417ff6fc25",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -3445,11 +3499,29 @@
       "source_svg": null
     },
     {
+      "id": "R06/a_dent_venn_s3v2",
+      "path": "assets/rooms/R06/a_dent_venn_s3v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "3c312e94c3a692f420b0fbb78c39f69749ff99d8bae0d7d0791948bd7494b005",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R06/a_dent_venn_s4",
       "path": "assets/rooms/R06/a_dent_venn_s4.png",
       "width": 1448,
       "height": 1086,
       "sha256": "65603a8ef8762b9dea146a1471d78b9721332d8d1c4f8bfbf6ad8a86cd47ea32",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/a_dent_venn_s4v2",
+      "path": "assets/rooms/R06/a_dent_venn_s4v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "cae2ed0adc4a1b6def081e09e315a1242b1085ba59bce29c73cb4ff2484d92b7",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -3751,11 +3823,29 @@
       "source_svg": null
     },
     {
+      "id": "R06/b_dent_bell_s3v2",
+      "path": "assets/rooms/R06/b_dent_bell_s3v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "252b6f81e95383c4ddcdd4ab9dc91567671bbc2cbd7562ca8fec7154db00b406",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R06/b_dent_bell_s4",
       "path": "assets/rooms/R06/b_dent_bell_s4.png",
       "width": 1448,
       "height": 1086,
       "sha256": "0e9405a6311ff77d3daaed0540d2bc24a8d4048886e8d2a7d69e48160106192e",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_dent_bell_s4v2",
+      "path": "assets/rooms/R06/b_dent_bell_s4v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "700750e412676c7546670d831db63937b417efa8d6073c52ebd591ef865f48d6",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -3796,11 +3886,29 @@
       "source_svg": null
     },
     {
+      "id": "R06/b_dent_doane_s3v2",
+      "path": "assets/rooms/R06/b_dent_doane_s3v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "4c40f99576fa6e691a7f99858e870665c101e571a5ec1674f42d07afba519bb2",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R06/b_dent_doane_s4",
       "path": "assets/rooms/R06/b_dent_doane_s4.png",
       "width": 1448,
       "height": 1086,
       "sha256": "ae2f796d1ca9ac73ef10aa3c624b570499d9132cdfd48f44577cfe8a9c6859c2",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_dent_doane_s4v2",
+      "path": "assets/rooms/R06/b_dent_doane_s4v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "a126236b6bf1d21d7aeb7d5c3f8a25c2ab4598f790bc182c93024f8743dbdc55",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -3841,11 +3949,29 @@
       "source_svg": null
     },
     {
+      "id": "R06/b_dent_lusk_s3v2",
+      "path": "assets/rooms/R06/b_dent_lusk_s3v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "c62ce3c40e0379f0d3893b7f67f61c67dc20884427895c3a9d6d9143b3a9dc2d",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R06/b_dent_lusk_s4",
       "path": "assets/rooms/R06/b_dent_lusk_s4.png",
       "width": 1448,
       "height": 1086,
       "sha256": "bbf94cbfc2b1a1250909ae14c9c5f8082b735326ed75469cf5a99e56ecae0518",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_dent_lusk_s4v2",
+      "path": "assets/rooms/R06/b_dent_lusk_s4v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "0c721486408ce2629071ebb749f3a5542fb7718b7ab6e8c176caa02d43955cf4",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -3886,11 +4012,29 @@
       "source_svg": null
     },
     {
+      "id": "R06/b_dent_tull_s3v2",
+      "path": "assets/rooms/R06/b_dent_tull_s3v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "dc9503b793375a3796e299b5e20643caaa5b52cd6ea40e76f264ce75d3e537d7",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R06/b_dent_tull_s4",
       "path": "assets/rooms/R06/b_dent_tull_s4.png",
       "width": 1448,
       "height": 1086,
       "sha256": "ccf3d1c7043ea5655935a84335e87f0ffbb6209256550d069b91485f4cf3133f",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/b_dent_tull_s4v2",
+      "path": "assets/rooms/R06/b_dent_tull_s4v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "7c1edb14a48ba506c0f69dbad326483355b11870addadb85d7d9e1992c49c691",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -4138,6 +4282,15 @@
       "source_svg": null
     },
     {
+      "id": "R06/view_a_s4v2",
+      "path": "assets/rooms/R06/view_a_s4v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "c00f84cac8ec84d67a7c580c0852758a3c82147b84fb693bd2c6a61ec340e17d",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R06/view_a_sever",
       "path": "assets/rooms/R06/view_a_sever.png",
       "width": 1448,
@@ -4179,6 +4332,15 @@
       "width": 1448,
       "height": 1086,
       "sha256": "f3e43fd4ba9d4950393333911afabc7059bbb2ea014af27d8d0c2857b06ccfb8",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R06/view_b_s4v2",
+      "path": "assets/rooms/R06/view_b_s4v2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "f2ec7b039a45f2f8eeca32b4fd8d1208754432accc39ae81df1d9316a915a58b",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
