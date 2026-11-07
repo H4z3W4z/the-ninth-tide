@@ -31,13 +31,30 @@ func dial_to(s: OfficeSim, code: Array) -> void:
 		while int(s.state.drawer_dial[i]) != code[i]:
 			s.dispatch("dial_%d" % i)
 
-## Opens the closure report, enters the right answer by clicks, and files it.
+## Opens the closure report, enters the right answer by clicks, and files it. The view
+## stays on the report: the door only answers once she steps back (file_and_back).
 func file_report(s: OfficeSim) -> Array:
 	s.dispatch("papers")
-	for i in OfficeSim.REPORT_FIELDS.size():
-		while int(s.state.report_fields[i]) != OfficeSim.REPORT_ANSWER[i]:
-			s.dispatch("field_%d" % i)
+	set_fields(s, OfficeSim.REPORT_ANSWER)
+	set_time(s, OfficeSim.REPORT_TIME_ANSWER)
 	return s.dispatch("file_report")
+
+## Files the report and steps back from it, so the door unlatches. Returns both clicks' events.
+func file_and_back(s: OfficeSim) -> Array:
+	var ev := file_report(s)
+	ev.append_array(s.dispatch("back"))
+	return ev
+
+func set_time(s: OfficeSim, want: Array) -> void:
+	for i in 4:
+		while int(s.state.report_time[i]) != want[i]:
+			s.dispatch("rtime_%d" % i)
+
+func count_say(ev: Array, text: String) -> int:
+	var n := 0
+	for e in ev:
+		if e.type == "say" and e.text == text: n += 1
+	return n
 
 ## Builds the state just before the wet seat, by real actions.
 func sim_before_chair() -> OfficeSim:
@@ -81,14 +98,30 @@ func run() -> void:
 	test_listen_once()
 	test_threshold_sim()
 	test_end_lines()
+	test_unlatch_on_back()
+	test_report_time()
+	test_report_misses()
+	test_report_saves()
+	test_round3_determinism()
+	test_story_text_r3()
+	test_contours()
+	test_chart_tenth()
+	test_look_away()
+	test_continuity()
+	test_endings()
 	await test_scene_wiring()
 	await test_presentation_cleanup()
 	await test_scheduler()
 	await test_breath_and_knock()
 	await test_threshold_scene()
 	await test_end_scene()
+	await test_click_driver()
+	await test_chain_gate_chair()
+	await test_chain_gate_drawer()
+	await test_hint_after_chain()
+	await test_qa_nits()
 	if failures.is_empty():
-		print("PASS: office slice — playthrough, P01, drawer, tide rhythm, log rewrite, closure report, history, soundings, revisits, gates, drift, evidence, story flags, saves, title menu, determinism, threshold, end card, scene wiring, scheduler, breath, cleanup")
+		print("PASS: office slice — playthrough, P01, drawer, tide rhythm, log rewrite, closure report (fields, evening tide, misses, unlatch on back), history, soundings, contours, look-away, revisits, gates, drift, evidence, story flags, saves, title menu, determinism, threshold, both endings, end card, scene wiring, chain scheduler, click driver, breath, cleanup, QA nits")
 	else:
 		print("FAIL (%d): %s" % [failures.size(), "; ".join(failures)])
 	# Let freed scenes and players go before exit, so there are no leak warnings.
@@ -147,7 +180,10 @@ func test_full_playthrough() -> void:
 	ev = s.dispatch("door")
 	check(s.view == "room" and "Latched" in says(ev), "chair then door at once: still latched")
 	ev = file_report(s)
-	check(s.state.report_filed and has_ev(ev, "sfx", "latch_near") and s.view == "room", "filing the report unlatches the door")
+	check(s.state.report_filed and not has_ev(ev, "sfx", "latch_near") and s.view == "report", "filing keeps the report open")
+	check(s.objective() == "filed", "objective -> filed")
+	ev = s.dispatch("back")
+	check(has_ev(ev, "sfx", "latch_near") and s.view == "room", "stepping back unlatches the door")
 	check(s.objective() == "leave", "objective -> leave")
 	ev = s.dispatch("door")
 	check(s.view == "threshold" and not s.state.finished, "door -> threshold")
@@ -202,7 +238,7 @@ func test_hints_progress() -> void:
 	check("bridge B" in h3, "final lamp hint gives the solution")
 	s.debug_jump(1)
 	check(says(s.dispatch("hint")) == OfficeSim.HINTS["log"][0], "hints reset for the new objective")
-	for obj in ["drawer", "reread", "chair", "leave"]:
+	for obj in ["drawer", "reread", "chair", "report", "filed", "leave"]:
 		check(OfficeSim.HINTS.has(obj) and OfficeSim.HINTS[obj].size() == 3, "three hints for " + obj)
 	check("1-8-5-2" in OfficeSim.HINTS["drawer"][2], "drawer hint 3 gives the code")
 
@@ -220,17 +256,18 @@ func test_save_roundtrip_and_tamper() -> void:
 	check(not bad.from_dict({"schema": 1}), "schema 1 rejected")
 	check(not bad.from_dict({"schema": 2, "started": true}), "schema 2 rejected")
 	check(not bad.from_dict({"schema": 3, "started": true}), "schema 3 rejected")
+	check(not bad.from_dict({"schema": 4, "started": true}), "schema 4 rejected: old saves fall back to the title")
 	check(not bad.from_dict("junk"), "junk rejected")
 	var tampered := OfficeSim.new()
-	tampered.from_dict({"schema": 4, "started": true, "seat_wet": true, "seen": ["nope", 3]})
+	tampered.from_dict({"schema": 5, "started": true, "seat_wet": true, "seen": ["nope", 3]})
 	check(not tampered.state.seat_wet, "orphan progress flags are dropped")
 	check(tampered.state.seen.is_empty(), "unknown observations are dropped")
 	var dials := OfficeSim.new()
-	dials.from_dict({"schema": 4, "drawer_dial": [12, -3, 5, 2]})
+	dials.from_dict({"schema": 5, "drawer_dial": [12, -3, 5, 2]})
 	check(dials.state.drawer_dial == [9, 0, 5, 2], "dials clamp to 0-9")
-	dials.from_dict({"schema": 4, "drawer_dial": [1, 2, 3]})
+	dials.from_dict({"schema": 5, "drawer_dial": [1, 2, 3]})
 	check(dials.state.drawer_dial == [0, 0, 0, 0], "a short dial array is ignored")
-	dials.from_dict({"schema": 4, "drawer_dial": ["1", 8, 5, 2]})
+	dials.from_dict({"schema": 5, "drawer_dial": ["1", 8, 5, 2]})
 	check(dials.state.drawer_dial == [0, 0, 0, 0], "non-numeric dials are ignored")
 
 func test_determinism() -> void:
@@ -242,7 +279,11 @@ func test_determinism() -> void:
 	for i in 2: script.append("dial_3")
 	script.append_array(["try_drawer", "look_photo", "look_photo", "back", "map", "logbook", "back", "chair",
 		"coat", "window", "door", "papers", "file_report", "field_0", "field_0", "field_1", "field_2",
-		"field_3", "file_report", "logbook", "back", "hint", "door", "hint", "continue"])
+		"rtime_0"])
+	for i in 9: script.append("rtime_1")
+	for i in 3: script.append("rtime_2")
+	for i in 4: script.append("rtime_3")
+	script.append_array(["file_report", "logbook", "back", "hint", "door", "hint", "continue"])
 	var a := OfficeSim.new()
 	var b := OfficeSim.new()
 	var log_a := []
@@ -344,7 +385,7 @@ func test_log_rows() -> void:
 	ev = s.dispatch("logbook")
 	check(not s.state.foretold_door and not has_ev(ev, "fx", "log_write"), "no foretelling before the report")
 	s.dispatch("back")
-	file_report(s)
+	file_and_back(s)
 	check(s.log_rows().size() == 13, "13 rows once the report is filed")
 	check(s.log_rows()[12][3] == "She opens the door. It is already open.", "the final line foretells the door")
 	ev = s.dispatch("logbook")
@@ -418,7 +459,7 @@ func test_stage_text_drift() -> void:
 	check(s3.has_seen("tag") and s3.has_seen("hooks"), "hooks at stage 3 records the tag")
 	var w3 := s3.dispatch("window")
 	check(s3.has_seen("horizon") and s3.has_seen("eye"), "window at stage 3 records horizon + eye")
-	check("eye keeps" in says(w3), "the eye line")
+	check("still in the middle of the glass" in says(w3), "the eye line")
 	var p := OfficeSim.new()
 	p.debug_jump(1)
 	var ev := p.dispatch("papers")
@@ -450,7 +491,13 @@ func test_notebook_keeps_evidence() -> void:
 		s.dispatch(a)
 	dial_to(s, [1, 8, 5, 2])
 	for a in ["try_drawer", "look_photo", "look_photo", "back", "map", "logbook", "back", "chair",
-			"window", "hooks"]:
+			"window", "hooks", "map", "map"]:
+		s.dispatch(a)
+	# Six returns from the notebook: everything the room does while she looks away.
+	for i in 6:
+		s.dispatch("notebook")
+		s.dispatch("back")
+	for a in ["mug", "stove", "coat", "door", "puddle", "window"]:
 		s.dispatch(a)
 	file_report(s)
 	var missing := []
@@ -524,7 +571,7 @@ func test_milestone_saves() -> void:
 	s.dispatch("back"); s.dispatch("chair")
 	t = roundtrip(s)
 	check(t.state.seat_wet and t.objective() == "report", "seat_wet round-trips")
-	file_report(s)
+	file_and_back(s)
 	t = roundtrip(s)
 	check(t.state.report_filed and t.objective() == "leave" and t.has_seen("report"), "report_filed round-trips")
 	s.dispatch("logbook")
@@ -535,15 +582,15 @@ func test_milestone_saves() -> void:
 	t = roundtrip(s)
 	check(t.view == "room" and t.state.seat_wet and not t.state.finished, "a threshold save lands in the room")
 	var bad := OfficeSim.new()
-	bad.from_dict({"schema": 4, "started": true, "p01_complete": true, "log_read": true,
+	bad.from_dict({"schema": 5, "started": true, "p01_complete": true, "log_read": true,
 		"prints_seen": true, "log_rewritten": true})
 	check(not bad.state.log_rewritten, "log_rewritten without drawer_open is dropped")
-	bad.from_dict({"schema": 4, "started": true, "drawer_open": true})
+	bad.from_dict({"schema": 5, "started": true, "drawer_open": true})
 	check(not bad.state.drawer_open, "drawer_open without log_read is dropped")
-	bad.from_dict({"schema": 4, "started": true, "p01_complete": true, "log_read": true, "prints_seen": true,
+	bad.from_dict({"schema": 5, "started": true, "p01_complete": true, "log_read": true, "prints_seen": true,
 		"drawer_open": true, "seat_wet": true, "foretold_door": true})
 	check(not bad.state.seat_wet and not bad.state.foretold_door, "seat_wet needs log_rewritten; foretold needs seat_wet")
-	bad.from_dict({"schema": 4, "initialled": true})
+	bad.from_dict({"schema": 5, "initialled": true})
 	check(not bad.state.initialled, "initialled needs the lamp")
 
 # ---------------------------------------------------------------------------
@@ -630,18 +677,24 @@ func test_scene_wiring() -> void:
 	check(scene.sim.view == "room", "scene: the door is latched until the report is filed")
 	scene.dispatch("papers")
 	check(scene.sim.view == "report", "scene: papers open the closure report")
-	check(scene.action_at(Vector2(700, 350)) == "field_0" and scene.action_at(Vector2(1100, 740)) == "field_3",
-		"report rows are clickable across their width")
+	check(scene.action_at(Vector2(700, 312)) == "field_0" and scene.action_at(Vector2(1100, 442)) == "field_1"
+		and scene.action_at(Vector2(1100, 702)) == "field_2", "report rows are clickable across their width")
+	check(scene.action_at(Vector2(848, 540)) == "rtime_0" and scene.action_at(Vector2(848, 600)) == "rtime_down_0"
+		and scene.action_at(Vector2(1068, 540)) == "rtime_3" and scene.action_at(Vector2(1068, 600)) == "rtime_down_3",
+		"the time dials: top half up, bottom half down")
+	check(scene.action_at(Vector2(700, 572)) == "", "the time row's label is not a field")
 	check(scene.action_at(Vector2(724, 888)) == "file_report", "sign and file")
 	check(scene.action_at(Vector2(1000, 45)) == "back", "Back in the report")
 	# Threshold gate and the end-card grace.
 	scene.debug_jump(4)
 	scene.dispatch("door")
 	check(scene.sim.view == "threshold", "scene reaches the threshold")
-	check(scene.action_at(Vector2(700, 500)) == "", "no continue before she holds still")
+	check(scene.action_at(Vector2(1300, 500)) == "", "no continue before she holds still")
+	check(scene.action_at(Vector2(640, 650)) == "turn", "the chair turns her round, at any time")
 	check(scene.action_at(Vector2(1180, 45)) == "notebook", "HUD still works at the threshold")
 	scene.continue_ready = true
-	check(scene.action_at(Vector2(700, 500)) == "continue", "continue once ready")
+	check(scene.action_at(Vector2(1300, 500)) == "continue", "continue once ready, through the doorway")
+	check(scene.action_at(Vector2(700, 400)) == "", "elsewhere is nothing at the threshold")
 	scene.dispatch("continue")
 	check(scene.action_at(Vector2(700, 910)) == "", "Play again ignores the continue click")
 	scene.end_t = 60.0
@@ -678,19 +731,14 @@ func test_presentation_cleanup() -> void:
 		dues.append(scene.lines[i].due - scene.time)
 		dues_ok = dues_ok and absf(dues[i] - expect[min(i, 1)]) < 0.001
 	check(dues_ok, "delays are seconds after the click (%s)" % [dues])
-	# A click inside the story line's read time queues behind it instead of cutting it off.
+	# A line that arrives (by dispatch) while the chain plays never cuts it off and is never
+	# squeezed in: it waits after the chain's last line.
 	scene.dispatch("mug")
 	check(scene.subtitle.text == "The seat is wet. Still warm underneath.", "story line is not cut off early")
-	check(scene.lines.size() == 3 and scene.lines[0].text.begins_with("Two rings"), "the click's line goes to the front")
-	# Older chatter is dropped by the next click; story lines and the click's own line survive.
-	scene.time += 10.0
-	scene._tick_lines(0.0)
-	scene.dispatch("stove")
-	var kept_ok := true
-	for l in scene.lines:
-		kept_ok = kept_ok and (l.story or l.click == scene.click_id)
-	check(kept_ok, "only story lines and this click's line stay queued after a click")
-	# Two reveals back to back never interleave: the second waits for the first.
+	check(scene.lines.size() == 3 and scene.lines.back().text.begins_with("Two rings")
+		and scene.lines.back().due >= scene.lines[1].due + scene.lines[1].hold - 0.001, "the click's line waits after the chain")
+	# Two reveals back to back never interleave: if a second arrives while the first is
+	# queued, it is appended after it, whole, and nothing older is re-timed.
 	scene.debug_jump(2)
 	scene.sim.state.prints_seen = true
 	scene.dispatch("drawer")
@@ -698,38 +746,28 @@ func test_presentation_cleanup() -> void:
 		for n in [1, 8, 5, 2][i]:
 			scene.dispatch("dial_%d" % i)
 	scene.dispatch("try_drawer")
-	var drawer_count: int = scene.lines.size()
 	var drawer_texts := []
+	var drawer_dues := []
 	for l in scene.lines:
 		drawer_texts.append(l.text)
+		drawer_dues.append(l.due)
 	scene.dispatch("back")
 	scene.dispatch("logbook")
 	check(scene.sim.state.log_rewritten, "scene: the log rewrites")
-	# The rewrite starts within BEAT_MAX_WAIT; the drawer lines that didn't fit follow it.
 	var order := []
-	var squeezed := true
 	var dues_sorted := true
 	var prev_due := -1.0
 	for l in scene.lines:
 		order.append("D" if l.text in drawer_texts else "L")
-		if l.text in drawer_texts:
-			squeezed = squeezed and absf(l.hold - scene.min_read(l.text) * 0.6) < 0.001
 		dues_sorted = dues_sorted and l.due >= prev_due
 		prev_due = l.due
 	var runs := "".join(order)
-	var first_log := runs.find("L")
-	check(scene.lines.size() == drawer_count + 4, "every drawer line is kept and the rewrite adds four")
-	check(runs.count("LLLL") == 1 and dues_sorted, "the rewrite's four lines stay together, in order (%s)" % runs)
-	check(first_log >= 0 and scene.lines[first_log].due - scene.time <= scene.BEAT_MAX_WAIT + 0.001,
-		"the new reveal starts within 3 s of its click")
-	var kept_order := true
-	var di := 0
-	for l in scene.lines:
-		if l.text in drawer_texts:
-			kept_order = kept_order and l.text == drawer_texts[di]
-			di += 1
-	check(kept_order, "the drawer lines keep their order around it")
-	check(squeezed, "the older reveal is squeezed back to back")
+	check(runs == "D".repeat(drawer_texts.size()) + "LLLL" and dues_sorted,
+		"the rewrite's four lines follow the drawer's, whole and in order (%s)" % runs)
+	var untouched := true
+	for i in drawer_texts.size():
+		untouched = untouched and is_equal_approx(scene.lines[i].due, drawer_dues[i])
+	check(untouched, "the older chain is not re-timed")
 	scene.dispatch("restart")
 	check(scene.sim.view == "title", "restart returns to title")
 	check(scene.pending_sfx.is_empty() and scene.lines.is_empty() and scene.subtitle.text == "", "restart clears lines and sounds")
@@ -756,59 +794,63 @@ func test_report_gate() -> void:
 	check(s.view == "report" and "closure report" in says(ev) and has_ev(ev, "sfx", "page"), "papers open the closure report")
 	ev = s.dispatch("field_0")
 	check(int(s.state.report_fields[0]) == 1 and has_ev(ev, "sfx", "nib"), "a field turns with a nib tick")
-	# Every combination but one is rejected, and none says which line is wrong.
+	# Every field combination but one is rejected with the right time; none says which line
+	# is wrong, and the report stays open.
 	var accepted := []
 	var all_quiet := true
 	for a in 3:
 		for b in 3:
 			for c in 2:
-				for d in 2:
-					var t := OfficeSim.new()
-					t.debug_jump(3)
-					t.dispatch("papers")
-					set_fields(t, [a, b, c, d])
-					var fe := t.dispatch("file_report")
-					if t.state.report_filed:
-						accepted.append([a, b, c, d])
-					elif says(fe) != "Something here doesn't reconcile." or t.view != "report":
-						all_quiet = false
+				var t := OfficeSim.new()
+				t.debug_jump(3)
+				t.dispatch("papers")
+				set_fields(t, [a, b, c])
+				set_time(t, OfficeSim.REPORT_TIME_ANSWER)
+				var fe := t.dispatch("file_report")
+				if t.state.report_filed:
+					accepted.append([a, b, c])
+				elif not says(fe).begins_with("Something here doesn't reconcile.") or t.view != "report":
+					all_quiet = false
 	check(accepted == [OfficeSim.REPORT_ANSWER], "only the right report files (accepted %s)" % [accepted])
 	check(all_quiet, "a wrong report says only that it doesn't reconcile, and stays open")
 	# Wrong, then right.
-	set_fields(s, [0, 0, 0, 0])
+	set_fields(s, [0, 0, 0])
 	ev = s.dispatch("file_report")
 	check(not s.state.report_filed and "doesn't reconcile" in says(ev), "a wrong file leaves the report unfiled")
-	set_fields(s, [2, 1, 0, 0])
+	set_fields(s, [2, 1, 0])
 	var mid := OfficeSim.new()
-	check(mid.from_dict(JSON.parse_string(JSON.stringify(s.to_dict()))) and mid.state.report_fields == [2, 1, 0, 0]
+	check(mid.from_dict(JSON.parse_string(JSON.stringify(s.to_dict()))) and mid.state.report_fields == [2, 1, 0]
 		and not mid.state.report_filed, "report fields round-trip mid-entry")
 	set_fields(s, OfficeSim.REPORT_ANSWER)
+	set_time(s, OfficeSim.REPORT_TIME_ANSWER)
 	ev = s.dispatch("file_report")
-	check(s.state.report_filed and s.has_seen("report") and has_ev(ev, "sfx", "latch_near") and has_ev(ev, "sfx", "sign"),
-		"the right report files, signs and unlatches")
-	check(s.view == "room", "filing returns to the room")
-	check(say_ev(ev, "without counting").get("story", false) and say_ev(ev, "unlatched itself").get("story", false),
-		"filing lines are story")
-	ev = s.dispatch("file_report")
-	check(ev.is_empty(), "file_report outside the report does nothing")
-	s.dispatch("papers")
+	check(s.state.report_filed and s.has_seen("report") and has_ev(ev, "sfx", "sign") and has_ev(ev, "sfx", "motif_short"),
+		"the right report files and signs")
+	check(s.view == "report", "filing keeps the report in front of her")
+	check(say_ev(ev, "without counting").get("story", false), "filing lines are story")
 	ev = s.dispatch("field_0")
 	check(ev.is_empty() and s.state.report_fields == OfficeSim.REPORT_ANSWER, "a filed report can't be changed")
+	ev = s.dispatch("rtime_0")
+	check(ev.is_empty() and s.state.report_time == OfficeSim.REPORT_TIME_ANSWER, "a filed time can't be changed")
 	s.dispatch("back")
+	ev = s.dispatch("file_report")
+	check(ev.is_empty(), "file_report outside the report does nothing")
 	s.dispatch("door")
 	check(s.view == "threshold", "after filing, the door -> threshold")
 	var t := OfficeSim.new()
 	check(t.from_dict(JSON.parse_string(JSON.stringify(s.to_dict()))) and t.state.report_filed, "report_filed round-trips")
 	var bad := OfficeSim.new()
-	bad.from_dict({"schema": 4, "started": true, "p01_complete": true, "log_read": true, "prints_seen": true,
+	bad.from_dict({"schema": 5, "started": true, "p01_complete": true, "log_read": true, "prints_seen": true,
 		"drawer_open": true, "log_rewritten": true, "seat_wet": true, "report_filed": true,
-		"report_fields": [0, 1, 1, 1], "foretold_door": true, "finished": true})
+		"report_fields": [0, 1, 1], "report_time": [1, 9, 3, 4], "foretold_door": true, "finished": true})
 	check(bad.state.seat_wet and not bad.state.report_filed and not bad.state.foretold_door and not bad.state.finished,
 		"a tampered save with the wrong fields loads unfiled")
-	bad.from_dict({"schema": 4, "report_fields": [7, -2, 1.5, "x"]})
-	check(bad.state.report_fields == [0, 0, 0, 0], "malformed report fields are ignored")
-	bad.from_dict({"schema": 4, "report_fields": [9, 9, 9, 9]})
-	check(bad.state.report_fields == [2, 2, 1, 1], "report fields clamp to their option counts")
+	bad.from_dict({"schema": 5, "report_fields": [7, -2, "x"]})
+	check(bad.state.report_fields == [0, 0, 0], "malformed report fields are ignored")
+	bad.from_dict({"schema": 5, "report_fields": [9, 9, 9]})
+	check(bad.state.report_fields == [2, 2, 1], "report fields clamp to their option counts")
+	bad.from_dict({"schema": 5, "report_fields": [2, 1, 1, 1]})
+	check(bad.state.report_fields == [0, 0, 0], "a round-2 four-field report is ignored")
 	var j3 := OfficeSim.new()
 	j3.debug_jump(3)
 	var j4 := OfficeSim.new()
@@ -867,7 +909,7 @@ func test_history() -> void:
 	ev = s.dispatch("logbook")
 	check(not has_ev(ev, "fx", "log_write") and not "written down" in says(ev), "the history beat fires once")
 	s.dispatch("back")
-	file_report(s)
+	file_and_back(s)
 	rows = s.log_rows()
 	check(rows[rows.size() - 2] == OfficeSim.HISTORY_CLOSE and rows.back() == OfficeSim.LOG_FINAL,
 		"after filing: HISTORY_CLOSE then LOG_FINAL")
@@ -884,9 +926,9 @@ func test_history() -> void:
 	var t := OfficeSim.new()
 	t.from_dict(JSON.parse_string(JSON.stringify(s.to_dict())))
 	check(t.state.history == s.state.history and t.state.history_seen, "history round-trips")
-	t.from_dict({"schema": 4, "history": ["coat"], "history_seen": true})
+	t.from_dict({"schema": 5, "history": ["coat"], "history_seen": true})
 	check(t.state.history.is_empty() and not t.state.history_seen, "history needs the wet seat")
-	t.from_dict({"schema": 4, "started": true, "p01_complete": true, "log_read": true, "prints_seen": true,
+	t.from_dict({"schema": 5, "started": true, "p01_complete": true, "log_read": true, "prints_seen": true,
 		"drawer_open": true, "log_rewritten": true, "seat_wet": true,
 		"history": ["coat", "coat", "nope", 3, "lamp", "tray", "mug", "stove"]})
 	check(t.state.history == ["coat", "lamp", "mug"], "history: known ids, unique lines, at most three")
@@ -990,7 +1032,7 @@ func test_photo_behind() -> void:
 		s.dispatch("look_photo")
 	check(int(s.state.photo_looks) == 9, "photo looks are capped")
 	var t := OfficeSim.new()
-	t.from_dict({"schema": 4, "photo_looks": 40})
+	t.from_dict({"schema": 5, "photo_looks": 40})
 	check(int(t.state.photo_looks) == 9, "photo_looks clamps on load")
 
 # ---------------------------------------------------------------------------
@@ -1012,6 +1054,11 @@ func test_soundings() -> void:
 		"the soundings beat with the drawer open at s2")
 	check(s.has_seen("chart") and s.has_seen("soundings"), "soundings records chart + soundings")
 	check(say_ev(ev, "same amount").get("story", false), "soundings lines are story")
+	var deep_ok := false
+	for e in ev:
+		if e.type == "sfx" and e.id == "deep" and is_equal_approx(e.delay, 5.6):
+			deep_ok = true
+	check(deep_ok, "the soundings beat sounds the deep at 5.6 s")
 	ev = s.dispatch("map")
 	check(says(ev) == "The chart has been corrected. In pencil. Nine.", "the soundings beat fires once")
 	var t := OfficeSim.new()
@@ -1025,7 +1072,7 @@ func test_soundings() -> void:
 	one.dispatch("map")
 	check(not one.state.soundings_heard, "no soundings at stage 1")
 	var bad := OfficeSim.new()
-	bad.from_dict({"schema": 4, "started": true, "p01_complete": true, "log_read": true, "soundings_heard": true})
+	bad.from_dict({"schema": 5, "started": true, "p01_complete": true, "log_read": true, "soundings_heard": true})
 	check(not bad.state.soundings_heard, "soundings_heard needs the drawer open")
 
 func test_revisits() -> void:
@@ -1052,7 +1099,7 @@ func test_revisits() -> void:
 	k.dispatch("chair")
 	ev = k.dispatch("window")
 	check(k.has_seen("palms") and is_equal_approx(say_ev(ev, "heel of a hand").delay, 8.4), "palms after the knock, at 8.4 s")
-	check(k.has_seen("eye") and "eye keeps" in says(ev), "the eye line is kept")
+	check(k.has_seen("eye") and "still in the middle of the glass" in says(ev), "the eye line is kept")
 	# The log-rewrite beat.
 	var r := OfficeSim.new()
 	r.debug_jump(2)
@@ -1062,9 +1109,9 @@ func test_revisits() -> void:
 	r.dispatch("try_drawer")
 	r.dispatch("back")
 	ev = r.dispatch("logbook")
-	check(not "I am going to have to look at it" in says(ev) and "Something is rising under it" in says(ev)
-		and "forty years" in says(ev), "the rewrite beat: rising, not 'have to look'")
-	check(is_equal_approx(say_ev(ev, "rising under it").delay, 7.4), "'Something is rising' at 7.4 s")
+	check(not "Something is rising" in says(ev) and "I check the date on it. Tomorrow." in says(ev)
+		and "forty years" in says(ev), "the rewrite beat: the date, not the explanation")
+	check(is_equal_approx(say_ev(ev, "Tomorrow.").delay, 7.4), "'Tomorrow.' at 7.4 s")
 
 # ---------------------------------------------------------------------------
 # C4 (sim): '...Listen.' plays once
@@ -1087,7 +1134,7 @@ func test_listen_once() -> void:
 		if e.type == "say" and e.text == "...Listen.": listens += 1
 	check(fades == 1 and listens == 1 and s.state.heard_silence, "one sea_fade and one '...Listen.' (%d, %d)" % [fades, listens])
 	var t := OfficeSim.new()
-	t.from_dict({"schema": 4, "heard_silence": true})
+	t.from_dict({"schema": 5, "heard_silence": true})
 	check(not t.state.heard_silence, "heard_silence needs the log read")
 
 # ---------------------------------------------------------------------------
@@ -1096,8 +1143,8 @@ func test_listen_once() -> void:
 func test_threshold_sim() -> void:
 	check(OfficeSim.THRESHOLD_LINES == [
 		[0.8, "The corridor is dark. It goes on further than the station does."],
-		[3.4, "Something down there breathes in. Outside, the tide draws back off the pilings."],
-		[7.6, "It breathes out, and the sea comes in."]], "threshold lines are exact")
+		[3.4, "Something down there breathes in. The tide goes out with it, as far as the lighthouse."],
+		[7.6, "It breathes out. Every piling in the Sound goes under at once."]], "threshold lines are exact")
 	check(OfficeSim.THRESHOLD_STILL_LINE == "I hold my breath. So does the sea.", "the still line exists")
 	var s := OfficeSim.new()
 	s.debug_jump(4)
@@ -1109,13 +1156,14 @@ func test_threshold_sim() -> void:
 	for a in others:
 		s.dispatch(a)
 		stayed = stayed and s.view == "threshold" and not s.state.finished
-	check(stayed, "at the threshold only continue/notebook/menu/hint do anything")
+	check(stayed, "at the threshold only continue/turn/notebook/menu/hint do anything")
 	var level: int = s.state.hint_level
 	var ev := s.dispatch("hint")
 	check(says(ev) == OfficeSim.THRESHOLD_HINT and s.state.hint_level == level and s.view == "threshold",
 		"hint at the threshold: hold still, ladder untouched")
-	s.dispatch("continue")
-	check(s.view == "end" and s.state.finished, "continue is the only way to the end")
+	ev = s.dispatch("continue")
+	check(s.view == "end" and s.state.finished and not s.state.turned, "continue goes on to the end")
+	check(has_ev(ev, "sfx", "motif"), "continue sounds the motif")
 
 # ---------------------------------------------------------------------------
 # C7 (sim): the end lines and the notebook intrusion
@@ -1123,11 +1171,11 @@ func test_threshold_sim() -> void:
 func test_end_lines() -> void:
 	var s := OfficeSim.new()
 	s.debug_jump(4)
-	check(s.end_lines() == [OfficeSim.END_LINE, OfficeSim.END_CONTINUES], "end lines without everything seen")
+	check(s.end_lines() == [OfficeSim.END_ON_STATION, OfficeSim.END_CONTINUES], "end lines without everything seen")
 	for id in OfficeSim.OBSERVATIONS:
 		s._observe(id)
-	check(s.end_lines() == [OfficeSim.END_LINE, OfficeSim.END_ALL_SEEN, OfficeSim.END_CONTINUES],
-		"with everything seen: observers remaining, in the middle")
+	check(s.end_lines() == [OfficeSim.END_ON_STATION, OfficeSim.END_ALL_SEEN, OfficeSim.END_CONTINUES],
+		"with everything seen: nothing went unrecorded, in the middle")
 	var n := OfficeSim.new()
 	n.debug_jump(2)
 	check(n.notebook_intrusion() == "", "no intrusion before the log rewrites")
@@ -1158,25 +1206,30 @@ func time_to_show(scene: Node, text: String, limit: float, dt := 0.05) -> float:
 func test_scheduler() -> void:
 	var scene = new_scene("user://office_sched_test.json")
 	await process_frame
-	# (a) A fast clicker opens the drawer: the reveal starts within 4 s, not after the backlog.
+	# (a) A fast clicker: every click during the prints' chain brings its next line up at
+	# once, and the click after it is a click again. The drawer's reveal then starts at once.
 	scene.debug_jump(2)
 	scene.sim.state.prints_seen = false
-	scene.dispatch("puddle")
-	advance(scene, 0.2)
-	scene.dispatch("drawer")
-	advance(scene, 0.2)
+	scene.click(Vector2(1117, 915))
+	check(scene.subtitle.text.begins_with("Bare feet"), "the prints' first line at once")
+	advance(scene, 0.5)
+	scene.click(Vector2(908, 865))
+	check(scene.subtitle.text == "They don't come back." and scene.sim.view == "room",
+		"a click during the chain advances it and does not open the drawer")
+	advance(scene, 0.5)
+	scene.click(Vector2(908, 865))
+	check(scene.sim.view == "room" and not scene.chain_active(), "the next click releases the last line")
+	scene.click(Vector2(908, 865))
+	check(scene.sim.view == "drawer", "...and the one after it opens the drawer")
 	for i in 4:
 		for n in [1, 8, 5, 2][i]:
 			scene.dispatch("dial_%d" % i)
 	advance(scene, 0.2)
-	scene.dispatch("try_drawer")
-	var shown: float = time_to_show(scene, "It gives.", 4.0)
-	check(shown >= 0.0, "'It gives.' within 4 s of the click (%.2f)" % shown)
+	scene.click(Vector2(724, 728))
+	var shown: float = time_to_show(scene, "It gives.", 1.2)
+	check(shown >= 0.0, "'It gives.' within the feedback hold (%.2f)" % shown)
 	# (b) Feedback is never starved: a wrong try's clunk line shows within 1.5 s.
 	scene.debug_jump(2)
-	scene.sim.state.prints_seen = false
-	scene.dispatch("puddle")
-	advance(scene, 0.1)
 	scene.dispatch("drawer")
 	advance(scene, 0.1)
 	scene.dispatch("try_drawer")
@@ -1262,7 +1315,7 @@ func test_threshold_scene() -> void:
 	scene.debug_jump(4)
 	scene.dispatch("door")
 	check(scene.sim.view == "threshold", "scene: at the threshold")
-	check(scene.action_at(Vector2(700, 500)) == "", "no continue before she holds still")
+	check(scene.action_at(Vector2(1300, 500)) == "", "no continue before she holds still")
 	var still := OfficeSim.THRESHOLD_STILL_LINE
 	# Moving before STILL_AFTER doesn't count; then holding still for 3 s does.
 	scene.threshold_t = OfficeSim.THRESHOLD_STILL_AFTER
@@ -1274,7 +1327,14 @@ func test_threshold_scene() -> void:
 		scene.threshold_t += 0.1
 		scene._tick_still(0.1, Vector2(890, 500) + Vector2(1, 1) * (i % 2))
 	check(scene.continue_ready and count_line(scene, still) == 1, "holding still 3 s: the still line, once")
-	check(scene.action_at(Vector2(700, 500)) == "continue", "continue after the still line")
+	check(scene.action_at(Vector2(1300, 500)) == "continue", "continue after the still line")
+	var still_after := true
+	for l in scene.lines:
+		if l.text == still:
+			for m in scene.lines:
+				if m.story and m.text != still:
+					still_after = still_after and m.due <= l.due
+	check(still_after, "the still line waits after anything still being said")
 	for i in 40:
 		scene.threshold_t += 0.1
 		scene._tick_still(0.1, Vector2(890, 500))
@@ -1322,9 +1382,15 @@ func test_end_scene() -> void:
 	scene._tick_audio(0.1)
 	check(is_equal_approx(scene.last_targets.get("pen", 0.0), 0.45), "the pen scratches while it writes")
 	var sch: Dictionary = scene._end_schedule()
-	scene.end_t = sch.cont - 0.1
-	check(scene.action_at(Vector2(700, 910)) == "", "no restart before 'Tide I continues.'")
-	scene.end_t = sch.cont + 0.1
+	scene.end_t = (sch.r1_done + sch.r2_start) / 2.0
+	check(not scene._end_row_writing(), "the pen rests between the rows")
+	scene.end_t = sch.r2_start + 0.5
+	check(scene._end_row_writing(), "the second row writes itself 2 s after the first")
+	check(is_equal_approx(sch.r2_start, sch.r1_done + 2.0) and is_equal_approx(sch.lines[0], sch.r2_done + 1.5)
+		and is_equal_approx(sch.lines[1], sch.lines[0] + 1.6), "end-card schedule")
+	scene.end_t = sch.done - 0.1
+	check(scene.action_at(Vector2(700, 910)) == "", "no restart before the last line is in")
+	scene.end_t = sch.done + 0.1
 	check(scene.action_at(Vector2(700, 910)) == "restart" and scene.action_at(Vector2(700, 790)) == "",
 		"restart only on the button, once the card is done")
 	scene.sim.state.motion = false
@@ -1332,6 +1398,611 @@ func test_end_scene() -> void:
 	check(scene.action_at(Vector2(700, 910)) == "", "Motion off: the grace still applies")
 	scene.end_t = 1.6
 	check(scene.action_at(Vector2(700, 910)) == "restart", "Motion off: restart after the grace")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(scene.save_path))
+	scene.queue_free()
+	await process_frame
+
+# ---------------------------------------------------------------------------
+# Round 3, C1: the report unlatches on Back; the evening tide; misses in her hand
+# ---------------------------------------------------------------------------
+const UNLATCH_LINE := "Behind me, the corridor door unlatched itself."
+
+func test_unlatch_on_back() -> void:
+	var s := OfficeSim.new()
+	s.debug_jump(3)
+	var ev := file_report(s)
+	check(s.view == "report" and s.state.report_filed and not s.state.heard_unlatch, "filing keeps view 'report'")
+	check(not has_ev(ev, "sfx", "latch_near") and count_say(ev, UNLATCH_LINE) == 0, "no unlatch while she is at the desk")
+	check(count_say(ev, "The two is in my hand. I wrote it without counting.") == 1
+		and is_equal_approx(say_ev(ev, "without counting").delay, 2.2), "the two, at 2.2 s")
+	ev = s.dispatch("door")
+	check(s.view == "report" and ev.is_empty(), "'door' does nothing in the report")
+	check(s.objective() == "filed" and says(s.dispatch("hint")) == OfficeSim.HINTS["filed"][0], "objective 'filed' has hints")
+	ev = s.dispatch("back")
+	check(s.state.heard_unlatch and s.view == "room", "back from the signed report: heard_unlatch")
+	var latch_ok := false
+	for e in ev:
+		if e.type == "sfx" and e.id == "latch_near" and is_equal_approx(e.delay, 0.2):
+			latch_ok = true
+	check(latch_ok and count_say(ev, UNLATCH_LINE) == 1 and say_ev(ev, UNLATCH_LINE).story
+		and is_equal_approx(say_ev(ev, UNLATCH_LINE).delay, 0.6), "latch_near at 0.2 s and the unlatch line at 0.6 s")
+	check(s.objective() == "leave", "objective -> leave")
+	s.dispatch("door")
+	check(s.view == "threshold", "then 'door' -> threshold")
+	# Twice back: the unlatch is heard once.
+	var t := OfficeSim.new()
+	t.debug_jump(3)
+	var all := file_report(t)
+	all.append_array(t.dispatch("back"))
+	all.append_array(t.dispatch("papers"))
+	all.append_array(t.dispatch("back"))
+	var latches := 0
+	for e in all:
+		if e.type == "sfx" and e.id == "latch_near": latches += 1
+	check(latches == 1 and count_say(all, UNLATCH_LINE) == 1, "filing then back twice: one unlatch")
+	# The door before she steps back is still latched (a save can't get here, but a sim can).
+	var u := OfficeSim.new()
+	u.debug_jump(3)
+	file_report(u)
+	u.view = "room"
+	u.dispatch("door")
+	check(u.view == "room", "the threshold needs heard_unlatch too")
+	var j := OfficeSim.new()
+	j.debug_jump(4)
+	check(j.state.heard_unlatch and j.state.report_time == OfficeSim.REPORT_TIME_ANSWER, "debug_jump(4) has heard the unlatch")
+
+func test_report_time() -> void:
+	check(OfficeSim.REPORT_FIELDS.size() == 3 and OfficeSim.REPORT_ANSWER == [2, 1, 1], "three choice fields")
+	check(OfficeSim.REPORT_FIELDS[1][1] == ["1", "2", "3"], "observers 1-3")
+	check(minutes("07:13") + 12 * 60 + 21 == minutes("19:34") and OfficeSim.REPORT_TIME_ANSWER == [1, 9, 3, 4],
+		"the evening tide is 07:13 + 12 h 21 m = 19:34")
+	var s := OfficeSim.new()
+	s.debug_jump(3)
+	s.dispatch("papers")
+	var ev := s.dispatch("rtime_1")
+	check(s.state.report_time == [0, 1, 0, 0] and has_ev(ev, "sfx", "dial"), "a time dial turns up with a dial click")
+	ev = s.dispatch("rtime_down_0")
+	check(s.state.report_time == [9, 1, 0, 0] and has_ev(ev, "sfx", "dial"), "and down, wrapping 0 -> 9")
+	for i in 10: s.dispatch("rtime_3")
+	check(int(s.state.report_time[3]) == 0, "ten clicks come round")
+	# A right time with a wrong field, and a wrong time with right fields, never file.
+	var a := OfficeSim.new()
+	a.debug_jump(3)
+	a.dispatch("papers")
+	set_fields(a, [1, 1, 1])
+	set_time(a, OfficeSim.REPORT_TIME_ANSWER)
+	a.dispatch("file_report")
+	var b := OfficeSim.new()
+	b.debug_jump(3)
+	b.dispatch("papers")
+	set_fields(b, OfficeSim.REPORT_ANSWER)
+	set_time(b, [1, 9, 3, 3])
+	b.dispatch("file_report")
+	check(not a.state.report_filed and not b.state.report_filed, "a right time with a wrong field, or the reverse, never files")
+	# Every near-miss time has its own line.
+	var all_ok := true
+	for key in OfficeSim.REPORT_TIME_MISSES:
+		var m := OfficeSim.new()
+		m.debug_jump(3)
+		m.dispatch("papers")
+		set_fields(m, OfficeSim.REPORT_ANSWER)
+		var want: Array = []
+		for ch in key: want.append(int(ch))
+		set_time(m, want)
+		var fe := m.dispatch("file_report")
+		var line: String = OfficeSim.REPORT_TIME_MISSES[key]
+		all_ok = all_ok and count_say(fe, line) == 1 and not m.state.report_filed and has_ev(fe, "sfx", "page")
+	check(all_ok, "every REPORT_TIME_MISSES line fires")
+	var g := OfficeSim.new()
+	g.debug_jump(3)
+	g.dispatch("papers")
+	check(says(g.dispatch("back")) == "", "back from a blank report says nothing")
+	g.dispatch("papers")
+	g.dispatch("rtime_0")
+	g.dispatch("back")
+	check(says(g.dispatch("papers")) == "His closure report. Half reconciled.", "a touched report is half reconciled")
+	var h := OfficeSim.new()
+	h.debug_jump(3)
+	check(says(h.dispatch("papers")).begins_with("Under the duty card"), "an untouched report is blank")
+	check(OfficeSim.HINTS["report"][2] == "Pilings 10. Observers 2. High water 19:34 (07:13 plus 12 h 21 m). Height 9.9 m. Then sign it.",
+		"report hint 3 gives the answer and the arithmetic")
+	check(OfficeSim.OBSERVATIONS["report"] == "Closure report, filed in my hand: pilings 10; observers on station 2; high water 18 Oct 19:34, 9.9 m.",
+		"the filed report's notebook line")
+
+func wrong_file(s: OfficeSim) -> Array:
+	return s.dispatch("file_report")
+
+func test_report_misses() -> void:
+	var s := OfficeSim.new()
+	s.debug_jump(3)
+	s.dispatch("papers")
+	var sizes := [s.log_rows().size()]
+	var ev := wrong_file(s)
+	check(s.state.history == ["miss0"] and s.report_misses() == 1, "the first miss is written down")
+	check(says(ev).begins_with("Something here doesn't reconcile.") and has_ev(ev, "fx", "log_write")
+		and is_equal_approx(say_ev(ev, "a pen is moving").delay, 1.6) and say_ev(ev, "a pen is moving").story,
+		"first miss: the pen moves, at 1.6 s")
+	sizes.append(s.log_rows().size())
+	ev = wrong_file(s)
+	check(s.state.history == ["miss0", "miss1"] and say_ev(ev, "a pen is moving").is_empty()
+		and not has_ev(ev, "fx", "log_write"), "the second miss: no pen line")
+	sizes.append(s.log_rows().size())
+	ev = wrong_file(s)
+	check(s.state.history == ["miss0", "miss1", "miss2"] and is_equal_approx(say_ev(ev, "writing down my mistakes").delay, 2.0),
+		"the third miss: it is writing down my mistakes, at 2.0 s")
+	sizes.append(s.log_rows().size())
+	ev = wrong_file(s)
+	check(s.report_misses() == 3 and s.state.history.size() == 3 and say_ev(ev, "writing down my mistakes").is_empty(),
+		"a fourth miss adds nothing")
+	sizes.append(s.log_rows().size())
+	var tail := []
+	var rows := s.log_rows()
+	for r in rows.slice(rows.size() - 3):
+		tail.append(r[3])
+	check(tail == [OfficeSim.HISTORY_TEXT["miss0"], OfficeSim.HISTORY_TEXT["miss1"], OfficeSim.HISTORY_TEXT["miss2"]],
+		"miss rows in the order they happened")
+	# Misses don't use up the room's three history lines.
+	s.dispatch("back")
+	for a in ["coat", "window", "mug", "stove"]:
+		s.dispatch(a)
+		s.dispatch("back")
+		sizes.append(s.log_rows().size())
+	check(s.state.history == ["miss0", "miss1", "miss2", "coat", "window", "mug"], "room clicks still get three lines")
+	var prev_rows := s.log_rows()
+	file_and_back(s)
+	check(s.state.report_filed, "a correct filing still works after three misses")
+	sizes.append(s.log_rows().size())
+	var grows := true
+	for i in range(1, sizes.size()):
+		grows = grows and sizes[i] >= sizes[i - 1]
+	var prefix_ok := JSON.stringify(s.log_rows().slice(0, prev_rows.size())) == JSON.stringify(prev_rows)
+	check(grows and prefix_ok, "log_rows only ever grows, append-only (%s)" % [sizes])
+
+func test_report_saves() -> void:
+	var s := OfficeSim.new()
+	s.debug_jump(3)
+	s.dispatch("papers")
+	wrong_file(s)
+	wrong_file(s)
+	set_time(s, [1, 9, 3, 0])
+	var t := roundtrip(s)
+	check(t.state.report_time == [1, 9, 3, 0] and t.state.history == ["miss0", "miss1"] and not t.state.heard_unlatch,
+		"report_time and the miss ids round-trip")
+	file_and_back(s)
+	t = roundtrip(s)
+	check(t.state.report_filed and t.state.heard_unlatch and t.view == "room", "heard_unlatch round-trips (derived)")
+	var d: Dictionary = JSON.parse_string(JSON.stringify(s.to_dict()))
+	d.report_time = [1, 9, 3, 3]
+	var bad := OfficeSim.new()
+	bad.from_dict(d)
+	check(not bad.state.report_filed and not bad.state.heard_unlatch, "tamper: filed with a wrong time is rejected")
+	bad.from_dict({"schema": 5, "report_time": [12, -1, 3, 4.5]})
+	check(bad.state.report_time == [0, 0, 0, 0], "a malformed time is ignored")
+	bad.from_dict({"schema": 5, "report_time": [12, -1, 3, 4]})
+	check(bad.state.report_time == [9, 0, 3, 4], "the time clamps to 0-9")
+	var w := {"schema": 5, "started": true, "p01_complete": true, "log_read": true, "prints_seen": true,
+		"drawer_open": true, "log_rewritten": true, "seat_wet": true,
+		"history": ["miss1", "miss0", "coat", "miss1", "miss2", "miss0", "lamp", "mug", "stove"]}
+	bad.from_dict(w)
+	check(bad.state.history == ["miss0", "coat", "miss1", "miss2", "lamp", "mug"], "misses load in order, at most three (%s)" % [bad.state.history])
+	w.seat_wet = false
+	bad.from_dict(w)
+	check(bad.state.history.is_empty(), "misses need the wet seat")
+	var dry := {"schema": 5, "started": true, "report_filed": true, "heard_unlatch": true}
+	bad.from_dict(dry)
+	check(not bad.state.heard_unlatch, "heard_unlatch needs a filed report")
+
+func test_round3_determinism() -> void:
+	var script := ["papers", "file_report", "rtime_0", "field_1", "file_report", "back", "coat", "back",
+		"window", "back", "map", "map", "notebook", "back", "mug", "papers"]
+	for i in 2: script.append("field_0")
+	script.append("field_2")
+	for i in 9: script.append("rtime_1")
+	for i in 3: script.append("rtime_2")
+	for i in 4: script.append("rtime_3")
+	script.append_array(["file_report", "door", "back", "door", "turn"])
+	var a := OfficeSim.new()
+	var b := OfficeSim.new()
+	a.debug_jump(3)
+	b.debug_jump(3)
+	var log_a := []
+	var log_b := []
+	for act in script:
+		log_a.append(a.dispatch(act))
+		log_b.append(b.dispatch(act))
+	check(a.view == "end" and a.state.turned, "the round-3 script reaches the turned ending")
+	check(JSON.stringify(log_a) == JSON.stringify(log_b) and JSON.stringify(a.to_dict()) == JSON.stringify(b.to_dict()),
+		"round 3: the same script twice gives identical state and events")
+
+# ---------------------------------------------------------------------------
+# Round 3, C2: less explaining, the contours, look-away, continuity, two endings
+# ---------------------------------------------------------------------------
+func test_story_text_r3() -> void:
+	var s := OfficeSim.new()
+	s.debug_jump(3)
+	var ev := s.dispatch("window")
+	check(is_equal_approx(say_ev(ev, "I step to the left. It is still in the middle of the glass.").delay, 5.4),
+		"window s3: the eye line at 5.4 s")
+	check(says(s.dispatch("hooks")) == "There's a tag on the ninth hook now. Stamped A.M. It hangs at the height of my collar.",
+		"the tag line")
+	check(OfficeSim.OBSERVATIONS["tag"] == "A brass tag on the ninth hook, stamped A.M. It hangs at the height of my collar.",
+		"the tag observation")
+	check(OfficeSim.OBSERVATIONS.size() >= 35, "about 35 observations (%d)" % OfficeSim.OBSERVATIONS.size())
+
+func test_contours() -> void:
+	var early := OfficeSim.new()
+	early.debug_jump(3)
+	var ev := early.dispatch("map")
+	check(early.state.soundings_heard and not early.state.contours_seen, "at s3 the first map is the soundings")
+	ev = early.dispatch("map")
+	check(early.state.contours_seen and early.has_seen("contours") and has_ev(ev, "fx", "contours"), "the second map: contours")
+	var deep_ok := false
+	for e in ev:
+		if e.type == "sfx" and e.id == "deep" and is_equal_approx(e.delay, 4.8):
+			deep_ok = true
+	check(deep_ok and say_ev(ev, "They go round.").story and is_equal_approx(say_ev(ev, "Like a lash").delay, 5.4),
+		"contours: the deep at 4.8 s, three story lines")
+	ev = early.dispatch("map")
+	check(not has_ev(ev, "fx", "contours"), "contours once only")
+	var s2 := OfficeSim.new()
+	s2.debug_jump(2)
+	s2.dispatch("drawer")
+	dial_to(s2, [1, 8, 5, 2])
+	s2.dispatch("try_drawer")
+	s2.dispatch("back")
+	s2.dispatch("map")
+	s2.dispatch("map")
+	check(s2.state.soundings_heard and not s2.state.contours_seen, "no contours at s2")
+	var none := OfficeSim.new()
+	none.debug_jump(3)
+	none.state.drawer_open = true
+	check(not none.state.soundings_heard and not has_ev(none.dispatch("window"), "fx", "contours")
+		and not none.has_seen("through"), "no 'through' before the contours")
+	ev = early.dispatch("window")
+	check(early.has_seen("through") and count_say(ev, OfficeSim.OBSERVATIONS["through"]) == 1
+		and is_equal_approx(say_ev(ev, "what it looks through").delay, 5.4 + 2.8), "'through' after the contours, 2.8 s after the chain")
+	ev = early.dispatch("window")
+	check(say_ev(ev, "what it looks through").is_empty(), "'through' once")
+	var bad := OfficeSim.new()
+	bad.from_dict({"schema": 5, "started": true, "p01_complete": true, "log_read": true, "drawer_open": true,
+		"soundings_heard": true, "contours_seen": true})
+	check(not bad.state.contours_seen, "contours_seen needs the wet seat")
+	var t := roundtrip(early)
+	check(t.state.contours_seen, "contours_seen round-trips")
+
+func test_chart_tenth() -> void:
+	var s := OfficeSim.new()
+	s.dispatch("begin")
+	for a in ["map", "lamp", "toggle_supply", "select_b", "fit", "toggle_supply", "map", "logbook", "back",
+			"map", "puddle", "drawer"]:
+		s.dispatch(a)
+	dial_to(s, [1, 8, 5, 2])
+	for a in ["try_drawer", "back", "map", "map"]:
+		s.dispatch(a)
+	check(s.has_seen("chart") and s.has_seen("soundings") and not s.has_seen("chart_tenth"), "chart_tenth never before s3")
+	check(OfficeSim.OBSERVATIONS["chart"] == "The chart has been corrected in pencil: nine pilings.", "the chart line spoils nothing")
+	var t := OfficeSim.new()
+	t.debug_jump(3)
+	t.dispatch("map")
+	check(t.has_seen("chart_tenth"), "the s3 soundings line notes the tenth piling")
+
+func test_look_away() -> void:
+	var s := OfficeSim.new()
+	s.debug_jump(2)
+	s.dispatch("notebook"); s.dispatch("back")
+	s.dispatch("logbook"); s.dispatch("back")
+	check(int(s.state.returns) == 0, "returns stay 0 before s3")
+	s.debug_jump(3)
+	s.dispatch("menu"); s.dispatch("resume")
+	s.dispatch("menu"); s.dispatch("back")
+	check(int(s.state.returns) == 0, "the menu doesn't count")
+	var before := says(s.dispatch("mug"))
+	check(before == "Two rings on the desk now. One is still warm.", "the mug before she looks away")
+	s.dispatch("notebook"); s.dispatch("back")
+	check(int(s.state.returns) == 1 and s.look_away("mug") and not s.look_away("stove"), "the notebook counts")
+	check(says(s.dispatch("mug")) == "His mug is full to the brim. Seawater. I didn't fill it." and s.has_seen("away_mug"),
+		"the mug, brimming")
+	check(says(s.dispatch("stove")) == "Raked smooth again. I didn't touch it." and not s.has_seen("away_stove"),
+		"the stove before its turn")
+	s.dispatch("papers"); s.dispatch("back")
+	check(int(s.state.returns) == 2, "the report counts")
+	check(says(s.dispatch("stove")) == "The stove door is open. It's full of water, up into the flue." and s.has_seen("away_stove"),
+		"the stove, flooded")
+	check(says(s.dispatch("coat")) == "The shoulders have shape now. I am not going to touch it.", "the coat before its turn")
+	s.dispatch("drawer"); s.dispatch("back")
+	check(says(s.dispatch("coat")) == "The hood is up. It's facing the desk." and s.has_seen("away_coat"), "the hood")
+	var ev := s.dispatch("door")
+	check(says(ev) == OfficeSim.LATCHED_LINE and not s.has_seen("away_door"), "the door before its turn")
+	s.dispatch("lamp"); s.dispatch("back")
+	ev = s.dispatch("door")
+	check(says(ev) == "Water is coming under the door. From the corridor side. | " + OfficeSim.LATCHED_LINE
+		and is_equal_approx(say_ev(ev, "Latched").delay, 2.4) and not say_ev(ev, "Latched").story and s.has_seen("away_door"),
+		"the door, seeping, then latched at 2.4 s")
+	check(say_ev(s.dispatch("puddle"), "And a third").is_empty(), "the puddle before its turn")
+	s.dispatch("logbook"); s.dispatch("back")
+	ev = s.dispatch("puddle")
+	check(is_equal_approx(say_ev(ev, "And a third. Up the wall beside the door. It doesn't come down.").delay, 4.2)
+		and s.has_seen("away_puddle"), "the third trail, up the wall")
+	check(say_ev(s.dispatch("window"), "fourth hand").is_empty(), "the window before its turn")
+	s.dispatch("notebook"); s.dispatch("back")
+	ev = s.dispatch("window")
+	check(int(s.state.returns) == 6 and say_ev(ev, "There's a fourth hand now. At the top of the glass.").story
+		and s.has_seen("away_window"), "the fourth hand")
+	s.dispatch("notebook"); s.dispatch("back")
+	check(int(s.state.returns) == 6, "returns clamp at 6")
+	var t := roundtrip(s)
+	check(int(t.state.returns) == 6 and t.look_away("window"), "returns round-trip")
+	t.from_dict({"schema": 5, "returns": 4})
+	check(int(t.state.returns) == 0, "returns need the wet seat")
+	t.from_dict({"schema": 5, "started": true, "p01_complete": true, "log_read": true, "prints_seen": true,
+		"drawer_open": true, "log_rewritten": true, "seat_wet": true, "returns": 40})
+	check(int(t.state.returns) == 6, "returns clamp on load")
+	t.from_dict({"schema": 5, "started": true, "p01_complete": true, "log_read": true, "prints_seen": true,
+		"drawer_open": true, "log_rewritten": true, "seat_wet": true, "returns": 2.5})
+	check(int(t.state.returns) == 0, "fractional returns are ignored")
+	check(not OfficeSim.ROOM_IDS.has("turn"), "'turn' is not a room id")
+
+func test_continuity() -> void:
+	var s := OfficeSim.new()
+	s.debug_jump(1)
+	s.dispatch("lamp")
+	var ev := s.dispatch("toggle_supply")
+	check(s.state.supply_on and s.state.p01_complete and says(ev) == "Leave it. I want the light."
+		and not has_ev(ev, "sfx", "switch"), "after the repair the supply stays on")
+	var d := OfficeSim.new()
+	d.debug_jump(2)
+	d.dispatch("drawer")
+	dial_to(d, [4, 4, 4, 4])
+	var got := []
+	for i in 4:
+		got.append(says(d.dispatch("try_drawer")))
+	check(got == ["The drawer doesn't give.", "Still nothing.", "The dials are cold. The drawer isn't.", "The drawer doesn't give."],
+		"the drawer's refusal rotates (%s)" % [got])
+	check(not d.to_dict().has("drawer_miss_n"), "the rotation is not saved")
+	var r := OfficeSim.new()
+	r.debug_jump(2)
+	r.dispatch("puddle")
+	r.dispatch("drawer")
+	dial_to(r, [1, 8, 5, 2])
+	ev = r.dispatch("try_drawer")
+	var drawer_motif := false
+	for e in ev:
+		if e.type == "sfx" and e.id == "motif_short" and is_equal_approx(e.delay, 1.0): drawer_motif = true
+	r.dispatch("back")
+	ev = r.dispatch("logbook")
+	var log_motif := false
+	for e in ev:
+		if e.type == "sfx" and e.id == "motif_short" and is_equal_approx(e.delay, 0.4): log_motif = true
+	check(drawer_motif and log_motif, "stingers: the drawer at 1.0 s, the log rewrite at 0.4 s")
+
+func test_endings() -> void:
+	check(minutes("19:34") + 12 * 60 + 21 - 1440 == minutes("07:55"), "07:55 is 19:34 + 12:21")
+	check("07:55" in OfficeSim.END_NEXT_ROW and "07:55" in OfficeSim.END_NEXT_TURNED and "19:34" in OfficeSim.END_LOG_ROW,
+		"the end rows carry the arithmetic")
+	var s := OfficeSim.new()
+	s.debug_jump(4)
+	check(s.dispatch("turn").is_empty() and s.view == "room", "'turn' does nothing in the room")
+	s.dispatch("papers")
+	check(s.dispatch("turn").is_empty() and s.view == "report", "'turn' does nothing in a close-up")
+	s.dispatch("back")
+	s.dispatch("door")
+	var ev := s.dispatch("hint")
+	check(says(ev) == OfficeSim.THRESHOLD_HINT and not "turn" in says(ev).to_lower(), "the threshold hint never mentions turning")
+	ev = s.dispatch("turn")
+	check(s.view == "end" and s.state.turned and s.state.finished, "turn at the threshold ends the slice")
+	var motif_ok := false
+	for e in ev:
+		if e.type == "sfx" and e.id == "motif" and is_equal_approx(e.delay, 1.4): motif_ok = true
+	check(has_ev(ev, "sfx", "exhale_near") and motif_ok and has_ev(ev, "fx", "turn"), "turn: exhale, motif at 1.4 s, fx")
+	check(s.end_rows() == [[OfficeSim.END_TURN_ROW, "her"], [OfficeSim.END_NEXT_TURNED, "her"]], "turned: both rows in her hand")
+	check(s.end_lines() == [OfficeSim.END_ON_STATION, OfficeSim.END_CONTINUES], "turned: end lines")
+	var t := roundtrip(s)
+	check(t.state.turned and t.view == "end", "turned round-trips")
+	var n := OfficeSim.new()
+	n.debug_jump(4)
+	n.dispatch("door")
+	n.dispatch("continue")
+	check(n.view == "end" and not n.state.turned, "continue: the other ending")
+	check(n.end_rows() == [[OfficeSim.END_LOG_ROW, "her"], [OfficeSim.END_NEXT_ROW, "venn"]], "not turned: hers, then his")
+	var bad := OfficeSim.new()
+	bad.from_dict({"schema": 5, "started": true, "turned": true})
+	check(not bad.state.turned, "turned needs finished")
+
+# ---------------------------------------------------------------------------
+# Round 3, C3: chains are atomic and the player sets their speed
+# ---------------------------------------------------------------------------
+func step(scene: Node, seconds: float, dt := 0.05) -> void:
+	var t := 0.0
+	while t < seconds - 1e-6:
+		scene.time += dt
+		scene._tick_stage(dt)
+		scene._tick_lines(dt)
+		scene._tick_sfx(dt)
+		t += dt
+
+func hs(scene: Node, id: String) -> Vector2:
+	return scene._hotspot_rect(id).get_center()
+
+## Clicks `p` once a second until the click dispatches (rather than advancing a chain).
+## Collects every sim event it causes. Returns false if it never got through.
+func click_through(scene: Node, p: Vector2, events: Array, limit := 40) -> bool:
+	for i in limit:
+		var before: int = scene.click_id
+		scene.click(p)
+		if scene.click_id != before:
+			events.append_array(scene.last_events)
+			step(scene, 1.0)
+			return true
+		step(scene, 1.0)
+	return false
+
+func test_click_driver() -> void:
+	var scene = new_scene("user://office_driver_test.json")
+	await process_frame
+	var ev: Array = []
+	var ok := true
+	var dial_up := func(i: int) -> Vector2: return scene._dial_up_rect(i).get_center()
+	var rtime_up := func(i: int) -> Vector2:
+		var r: Rect2 = scene._rtime_rect(i)
+		return r.position + Vector2(r.size.x / 2.0, r.size.y / 4.0)
+	var row := func(k: int) -> Vector2: return scene._report_row(k).get_center()
+	var back: Vector2 = scene.BACK_RECT.get_center()
+	var plan: Array = [Vector2(700, 500), hs(scene, "lamp"), Vector2(400, 640), Vector2(200, 920),
+		Vector2(450, 500), Vector2(400, 640), hs(scene, "logbook"), back, hs(scene, "puddle"), hs(scene, "drawer")]
+	for i in 4:
+		for n in [1, 8, 5, 2][i]:
+			plan.append(dial_up.call(i))
+	plan.append_array([scene.DRAWER_TRY.get_center(), back, hs(scene, "logbook"), back, hs(scene, "chair"),
+		hs(scene, "map"), hs(scene, "map"), hs(scene, "window"), hs(scene, "papers"),
+		row.call(0), row.call(0), row.call(1), row.call(3)])
+	for i in 4:
+		for n in [1, 9, 3, 4][i]:
+			plan.append(rtime_up.call(i))
+	plan.append_array([scene.REPORT_SIGN.get_center(), back])
+	for p in plan:
+		ok = ok and click_through(scene, p, ev)
+	check(ok, "driver: every click got through")
+	check(scene.sim.state.report_filed and scene.sim.state.heard_unlatch, "driver: the report is filed and heard")
+	var unlatch_before := false
+	for i in 30:
+		if scene.sim.view == "threshold":
+			break
+		unlatch_before = UNLATCH_LINE in scene.shown_log
+		scene.click(hs(scene, "door"))
+		if scene.click_id > 0 and not scene.last_events.is_empty() and scene.sim.view == "threshold":
+			ev.append_array(scene.last_events)
+		step(scene, 1.0)
+	check(scene.sim.view == "threshold" and unlatch_before, "the unlatch line shows before the threshold")
+	step(scene, 20.0)
+	ok = click_through(scene, hs(scene, "door"), ev)
+	check(ok and scene.sim.view == "end" and not scene.sim.state.turned, "driver reaches the end card")
+	var missing := []
+	for e in ev:
+		if e.type == "say" and e.get("story", false) and not e.text in scene.shown_log:
+			missing.append(e.text)
+	check(missing.is_empty(), "every story line the sim emitted was shown (missing %s)" % [missing])
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(scene.save_path))
+	scene.queue_free()
+	await process_frame
+
+func chair_scene(path: String) -> Node:
+	var scene = new_scene(path)
+	scene.debug_jump(2)
+	var s: OfficeSim = scene.sim
+	s.state.prints_seen = true; s.state.drawer_open = true; s.state.log_rewritten = true
+	return scene
+
+func test_chain_gate_chair() -> void:
+	var scene = chair_scene("user://office_gate_chair.json")
+	await process_frame
+	scene.click(hs(scene, "chair"))
+	check(scene.sim.state.seat_wet and scene.chain_active(), "the chair beat plays")
+	step(scene, 0.5)
+	scene.click(hs(scene, "window"))
+	check(scene.sim.view == "room" and scene.sim.state.seat_wet and not scene.sim.has_seen("horizon")
+		and not "The horizon isn't level. The house is." in scene.shown_log, "a window click 0.5 s in only advances the chain")
+	var taps: int = scene.shown_log.find("Three taps on the glass.")
+	var knock_at := -1
+	for p in scene.played_log:
+		if p[0] == "knock_glass":
+			knock_at = p[1]
+	check(taps >= 0 and knock_at >= 0 and knock_at <= taps, "knock_glass plays before 'Three taps' shows (%d, %d)" % [knock_at, taps])
+	check(scene.hush > 0.0, "the room hushes for the advanced knock")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(scene.save_path))
+	scene.queue_free()
+	await process_frame
+
+func test_chain_gate_drawer() -> void:
+	var scene = new_scene("user://office_gate_drawer.json")
+	await process_frame
+	scene.debug_jump(2)
+	scene.dispatch("drawer")
+	for i in 4:
+		for n in [1, 8, 5, 2][i]:
+			scene.dispatch("dial_%d" % i)
+	scene.click(scene.DRAWER_TRY.get_center())
+	check(scene.sim.state.drawer_open, "the drawer opens")
+	var photo: Vector2 = scene.PHOTO_RECT.get_center()
+	var looks_ok := true
+	for i in 12:
+		step(scene, 0.5)
+		var was: bool = scene.chain_active()
+		scene.click(photo)
+		if was:
+			looks_ok = looks_ok and int(scene.sim.state.photo_looks) == 0
+		if int(scene.sim.state.photo_looks) > 0:
+			break
+	check(looks_ok, "look_photo clicks during the chain only advance it")
+	var a: int = scene.shown_log.find("And a photograph.")
+	var b: int = scene.shown_log.find("Me, from outside. From the sea side.")
+	check(a >= 0 and b > a, "'And a photograph.' shows before 'Me, from outside...' (%d, %d)" % [a, b])
+	check(scene.shown_log.find("There is nothing outside this window to stand on.") < b, "the whole chain shows first")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(scene.save_path))
+	scene.queue_free()
+	await process_frame
+
+func test_hint_after_chain() -> void:
+	var scene = chair_scene("user://office_gate_hint.json")
+	await process_frame
+	scene.click(hs(scene, "chair"))
+	step(scene, 0.4)
+	scene.click(scene.HUD_BUTTONS[1][1].get_center())
+	var hint: String = OfficeSim.HINTS["report"][0]
+	check(scene.sim.state.hint_level == 1 and not hint in scene.shown_log, "the hint dispatches but waits")
+	step(scene, 15.0)
+	var last: int = scene.shown_log.find("Low down. Below the sill. Where the wall goes straight down into the water.")
+	var h: int = scene.shown_log.find(hint)
+	check(last >= 0 and h > last, "a hint during a chain shows after its last line (%d, %d)" % [last, h])
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(scene.save_path))
+	scene.queue_free()
+	await process_frame
+
+# ---------------------------------------------------------------------------
+# Round 3, C7: QA nits
+# ---------------------------------------------------------------------------
+func test_qa_nits() -> void:
+	var scene = new_scene("user://office_nits_test.json")
+	await process_frame
+	var mapping_ok := true
+	for v in 10:
+		var s := OfficeSim.new()
+		s.debug_jump(1)
+		s.dispatch("drawer")
+		dial_to(s, [v, 0, 0, 0])
+		var digits: Array = scene.dial_digits(v)
+		s.dispatch("dial_0")
+		var up := int(s.state.drawer_dial[0])
+		s.dispatch("dial_down_0")
+		s.dispatch("dial_down_0")
+		mapping_ok = mapping_ok and digits[0] == up and digits[1] == v and digits[2] == int(s.state.drawer_dial[0])
+	check(mapping_ok, "each dial half shows where a click on it goes")
+	# Restart takes two clicks within 3 s.
+	scene.debug_jump(2)
+	scene.dispatch("menu")
+	var restart: Vector2 = scene._menu_rect(3).get_center()
+	scene.click(restart)
+	check(scene.sim.view == "menu" and scene.sim.state.log_read and scene._restart_armed(), "one restart click only asks")
+	scene.time += 3.1
+	scene.click(restart)
+	check(scene.sim.view == "menu" and scene.sim.state.log_read, "one click and 3.1 s: no restart")
+	scene.time += 0.5
+	scene.click(restart)
+	check(scene.sim.view == "title" and not scene.sim.state.log_read, "two quick clicks restart")
+	# Voice cap.
+	scene.debug_jump(1)
+	for i in 10:
+		scene._play_sfx_now("page")
+	var pages := 0
+	for p in scene.oneshots:
+		if is_instance_valid(p) and p.get_meta("sfx_id", "") == "page":
+			pages += 1
+	check(pages <= 2, "10 rapid pages leave at most 2 live ones (%d)" % pages)
+	# The slab fades when nothing is said, and comes back for a line.
+	scene._show_line("A line.", false)
+	advance(scene, 0.3)
+	check(scene.slab_a >= 0.99, "the slab is up while a line shows")
+	advance(scene, scene.cur_hold + scene.LINE_LINGER + 1.0)
+	check(scene.cur_text == "" and scene.slab_a == 0.0, "with nothing said, the line clears and the slab fades")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(scene.save_path))
 	scene.queue_free()
 	await process_frame

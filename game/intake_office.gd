@@ -23,9 +23,13 @@ const BRASS := Color("b08a4a")
 
 ## Ambient modulate per story stage (0 arrival .. 3 seat wet).
 const MODULATE := [Color(0.30, 0.33, 0.42), Color(0.46, 0.44, 0.48),
-	Color(0.30, 0.30, 0.38), Color(0.22, 0.21, 0.30)]
+	Color(0.22, 0.23, 0.31), Color(0.22, 0.21, 0.30)]
 ## The lamp's pool of light shrinks as the story closes in.
-const LAMP_SCALE := [3.2, 3.2, 2.3, 1.7]
+const LAMP_SCALE := [3.2, 3.2, 1.85, 1.45]
+## The window's own light per stage, only with the painted plates (they were painted to be
+## seen; the modulate alone leaves the glass black). Stage 3 is lit from below.
+const SEA_GLOW := [0.0, 0.0, 0.45, 0.95]
+const SEA_GLOW_COL := Color(0.62, 0.76, 0.76)
 const TORCH_WARM := Color(1.0, 0.94, 0.82)
 const TORCH_COLD := Color(0.82, 0.88, 1.0)
 const THRESHOLD_SHADE := Color(0.08, 0.08, 0.12)
@@ -78,9 +82,12 @@ const REVEAL_CPS := 14.0      # characters per second the log writes itself
 const HAND_SKEW := 0.18
 const TYPE_CPS := 48.0        # subtitle typewriter
 const END_GRACE := 1.5
+const LINE_LINGER := 4.0      # a line with nothing after it clears this long after its hold
+const ADVANCE_SWALLOW := 0.35 # a click this soon after a story line went up is swallowed
+const VOICE_CAP := 2          # live copies of one one-shot at most
+const RESTART_ARM := 3.0      # seconds the menu's restart stays armed after the first click
 const FEEDBACK_HOLD := 1.2    # a click's line stays up at least this long before the next click replaces it
 const BACKLOG_SQUEEZE := 0.6  # read-time factor for older story lines when a new reveal arrives
-const BEAT_MAX_WAIT := 3.0    # ...and how long a new reveal may wait behind them
 
 ## The tide breath. Mirrors tools/build_audio.py exactly: the room's swell, the lamp,
 ## the threshold and the sea all follow the breath loop's own playback phase.
@@ -100,9 +107,15 @@ const PANES := [
 	Rect2(483, 368, 317, 177),
 ]
 const HORIZON_PIVOT := Vector2(641, 472)
-const TILT_DEG := -3.5
+const TILT_DEG := -7.0
 const PANE_PAD := 28          # edge-extended margin so a tipped pane never shows its frame
 const PALM_COL := Color(0.86, 0.90, 0.94)
+## The open door's slab and the corridor's vanishing point, off-centre and low.
+const DOOR_SLAB := Rect2(1228, 168, 206, 736)
+const VP := Vector2(1316, 548)
+## The chart's fallback contours: centred on the ninth piling, clipped to the sheet.
+const CONTOUR_C := Vector2(338, 300)
+const CONTOUR_CLIP := Rect2(140, 192, 238, 262)
 
 var save_path := DEFAULT_SAVE_PATH
 var sim := OfficeSim.new()
@@ -118,6 +131,7 @@ var hud: Node2D
 var shade: CanvasModulate
 var torch: PointLight2D
 var lamp_glow: PointLight2D
+var sea_glow: PointLight2D     # the window's own light: the painted sea is lit from below
 var subtitle: Label
 var flash: ColorRect
 
@@ -133,7 +147,7 @@ var rng := RandomNumberGenerator.new()
 var time := 0.0
 var players := {}              # loop id -> AudioStreamPlayer
 var mix := {}                  # loop id -> current linear volume
-var pending_sfx: Array = []    # [id, time_left]
+var pending_sfx: Array = []    # [id, time_left, beat]
 var oneshots: Array = []       # live one-shot players
 var lamp_tween: Tween
 var dev := false
@@ -170,6 +184,16 @@ var breath_hold := 0.0         # seconds the room holds its breath after the pri
 var threshold_t := 0.0
 var end_t := 0.0
 var drawer_k := 1.0            # 0..1 drawer slide progress
+var contours_k := 1.0          # 0..1 fade of Venn's ring contours on the chart
+var away_shown := 0            # sim.state.returns as the view last drew it
+var away_from := 0             # changes up to this index are fully in; later ones fade by away_k
+var away_k := 1.0
+var restart_armed_at := -INF   # time of the menu's first restart click
+var slab_a := 0.0              # subtitle slab opacity: it fades out when nothing is being said
+var pane_src := ""             # which plate the tipped panes were cut from
+var shown_log: Array = []      # every line that went up, in order (tests and drivers read it)
+var played_log: Array = []     # [sfx id, shown_log.size() when it played]
+var last_events: Array = []    # the sim events of the last dispatch
 
 func _ready() -> void:
 	rng.seed = 9
@@ -184,10 +208,17 @@ func _ready() -> void:
 ## Stop every voice before the players go, so the audio server lets their playbacks go too.
 func _exit_tree() -> void:
 	for p in players.values():
-		p.stop()
+		if is_instance_valid(p):
+			p.stop()
+			p.stream = null
+			p.queue_free()
 	for p in oneshots:
 		if is_instance_valid(p):
 			p.stop()
+			p.stream = null
+			p.queue_free()
+	players.clear()
+	oneshots.clear()
 
 # ---------------------------------------------------------------------------
 # setup
@@ -196,8 +227,15 @@ func _load_textures() -> void:
 	var f := FileAccess.open("res://asset_manifest.json", FileAccess.READ)
 	var manifest = JSON.parse_string(f.get_as_text())
 	for asset in manifest.assets:
-		if asset.path.ends_with(".png"):
-			textures[asset.id] = load("res://" + asset.path)
+		var path: String = "res://" + asset.path
+		if asset.path.ends_with(".png") and ResourceLoader.exists(path):
+			var tex := load(path) as Texture2D
+			if tex:
+				textures[asset.id] = tex
+
+## A texture by id, or null: every painted stage plate is optional, with a drawn fallback.
+func _tex(id: String) -> Texture2D:
+	return textures.get(id)
 
 func _build_fonts() -> void:
 	var names := PackedStringArray(["Noto Serif", "DejaVu Serif", "Liberation Serif", "serif"])
@@ -238,6 +276,17 @@ func _build_nodes() -> void:
 	lamp_glow.energy = 0.0
 	lamp_glow.position = Vector2(338, 545)
 	add_child(lamp_glow)
+
+	# The sea makes its own light. Shaped to the glass, so the painted water reads through
+	# the room's darkness without lifting anything else.
+	sea_glow = PointLight2D.new()
+	var glass_img := Image.create(int(GLASS.size.x), int(GLASS.size.y), false, Image.FORMAT_RGBA8)
+	glass_img.fill(Color.WHITE)
+	sea_glow.texture = ImageTexture.create_from_image(glass_img)
+	sea_glow.position = GLASS.get_center()
+	sea_glow.color = SEA_GLOW_COL
+	sea_glow.energy = 0.0
+	add_child(sea_glow)
 
 	torch = PointLight2D.new()
 	torch.texture = _radial(512, 0.25)
@@ -384,6 +433,17 @@ func _tick_stage(dt: float) -> void:
 		drawer_k = minf(1.0, drawer_k + dt / 0.8) if sim.state.motion else 1.0
 	if palms_armed and palms_k < 1.0:
 		palms_k = minf(1.0, palms_k + dt / 2.0) if sim.state.motion else 1.0
+	if contours_k < 1.0:
+		contours_k = minf(1.0, contours_k + dt / 2.0) if sim.state.motion else 1.0
+	var returns := int(sim.state.returns)
+	if returns != away_shown:
+		# A change she comes back to fades in; anything else (a load, a restart) is just there.
+		var fades: bool = returns > away_shown and sim.state.motion
+		away_from = away_shown if fades else returns
+		away_k = 0.0 if fades else 1.0
+		away_shown = returns
+	if away_k < 1.0:
+		away_k = minf(1.0, away_k + dt / 1.2) if sim.state.motion else 1.0
 	creep_t += dt
 	breath_clock += dt
 	if sim.state.motion:
@@ -418,7 +478,8 @@ func _tick_still(dt: float, mouse: Vector2) -> void:
 		still_spoken = true
 		continue_ready = true
 		continue_t = threshold_t
-		_insert_line(OfficeSim.THRESHOLD_STILL_LINE, time, true)
+		# After anything still being said, never squeezed in front of it.
+		_insert_line(OfficeSim.THRESHOLD_STILL_LINE, _story_backlog_end(), true)
 
 ## True once she has held still long enough that the corridor stops breathing.
 func _breath_held() -> bool:
@@ -466,7 +527,21 @@ func _tick_light(dt: float) -> void:
 		shade.color = shade.color.lerp(THRESHOLD_SHADE, clampf(dt * 1.0, 0.0, 1.0))
 	else:
 		shade.color = shade.color.lerp(MODULATE[s], clampf(dt * 1.5, 0.0, 1.0))
-	lamp_glow.texture_scale = lerpf(lamp_glow.texture_scale, LAMP_SCALE[s], clampf(dt * 0.6, 0.0, 1.0))
+	var scale_target: float = LAMP_SCALE[s]
+	var scale_rate := 0.6
+	if s >= 2 and sim.state.motion and not at_door:
+		# The pool of light breathes with the room.
+		scale_target *= 1.0 + 0.04 * (_env_drawn() * 2.0 - 1.0)
+		scale_rate = 1.5
+	lamp_glow.texture_scale = lerpf(lamp_glow.texture_scale, scale_target, clampf(dt * scale_rate, 0.0, 1.0))
+	var glow_target := 0.0
+	if _tex("office_s2") and sim.state.started:
+		glow_target = SEA_GLOW[s]
+		if s == 3 and _tex("office_s3"):
+			glow_target = lerpf(SEA_GLOW[2], SEA_GLOW[3], smoothstep(0.0, 1.0, tilt_k))
+		if at_door:
+			glow_target *= 0.5
+	sea_glow.energy = lerpf(sea_glow.energy, glow_target, clampf(dt * 1.5, 0.0, 1.0))
 	if sim.state.p01_complete:
 		var lamp_target := 1.05
 		if at_door:
@@ -503,7 +578,7 @@ func _tick_audio(dt: float) -> void:
 		"drone": [0.0, 0.0, 0.30, 0.50][s],
 		"heartbeat": 0.0,
 		"ring": [0.0, 0.0, 0.05, 0.07][s],
-		"breath": 0.08 if s == 3 else 0.0,
+		"breath": 0.16 if s == 3 else 0.0,
 		"pen": 0.45 if _reveal_active() or _end_row_writing() or _intrusion_writing() else 0.0,
 	}
 	# The sea and the wind drain away together; the pen stops with the nib.
@@ -515,7 +590,7 @@ func _tick_audio(dt: float) -> void:
 		target["wind"] = 0.3
 	elif sim.view == "end":
 		for k in target: target[k] = 0.0
-		target["drone"] = 0.4
+		target["drone"] = 0.25 if _motif_playing() else 0.4
 		target["ring"] = 0.03
 		target["pen"] = 0.45 if _end_row_writing() else 0.0
 	elif _at_threshold():
@@ -550,6 +625,8 @@ func _tick_audio(dt: float) -> void:
 				if k != "heartbeat" and k != "ring":
 					target[k] = 0.0
 					rates[k] = 3.0
+	if sim.view != "end" and _motif_playing():
+		target["drone"] *= 0.6   # the harmonium sits on top of the drone, not inside it
 	last_targets = target
 	for id in players:
 		mix[id] = move_toward(mix[id], target.get(id, 0.0), dt * rates.get(id, 0.8))
@@ -559,6 +636,13 @@ func _tick_audio(dt: float) -> void:
 		hum.pitch_scale = lerpf(hum.pitch_scale, hum_pitch, clampf(dt * 0.5, 0.0, 1.0))
 	if door_panner:
 		door_panner.pan = move_toward(door_panner.pan, 0.6 if _at_threshold() else 0.0, dt * 1.0)
+
+## True while a live one-shot is playing the motif (or its short tail).
+func _motif_playing() -> bool:
+	for p in oneshots:
+		if is_instance_valid(p) and p.playing and p.get_meta("sfx_id", "") in ["motif", "motif_short"]:
+			return true
+	return false
 
 func _tick_sfx(dt: float) -> void:
 	for i in range(pending_sfx.size() - 1, -1, -1):
@@ -630,6 +714,76 @@ func _tick_lines(dt: float) -> void:
 	if cur_text != "":
 		line_t += dt
 		subtitle.visible_characters = int(line_t * TYPE_CPS)
+		if lines.is_empty() and time - cur_since > cur_hold + LINE_LINGER:
+			cur_text = ""
+			cur_story = false
+			subtitle.text = ""
+	# The slab goes when nothing is being said, and comes straight back for the next line.
+	if cur_text == "" and lines.is_empty():
+		slab_a = maxf(0.0, slab_a - dt / 0.4)
+	else:
+		slab_a = minf(1.0, slab_a + dt / 0.15)
+
+## A story chain is playing: a line of it is queued, or one is on screen and still held.
+## While it plays, a click in the scene advances it instead of starting something new.
+func chain_active() -> bool:
+	for l in lines:
+		if l.story:
+			return true
+	return cur_story and cur_text != "" and time - cur_since < cur_hold
+
+## The player sets the chain's speed: bring its next line up now, with its own sounds.
+## Everything queued moves up by the same amount, so nothing behind it changes order.
+func advance() -> void:
+	if cur_story and cur_text != "" and time - cur_since < ADVANCE_SWALLOW:
+		return   # a double click doesn't skip a line unread
+	var next: Dictionary = {}
+	for l in lines:
+		if l.story:
+			next = l
+			break
+	if next.is_empty():
+		# Only the last line is left on screen: release it, so the next click is a click.
+		if cur_story and cur_text != "":
+			cur_hold = minf(cur_hold, time - cur_since)
+		return
+	var delta := maxf(0.0, next.due - time)
+	for l in lines:
+		l.due -= delta
+	var due_now: Array = []
+	for i in range(pending_sfx.size() - 1, -1, -1):
+		var p: Array = pending_sfx[i]
+		if next.beat != 0 and p[2] == next.beat:
+			p[1] -= delta
+		if p[0] == "knock_glass" and p[1] <= 0.6 and hush == 0.0:
+			hush = 1.6
+		if p[1] <= 0.0:
+			due_now.append(p)
+			pending_sfx.remove_at(i)
+	# The sounds a line waits for land before it does: the knock before "Three taps".
+	due_now.sort_custom(func(a, b): return a[1] < b[1])
+	for p in due_now:
+		_play_sfx_now(p[0])
+	lines.erase(next)
+	_show_line(next.text, true, next.hold, next.click)
+
+## A click (or tap) at `p`, exactly as the mouse handler does it. Drivers and tests use it.
+## The HUD always answers; anywhere else, a playing chain is advanced, not interrupted.
+func click(p: Vector2) -> void:
+	var a := action_at(p)
+	if a in ["notebook", "hint", "menu"]:
+		dispatch(a)
+		return
+	if _chain_gates() and chain_active():
+		advance()
+		return
+	if a != "":
+		dispatch(a)
+
+## Views where a playing chain holds clicks. The threshold has its own clock, and the
+## title, end card and menu show no subtitles.
+func _chain_gates() -> bool:
+	return not sim.view in ["threshold", "title", "end", "menu"]
 
 func _show_line(text: String, story: bool, hold := -1.0, from_click := -1) -> void:
 	cur_text = text
@@ -639,6 +793,7 @@ func _show_line(text: String, story: bool, hold := -1.0, from_click := -1) -> vo
 	cur_hold = min_read(text) if hold < 0.0 else hold
 	line_t = 0.0
 	subtitle.text = text
+	shown_log.append(text)
 	subtitle.add_theme_font_size_override("font_size", 24 if text.length() > 90 else 27)
 	subtitle.visible_characters = 0
 
@@ -678,25 +833,29 @@ func _say_now(text: String, story: bool) -> void:
 # events
 # ---------------------------------------------------------------------------
 func dispatch(action: String) -> void:
+	if action == "restart_arm":
+		# The menu's restart takes two clicks: the first only asks.
+		restart_armed_at = time
+		_redraw()
+		return
 	click_id += 1
 	var before := sim.view
+	var chain_was := chain_active()
 	var ev := sim.dispatch(action)
-	# A click that starts a timed reveal never goes stale behind an older one: the older
-	# backlog is squeezed, this reveal starts at most BEAT_MAX_WAIT after the click, and any
-	# older lines that don't fit before it follow it, intact and in order. Story lines are
-	# never dropped and two reveals never mix line by line. Its timed sounds move with it;
-	# its first sound doesn't.
+	last_events = ev
+	# Story chains are atomic. In the scene a new one can only start once the last has
+	# played out (click() advances a playing chain instead), so normally nothing is queued.
+	# Anything that arrives while one plays (a Hint, a key) waits after it, whole and in
+	# order: never squeezed in, never interleaved, never dropped. Its timed sounds move with it.
 	var beat := false
 	for e in ev:
 		if e.type == "say" and e.get("story", false) and e.delay > 0.0:
 			beat = true
 	var offset := 0.0
-	var deferred: Array = []
-	if beat:
-		lines = lines.filter(func(l): return l.story)
-		offset = clampf(_squeeze_backlog() - time, 0.0, BEAT_MAX_WAIT)
-		deferred = lines.filter(func(l): return l.due >= time + offset - 0.0001 and offset > 0.0)
-		lines = lines.filter(func(l): return not l in deferred)
+	if chain_was:
+		offset = maxf(0.0, _story_backlog_end() - time)
+	elif beat:
+		lines = lines.filter(func(l): return l.story)   # older chatter gives way to a reveal
 	var beat_id := click_id if beat else 0
 	var spoke_now := false
 	for e in ev:
@@ -710,19 +869,11 @@ func dispatch(action: String) -> void:
 					_insert_line(e.text, time + offset + e.delay, story, beat_id)
 			"sfx":
 				if e.delay > 0.0:
-					pending_sfx.append([e.id, e.delay + offset])
+					pending_sfx.append([e.id, e.delay + offset, beat_id])
 				else:
 					_play_sfx_now(e.id)
 			"fx":
 				_play_fx(e.id)
-	if not deferred.is_empty():
-		var t := time
-		for l in lines:
-			t = maxf(t, l.due + l.hold)
-		for l in deferred:
-			l.due = t
-			t += l.hold
-			lines.append(l)
 	if sim.view != before:
 		_on_view_changed(before)
 	if sim.view == "title":
@@ -760,6 +911,9 @@ func _reset_presentation() -> void:
 	cur_hold = 0.0
 	line_t = 0.0
 	subtitle.text = ""
+	shown_log.clear()
+	played_log.clear()
+	restart_armed_at = -INF
 	pending_sfx.clear()
 	torch_dead = 0.0
 	if lamp_tween:
@@ -816,27 +970,43 @@ func _play_fx(id: String) -> void:
 			breath_hold = 2.5
 		"drawer_open":
 			drawer_k = 0.0 if sim.state.motion else 1.0
+		"contours":
+			contours_k = 0.0 if sim.state.motion else 1.0
 		"threshold":
 			threshold_t = 0.0
 			_reset_still()
 			hush = 0.0
-			# A new scene: nothing from the room follows her into the doorway.
-			lines.clear()
+			# A new scene. Room chatter stays behind; anything of the story still being said
+			# is finished first, briskly, and the doorway's lines follow it.
+			lines = lines.filter(func(l): return l.story)
+			var base := maxf(time, _squeeze_backlog())
+			for p in pending_sfx:
+				if p[0] == "latch_near":
+					_play_sfx_now(p[0])   # the door she is opening is the one that unlatched
 			pending_sfx.clear()
 			for l in OfficeSim.THRESHOLD_LINES:
-				_insert_line(l[1], time + l[0], true)
+				_insert_line(l[1], base + l[0], true)
 			# Phase-lock the breath: the first inhale begins with the 3.4 s line.
-			breath_clock = THRESHOLD_BREATH_SEEK
+			var seek := fposmod(THRESHOLD_BREATH_SEEK - (base - time), BREATH_PERIOD)
+			breath_clock = seek
 			if players.has("breath"):
-				players["breath"].seek(THRESHOLD_BREATH_SEEK)
+				players["breath"].seek(seek)
+		"turn":
+			# She turns round. Nothing more is said in the room.
+			lines.clear()
+			cur_text = ""
+			cur_story = false
+			subtitle.text = ""
+			pending_sfx = pending_sfx.filter(func(p): return p[0] in ["exhale_near", "motif"])
 		"sea_fade", "dread", "log_write":
 			pass  # carried by the mix, the room drawing and the logbook reveal
 
 ## Base levels for one-shots (dB), and the ones "Soften sudden sounds" turns down.
 const SFX_DB := {"spark": -4.0, "sting": -6.0, "latch_far": -8.0, "latch_near": -5.0,
 	"door": -6.0, "page": -10.0, "switch": -6.0, "seat": -6.0, "clink": -8.0,
-	"knock_glass": -3.0, "dial": -16.0, "clunk": -10.0, "drawer": -9.0, "sign": -8.0, "nib": -14.0}
-const SFX_SOFT := ["spark", "latch_near", "sting", "door", "knock_glass", "clunk"]
+	"knock_glass": -3.0, "dial": -16.0, "clunk": -10.0, "drawer": -9.0, "sign": -8.0, "nib": -14.0,
+	"deep": -9.0, "motif": -14.0, "motif_short": -14.0, "exhale_near": -10.0}
+const SFX_SOFT := ["spark", "latch_near", "sting", "door", "knock_glass", "clunk", "deep", "exhale_near"]
 
 ## The level a one-shot plays at, after the "Soften sudden sounds" cut.
 func sfx_db(id: String) -> float:
@@ -846,6 +1016,7 @@ func sfx_db(id: String) -> float:
 	return db
 
 func _play_sfx_now(id: String) -> void:
+	played_log.append([id, shown_log.size()])
 	if id == "knock_glass":
 		# The marks on the glass appear with the knock, whether or not the file loads.
 		palms_armed = true
@@ -853,8 +1024,16 @@ func _play_sfx_now(id: String) -> void:
 	var stream := _load_audio(id)
 	if stream == null:
 		return
+	# Voice cap: rapid repeats (pages, dials) never pile up more than VOICE_CAP copies.
+	var same: Array = oneshots.filter(func(o): return is_instance_valid(o) and o.get_meta("sfx_id", "") == id)
+	if same.size() >= VOICE_CAP:
+		var oldest: AudioStreamPlayer = same[0]
+		oneshots.erase(oldest)
+		oldest.stop()
+		oldest.queue_free()
 	var p := AudioStreamPlayer.new()
 	p.stream = stream
+	p.set_meta("sfx_id", id)
 	p.volume_db = sfx_db(id)
 	if id in ["door", "latch_near"]:
 		p.bus = "Door"
@@ -871,9 +1050,14 @@ func _apply_stage_instantly() -> void:
 	shade.color = MODULATE[s]
 	lamp_glow.energy = 1.05 if sim.state.p01_complete else 0.0
 	lamp_glow.texture_scale = LAMP_SCALE[s]
+	sea_glow.energy = SEA_GLOW[s] if _tex("office_s2") and sim.state.started else 0.0
 	torch.color = TORCH_COLD if s >= 2 else TORCH_WARM
 	tilt_k = 1.0 if s == 3 else 0.0
 	palms_k = 1.0 if s == 3 else 0.0
+	contours_k = 1.0
+	away_shown = int(sim.state.returns)
+	away_from = away_shown
+	away_k = 1.0
 	eye_x = 640.0
 	if players.has("hum"):
 		players["hum"].pitch_scale = 1.0 - 0.012 * s
@@ -922,9 +1106,7 @@ func _tick_reveal(dt: float) -> void:
 # ---------------------------------------------------------------------------
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var a := action_at(get_global_mouse_position())
-		if a != "":
-			dispatch(a)
+		click(get_global_mouse_position())
 	elif event is InputEventMouseMotion:
 		var id := _hover_at(get_global_mouse_position())
 		if id != hover_id:
@@ -936,7 +1118,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				if sim.view in ["title", "room", "threshold"]:
 					dispatch("menu")
 				elif sim.view != "end":
-					dispatch("back")
+					# Back out of a close-up goes through the same gate as a click.
+					if _chain_gates() and chain_active():
+						advance()
+					else:
+						dispatch("back")
 			KEY_N:
 				dispatch("notebook")
 			KEY_H:
@@ -965,7 +1151,7 @@ func action_at(p: Vector2) -> String:
 		"end":
 			return "restart" if _end_button_ready() and END_BUTTON.has_point(p) else ""
 		"menu":
-			var items := ["resume", "toggle_motion", "toggle_soft", "restart"]
+			var items := ["resume", "toggle_motion", "toggle_soft", "restart" if _restart_armed() else "restart_arm"]
 			for i in items.size():
 				if _menu_rect(i).has_point(p):
 					return items[i]
@@ -1001,14 +1187,40 @@ func action_at(p: Vector2) -> String:
 				if DRAWER_TRY.has_point(p):
 					return "try_drawer"
 		"report":
+			if not sim.state.report_filed:
+				for i in 4:
+					var r := _rtime_rect(i)
+					if Rect2(r.position, Vector2(r.size.x, r.size.y / 2.0)).has_point(p):
+						return "rtime_%d" % i
+					if Rect2(r.position + Vector2(0, r.size.y / 2.0), Vector2(r.size.x, r.size.y / 2.0)).has_point(p):
+						return "rtime_down_%d" % i
 			for i in OfficeSim.REPORT_FIELDS.size():
-				if _report_row(i).has_point(p):
+				if _report_row(REPORT_FIELD_ROWS[i]).has_point(p):
 					return "field_%d" % i
 			if not sim.state.report_filed and REPORT_SIGN.has_point(p):
 				return "file_report"
 		"threshold":
-			return "continue" if continue_ready else ""
+			# Two ways out: turn round to the chair, or go on through the doorway.
+			if _hotspot_rect("chair").has_point(p):
+				return "turn"
+			if continue_ready and _hotspot_rect("door").has_point(p):
+				return "continue"
+			return ""
 	return ""
+
+func _hotspot_rect(id: String) -> Rect2:
+	for h in HOTSPOTS:
+		if h[0] == id:
+			return h[1]
+	return Rect2()
+
+func _restart_armed() -> bool:
+	return time - restart_armed_at < RESTART_ARM
+
+## What a dial shows: [above, current, below]. The top half turns it up, so the digit above
+## is where an up click goes; the one below is where a down click goes.
+static func dial_digits(v: int) -> Array:
+	return [(v + 1) % 10, v, (v + 9) % 10]
 
 func _menu_rect(i: int) -> Rect2:
 	return Rect2(474, 330 + i * 100, 500, 76)
@@ -1025,8 +1237,15 @@ func _dial_down_rect(i: int) -> Rect2:
 	var r := _dial_rect(i)
 	return Rect2(r.position + Vector2(0, r.size.y / 2.0), Vector2(r.size.x, r.size.y / 2.0))
 
-func _report_row(i: int) -> Rect2:
-	return Rect2(324, 300 + i * 130, 800, 104)
+## The report's rows: the three choice fields sit on rows 0, 1 and 3; row 2 is the time.
+const REPORT_FIELD_ROWS := [0, 1, 3]
+const REPORT_TIME_ROW := 2
+
+func _report_row(k: int) -> Rect2:
+	return Rect2(324, 260 + k * 130, 800, 104)
+
+func _rtime_rect(i: int) -> Rect2:
+	return Rect2(820 + i * 66 + (22 if i >= 2 else 0), 260 + REPORT_TIME_ROW * 130, 56, 104)
 
 # ---------------------------------------------------------------------------
 # drawing: room (world space, lit)
@@ -1036,13 +1255,22 @@ func _draw_room() -> void:
 		return
 	var c := room
 	var s := sim.stage()
-	c.draw_texture_rect(textures["office_arrival"], Rect2(Vector2.ZERO, SIZE), false)
+	var full := Rect2(Vector2.ZERO, SIZE)
+	# The painted stage plates, when present: s2 is the base from the log on, and at s3 the
+	# tipped plate crossfades in over it with the tilt. Without them, the drawn fallback.
+	var base_id := "office_s2" if s >= 2 and _tex("office_s2") else "office_arrival"
+	c.draw_texture_rect(textures[base_id], full, false)
+	var s3_plate: Texture2D = _tex("office_s3") if s == 3 else null
 	var tilt := 0.0
 	if s == 3:
 		tilt = deg_to_rad(TILT_DEG) * smoothstep(0.0, 1.0, tilt_k)
-		_draw_tipped_panes(c, tilt)
-	# The window darkens with the story, not with a clock.
-	var dusk: float = [0.18, 0.42, 0.62, 0.72][s]
+		if s3_plate:
+			c.draw_texture_rect(s3_plate, full, false, Color(1, 1, 1, smoothstep(0.0, 1.0, tilt_k)))
+		else:
+			_draw_tipped_panes(c, tilt, base_id)
+	# The window darkens with the story, not with a clock. Painted water must still read.
+	var painted := base_id == "office_s2"
+	var dusk: float = ([0.18, 0.42, 0.45, 0.34] if painted else [0.18, 0.42, 0.62, 0.72])[s]
 	c.draw_rect(GLASS, Color(0.04, 0.06, 0.12, dusk))
 	if s >= 2:
 		# The sea outside keeps moving, silently: a slow bruise-violet sheen on the water.
@@ -1052,18 +1280,22 @@ func _draw_room() -> void:
 		c.draw_set_transform_matrix(_tilt_xform(tilt))
 		_draw_ninth_piling(c, s)
 		if s == 3:
-			_draw_eye(c)   # above the dusk wash: Ada says she can see it, so the player must too
-			var lo: Rect2 = PANES[6]
-			c.draw_line(Vector2(lo.position.x + 2, HORIZON_PIVOT.y), Vector2(lo.end.x - 2, HORIZON_PIVOT.y),
-				Color(0.80, 0.84, 0.90, 0.35), 1.5, true)
+			_draw_eye(c, tilt)   # above the dusk wash: Ada says she can see it, so the player must too
+			if s3_plate == null:
+				# The plate paints its own tipped horizon; the drawn one is only a hint of it.
+				var lo: Rect2 = PANES[6]
+				c.draw_line(Vector2(lo.position.x + 2, HORIZON_PIVOT.y), Vector2(lo.end.x - 2, HORIZON_PIVOT.y),
+					Color(0.80, 0.84, 0.90, 0.15), 1.5, true)
 		c.draw_set_transform_matrix(Transform2D.IDENTITY)
 	if s == 3:
 		_draw_palms(c)
 	if s >= 1:
 		_draw_wrong_shadow(c, s)   # on the wall, so the lamp stands in front of it
+	_draw_away(c, false)
 	c.draw_texture_rect(textures["lamp_off"], Rect2(242, 469, 192, 288), false)
 	if sim.state.p01_complete:
 		c.draw_texture_rect(textures["lamp_light"], Rect2(242, 469, 192, 288), false)
+	_draw_away(c, true)   # the brimming mug stands in front of the lamp's foot
 	c.draw_texture_rect(textures["spares_tray"], Rect2(341, 666, 128, 64), false)
 	if s >= 2:
 		_draw_map_pencil(c, s)
@@ -1080,6 +1312,22 @@ func _draw_room() -> void:
 		vig += 0.06 * _env_drawn()
 	_draw_vignette(c, vig)
 
+## What changed while she looked away (sim.look_away), as painted overlays. The mug is
+## drawn after the lamp; the others before it. A missing PNG is skipped: the line and the
+## notebook still carry the change.
+func _draw_away(c: Node2D, mug: bool) -> void:
+	if sim.stage() != 3:
+		return
+	for i in OfficeSim.LOOK_AWAY.size():
+		var id: String = OfficeSim.LOOK_AWAY[i]
+		if (id == "mug") != mug or not sim.look_away(id):
+			continue
+		var tex := _tex("away_" + id)
+		if tex == null:
+			continue
+		var a := away_k if i + 1 > away_from else 1.0
+		c.draw_texture_rect(tex, Rect2(Vector2.ZERO, SIZE), false, Color(1, 1, 1, a))
+
 ## Rotation about the painted horizon.
 func _tilt_xform(tilt: float) -> Transform2D:
 	return Transform2D(tilt, HORIZON_PIVOT - HORIZON_PIVOT.rotated(tilt))
@@ -1087,9 +1335,9 @@ func _tilt_xform(tilt: float) -> Transform2D:
 ## The seascape, really turned: each pane samples the plate as if the world outside had
 ## rotated about the horizon. Every pane is padded with its own edge pixels, so a turned
 ## pane never shows a ghost of the glazing bars; the bars are the plate's, untouched.
-func _draw_tipped_panes(c: CanvasItem, tilt: float) -> void:
-	if pane_tex.is_empty():
-		_build_pane_textures()
+func _draw_tipped_panes(c: CanvasItem, tilt: float, src_id: String) -> void:
+	if pane_tex.is_empty() or pane_src != src_id:
+		_build_pane_textures(src_id)
 	if pane_tex.size() != PANES.size():
 		return
 	var inv := _tilt_xform(tilt).affine_inverse()
@@ -1104,9 +1352,10 @@ func _draw_tipped_panes(c: CanvasItem, tilt: float) -> void:
 			uvs.append((inv * p - origin) / tex.get_size())
 		c.draw_polygon(pts, PackedColorArray([Color.WHITE]), uvs, tex)
 
-func _build_pane_textures() -> void:
+func _build_pane_textures(src_id: String) -> void:
 	pane_tex = []
-	var tex: Texture2D = textures.get("office_arrival")
+	pane_src = src_id
+	var tex: Texture2D = textures.get(src_id)
 	var img: Image = tex.get_image() if tex else null
 	if img == null or img.is_empty():
 		return
@@ -1140,14 +1389,29 @@ func _draw_sea_sheen(c: CanvasItem, tilt: float, col: Color) -> void:
 	for poly in Geometry2D.intersect_polygons(band, pane):
 		c.draw_colored_polygon(poly, col)
 
-func _draw_eye(c: Node2D) -> void:
-	var ring := _ellipse(Vector2(eye_x, 502), 70, 14, 32)
-	ring.append(ring[0])
-	c.draw_polyline(ring, Color(0.80, 0.84, 0.90, 0.22), 2.0, true)
-	c.draw_colored_polygon(_ellipse(Vector2(eye_x, 502), 18, 5, 20), Color(0.02, 0.03, 0.05, 0.5))
+## The eye on the water: three flat bands in the sea's own colour, wider than the glass, so
+## they run off both sides of it, and a flat dark pupil. Drawn inside _tilt_xform, so the
+## clip pane is taken into the tipped frame. With Motion on, it contracts with the breath.
+func _draw_eye(c: Node2D, tilt: float) -> void:
+	var env := _env_drawn()
+	var band_k := 1.0 - 0.08 * env if sim.state.motion else 1.0
+	var pupil_k := 1.0 - 0.3 * env if sim.state.motion else 1.0
+	var lo: Rect2 = PANES[6]
+	var pane := _tilt_xform(tilt).affine_inverse() * PackedVector2Array([lo.position,
+		Vector2(lo.end.x, lo.position.y), lo.end, Vector2(lo.position.x, lo.end.y)])
+	var centre := Vector2(eye_x, 502)
+	for band in [[260.0, 19.0, 0.08], [190.0, 14.0, 0.13], [120.0, 9.0, 0.20]]:
+		var ell := _ellipse(centre, band[0] * band_k, band[1], 48)
+		for poly in Geometry2D.intersect_polygons(ell, pane):
+			c.draw_colored_polygon(poly, Color(0.62, 0.74, 0.74, band[2]))
+	c.draw_colored_polygon(_ellipse(centre, 23.0 * pupil_k, 3.0, 24), Color(0.02, 0.03, 0.05, 0.6))
 
 func _draw_ninth_piling(c: Node2D, s: int) -> void:
-	if sim.state.drawer_open or s == 3:
+	if s == 3:
+		# The pupil the contours point at: larger, nearer, unmistakable.
+		c.draw_rect(Rect2(586, 428, 18, 110), PILING_COL)
+		c.draw_circle(Vector2(595, 428), 9, PILING_COL)
+	elif sim.state.drawer_open:
 		c.draw_rect(Rect2(590, 436, 14, 92), PILING_COL)
 		c.draw_circle(Vector2(597, 436), 7, PILING_COL)
 	else:
@@ -1157,6 +1421,10 @@ func _draw_ninth_piling(c: Node2D, s: int) -> void:
 ## They are on the glass, not on the sea, so they do not tip.
 func _draw_palms(c: Node2D) -> void:
 	if palms_k <= 0.0:
+		return
+	var painted := _tex("palms_glass")
+	if painted:
+		c.draw_texture_rect(painted, Rect2(Vector2.ZERO, SIZE), false, Color(1, 1, 1, palms_k))
 		return
 	var col := Color(PALM_COL, 0.16 * palms_k)
 	var drip := Color(PALM_COL, 0.10 * palms_k)
@@ -1188,6 +1456,8 @@ func _xform_pts(pts: PackedVector2Array, at: Vector2, rot: float) -> PackedVecto
 	return out
 
 func _draw_map_pencil(c: Node2D, s: int) -> void:
+	if sim.state.contours_seen:
+		_draw_contours(c)
 	var pencil := Color(0.25, 0.25, 0.28, 0.8)
 	c.draw_line(Vector2(352, 298), Vector2(352, 342), pencil, 2.5)
 	c.draw_string(hand, Vector2(346, 364), "9", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, pencil)
@@ -1207,10 +1477,31 @@ func _draw_map_pencil(c: Node2D, s: int) -> void:
 		c.draw_polyline(scrawl, fig, 1.2, true)
 		c.draw_string(hand, Vector2(318, 230), "warm", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, fig)
 
+## Venn's ring contours: the Sound closes on the ninth piling. Painted if present, else
+## seven graphite rings clipped to the chart sheet. Fades in from the 'contours' beat.
+func _draw_contours(c: Node2D) -> void:
+	var painted := _tex("chart_contours")
+	if painted:
+		c.draw_texture_rect(painted, Rect2(Vector2.ZERO, SIZE), false, Color(1, 1, 1, contours_k))
+		return
+	var r := CONTOUR_CLIP
+	var clip := PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
+	var col := Color(0.25, 0.25, 0.28, 0.5 * contours_k)
+	for i in 7:
+		var rx := 8.0 + 16.0 * i
+		var ring := _ellipse(CONTOUR_C, rx, 0.8 * rx, 48)
+		ring.append(ring[0])
+		for part in Geometry2D.clip_polyline_with_polygon(ring, clip):
+			if part.size() >= 2:
+				c.draw_polyline(part, col, 1.5, true)
+
+## The brass tag on the ninth hook, stamped with her initials, at the height of her collar.
 func _draw_hook_tag(c: Node2D) -> void:
-	c.draw_rect(Rect2(1141, 306, 22, 30), BRASS)
-	c.draw_line(Vector2(1145, 315), Vector2(1159, 315), BLUE_INK, 1.5)
-	c.draw_line(Vector2(1145, 323), Vector2(1156, 323), BLUE_INK, 1.5)
+	var r := Rect2(1135, 300, 34, 44)
+	c.draw_rect(r, BRASS)
+	c.draw_rect(r, BRASS.darkened(0.45), false, 1.0)
+	c.draw_circle(Vector2(r.get_center().x, r.position.y + 6), 3, Color(0.06, 0.05, 0.04))
+	c.draw_string(hand, Vector2(1139, 334), "A.M.", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, BLUE_INK)
 
 ## The oilskin fills out at the shoulders, as if someone were standing inside it.
 func _draw_coat_weight(c: Node2D, s: int) -> void:
@@ -1246,8 +1537,13 @@ func _draw_wrong_shadow(c: Node2D, s: int) -> void:
 	var sh := func(p: Vector2) -> Vector2: return Vector2(p.x + ox + (p.y - 684.0) * 0.35, p.y)
 	if s >= 3:
 		# The sitter, in the chair's own coordinates: shoulders above the top rail, a neck,
-		# a head. Drawn first so the rail crosses its back.
-		var body := Color(SHADOW_COL, minf(1.0, SHADOW_COL.a * 1.15))
+		# a head. Stretched 1.35x upward about the seat, so it sits taller than anyone should,
+		# and its head rises a little more each time she looks back. Drawn first so the
+		# chair back crosses it.
+		var lift := 3.0 * shadow_creep
+		var sit := func(p: Vector2, up: float) -> Vector2:
+			return sh.call(Vector2(p.x, 640.0 + (p.y - 640.0) * 1.35 - up))
+		var body := Color(SHADOW_COL, 0.62)
 		var turn := 0.0
 		if sim.state.motion:
 			turn = 6.0 * smoothstep(0.0, 4.0, creep_t)   # its head turns, slowly, after she looks away
@@ -1255,30 +1551,27 @@ func _draw_wrong_shadow(c: Node2D, s: int) -> void:
 		for p in [Vector2(598, 640), Vector2(598, 616), Vector2(603, 603), Vector2(614, 595),
 				Vector2(630, 590), Vector2(638, 586), Vector2(651, 586), Vector2(659, 590),
 				Vector2(675, 595), Vector2(686, 603), Vector2(691, 616), Vector2(691, 640)]:
-			torso.append(sh.call(p))
+			torso.append(sit.call(p, 0.0))
 		c.draw_colored_polygon(torso, body)
 		var head_c := Vector2(645 + turn, 560)
 		var head := PackedVector2Array()
 		for p in _ellipse(head_c, 18, 24, 22):
-			head.append(sh.call(p))
+			head.append(sit.call(p, lift))
 		c.draw_colored_polygon(head, body)
-		var neck := PackedVector2Array([sh.call(Vector2(638, 590)), sh.call(Vector2(651, 590)),
-			sh.call(Vector2(650 + turn * 0.5, 578)), sh.call(Vector2(639 + turn * 0.5, 578))])
+		var neck := PackedVector2Array([sit.call(Vector2(638, 590), 0.0), sit.call(Vector2(651, 590), 0.0),
+			sit.call(Vector2(650 + turn * 0.5, 576), lift), sit.call(Vector2(639 + turn * 0.5, 576), lift)])
 		c.draw_colored_polygon(neck, body)
 		# A thin rim where the lamp catches it, on the lamp side only.
 		var rim := Color(AMBER, 0.25)
 		var head_rim := PackedVector2Array()
 		for p in _arc_pts(head_c, 18, 24, PI * 0.6, PI * 1.35):
-			head_rim.append(sh.call(p))
+			head_rim.append(sit.call(p, lift))
 		c.draw_polyline(head_rim, rim, 1.5, true)
-		c.draw_polyline(PackedVector2Array([sh.call(Vector2(598, 618)), sh.call(Vector2(603, 603)),
-			sh.call(Vector2(614, 595)), sh.call(Vector2(630, 590))]), rim, 1.5, true)
+		c.draw_polyline(PackedVector2Array([sit.call(Vector2(598, 618), 0.0), sit.call(Vector2(603, 603), 0.0),
+			sit.call(Vector2(614, 595), 0.0), sit.call(Vector2(630, 590), 0.0)]), rim, 1.5, true)
+	# The chair back: one solid shape, so it reads as a chair and not a comb.
 	c.draw_colored_polygon(PackedVector2Array([sh.call(Vector2(561, 622)), sh.call(Vector2(728, 622)),
-		sh.call(Vector2(728, 636)), sh.call(Vector2(561, 636))]), SHADOW_COL)
-	for x in [561, 728]:
-		c.draw_line(sh.call(Vector2(x, 622)), sh.call(Vector2(x, 684)), SHADOW_COL, 9.0)
-	for x in [601, 632, 665, 696]:
-		c.draw_line(sh.call(Vector2(x, 636)), sh.call(Vector2(x, 684)), SHADOW_COL, 6.0)
+		sh.call(Vector2(728, 684)), sh.call(Vector2(561, 684))]), Color(SHADOW_COL, 0.42))
 
 func _arc_pts(center: Vector2, rx: float, ry: float, a0: float, a1: float) -> PackedVector2Array:
 	var pts := PackedVector2Array()
@@ -1290,11 +1583,19 @@ func _arc_pts(center: Vector2, rx: float, ry: float, a0: float, a1: float) -> Pa
 func _draw_prints(c: Node2D, s: int) -> void:
 	if s >= 2 and (sim.state.prints_seen or s >= 3):
 		# From the puddle to the drawer, shrinking toward the desk.
-		var col := Color(PRINT_COL, 0.55 * smoothstep(0.0, 1.0, prints_fade))
-		_trail(c, Vector2(1110, 940), Vector2(990, 905), 6, col, false)
+		var k := smoothstep(0.0, 1.0, prints_fade)
+		var painted := _tex("prints_drawer")
+		if painted:
+			c.draw_texture_rect(painted, Rect2(Vector2.ZERO, SIZE), false, Color(1, 1, 1, 0.9 * k))
+		else:
+			_trail(c, Vector2(1110, 940), Vector2(990, 905), 6, Color(PRINT_COL, 0.55 * k), false)
 	if s >= 3:
 		# A second trail, from the drawer to the door, thinning to nothing.
-		_trail(c, Vector2(1000, 915), Vector2(1228, 900), 8, Color(PRINT_COL, 0.55 * prints_fade), true)
+		var painted_door := _tex("prints_door")
+		if painted_door:
+			c.draw_texture_rect(painted_door, Rect2(Vector2.ZERO, SIZE), false, Color(1, 1, 1, 0.9))
+		else:
+			_trail(c, Vector2(1000, 915), Vector2(1228, 900), 8, Color(PRINT_COL, 0.55 * prints_fade), true)
 
 ## A walked line of prints: alternating feet either side of the line of travel.
 func _trail(c: Node2D, from: Vector2, to: Vector2, n: int, col: Color, fade: bool) -> void:
@@ -1331,33 +1632,86 @@ func _draw_deep() -> void:
 		_draw_door_opening(deep)
 
 ## The open door, and the corridor behind it: deeper than the building, breathing.
+## Deep layer, unlit: what is down there makes its own light.
 func _draw_door_opening(c: Node2D) -> void:
 	var k := 1.0
 	if sim.state.motion:
 		k = smoothstep(0.0, 1.0, clampf(threshold_t / 2.2, 0.0, 1.0))
-	var slab := Rect2(1228, 168, 206, 736)
-	c.draw_rect(Rect2(slab.position, Vector2(slab.size.x * k, slab.size.y)), Color(0.01, 0.012, 0.02))
+	var slab := DOOR_SLAB
+	var open := Rect2(slab.position, Vector2(slab.size.x * k, slab.size.y))
+	c.draw_rect(open, Color(0.01, 0.012, 0.02))
+	if k <= 0.0:
+		return
+	var held := _breath_held()
+	var env := door_env if held else _env_drawn()
+	var corridor := _tex("threshold_corridor")
+	if corridor:
+		# The corridor swells on the exhale: the source is the slab shrunk toward the
+		# vanishing point, so the image grows about it and never spills past the doorway.
+		var f := 1.0
+		if sim.state.motion:
+			f = 1.0 / (1.0 + 0.025 * env)
+		var src := Rect2(VP + (slab.position - VP) * f, slab.size * f)
+		src.size.x *= k
+		c.draw_texture_rect_region(corridor, open, _canvas_to_tex(corridor, src))
+	else:
+		_draw_casings(c, open)
+	# The water comes up the corridor while she stands there. Its height runs on threshold
+	# time, so it always reaches the same end.
+	var water := 860.0
+	if sim.state.motion:
+		water = lerpf(904.0, 860.0, clampf(threshold_t / 11.0, 0.0, 1.0))
+	if water < slab.end.y - 0.5:
+		c.draw_colored_polygon(PackedVector2Array([Vector2(open.position.x, water), Vector2(open.end.x, water),
+			Vector2(open.end.x, slab.end.y), Vector2(open.position.x, slab.end.y)]), Color(0.05, 0.08, 0.11, 0.8))
+		c.draw_line(Vector2(open.position.x, water), Vector2(open.end.x, water), Color(0.55, 0.62, 0.70, 0.3), 1.0)
+	# At the end of it, something opens an eye as it breathes. It freezes when she holds hers.
+	if open.end.x > VP.x + 12.0:
+		var hh := lerpf(1.0, 3.5, env)
+		var almond := PackedVector2Array()
+		for j in 13:
+			var u := j / 12.0
+			almond.append(VP + Vector2(lerpf(-11.0, 11.0, u), -hh * sin(PI * u)))
+		for j in range(11, 0, -1):
+			var u := j / 12.0
+			almond.append(VP + Vector2(lerpf(-11.0, 11.0, u), hh * sin(PI * u)))
+		c.draw_colored_polygon(almond, Color(0.85, 0.88, 0.92, 0.5 * env))
+		c.draw_rect(Rect2(VP - Vector2(1.5, 1.5), Vector2(3, 3)), Color(0.02, 0.02, 0.03, 0.9))
+	# Only at the top of a breath, only while she isn't holding hers: someone standing there.
+	var figure := _tex("threshold_figure")
+	if figure and k >= 1.0 and sim.state.motion and not held and not still_spoken:
+		var fa := 0.42 * smoothstep(0.85, 1.0, env)
+		if fa > 0.0:
+			c.draw_texture_rect(figure, Rect2(Vector2.ZERO, SIZE), false, Color(1, 1, 1, fa))
 	if k < 1.0:
 		return
-	var env := door_env if _breath_held() else _env_drawn()
-	var centre := Vector2(1331, 560)
-	var frame := slab.grow(-14)
-	for i in 9:
-		# Each frame 0.86 of the last, toward a point below the middle: far further than the building.
-		c.draw_rect(frame, Color(0.55, 0.62, 0.70, 0.10 * pow(0.8, i)), false, 2)
-		frame = Rect2(centre + (frame.position - centre) * 0.86, frame.size * 0.86)
-	c.draw_rect(slab, Color(0.06, 0.07, 0.10, 0.07 * env))
-	# A pale luminance down the middle, about 40 px, feathered so it has no edges.
-	var lum := 0.05 + 0.06 * env
-	for band in [[40.0, 0.3], [28.0, 0.3], [16.0, 0.4]]:
-		c.draw_rect(Rect2(centre.x - band[0] / 2.0, slab.position.y, band[0], slab.size.y),
-			Color(0.75, 0.80, 0.86, lum * band[1]))
-	var water := 904.0 - 16.0 * env
-	c.draw_line(Vector2(slab.position.x, water), Vector2(slab.end.x, water), Color(0.55, 0.62, 0.7, 0.18 + 0.1 * env), 2.0)
 	# On the inhale, a wet gleam reaches out of the doorway across the floor toward the desk.
 	var reach := 260.0 * env
 	c.draw_colored_polygon(PackedVector2Array([Vector2(1228, 900), Vector2(1228, 920),
 		Vector2(1228 - reach, 916), Vector2(1228 - reach, 906)]), Color(0.70, 0.76, 0.84, 0.08 * env))
+
+## Fallback corridor: nine teal casings, each 0.86 of the last toward the vanishing point,
+## black inside, darker with distance. Clipped to the opened part of the doorway.
+func _draw_casings(c: Node2D, open: Rect2) -> void:
+	var frame := DOOR_SLAB.grow(-6)
+	for i in 9:
+		var f := pow(0.78, i)
+		var casing := frame.intersection(open)
+		if casing.has_area():
+			c.draw_rect(casing, Color(0.11 * f, 0.18 * f, 0.22 * f))
+		var inner := frame.grow(-10.0 * pow(0.86, i)).intersection(open)
+		if inner.has_area():
+			c.draw_rect(inner, Color(0, 0, 0))
+		frame = Rect2(VP + (frame.position - VP) * 0.86, frame.size * 0.86)
+
+## Maps a canvas-space rect onto a texture: full-canvas plates are 1:1; a texture cut to
+## the door slab is scaled from it.
+func _canvas_to_tex(tex: Texture2D, r: Rect2) -> Rect2:
+	var ts := tex.get_size()
+	if ts.is_equal_approx(SIZE):
+		return r
+	var sc := ts / DOOR_SLAB.size
+	return Rect2((r.position - DOOR_SLAB.position) * sc, r.size * sc)
 
 func _draw_vignette(c: Node2D, a: float) -> void:
 	if a <= 0.0:
@@ -1434,43 +1788,66 @@ func _draw_end(c: Node2D) -> void:
 	var sch := _end_schedule()
 	var photo_a := clampf(t / 4.0, 0.0, 1.0)
 	if photo_a > 0.0:
-		_draw_photo(c, Rect2(574, 110, 300, 380), "after", photo_a)
-	if t >= 3.0:
-		var row := OfficeSim.END_LOG_ROW
-		var n := mini(int((t - 3.0) * REVEAL_CPS), row.length())
-		var w := hand.get_string_size(row, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
-		_draw_handwriting(c, row, n, Vector2((SIZE.x - w) / 2.0, 600), 30, 77, n < row.length(), NIGHT_INK)
-	var fade := func(at: float) -> float: return clampf((t - at) / 1.0, 0.0, 1.0)
-	var a: float = fade.call(sch.line)
-	if a > 0.0:
-		_text(c, OfficeSim.END_LINE, Vector2(0, 690), 30, Color(PAPER, 0.6 * a), serif, SIZE.x)
-	if sch.all >= 0.0:
-		a = fade.call(sch.all)
-		if a > 0.0:
-			_text(c, OfficeSim.END_ALL_SEEN, Vector2(0, 740), 24, Color(NIGHT_INK, 0.8 * a), hand, SIZE.x)
-	a = fade.call(sch.cont)
-	if a > 0.0:
-		_text(c, OfficeSim.END_CONTINUES, Vector2(0, 800), 26, Color(PAPER, 0.75 * a), serif, SIZE.x)
+		_draw_photo(c, Rect2(574, 110, 300, 380), "turned" if sim.state.turned else "after", photo_a)
+	# The log's next two rows write themselves. Hers in her ink; his, if it is his, in a
+	# plainer, upright, grey hand: someone else is keeping the log now.
+	var rows := sim.end_rows()
+	var starts := [sch.r1_start, sch.r2_start]
+	for i in 2:
+		if t < starts[i]:
+			continue
+		var text: String = rows[i][0]
+		var n := mini(int((t - starts[i]) * REVEAL_CPS), text.length())
+		var y := 600.0 + 50.0 * i
+		if rows[i][1] == "venn":
+			var w := serif.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 26).x
+			_draw_handwriting(c, text, n, Vector2((SIZE.x - w) / 2.0, y), 26, 78 + i, n < text.length(),
+				Color(0.66, 0.68, 0.70), serif, 0.0)
+		else:
+			var w := hand.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
+			_draw_handwriting(c, text, n, Vector2((SIZE.x - w) / 2.0, y), 30, 77 + i, n < text.length(), NIGHT_INK)
+	var lines_at: Array = sch.lines
+	var end_text := sim.end_lines()
+	for i in end_text.size():
+		var a := clampf((t - float(lines_at[i])) / 1.0, 0.0, 1.0)
+		if a <= 0.0:
+			continue
+		match end_text[i]:
+			OfficeSim.END_ON_STATION:
+				_text(c, end_text[i], Vector2(0, 730), 24, Color(NIGHT_INK, a), hand, SIZE.x)
+			OfficeSim.END_ALL_SEEN:
+				_text(c, end_text[i], Vector2(0, 770), 22, Color(PAPER, 0.6 * a), serif, SIZE.x)
+			_:
+				_text(c, end_text[i], Vector2(0, 830), 26, Color(PAPER, 0.75 * a), serif, SIZE.x)
 	_text(c, "End of the Intake Office slice.", Vector2(0, 1040), 16, Color(PAPER, 0.3), serif, SIZE.x)
 	if _end_button_ready():
 		_button(c, END_BUTTON, "Play again")
 
-## When each part of the end card appears, in seconds after the end card opens.
+## When each part of the end card appears, in seconds after the end card opens:
+## the two rows (start, done), each closing line's fade-in, and when the last is in.
 func _end_schedule() -> Dictionary:
-	var row_done := 3.0 + OfficeSim.END_LOG_ROW.length() / REVEAL_CPS
-	var line := row_done + 2.5
-	var has_all: bool = sim.end_lines().has(OfficeSim.END_ALL_SEEN)
-	var all := line + 2.0 if has_all else -1.0
-	return {"row_done": row_done, "line": line, "all": all, "cont": (all if has_all else line) + 2.0}
+	var rows := sim.end_rows()
+	var r1_start := 3.0
+	var r1_done: float = r1_start + rows[0][0].length() / REVEAL_CPS
+	var r2_start := r1_done + 2.0
+	var r2_done: float = r2_start + rows[1][0].length() / REVEAL_CPS
+	var at := []
+	for i in sim.end_lines().size():
+		at.append(r2_done + 1.5 + 1.6 * i)
+	return {"r1_start": r1_start, "r1_done": r1_done, "r2_start": r2_start, "r2_done": r2_done,
+		"lines": at, "cont": at.back(), "done": float(at.back()) + 1.0}
 
 func _end_row_writing() -> bool:
-	return sim.view == "end" and sim.state.motion and end_t >= 3.0 and end_t < _end_schedule().row_done
+	if sim.view != "end" or not sim.state.motion:
+		return false
+	var sch := _end_schedule()
+	return end_t >= sch.r1_start and end_t < sch.r1_done or end_t >= sch.r2_start and end_t < sch.r2_done
 
-## "Play again" exists only once the card has finished (or after the grace, Motion off).
+## "Play again" exists only once the last line is in (or after the grace, Motion off).
 func _end_button_ready() -> bool:
 	if not sim.state.motion:
 		return end_t > END_GRACE
-	return end_t >= _end_schedule().cont
+	return end_t >= _end_schedule().done
 
 func _draw_repair(c: Node2D) -> void:
 	c.draw_texture_rect(textures["repair_panel"], Rect2(Vector2.ZERO, SIZE), false)
@@ -1596,7 +1973,9 @@ func _draw_blot(c: Node2D, at: Vector2) -> void:
 
 ## Her hand, glyph by glyph: seeded jitter, a forward slant, and wet ink at the nib.
 func _draw_handwriting(c: Node2D, text: String, count: int, pos: Vector2, size: int, row: int,
-		wet: bool, ink := BLUE_INK) -> void:
+		wet: bool, ink := BLUE_INK, font: Font = null, skew := HAND_SKEW) -> void:
+	if font == null:
+		font = hand
 	var g := RandomNumberGenerator.new()
 	var x := pos.x
 	for i in count:
@@ -1605,9 +1984,9 @@ func _draw_handwriting(c: Node2D, text: String, count: int, pos: Vector2, size: 
 		var rot := g.randf_range(-0.06, 0.06)
 		var ch := text.unicode_at(i)
 		var a := 0.6 if wet and i >= count - 6 else 1.0
-		c.draw_set_transform_matrix(Transform2D(rot, Vector2.ONE, HAND_SKEW, Vector2(x, pos.y + dy)))
-		c.draw_char(hand, Vector2.ZERO, text[i], size, Color(ink, a))
-		x += hand.get_char_size(ch, size).x
+		c.draw_set_transform_matrix(Transform2D(rot, Vector2.ONE, skew, Vector2(x, pos.y + dy)))
+		c.draw_char(font, Vector2.ZERO, text[i], size, Color(ink, a))
+		x += font.get_char_size(ch, size).x
 	c.draw_set_transform_matrix(Transform2D.IDENTITY)
 
 func _draw_drawer(c: Node2D) -> void:
@@ -1661,10 +2040,11 @@ func _draw_drawer_front(c: Node2D, off: Vector2, interactive: bool) -> void:
 		c.draw_rect(Rect2(r.position, Vector2(r.size.x, 26)), BRASS.darkened(0.25))
 		c.draw_rect(Rect2(r.position + Vector2(0, 26), Vector2(r.size.x, 12)), Color(BRASS.lightened(0.45), 0.7))
 		c.draw_rect(Rect2(r.position + Vector2(0, r.size.y - 34), Vector2(r.size.x, 34)), BRASS.darkened(0.35))
+		var digits := dial_digits(v)   # each half shows where a click on it goes
 		_text(c, "▲", r.position + Vector2(0, 20), 16, Color(INK, 0.6), serif, r.size.x)
-		_text(c, str((v + 9) % 10), r.position + Vector2(0, 58), 40, Color(INK, 0.25), serif, r.size.x)
-		_text(c, str(v), r.position + Vector2(0, 116), 64, INK, serif, r.size.x)
-		_text(c, str((v + 1) % 10), r.position + Vector2(0, 152), 40, Color(INK, 0.25), serif, r.size.x)
+		_text(c, str(digits[0]), r.position + Vector2(0, 58), 40, Color(INK, 0.25), serif, r.size.x)
+		_text(c, str(digits[1]), r.position + Vector2(0, 116), 64, INK, serif, r.size.x)
+		_text(c, str(digits[2]), r.position + Vector2(0, 152), 40, Color(INK, 0.25), serif, r.size.x)
 		_text(c, "▼", r.position + Vector2(0, 167), 16, Color(INK, 0.6), serif, r.size.x)
 	if interactive:
 		_button(c, DRAWER_TRY, "Try the drawer")
@@ -1687,11 +2067,26 @@ func _draw_drawer_open(c: Node2D) -> void:
 	_text(c, "stopped 18:52", Vector2(480, 770), 22, PAPER, hand, 300, HORIZONTAL_ALIGNMENT_LEFT)
 	_draw_photo(c, PHOTO_RECT, "drawer")
 
+## The painted print for a photo variant, or null for the drawn fallback.
+func _photo_tex(variant: String) -> Texture2D:
+	match variant:
+		"drawer":
+			if int(sim.state.photo_looks) >= 3 and _tex("photo_drawer_hand"):
+				return _tex("photo_drawer_hand")
+			return _tex("photo_drawer")
+		"after":
+			return _tex("photo_after")
+		"turned":
+			return _tex("photo_turned")
+	return null
+
 ## The photograph of this window from the sea side, at night. Six-over-one like the plate:
 ## top row dark, middle row half lit, the lower pane lamplit.
 ##   "drawer": her at the desk, and something pale and too tall standing behind her.
 ##   "after":  the desk lit, the chair empty, and in the lower pane a tiny lit window:
 ##             the photograph contains the photograph.
+##   "turned": her, turned round in the chair to face the camera, with no face.
+## A painted print replaces the drawn image; the border, wash and caption are always drawn.
 ## `alpha` fades the whole print in over the end card's black.
 func _draw_photo(c: Node2D, rect: Rect2, variant: String, alpha := 1.0) -> void:
 	var ctr := rect.get_center()
@@ -1699,6 +2094,18 @@ func _draw_photo(c: Node2D, rect: Rect2, variant: String, alpha := 1.0) -> void:
 	var half := rect.size / 2.0
 	c.draw_rect(Rect2(-half, rect.size), Color("d8d0bc"))
 	var img := Rect2(-half.x + 18, -half.y + 18, rect.size.x - 36, rect.size.y - 70)
+	var painted := _photo_tex(variant)
+	if painted:
+		c.draw_texture_rect(painted, img, false)
+	else:
+		_draw_photo_drawn(c, img, variant)
+	c.draw_rect(img, Color(0.45, 0.35, 0.2, 0.18))
+	_text(c, "Greywake. 18 Oct.", Vector2(-half.x, half.y - 18), 20, INK, hand, rect.size.x)
+	if alpha < 1.0:
+		c.draw_rect(Rect2(-half, rect.size).grow(3), Color("070b0f", 1.0 - alpha))
+	c.draw_set_transform(Vector2.ZERO)
+
+func _draw_photo_drawn(c: Node2D, img: Rect2, variant: String) -> void:
 	c.draw_rect(img, Color("1a1f24"))
 	var win := Rect2(-100, img.position.y + 24, 200, 196)
 	var pw := win.size.x / 3.0
@@ -1741,6 +2148,9 @@ func _draw_photo(c: Node2D, rect: Rect2, variant: String, alpha := 1.0) -> void:
 		c.draw_colored_polygon(PackedVector2Array([base + Vector2(-26, 0), base + Vector2(26, 0),
 			base + Vector2(16, -26), base + Vector2(-16, -26)]), dark)
 		c.draw_colored_polygon(_ellipse(base + Vector2(0, -40), 14, 17, 16), dark)
+		if variant == "turned":
+			# She has turned round to face the camera. There is nothing on the front of her head.
+			c.draw_colored_polygon(_ellipse(base + Vector2(0, -40), 9, 12, 16), Color(0.86, 0.85, 0.80, 0.85))
 	# The desk's edge along the bottom of the pane.
 	c.draw_rect(Rect2(lower.position.x, lower.end.y - 10, lower.size.x, 10), Color(0.05, 0.04, 0.03, 0.9))
 	var muntin := Color("c9c0a8", 0.7)
@@ -1755,13 +2165,9 @@ func _draw_photo(c: Node2D, rect: Rect2, variant: String, alpha := 1.0) -> void:
 		var yy := sea.position.y + 10 + k * 12
 		c.draw_line(Vector2(img.position.x + 14 + k * 30, yy), Vector2(img.end.x - 40 + k * 10, yy + 1),
 			Color(0.75, 0.8, 0.82, 0.35), 1.0)
-	c.draw_rect(img, Color(0.45, 0.35, 0.2, 0.18))
-	_text(c, "Greywake. 18 Oct.", Vector2(-half.x, half.y - 18), 20, INK, hand, rect.size.x)
-	if alpha < 1.0:
-		c.draw_rect(Rect2(-half, rect.size).grow(3), Color("070b0f", 1.0 - alpha))
-	c.draw_set_transform(Vector2.ZERO)
 
-## Venn's closure report. Four lines, each with a witness in her notebook.
+## Venn's closure report. Four lines, each with a witness in her notebook; the evening's
+## high water is set on four dials, because it has to be worked out.
 func _draw_report(c: Node2D) -> void:
 	c.draw_rect(Rect2(Vector2.ZERO, SIZE), Color(INK, 0.94))
 	var pg := REPORT_PAGE
@@ -1772,7 +2178,7 @@ func _draw_report(c: Node2D) -> void:
 	_text(c, "To be completed by the observer before the station is left.", pg.position + Vector2(0, 112), 20,
 		Color(INK, 0.6), hand, pg.size.x)
 	for i in OfficeSim.REPORT_FIELDS.size():
-		var r := _report_row(i)
+		var r := _report_row(REPORT_FIELD_ROWS[i])
 		var field: Array = OfficeSim.REPORT_FIELDS[i]
 		var value: String = field[1][int(sim.state.report_fields[i])]
 		_text(c, field[0], r.position + Vector2(20, 62), 24, INK, serif, 480, HORIZONTAL_ALIGNMENT_LEFT)
@@ -1780,12 +2186,33 @@ func _draw_report(c: Node2D) -> void:
 		_text(c, value, r.position + Vector2(520, 64), 32, BLUE_INK, hand, 220, HORIZONTAL_ALIGNMENT_LEFT)
 		if not filed:
 			_text(c, "▸", r.position + Vector2(r.size.x - 44, 62), 24, Color(INK, 0.4), serif, 30, HORIZONTAL_ALIGNMENT_LEFT)
+	_draw_report_time(c, filed)
 	if filed:
 		c.draw_line(Vector2(600, 910), Vector2(860, 910), Color(INK, 0.35), 1.5)
 		_draw_handwriting(c, "A. Mercer", 9, Vector2(620, 900), 36, 41, false)
 		_text(c, "Filed 18 Oct", Vector2(880, 904), 20, Color(INK, 0.6), hand, 200, HORIZONTAL_ALIGNMENT_LEFT)
 	else:
 		_button(c, REPORT_SIGN, "Sign and file")
+
+func _draw_report_time(c: Node2D, filed: bool) -> void:
+	var r := _report_row(REPORT_TIME_ROW)
+	_text(c, OfficeSim.REPORT_TIME_LABEL, r.position + Vector2(20, 62), 24, INK, serif, 480, HORIZONTAL_ALIGNMENT_LEFT)
+	var t: Array = sim.state.report_time
+	if filed:
+		c.draw_line(r.position + Vector2(500, 74), r.position + Vector2(r.size.x - 60, 74), Color(INK, 0.35), 1.5)
+		_text(c, "%d%d:%d%d" % [t[0], t[1], t[2], t[3]], r.position + Vector2(520, 64), 32, BLUE_INK, hand, 220,
+			HORIZONTAL_ALIGNMENT_LEFT)
+		return
+	for i in 4:
+		var d := _rtime_rect(i)
+		var digits := dial_digits(int(t[i]))
+		c.draw_rect(d, Color(INK, 0.06))
+		c.draw_line(Vector2(d.position.x + 6, d.end.y - 18), Vector2(d.end.x - 6, d.end.y - 18), Color(INK, 0.35), 1.5)
+		_text(c, str(digits[0]), d.position + Vector2(0, 24), 18, Color(INK, 0.28), hand, d.size.x)
+		_text(c, str(digits[1]), d.position + Vector2(0, 66), 34, BLUE_INK, hand, d.size.x)
+		_text(c, str(digits[2]), d.position + Vector2(0, 98), 18, Color(INK, 0.28), hand, d.size.x)
+	var colon_x := (_rtime_rect(1).end.x + _rtime_rect(2).position.x) / 2.0
+	_text(c, ":", Vector2(colon_x - 10, r.position.y + 62), 32, BLUE_INK, hand, 20)
 
 func _draw_notebook(c: Node2D) -> void:
 	c.draw_rect(Rect2(Vector2.ZERO, SIZE), Color(INK, 0.97))
@@ -1811,8 +2238,8 @@ func _draw_notebook(c: Node2D) -> void:
 	# Late in the slice there is a lot to keep: shrink, then split into two columns,
 	# so every entry stays on the page. Evidence is never dropped.
 	var layout := [22, 960, 1]
-	for opt in [[22, 960, 1], [20, 960, 1], [18, 960, 1], [18, 460, 2], [17, 460, 2], [16, 460, 2],
-			[15, 460, 2], [14, 460, 2]]:
+	for opt in [[22, 960, 1], [20, 960, 1], [18, 960, 1], [18, 460, 2], [17, 460, 2], [17, 300, 3],
+			[16, 300, 3], [15, 300, 3], [14, 300, 3]]:
 		layout = opt
 		if _notebook_flow(c, ids, opt, top, bottom - room_for, page.position.x, false).fits:
 			break
@@ -1864,7 +2291,8 @@ func _draw_menu(c: Node2D) -> void:
 	c.draw_rect(Rect2(Vector2.ZERO, SIZE), Color(INK, 0.93))
 	_text(c, "Paused" if sim.return_view != "title" else "Options", Vector2(0, 260), 40, PAPER, serif, SIZE.x)
 	var labels := ["Resume", "Motion & flicker: " + ("on" if sim.state.motion else "off"),
-		"Soften sudden sounds: " + ("on" if sim.state.soft_audio else "off"), "Restart slice"]
+		"Soften sudden sounds: " + ("on" if sim.state.soft_audio else "off"),
+		"Restart? Click again" if _restart_armed() else "Restart slice"]
 	for i in labels.size():
 		_button(c, _menu_rect(i), labels[i])
 
@@ -1877,7 +2305,12 @@ func _draw_hud() -> void:
 		subtitle.visible = false
 		return
 	subtitle.visible = true
-	c.draw_rect(Rect2(20, 994, 1408, 80), Color(0.03, 0.06, 0.08, 0.9))
+	if slab_a > 0.0:
+		c.draw_rect(Rect2(20, 994, 1408, 80), Color(0.03, 0.06, 0.08, 0.9 * slab_a))
+	if chain_active() and sim.view != "threshold":
+		# More to come: a click brings the next line up.
+		var pulse := 0.75 + 0.25 * sin(time * 2.0) if sim.state.motion else 1.0
+		c.draw_string(serif, Vector2(1392, 1040), "▸", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(PAPER, 0.55 * pulse))
 	for b in HUD_BUTTONS:
 		_button(c, b[1], b[2], false, 21)
 	if sim.is_closeup() or sim.view == "notebook":
@@ -1890,8 +2323,12 @@ func _draw_hud() -> void:
 				c.draw_rect(Rect2(p - Vector2(10, 24), Vector2(w, 34)), Color(0.03, 0.06, 0.08, 0.8))
 				c.draw_string(serif, p, h[2], HORIZONTAL_ALIGNMENT_LEFT, -1, 20, PAPER)
 	if sim.view == "threshold" and continue_ready:
-		var a := clampf((threshold_t - continue_t - 1.5) / 1.5, 0.0, 1.0) * 0.6
-		_text(c, "Click to step into the corridor.", Vector2(0, 966), 20, Color(PAPER, a), hand, SIZE.x)
+		var a := clampf((threshold_t - continue_t - 1.5) / 1.5, 0.0, 1.0)
+		if a > 0.0:
+			var prompt := "Click the doorway to step into the corridor."
+			var w := hand.get_string_size(prompt, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x + 60
+			c.draw_rect(Rect2((SIZE.x - w) / 2.0, 940, w, 40), Color(0.03, 0.06, 0.08, 0.85 * a))
+			_text(c, prompt, Vector2(0, 967), 22, Color(PAPER, 0.9 * a), hand, SIZE.x)
 	if dev:
 		c.draw_rect(Rect2(20, 90, 520, 150), Color(0, 0, 0, 0.75))
 		var y := 120

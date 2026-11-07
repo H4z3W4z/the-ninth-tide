@@ -14,7 +14,7 @@ extends RefCounted
 ## P01 rule (AGENTS.md): supply OFF, straight bridge B installed, supply ON.
 ## Curved C is rejected without consuming anything.
 
-const SCHEMA := 4
+const SCHEMA := 5
 
 ## The drawer plate wants the hour the log says she mends the lamp: 18:52.
 const DRAWER_CODE := [1, 8, 5, 2]
@@ -22,11 +22,23 @@ const DRAWER_CODE := [1, 8, 5, 2]
 ## Venn's closure report: [label, options]. Every answer has a witness in her notebook.
 const REPORT_FIELDS := [
 	["Pilings, Greywake jetty", ["8", "9", "10"]],
-	["Observers on station", ["1", "2", "0"]],
-	["High water, 18 Oct", ["4.4 m", "9.9 m"]],
-	["Last entry in the tide log", ["E. Venn", "A. Mercer"]],
+	["Observers on station", ["1", "2", "3"]],
+	["Height of that water", ["4.4 m", "9.9 m"]],
 ]
-const REPORT_ANSWER := [2, 1, 1, 1]
+const REPORT_ANSWER := [2, 1, 1]
+## The evening's high water is worked out, not read: 07:13 + 12 h 21 m = 19:34.
+const REPORT_TIME_LABEL := "High water, 18 Oct, evening"
+const REPORT_TIME_ANSWER := [1, 9, 3, 4]
+## Wrong times that earn their own answer, keyed by the four digits.
+const REPORT_TIME_MISSES := {
+	"0713": "That's the morning tide. His rule gives the next one.",
+	"1852": "That was the lamp. His rule runs on from the last time in the log.",
+	"1913": "Twelve hours on. His tides don't keep to twelve.",
+	"1933": "One minute out. He never was.",
+	"1935": "One minute out. He never was.",
+}
+## The miss rows the log writes for her, in order.
+const MISS_IDS := ["miss0", "miss1", "miss2"]
 
 const OBJECTIVES := {
 	"lamp": "Get the desk lamp working.",
@@ -36,6 +48,7 @@ const OBJECTIVES := {
 	"reread": "Read the tide log again.",
 	"chair": "The log has written what I do next.",
 	"report": "Reconcile the records. The closure report is under the duty card.",
+	"filed": "The report is signed.",
 	"leave": "The door has unlatched itself.",
 	"done": "Tide I continues.",
 }
@@ -72,10 +85,11 @@ const HINTS := {
 		"Inspect the chair behind the desk.",
 	],
 	"report": [
-		"Each line of the report has a witness in your notebook.",
-		"Count the pilings on the chart as it is now, not as it was in 1889. Count who has sat in that chair tonight. Read the log's last high water, and whose hand it ends in.",
-		"Pilings 10. Observers 2. High water 9.9 m. Last entry: A. Mercer. Then sign it.",
+		"Each line has a witness. The evening's high water has to be worked out, not read.",
+		"Pilings: the chart as it is now. Observers: count the trails from the puddle. The evening tide: Venn's margin rule, from the last time in the log. The height: what the log wrote for itself.",
+		"Pilings 10. Observers 2. High water 19:34 (07:13 plus 12 h 21 m). Height 9.9 m. Then sign it.",
 	],
+	"filed": ["Put the report down.", "Step back from the desk.", "Use Back."],
 	"leave": [
 		"The door has unlatched itself.",
 		"The corridor door is on the right.",
@@ -92,8 +106,10 @@ const OBSERVATIONS := {
 	"coat": "Venn's oilskin is soaked through. It has not rained today.",
 	"hooks": "Nine hooks. His coat is on the seventh. The ninth is wet, with nothing on it.",
 	"map": "The 1889 survey shows nine jetty pilings. I counted eight from the launch.",
-	"chart": "The chart has been corrected in pencil: nine pilings. Later, a tenth, inked out past where the jetty ends.",
+	"chart": "The chart has been corrected in pencil: nine pilings.",
+	"chart_tenth": "Later, a tenth piling inked in, past where the jetty ends.",
 	"soundings": "Venn has re-sounded the Sound in pencil. Every depth is deeper than in 1889, by the same amount everywhere. Past the ninth piling he wrote no number, only: 'no bottom at 400 fm. Line came up warm.'",
+	"contours": "Venn's new contours close in rings. The centre of them is not the deep water. It is the ninth piling, at the end of this jetty.",
 	"mug": "His mug is rinsed, a clean spoon laid across it.",
 	"stove": "Stove cold. The ash raked smooth.",
 	"lamp": "Desk lamp repaired: supply off, straight bridge B, supply on.",
@@ -112,8 +128,15 @@ const OBSERVATIONS := {
 	"palms": "Three wet palm marks on the outside of the window, below the sill line. The wall below goes straight into the sea.",
 	"horizon": "The horizon outside is no longer level. The room is.",
 	"eye": "A ring on the water past the pilings. It keeps its place against me.",
-	"tag": "A brass tag on the ninth hook: A. MERCER, and my height.",
-	"report": "Closure report, filed in my hand: pilings 10; observers on station 2; high water 18 Oct 9.9\u00a0m; last entry A. Mercer.",
+	"through": "It is not looking at the room. The room is what it looks through.",
+	"tag": "A brass tag on the ninth hook, stamped A.M. It hangs at the height of my collar.",
+	"away_mug": "Venn's mug is full to the brim with seawater. Nobody filled it.",
+	"away_stove": "The stove is full of seawater, up into the flue. Its door was shut.",
+	"away_coat": "The oilskin's hood is up, turned toward the desk.",
+	"away_door": "Seawater seeps under the corridor door, from the corridor side.",
+	"away_puddle": "Wet footprints go up the wall beside the door. None come down.",
+	"away_window": "A fourth wet hand on the window, at the top of the glass, as if it had stood up.",
+	"report": "Closure report, filed in my hand: pilings 10; observers on station 2; high water 18 Oct 19:34, 9.9\u00a0m.",
 }
 
 ## Venn's tide log. [date, time, tide, note, in_adas_hand]
@@ -155,6 +178,9 @@ const HISTORY_TEXT := {
 	"lamp": "She checks the lamp. It is still mended.",
 	"tray": "She checks the lamp. It is still mended.",
 	"drawer": "She looks at the photograph again.",
+	"miss0": "She gets it wrong.",
+	"miss1": "She gets it wrong again. The room is patient.",
+	"miss2": "She guesses.",
 }
 const HISTORY_MAX := 3
 const HISTORY_CLOSE := ["18 Oct", "—", "—", "She does not turn round.", true]
@@ -163,33 +189,42 @@ const HISTORY_CLOSE := ["18 Oct", "—", "—", "She does not turn round.", true
 ## They live here so the story text stays in one place and tests can see it.
 const THRESHOLD_LINES := [
 	[0.8, "The corridor is dark. It goes on further than the station does."],
-	[3.4, "Something down there breathes in. Outside, the tide draws back off the pilings."],
-	[7.6, "It breathes out, and the sea comes in."],
+	[3.4, "Something down there breathes in. The tide goes out with it, as far as the lighthouse."],
+	[7.6, "It breathes out. Every piling in the Sound goes under at once."],
 ]
 ## Spoken when she has held still long enough (or at the fallback); only then can she go on.
 const THRESHOLD_STILL_LINE := "I hold my breath. So does the sea."
 const THRESHOLD_STILL_AFTER := 8.0
 const THRESHOLD_FALLBACK := 18.0
 
-## The end card.
-const END_LOG_ROW := "18 Oct  —  HW 9.9 m  —  Observer located."
-const END_LINE := "It was never the sea we were measuring."
+## The end card. Two rows write themselves in the log; which two depends on whether she turned.
+const END_LOG_ROW := "18 Oct  —  19:34  —  HW 9.9 m  —  Observer located."
+const END_TURN_ROW := "18 Oct  —  19:34  —  She turns round."
+const END_NEXT_ROW := "19 Oct  —  07:55  —  HW 4.4 m  —  Observer: E. Venn."
+const END_NEXT_TURNED := "19 Oct  —  07:55  —  HW 4.4 m  —  Observer: A. Mercer."
+const END_ON_STATION := "Observers on station: 1."
+const END_ALL_SEEN := "Nothing in the room went unrecorded."
 const END_CONTINUES := "Tide I continues."
-const END_ALL_SEEN := "Observers remaining: 1."
 const NOTEBOOK_INTRUSION := "She will not finish this page."
 
 const ROOM_IDS := ["lamp", "tray", "logbook", "papers", "mug", "chair", "map",
 	"stove", "window", "hooks", "coat", "drawer", "puddle", "door"]
 
+## What changes while she looks away at stage 3, in the order it happens: the n-th
+## return from a close-up (or the notebook) to the room applies the n-th change.
+const LOOK_AWAY := ["mug", "stove", "coat", "door", "puddle", "window"]
+const RETURNS_MAX := 6
+
 const SAVED_BOOLS := ["started", "supply_on", "bridge_installed", "p01_complete", "log_read",
 	"prints_seen", "drawer_open", "log_rewritten", "seat_wet", "foretold_door", "initialled",
 	"finished", "motion", "soft_audio", "report_filed", "history_seen", "soundings_heard",
-	"heard_silence"]
+	"heard_silence", "heard_unlatch", "contours_seen", "turned"]
 
 var state := {}
 var view := "title"
 var return_view := "room"   # where Back goes from the notebook / menu
 var selected := ""          # transient: spare selected in the repair close-up
+var drawer_miss_n := 0      # transient: rotates the drawer's generic refusal
 
 func _init() -> void:
 	reset()
@@ -203,15 +238,18 @@ func reset(keep_settings := false) -> void:
 		"log_read": false, "prints_seen": false, "drawer_open": false, "log_rewritten": false,
 		"seat_wet": false, "foretold_door": false, "initialled": false, "finished": false,
 		"drawer_dial": [0, 0, 0, 0],
-		"report_filed": false, "report_fields": [0, 0, 0, 0],
+		"report_filed": false, "report_fields": [0, 0, 0], "report_time": [0, 0, 0, 0],
+		"heard_unlatch": false,
 		"history": [], "history_seen": false,
 		"soundings_heard": false, "heard_silence": false, "photo_looks": 0,
+		"contours_seen": false, "returns": 0, "turned": false,
 		"seen": [], "hint_level": 0, "hint_for": "",
 		"motion": motion, "soft_audio": soft,
 	}
 	view = "title"
 	return_view = "room"
 	selected = ""
+	drawer_miss_n = 0
 
 # ---------------------------------------------------------------------------
 # derived
@@ -225,6 +263,7 @@ func objective() -> String:
 	if not state.log_rewritten: return "reread"
 	if not state.seat_wet: return "chair"
 	if not state.report_filed: return "report"
+	if not state.heard_unlatch: return "filed"
 	return "leave"
 
 ## 0 arrival, 1 lamp lit, 2 log read (sea silent, prints, drawer), 3 seat wet.
@@ -257,13 +296,33 @@ func log_rows() -> Array:
 		rows.append(LOG_FINAL)
 	return rows
 
+## The two log rows the end card writes, as [text, hand]: hand is "her" or "venn".
+## She does not turn: her row, then the next tide in his hand. She turns: both are hers.
+func end_rows() -> Array:
+	if state.turned:
+		return [[END_TURN_ROW, "her"], [END_NEXT_TURNED, "her"]]
+	return [[END_LOG_ROW, "her"], [END_NEXT_ROW, "venn"]]
+
 ## Lines for the end card, in order.
 func end_lines() -> Array:
-	var out := [END_LINE]
+	var out := [END_ON_STATION]
 	if state.seen.size() == OBSERVATIONS.size():
 		out.append(END_ALL_SEEN)
 	out.append(END_CONTINUES)
 	return out
+
+## How many wrong filings the log has written down (0-3).
+func report_misses() -> int:
+	var n := 0
+	for id in state.history:
+		if id in MISS_IDS:
+			n += 1
+	return n
+
+## True once the room has made its change for `id` (see LOOK_AWAY).
+func look_away(id: String) -> bool:
+	var i := LOOK_AWAY.find(id)
+	return i >= 0 and i + 1 <= int(state.returns)
 
 ## A line in her notebook she did not write. Empty until the log has rewritten itself.
 func notebook_intrusion() -> String:
@@ -329,6 +388,14 @@ func dispatch(action: String) -> Array:
 			elif view == "threshold" and action == "continue":
 				state.finished = true
 				view = "end"
+				_sfx(ev, "motif")
+			elif view == "threshold" and action == "turn":
+				state.turned = true
+				state.finished = true
+				view = "end"
+				_sfx(ev, "exhale_near")
+				_sfx(ev, "motif", 1.4)
+				_fx(ev, "turn")
 	return ev
 
 func _begin(ev: Array) -> void:
@@ -338,6 +405,13 @@ func _begin(ev: Array) -> void:
 	_say(ev, "Power's out. The duty card says to start with the desk lamp.", 3.2)
 
 func _back(ev: Array) -> void:
+	var before := view
+	_back_view(ev)
+	# At stage 3 the room uses the moments she isn't looking at it. The menu doesn't count.
+	if view == "room" and (is_closeup(before) or before == "notebook") and stage() == 3:
+		state.returns = mini(int(state.returns) + 1, RETURNS_MAX)
+
+func _back_view(ev: Array) -> void:
 	match view:
 		"notebook", "menu":
 			view = return_view
@@ -348,7 +422,14 @@ func _back(ev: Array) -> void:
 				state.heard_silence = true
 				_fx(ev, "sea_fade")
 				_say(ev, "...Listen.", 2.2, true)
-		"repair", "duty", "note", "drawer", "report":
+		"report":
+			view = "room"
+			# She signed it at the desk. Only when she steps back does the door answer.
+			if state.report_filed and not state.heard_unlatch:
+				state.heard_unlatch = true
+				_sfx(ev, "latch_near", 0.2)
+				_say(ev, "Behind me, the corridor door unlatched itself.", 0.6, true)
+		"repair", "duty", "note", "drawer":
 			view = "room"
 			selected = ""
 		"threshold":
@@ -375,13 +456,19 @@ func _room(id: String, ev: Array) -> void:
 			_papers(ev)
 		"mug":
 			_observe("mug")
-			if s >= 2:
+			if s >= 3 and look_away("mug"):
+				_observe("away_mug")
+				_say(ev, "His mug is full to the brim. Seawater. I didn't fill it.")
+			elif s >= 2:
 				_say(ev, "Two rings on the desk now. One is still warm.")
 			else:
 				_say(ev, "A chipped green mug, rinsed. A clean spoon laid across it. Someone tidied before they left.")
 		"stove":
 			_observe("stove")
-			if s >= 2:
+			if s >= 3 and look_away("stove"):
+				_observe("away_stove")
+				_say(ev, "The stove door is open. It's full of water, up into the flue.")
+			elif s >= 2:
 				_say(ev, "Raked smooth again. I didn't touch it.")
 			else:
 				_say(ev, "Cold through. The ash has been raked smooth, like a page nobody wrote on.")
@@ -391,7 +478,7 @@ func _room(id: String, ev: Array) -> void:
 			_observe("hooks")
 			if s >= 3:
 				_observe("tag")
-				_say(ev, "There's a tag on the ninth hook now. My name. My height, to the quarter inch.")
+				_say(ev, "There's a tag on the ninth hook now. Stamped A.M. It hangs at the height of my collar.")
 			elif s == 2:
 				_say(ev, "Nine hooks. The ninth is wet again. I dried it with my sleeve an hour ago.")
 			else:
@@ -400,7 +487,10 @@ func _room(id: String, ev: Array) -> void:
 			_window(s, ev)
 		"coat":
 			_observe("coat")
-			if s >= 3:
+			if s >= 3 and look_away("coat"):
+				_observe("away_coat")
+				_say(ev, "The hood is up. It's facing the desk.")
+			elif s >= 3:
 				_say(ev, "The shoulders have shape now. I am not going to touch it.")
 			elif state.log_rewritten:
 				_say(ev, "It hangs differently. Heavier at the shoulders.")
@@ -420,6 +510,9 @@ func _room(id: String, ev: Array) -> void:
 				_observe("prints")
 				_say(ev, "There are two trails now.")
 				_say(ev, "One goes to the drawer. One comes from the drawer to the door. The second one is my size.", 2.0, true)
+				if look_away("puddle"):
+					_observe("away_puddle")
+					_say(ev, "And a third. Up the wall beside the door. It doesn't come down.", 4.2, true)
 			elif s == 2:
 				var first_prints: bool = not state.prints_seen
 				state.prints_seen = true
@@ -433,12 +526,17 @@ func _room(id: String, ev: Array) -> void:
 		"chair":
 			_chair(s, ev)
 		"door":
-			if state.report_filed:
+			if state.report_filed and state.heard_unlatch:
 				view = "threshold"
 				_sfx(ev, "door")
 				_fx(ev, "threshold")
 			elif state.seat_wet:
-				_say(ev, "Latched. His rule's on the duty card: nobody leaves until the records reconcile.")
+				if look_away("door"):
+					_observe("away_door")
+					_say(ev, "Water is coming under the door. From the corridor side.")
+					_say(ev, LATCHED_LINE, 2.4)
+				else:
+					_say(ev, LATCHED_LINE)
 			elif s == 2:
 				_say(ev, "The latches downstairs let go when the lamp came on. Something wanted the doors open before I did.")
 			elif s == 1:
@@ -446,9 +544,18 @@ func _room(id: String, ev: Array) -> void:
 			else:
 				_say(ev, "The corridor is pitch black. Light first.")
 
+const LATCHED_LINE := "Latched. His rule's on the duty card: nobody leaves until the records reconcile."
+
 ## Appends a room click to the log's record of her, up to HISTORY_MAX distinct lines.
+## Miss rows (MISS_IDS) are written by the report itself and don't count against it.
 func _record_history(id: String) -> void:
-	if not HISTORY_TEXT.has(id) or state.history.size() >= HISTORY_MAX:
+	if not HISTORY_TEXT.has(id) or id in MISS_IDS:
+		return
+	var n := 0
+	for h in state.history:
+		if not h in MISS_IDS:
+			n += 1
+	if n >= HISTORY_MAX:
 		return
 	for h in state.history:
 		if HISTORY_TEXT[h] == HISTORY_TEXT[id]:
@@ -461,6 +568,8 @@ func _papers(ev: Array) -> void:
 		_sfx(ev, "page")
 		if state.report_filed:
 			_say(ev, "Filed. In my hand. I don't remember choosing the two.")
+		elif state.report_fields != [0, 0, 0] or state.report_time != [0, 0, 0, 0]:
+			_say(ev, "His closure report. Half reconciled.")
 		else:
 			_say(ev, "Under the duty card, his closure report. Blank. Four lines to reconcile before the station can be left.")
 		return
@@ -486,14 +595,26 @@ func _map(s: int, ev: Array) -> void:
 		_observe("soundings")
 		_say(ev, "He's re-sounded the whole Sound. Every depth is greater than it was in 1889.", 0.0, true)
 		_say(ev, "Not by much. By the same amount, everywhere. As if the bottom were being drawn down.", 2.8, true)
+		_sfx(ev, "deep", 5.6)
 		_say(ev, "Past the ninth piling there's no figure. 'No bottom at four hundred fathoms. Line came up warm.'", 6.0, true)
 		if s == 3:
+			_observe("chart_tenth")
 			_say(ev, "And someone has inked a tenth piling, further out than the jetty goes.", 9.0, true)
+	elif s == 3 and state.soundings_heard and not state.contours_seen:
+		# The Sound is not a basin. It is an eye, and the jetty runs out to its pupil.
+		state.contours_seen = true
+		_observe("contours")
+		_fx(ev, "contours")
+		_sfx(ev, "deep", 4.8)
+		_say(ev, "His new contours don't follow the coast. They go round.", 0.0, true)
+		_say(ev, "Ring inside ring, closing on the jetty. The ninth piling is the middle.", 2.6, true)
+		_say(ev, "The station is built on the edge of it. Like a lash.", 5.4, true)
 	elif s >= 2:
 		_observe("chart")
 		if s == 2:
 			_say(ev, "The chart has been corrected. In pencil. Nine.")
 		else:
+			_observe("chart_tenth")
 			_say(ev, "Someone has inked a tenth piling. Further out than the jetty goes.")
 	else:
 		_observe("map")
@@ -517,10 +638,11 @@ func _logbook(ev: Array) -> void:
 		state.log_rewritten = true
 		_observe("rewritten")
 		_fx(ev, "log_write")
+		_sfx(ev, "motif_short", 0.4)
 		_say(ev, "There are new lines. In my hand. The ink is still wet.", 0.0, true)
 		_say(ev, "\"She looks at the chair.\" I haven't looked at it yet.", 2.4, true)
 		_say(ev, "HW nine point nine. Nothing in forty years of this log has come above four and a half.", 4.8, true)
-		_say(ev, "It isn't a tide. Something is rising under it.", 7.4, true)
+		_say(ev, "I check the date on it. Tomorrow.", 7.4, true)
 	elif state.seat_wet and not state.report_filed and not state.history.is_empty() \
 			and not state.history_seen:
 		state.history_seen = true
@@ -547,10 +669,20 @@ func _window(s: int, ev: Array) -> void:
 		_observe("eye")
 		_say(ev, "The horizon isn't level. The house is.")
 		_say(ev, "There's a ring on the water, out past the pilings. When I move, it moves.", 2.6, true)
-		_say(ev, "Not toward me. With me. The way an eye keeps a thing in the middle of it.", 5.4, true)
+		_say(ev, "I step to the left. It is still in the middle of the glass.", 5.4, true)
+		var last := 5.4
 		if has_seen("knock"):
 			_observe("palms")
-			_say(ev, "There are marks on the outside of the glass, low down. Three. And the heel of a hand.", 8.4, true)
+			last = 8.4
+			_say(ev, "There are marks on the outside of the glass, low down. Three. And the heel of a hand.", last, true)
+		if look_away("window"):
+			_observe("away_window")
+			last += 2.8
+			_say(ev, "There's a fourth hand now. At the top of the glass.", last, true)
+		if state.contours_seen and not has_seen("through"):
+			_observe("through")
+			last += 2.8
+			_say(ev, OBSERVATIONS["through"], last, true)
 	elif s == 2:
 		_observe("silent")
 		_observe("piling")
@@ -603,6 +735,7 @@ func _drawer(action: String, ev: Array) -> void:
 				_observe("watch")
 				_observe("photo")
 				_sfx(ev, "drawer")
+				_sfx(ev, "motif_short", 1.0)
 				_fx(ev, "drawer_open")
 				_say(ev, "It gives.", 0.0, true)
 				_say(ev, "Venn's watch. Stopped at eight minutes to seven.", 1.4, true)
@@ -642,37 +775,65 @@ func _drawer_miss(code: Array) -> String:
 		return "Close. His arithmetic is better than mine."
 	if code.slice(0, 3) == [1, 8, 5]:
 		return "Eighteen fifty-something. The last figure is under the stain. His margin gives it to the minute."
-	return "The drawer doesn't give."
+	var line: String = DRAWER_REFUSALS[drawer_miss_n % DRAWER_REFUSALS.size()]
+	drawer_miss_n += 1
+	return line
+
+const DRAWER_REFUSALS := ["The drawer doesn't give.", "Still nothing.", "The dials are cold. The drawer isn't."]
 
 func _report(action: String, ev: Array) -> void:
 	match action:
-		"field_0", "field_1", "field_2", "field_3":
+		"field_0", "field_1", "field_2":
 			if state.report_filed:
 				return
 			var i := int(action.substr(6))
 			var n: int = REPORT_FIELDS[i][1].size()
 			state.report_fields[i] = (int(state.report_fields[i]) + 1) % n
 			_sfx(ev, "nib")
+		"rtime_0", "rtime_1", "rtime_2", "rtime_3", "rtime_down_0", "rtime_down_1", "rtime_down_2", "rtime_down_3":
+			if state.report_filed:
+				return
+			var i := int(action.substr(action.length() - 1))
+			var step := 9 if action.begins_with("rtime_down") else 1
+			state.report_time[i] = (int(state.report_time[i]) + step) % 10
+			_sfx(ev, "dial")
 		"file_report":
 			if state.report_filed:
 				return
-			if state.report_fields == REPORT_ANSWER:
+			if state.report_fields == REPORT_ANSWER and state.report_time == REPORT_TIME_ANSWER:
 				state.report_filed = true
 				_observe("report")
 				_sfx(ev, "sign")
 				_say(ev, "I sign it. A. Mercer, observer.", 0.0, true)
 				_say(ev, "The two is in my hand. I wrote it without counting.", 2.2, true)
-				_sfx(ev, "latch_near", 4.2)
-				_say(ev, "Behind me, the corridor door unlatched itself.", 4.4, true)
-				view = "room"
+				_sfx(ev, "motif_short", 2.6)
 			else:
-				# Never say which line is wrong: the notebook holds every witness.
+				# Never say which line is wrong: the notebook holds every witness. The log,
+				# though, writes the mistake down, in her hand, the first three times.
+				var n := report_misses()
+				if n < MISS_IDS.size():
+					state.history.append(MISS_IDS[n])
 				_sfx(ev, "page")
-				_say(ev, "Something here doesn't reconcile.")
+				_say(ev, report_time_miss(state.report_time))
+				if n == 0:
+					_fx(ev, "log_write")
+					_say(ev, "Somewhere on the desk, a pen is moving.", 1.6, true)
+				elif n == MISS_IDS.size() - 1:
+					_say(ev, "It is writing down my mistakes. It wants the right numbers more than I do.", 2.0, true)
+
+## The answer a wrong filing gets: a near-miss time has its own, everything else doesn't reconcile.
+static func report_time_miss(t: Array) -> String:
+	var key := ""
+	for d in t:
+		key += str(int(d))
+	return REPORT_TIME_MISSES.get(key, "Something here doesn't reconcile.")
 
 func _repair(action: String, ev: Array) -> void:
 	match action:
 		"toggle_supply":
+			if state.p01_complete:
+				_say(ev, "Leave it. I want the light.")
+				return
 			state.supply_on = not state.supply_on
 			_sfx(ev, "switch")
 			if state.supply_on and state.bridge_installed and not state.p01_complete:
@@ -751,10 +912,24 @@ func from_dict(d: Variant) -> bool:
 	if fields is Array and fields.size() == REPORT_FIELDS.size() and _all_whole(fields):
 		for i in fields.size():
 			state.report_fields[i] = clampi(int(fields[i]), 0, REPORT_FIELDS[i][1].size() - 1)
+	var rtime = d.get("report_time")
+	if rtime is Array and rtime.size() == 4 and _all_whole(rtime):
+		state.report_time = [clampi(int(rtime[0]), 0, 9), clampi(int(rtime[1]), 0, 9),
+			clampi(int(rtime[2]), 0, 9), clampi(int(rtime[3]), 0, 9)]
 	if d.get("history") is Array:
 		for id in d.history:
-			if id is String and HISTORY_TEXT.has(id) and state.history.size() < HISTORY_MAX:
+			if not id is String:
+				continue
+			if id in MISS_IDS:
+				# Misses only in order: miss0, miss1, miss2.
+				var n := report_misses()
+				if n < MISS_IDS.size() and id == MISS_IDS[n]:
+					state.history.append(id)
+			elif HISTORY_TEXT.has(id):
 				_record_history(id)
+	var returns = d.get("returns")
+	if (returns is int or returns is float) and float(returns) == floorf(float(returns)):
+		state.returns = clampi(int(returns), 0, RETURNS_MAX)
 	var looks = d.get("photo_looks")
 	if (looks is int or looks is float) and float(looks) == floorf(float(looks)):
 		state.photo_looks = clampi(int(looks), 0, 9)
@@ -773,14 +948,19 @@ func from_dict(d: Variant) -> bool:
 	state.log_rewritten = state.log_rewritten and state.drawer_open and state.prints_seen
 	state.seat_wet = state.seat_wet and state.log_rewritten
 	state.report_filed = state.report_filed and state.seat_wet \
-		and state.report_fields == REPORT_ANSWER
+		and state.report_fields == REPORT_ANSWER and state.report_time == REPORT_TIME_ANSWER
+	# A filed save always lands in the room, so she has already stepped back from the desk.
+	state.heard_unlatch = state.report_filed
 	if not state.seat_wet:
 		state.history = []
+		state.returns = 0
 	state.history_seen = state.history_seen and not state.history.is_empty()
 	state.foretold_door = state.foretold_door and state.report_filed
 	state.finished = state.finished and state.report_filed
+	state.turned = state.turned and state.finished
 	state.heard_silence = state.heard_silence and state.log_read
 	state.soundings_heard = state.soundings_heard and state.drawer_open
+	state.contours_seen = state.contours_seen and state.soundings_heard and state.seat_wet
 	# The threshold is never restored: a seat_wet save lands in the room.
 	view = "room" if state.started else "title"
 	if state.finished:
@@ -813,7 +993,9 @@ func debug_jump(target: int) -> void:
 		_observe("rewritten"); _observe("seat")
 	if target >= 4:
 		state.report_fields = REPORT_ANSWER.duplicate()
+		state.report_time = REPORT_TIME_ANSWER.duplicate()
 		state.report_filed = true
+		state.heard_unlatch = true
 		_observe("report")
 
 # ---------------------------------------------------------------------------

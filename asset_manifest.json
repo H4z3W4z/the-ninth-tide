@@ -187,6 +187,168 @@
       "source_svg": "assets/puzzle/switch_on.svg"
     },
     {
+      "id": "away_coat",
+      "path": "assets/stages/away_coat.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "fc4c22a9bec3973c9525c64e005e599ef08eb854c022afb2eae5c0e8835ebf34",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "away_door",
+      "path": "assets/stages/away_door.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "766e47d1d5939ede3e906dd0447998bb9b0cf6d8f7518488ba3de844d7a31e01",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "away_mug",
+      "path": "assets/stages/away_mug.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "1eb95e5af289f3e1728852e7313f0e42c9a1d1af3bebcdc1c832f9073aae075d",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "away_puddle",
+      "path": "assets/stages/away_puddle.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "af8c5f7a1daa6ac9286f7d1923a8aedb110cc750b9937077fc904d4471349640",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "away_stove",
+      "path": "assets/stages/away_stove.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "03539d66f7f6abe02808957fb61ad61c7d93c48ff87b82e5705c554e1899bcf7",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "away_window",
+      "path": "assets/stages/away_window.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "b5bc4978d9d37d90d370eda3d04a58a58cd400fb082518309eeb181d770666d8",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "chart_contours",
+      "path": "assets/stages/chart_contours.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "c20b07dd40ece8f6d707771d4345768b0a96c1e2cee0b254f6bf0b19ac31fe8b",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "office_s2",
+      "path": "assets/stages/office_s2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "62005f54876688fffe5675fa4961fd5d519cee3b4be6d3d6cdadc51132a46787",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "office_s3",
+      "path": "assets/stages/office_s3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "0b5c17f9be6b2385ea6925809709887aabb61071773b15c8ccfe1566d33c5b91",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "palms_glass",
+      "path": "assets/stages/palms_glass.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "145e75b9ba34917fbdb1f4d5a71c808d933d6df1da6bf344657905e983bc7682",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "photo_after",
+      "path": "assets/stages/photo_after.png",
+      "width": 528,
+      "height": 620,
+      "sha256": "f3db6286f691ff393aa1adf79b32624f69bcc83c0e233329c2b321a4d48044a8",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "photo_drawer",
+      "path": "assets/stages/photo_drawer.png",
+      "width": 528,
+      "height": 620,
+      "sha256": "879ce21499421a4523f5c07c04ddf808951b2130f144c6f8b49076f8119bead0",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "photo_drawer_hand",
+      "path": "assets/stages/photo_drawer_hand.png",
+      "width": 528,
+      "height": 620,
+      "sha256": "0aeeac0d04453bea8a4015c3033ef97e6b952f3e3ad658968f7b4a444d9eba7c",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "photo_turned",
+      "path": "assets/stages/photo_turned.png",
+      "width": 528,
+      "height": 620,
+      "sha256": "93c13e04a40fb20b9ba6c3942fcf612c40db01c9567f0f51bbcd4d9845b47671",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "prints_door",
+      "path": "assets/stages/prints_door.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "3dc6dc7d1be3b7e1be5c1df63cd4f07dedf749156d272460e14ff559b2710ea3",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "prints_drawer",
+      "path": "assets/stages/prints_drawer.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "0a1ccb5eac83a30f45751a5383cfe6c60875db6a84a6dbadb813faf84610919b",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "threshold_corridor",
+      "path": "assets/stages/threshold_corridor.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "979d0208463588891b2e09d030052fe4e3e9acfd616c90630094791b5844a5d3",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "threshold_figure",
+      "path": "assets/stages/threshold_figure.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "54893d5e4c7cbe2516873fd20dc2fe8581400fb9282033fe0119732ec2275842",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "back",
       "path": "assets/ui/back.png",
       "width": 180,

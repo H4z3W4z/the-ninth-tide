@@ -15,8 +15,15 @@ extends SceneTree
 ## The drawer code by up-dial clicks from 0-0-0-0 (the code is still 1-8-5-2).
 const DIAL_1852 := ["dial_0", "dial_1", "dial_1", "dial_1", "dial_1", "dial_1", "dial_1", "dial_1",
 	"dial_1", "dial_2", "dial_2", "dial_2", "dial_2", "dial_2", "dial_3", "dial_3"]
-## The closure report's answer (2, 1, 1, 1) by clicks, then filed.
-const REPORT_RIGHT := ["papers", "field_0", "field_0", "field_1", "field_2", "field_3", "file_report"]
+## The evening tide on the report's time dials, by up clicks from 00:00: 19:34.
+const TIME_1934 := ["rtime_0", "rtime_1", "rtime_1", "rtime_1", "rtime_1", "rtime_1", "rtime_1", "rtime_1",
+	"rtime_1", "rtime_1", "rtime_2", "rtime_2", "rtime_2", "rtime_3", "rtime_3", "rtime_3", "rtime_3"]
+## The closure report's answer (fields 2, 1, 1; high water 19:34) by clicks, filed, then
+## Back, which is when the door unlatches.
+var REPORT_RIGHT: Array = ["papers", "field_0", "field_0", "field_1", "field_2"] + TIME_1934 + ["file_report", "back"]
+## Six looks away at stage 3: every change the room makes while she isn't watching.
+const LOOK_AWAY_ALL := ["papers", "back", "papers", "back", "papers", "back", "papers", "back",
+	"papers", "back", "papers", "back"]
 
 var shots := [
 	["01_title", [], Vector2(700, 500), 0.3],
@@ -40,7 +47,7 @@ var shots := [
 	["18_stage3_room", ["@3"], Vector2(640, 650), 7.0],
 	["19_threshold", ["@4", "door"], Vector2(700, 500), 6.0],
 	["19b_threshold_still", ["@4", "door"], Vector2(700, 500), 13.0],
-	["20_end", ["@4", "door", "continue"], Vector2(700, 500), 14.0],
+	["20_end", ["@4", "door", "continue"], Vector2(700, 500), 19.0],
 	["21_log_blot", ["@1", "logbook"], Vector2(700, 1040), 3.0],
 	["22_drawer_brass", ["@2", "puddle", "drawer"], Vector2(700, 900), 0.6],
 	["23_photo_behind", ["@2", "puddle", "drawer"] + DIAL_1852 + ["try_drawer", "look_photo", "look_photo"],
@@ -54,6 +61,14 @@ var shots := [
 		Vector2(700, 1040), 0.6],
 	["30_stage3_left", ["@3"], Vector2(100, 500), 7.0],
 	["31_stage3_static", ["@3", "toggle_motion"], Vector2(640, 650), 2.0],
+	["32_report_time", ["@3", "papers", "field_0", "field_0", "field_1"] + TIME_1934, Vector2(700, 1040), 0.6],
+	["33_report_miss_log", ["@3", "toggle_motion", "papers", "file_report", "file_report", "file_report", "back", "logbook"],
+		Vector2(700, 1040), 1.0],
+	["34_contours", ["@3", "map", "map"], Vector2(250, 330), 8.0],
+	["35_lookaway_all", ["@3"] + LOOK_AWAY_ALL, Vector2(640, 650), 3.0],
+	["36_threshold_turned_end", ["@4", "door", "turn"], Vector2(700, 500), 16.0],
+	["37_stage2_cold", ["@2"], Vector2(640, 650), 2.5],
+	["38_threshold_mid", ["@4", "door"], Vector2(700, 500), 9.5],
 ]
 
 func _initialize() -> void:
@@ -100,6 +115,9 @@ func run() -> void:
 		scene.queue_free()
 		await process_frame
 		_remove(save_path)
+	# Let the audio server release the freed players' playbacks before exit (no leak warnings).
+	for i in 60:
+		await process_frame
 	quit(0)
 
 func _remove(path: String) -> void:

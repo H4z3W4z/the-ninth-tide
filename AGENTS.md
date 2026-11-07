@@ -27,3 +27,6 @@ The office slice should **feel like a Rusty Lake room escape** while staying ori
 - **Surreal rewards.** Solving a puzzle opens something *impossible* (a drawer deeper than the desk, a tide recorded in a jar, a portrait that has changed), and the reward is both a clue and a new wrongness.
 - **Cosmic dread on top.** The Rusty Lake surface (whimsical, eerie, puzzle-box) sits over a Lovecraftian depth: a vast indifferent intelligence beneath the sea, measurement turning on the measurer, the sea as an eye.
 - **Hard IP line.** Use no Rusty Lake characters, names, symbols, or signature motifs: no animal-headed people, no crows or owls as characters, no black cubes, no "memories as cubes", no Laura or Mr. Crow, and no Rusty Lake title or branding. Take the *feel and structure*, never the content. No Cthulhu Mythos names or symbols either.
+
+### Owner decision (Nov 6 2026): painted art for later stages
+New painted plates and overlays for the later, ominous stages are approved. Add them as NEW files under assets/stages/ with repeatable sources (SVG and/or a seeded tools/build_art.py); never overwrite existing approved PNGs. Match the approved flat front elevation and palette, keep every hotspot registered and legible, and keep clue marks deterministic. Later stages should read as wrong at a glance in a screenshot.

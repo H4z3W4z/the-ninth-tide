@@ -6,12 +6,13 @@ An illustrated point-and-click cosmic horror game set in a coastal survey statio
 
 ## Included
 
-- 25 runtime PNG assets with 21 editable SVG sources.
+- 43 runtime PNG assets: 25 approved plates and props with 21 editable SVG sources, plus 18 painted stage plates and overlays in `assets/stages/` built by the seeded `tools/build_art.py` (painters in `tools/art/`).
 - Three office background plates: arrival, gathering rain, and ominous Tide VI.
 - Transparent lamp sprite plus an aligned illuminated-shade overlay.
 - Precise bridge B / spare C, socket, supply-switch states, and indicator.
 - Maintenance instructions, closure duty card, and the solved pencil note.
 - Three clipped window-rain frames, tray artwork, and UI elements.
+- The full Tide I office beat chain: P01, the drawer, the self-writing log, the closure report, look-away changes, the threshold and two endings.
 - Godot preview with click/tap repair interaction, hints, notebook, weather review, motion toggle, and local save/resume.
 - Asset manifest containing dimensions, hashes, placement rectangles, hotspots, and state triggers.
 - Full game design v1.1, original research brief, approved concept references, and production notes.
@@ -28,13 +29,21 @@ The beat chain:
 4. **Soundings.** With the drawer open, the survey chart shows Venn's re-soundings. Every depth is deeper by the same amount, and past the ninth piling there is no bottom at 400 fathoms.
 5. **The log rewrites itself** in her hand: "She looks at the chair." HW 9.9 m.
 6. **The chair.** The seat is wet and warm. Three taps on the glass, low down, below the sill, and palm marks appear on the outside of the window. The sea outside tips about its horizon inside a square frame. The chair's shadow leans toward the lamp, and at stage 3 someone sits in it.
-7. **The closure report.** The door stays latched until Venn's closure report reconciles: pilings 10, observers 2, HW 9.9 m, last entry A. Mercer. Every answer has a witness in the notebook. Until she files it, the log records the first three things she does, in her hand. Filing it unlatches the door behind her.
-8. **The threshold.** The corridor goes on further than the station does, and it breathes in time with the tide. The room has been breathing that same loop since stage 2, quietly. To go on she must hold still: keep the cursor within 4 px for 3 s after the third line, or wait for the 18 s fallback. Touch input passes naturally.
-9. **The end card.** The photograph from after she has gone, with the chair empty. The log's last row writes itself. "It was never the sea we were measuring."
+7. **The closure report.** The door stays latched until Venn's closure report reconciles: pilings 10, observers 2, the evening's high water 19:34 (worked out from the log: 07:13 + 12 h 21 m), height 9.9 m. Every answer has a witness in the notebook. Until she files it, the log records the first three things she does, and her first three wrong filings, in her hand. When she steps back from the signed report, the door unlatches behind her.
+8. **The threshold.** The corridor goes on further than the station does, and it breathes in time with the tide while the water rises in it. To go on she must hold still: keep the cursor within 4 px for 3 s after the third line, or wait for the 18 s fallback, then click the doorway. Or she can turn round to the chair.
+9. **The end card.** The photograph from after, and the log's next two rows writing themselves. Which photograph, and whose hand the second row is in, depends on whether she turned round.
+
+### Round 3
+
+- **Click to advance.** Story chains are atomic and the player sets their speed. While one plays, a click anywhere in the scene (or Back, or Esc in a close-up) brings its next line up at once, with the sounds that belong to it; it never starts something new. A small ▸ at the right of the subtitle slab shows there is more. Notebook, Hint and the menu always answer; a hint asked mid-chain shows after it. The slab fades away when nothing is being said.
+- **The evening tide.** The closure report's high water is set on four dials, not chosen: Venn's margin rule from the last time in the log. Near-miss times get their own answers. Wrong filings are written into the log in her hand ("She gets it wrong."), at most three.
+- **Look-away.** At stage 3, each return from a close-up or the notebook lets the room change one more thing: the mug brims with seawater, the stove floods, the oilskin's hood turns to the desk, water seeps under the door, footprints walk up the wall, and a fourth hand appears high on the glass. The chart's contours close in rings on the ninth piling; the window then tells her what it looks through.
+- **Two endings.** At the threshold, step into the corridor or turn round to the chair. The end card's photograph and log rows differ.
+- **Painted stage art.** `assets/stages/` holds new painted plates and overlays for stage 2 and later (room plates, the threshold corridor and figure, the photographs, palms, prints, contours and the look-away changes), built from the approved plates by the seeded painter `tools/build_art.py`. Every one is optional at runtime: if a file is missing, the procedural drawing is used instead. The window has its own sea-green light so the painted water reads through the dark room. The menu's Restart now asks twice.
 
 The room, the window, the light and the sound change at each step. Every abrupt sound respects "Soften sudden sounds", and every flicker and animation respects "Motion & flicker".
 
-Controls: click hotspots in the room. Drawer dials turn up on their top half and down on their bottom half. Each closure-report line cycles when clicked, and "Sign and file" submits. Notebook keeps every observation, with a count. Hint escalates in three steps; at the threshold it only says to hold still. Esc opens options (motion and flicker, softened sudden sounds, restart), including from the title. Headphones recommended. In debug builds F1 shows hotspots, and 1-5 jump to stages 0-3, plus 4 for "report filed".
+Controls: click hotspots in the room. Drawer dials and the report's time dials turn up on their top half and down on their bottom half; the faint digits above and below show where each click goes. Each closure-report line cycles when clicked, and "Sign and file" submits. Notebook keeps every observation, with a count. Hint escalates in three steps; at the threshold it only says to hold still. Esc opens options (motion and flicker, softened sudden sounds, restart), including from the title. Headphones recommended. In debug builds F1 shows hotspots, and 1-5 jump to stages 0-3, plus 4 for "report filed".
 
 The original P01 assembly preview (`intake_preview.tscn`) remains for asset review. Its weather buttons are **asset-review controls**: they change artwork without advancing story flags, and P01 alone must not summon Tide VI.
 
@@ -69,7 +78,7 @@ godot --headless --path . --script tests/office_sim_test.gd
 godot --headless --path . --script tests/p01_smoke.gd
 ```
 
-`tests/office_sim_test.gd` covers the whole slice headless: the full playthrough and determinism, P01, the drawer, the tide rhythm and every near miss, the log rewrite and the history rows, the closure report gate (all 36 field combinations), soundings, every revisit line, the knock, the threshold (stillness, fallback, phase lock), the end card, saves and tamper handling, the notebook keeping every observation, the subtitle scheduler (feedback within 1.5 s, a new reveal within 3 s, no lost or interleaved story lines), the breath envelope and the knock's hush. `tests/p01_smoke.gd` covers the original P01 preview.
+`tests/office_sim_test.gd` covers the whole slice headless: the full playthrough and determinism, P01, the drawer, the tide rhythm and every near miss, the log rewrite and the history rows, the closure report gate (every field combination, the evening-tide dials and their near misses, misses written in her hand, the unlatch on Back), soundings and contours, look-away, every revisit line, the knock, the threshold (stillness, fallback, phase lock), both endings and the end card, saves and tamper handling, the notebook keeping every observation, the chain scheduler (click-to-advance, sounds before their lines, hints after the chain, no lost or interleaved story lines), a one-click-per-second driver from the title to the end card, the breath envelope, the knock's hush, the dial digits, the two-step restart and the voice cap. `tests/p01_smoke.gd` covers the original P01 preview.
 
 Sound is synthesized from seeded, standard-library Python. Rebuild `assets/audio/*.wav` with `python3 tools/build_audio.py`, then re-import. To render review screenshots (needs a display), run `godot --path . --fixed-fps 60 --disable-vsync --script tools/capture_office.gd -- <out_dir> [shots.json]`. The flags keep every frame exactly 1/60 s, so captures are deterministic, and they still run at full speed when the desktop session is locked and the compositor throttles windows.
 

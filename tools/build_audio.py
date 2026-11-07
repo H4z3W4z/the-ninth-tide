@@ -115,12 +115,12 @@ def decay(t: float, tau: float) -> float:
 
 
 # Beds re-voiced for small speakers; write() reports how much of them is audible.
-HI_SHARE_REPORT = ("drone", "heartbeat", "sting", "breath", "knock_glass", "sea")
+HI_SHARE_REPORT = ("drone", "heartbeat", "sting", "breath", "knock_glass", "sea", "deep", "exhale_near")
 
 
-def write(name: str, xs: list[float]) -> None:
+def write(name: str, xs: list[float], peak: float = 0.85) -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    xs = normalize(xs)
+    xs = normalize(xs, peak)
     with wave.open(str(OUT / f"{name}.wav"), "wb") as w:
         w.setnchannels(1)
         w.setsampwidth(2)
@@ -204,8 +204,16 @@ def hum() -> list[float]:
 # Upper partials of the drone (4th/6th/8th harmonics of 41.2 Hz): they carry the
 # bed on speakers that cannot reproduce 41 Hz, so the fundamental is implied.
 DRONE_UPPER = ((164.8, 0.18, 0.0), (247.2, 0.12, 0.9), (329.6, 0.07, 1.8))  # Hz, amp, AM phase
-DRONE_UPPER_GAIN = 4.5   # scales the upper chord (ratios kept); with the breath band this gives >= 35% above 180 Hz
-DRONE_BREATH_GAIN = 0.25 * 4.5   # on a unit-RMS band
+DRONE_UPPER_GAIN = 4.5   # scales the upper chord (ratios kept)
+# The random 250-900 Hz breath band is gone (gain 0). Its 4.7 s random swell sat
+# exactly in the band of the 11.0 s tide breath and masked it: the room could not
+# be heard breathing in time. Its noise is still drawn, so every other voice keeps
+# its exact samples; the drone's small-speaker presence now comes from a steady
+# air band that never swells, so nothing in the drone competes with the breath.
+DRONE_BREATH_GAIN = 0.0
+DRONE_AIR_BAND = (300, 600)   # Hz: steady, fixed-level, lowpassed air
+DRONE_AIR_GAIN = 0.6          # on a unit-RMS band: the level that keeps >= 35% above 180 Hz
+DRONE_HI_SHARE_MIN = 0.35
 
 
 def drone() -> list[float]:
@@ -220,6 +228,10 @@ def drone() -> list[float]:
     breath_rms = (energy(breath) / n) ** 0.5
     breath = [x / breath_rms for x in breath]   # unit RMS, so 0.25 means 0.25 of the bed
     breath_env = smooth_walk(n, rnd, 4.7)
+    # Drawn last, so the voices above keep their exact samples.
+    steady = lowpass(band(white(n, rnd), *DRONE_AIR_BAND), DRONE_AIR_BAND[1])
+    steady_rms = (energy(steady) / n) ** 0.5
+    steady = [x / steady_rms for x in steady]
     out = []
     for i in range(n):
         t = i / SR
@@ -229,8 +241,12 @@ def drone() -> list[float]:
         upper = sum(a * (0.5 + 0.5 * math.sin(TAU * 0.13 * t + ph)) * math.sin(TAU * f * t)
                     for f, a, ph in DRONE_UPPER)
         out.append(v * (0.55 + 0.45 * swell[i]) + air[i] * 0.6
-                   + upper * DRONE_UPPER_GAIN + breath[i] * breath_env[i] * DRONE_BREATH_GAIN)
-    return seamless(out, 2.0)
+                   + upper * DRONE_UPPER_GAIN + breath[i] * breath_env[i] * DRONE_BREATH_GAIN
+                   + steady[i] * DRONE_AIR_GAIN)
+    out = seamless(out, 2.0)
+    share = hi_share(out)
+    assert share >= DRONE_HI_SHARE_MIN, f"drone hi_share {share:.1%} < {DRONE_HI_SHARE_MIN:.0%}"
+    return out
 
 
 HEART_BODY_GAIN = 1.0    # 110 Hz body at the spec 0.5
@@ -414,15 +430,34 @@ def breath() -> list[float]:
     return out
 
 
+RING_PAIR = (1900.0, 1903.5)   # main beating pair: 3.5 Hz, 28 whole beats in 8 s
+RING_GHOST = (2847.0, 0.3)      # the old ring, kept as a soft upper partial
+RING_DRIFT_HZ = 0.125           # slow amplitude drift; see ring()
+RING_DRIFT_DEPTH = 0.3
+
+
 def ring() -> list[float]:
-    """'Audible silence': 2847 + 2851 Hz beating at 4 Hz (whole cycles in 8 s,
-    so the tones loop exactly) over a thin band of air."""
+    """'Audible silence', re-voiced for small speakers: a 1900 / 1903.5 Hz pair
+    beating at 3.5 Hz, a soft 2847 Hz partial (the old, sharper ring, now a
+    ghost above it) and a thin band of air, all under a slow amplitude drift.
+
+    Every tone completes whole cycles in the 8.0 s loop (15200, 15228, 22776),
+    so the loop is exact. The drift was asked for at 0.07 Hz, but only whole
+    multiples of 1/8 Hz close an 8 s loop; 0.125 Hz (one swell per loop) is the
+    slowest drift that stays seamless at this length."""
     rnd = random.Random(30)
     n = int(8.0 * SR)
     pad = int(0.3 * SR)
     air = seamless(band(white(n + pad, rnd), 3000, 6000), 0.3)   # exactly n samples
-    return [0.5 * math.sin(TAU * 2847 * i / SR) + 0.5 * math.sin(TAU * 2851 * i / SR) + 0.08 * air[i]
-            for i in range(n)]
+    f1, f2 = RING_PAIR
+    fg, ag = RING_GHOST
+    out = []
+    for i in range(n):
+        t = i / SR
+        drift = 1 - RING_DRIFT_DEPTH * (0.5 - 0.5 * math.cos(TAU * RING_DRIFT_HZ * t))
+        tone = 0.5 * math.sin(TAU * f1 * t) + 0.5 * math.sin(TAU * f2 * t) + ag * math.sin(TAU * fg * t)
+        out.append(tone * drift + 0.08 * air[i])
+    return out
 
 
 def pen() -> list[float]:
@@ -609,6 +644,153 @@ def sign() -> list[float]:
     return out
 
 
+# ---------------------------------------------------------------------------
+# round 3: what is under the floor, and what is behind her
+# ---------------------------------------------------------------------------
+DEEP_LEN = 14.0
+DEEP_GLIDE = (58.0, 43.0, 10.0)   # carrier Hz from, to, over seconds (exponential)
+DEEP_MOD_RATIO = 1.41             # inharmonic: no note the ear can settle on
+DEEP_INDEX = (2.5, 0.8)           # FM index from start to end
+DEEP_PARTIALS = ((2.0, 0.5), (3.0, 0.3), (4.5, 0.2))   # ratio to carrier, amp
+DEEP_FORMANT = (300, 700, 0.25)   # brown-noise band Hz, level on a unit-RMS band
+# The spec levels alone leave only ~22% above 180 Hz (the 3x partial sits at
+# 129-174 Hz). Scaled, as the drone and sea are, to clear 30% on small speakers:
+DEEP_PARTIAL_GAIN = 1.5           # on the partials (ratios kept)
+DEEP_FORMANT_GAIN = 2.6           # on the formant: the moan's breath is what a laptop hears
+DEEP_LOWPASS = 900                # heard through boards
+DEEP_HI_SHARE_MIN = 0.30
+
+
+def deep() -> list[float]:
+    """The thing beneath the floor: a 14 s FM moan. The carrier sinks 58 -> 43 Hz
+    along an exponential glide over the first 10 s, then holds; the modulator
+    rides 1.41 x the carrier, so the sidebands never form a chord, and the index
+    relaxes 2.5 -> 0.8, so it starts as a throat and ends as a hum. Partials at
+    2x, 3x and 4.5x the carrier and a 300-700 Hz brown-noise formant carry it on
+    small speakers. One sin^2 envelope over the whole length (no onset at all),
+    then a 900 Hz lowpass so it arrives through the floorboards."""
+    rnd = random.Random(43)
+    n = int(DEEP_LEN * SR)
+    f0, f1, glide = DEEP_GLIDE
+    lo, hi, fgain = DEEP_FORMANT
+    formant = band(brown(n, rnd), lo, hi)
+    fr = (energy(formant) / n) ** 0.5
+    pc = pm = 0.0
+    out = []
+    for i in range(n):
+        t = i / SR
+        fc = f0 * (f1 / f0) ** (min(t, glide) / glide)
+        pc += TAU * fc / SR
+        pm += TAU * fc * DEEP_MOD_RATIO / SR
+        index = DEEP_INDEX[0] + (DEEP_INDEX[1] - DEEP_INDEX[0]) * t / DEEP_LEN
+        v = math.sin(pc + index * math.sin(pm))
+        v += DEEP_PARTIAL_GAIN * sum(a * math.sin(r * pc) for r, a in DEEP_PARTIALS)
+        v += DEEP_FORMANT_GAIN * fgain * formant[i] / fr
+        out.append(v * math.sin(math.pi * t / DEEP_LEN) ** 2)
+    out = lowpass(out, DEEP_LOWPASS)
+    share = hi_share(out)
+    assert share >= DEEP_HI_SHARE_MIN, f"deep hi_share {share:.1%} < {DEEP_HI_SHARE_MIN:.0%}"
+    return out
+
+
+# The leitmotif. Eight honest notes, then a ninth that is a quarter-tone wrong:
+# the tune resolves to somewhere that is not quite C.
+MOTIF_NOTES = (293.66, 349.23, 440.00, 392.00, 349.23, 329.63, 293.66, 277.18,
+               261.63 * 2 ** (-0.5 / 12))
+MOTIF_STEP = 0.85
+MOTIF_ATTACK = 0.25
+MOTIF_TAU = 0.9
+MOTIF_PARTIALS = ((1.0, 1.0), (2.0, 0.45), (3.0, 0.25), (4.1, 0.12))   # stretched 4th: glassy reed
+MOTIF_VIBRATO = (4.5, 3.0)        # Hz, cents
+MOTIF_REED_AIR = 0.025            # faint bellows air under each note, on its envelope
+MOTIF_ECHO = (0.11, 0.45, 6)
+MOTIF_LOWPASS = 3500
+MOTIF_TAIL = 1.5
+
+
+def motif_render(notes: tuple[float, ...], seed: int = 44) -> list[float]:
+    """A slow harmonium line, one note every 0.85 s: 0.25 s sin^2 swell, then an
+    exponential decay (tau 0.9 s); partials 1/2/3/4.1 under a 4.5 Hz, 3-cent
+    vibrato, with a breath of reed air. Then a short room echo, a 3.5 kHz lowpass
+    and a 1.5 s tail that fades to nothing."""
+    rnd = random.Random(seed)
+    d, fb, taps = MOTIF_ECHO
+    last = (len(notes) - 1) * MOTIF_STEP
+    n = int((last + MOTIF_ATTACK + MOTIF_TAIL) * SR)
+    total = n + int(d * SR) * taps
+    a = int(MOTIF_ATTACK * SR)
+    vib_hz, vib_cents = MOTIF_VIBRATO
+    out = [0.0] * total
+    for k, f in enumerate(notes):
+        s = int(k * MOTIF_STEP * SR)
+        air = band(white(total - s, rnd), 600, 2400)
+        ar = (energy(air) / len(air)) ** 0.5
+        ph = 0.0
+        for j in range(total - s):
+            t = j / SR
+            e = math.sin(math.pi / 2 * j / a) ** 2 if j < a else decay(t - MOTIF_ATTACK, MOTIF_TAU)
+            if e < 1e-4 and j > a:
+                break
+            ph += TAU * f * 2 ** (vib_cents / 1200 * math.sin(TAU * vib_hz * t)) / SR
+            v = sum(amp * math.sin(r * ph) for r, amp in MOTIF_PARTIALS)
+            out[s + j] += e * (v + MOTIF_REED_AIR * air[j] / ar)
+    xs = lowpass(echo(out, d, fb, taps)[:total], MOTIF_LOWPASS)
+    fade = int(0.6 * SR)                     # the last of the echo leaves; no cut at the end
+    for j in range(fade):
+        xs[total - fade + j] *= math.cos(math.pi / 2 * j / fade) ** 2
+    return xs
+
+
+def motif() -> list[float]:
+    return motif_render(MOTIF_NOTES)
+
+
+def motif_short() -> list[float]:
+    """The motif's last three notes (D4, C#4, the flat C4): the wrong ending alone."""
+    return motif_render(MOTIF_NOTES[-3:])
+
+
+EXHALE_LEN = 1.8
+EXHALE_ATTACK = 0.3
+EXHALE_PLATEAU_END = 0.9
+EXHALE_THROAT = (450, 750, 0.3)   # formant around 600 Hz
+EXHALE_CHEST = (90.0, 0.1)
+
+
+def exhale_near() -> list[float]:
+    """One slow, close, wet exhale just behind her shoulder. Breath noise
+    band-passed 300-2500 Hz, a throat formant around 600 Hz that gurgles on a
+    40 ms smooth walk (the wet part), and a faint 90 Hz chest. Envelope: 0.3 s
+    raised-cosine attack, plateau to 0.9 s, cos^2 decay to silence at 1.8 s,
+    with the breath darkening as it runs out of air."""
+    rnd = random.Random(45)
+    n = int(EXHALE_LEN * SR)
+    air = band(white(n, rnd), 300, 2500)
+    lo, hi, tg = EXHALE_THROAT
+    throat = band(white(n, rnd), lo, hi)
+    wet = smooth_walk(n, rnd, 0.04)
+    ra = (energy(air) / n) ** 0.5
+    rt = (energy(throat) / n) ** 0.5
+    cf, ca = EXHALE_CHEST
+    out = []
+    for i in range(n):
+        t = i / SR
+        if t < EXHALE_ATTACK:
+            e = 0.5 - 0.5 * math.cos(math.pi * t / EXHALE_ATTACK)
+        elif t < EXHALE_PLATEAU_END:
+            e = 1.0
+        else:
+            e = math.cos(math.pi / 2 * (t - EXHALE_PLATEAU_END) / (EXHALE_LEN - EXHALE_PLATEAU_END)) ** 2
+        v = air[i] / ra + tg * (0.3 + 0.7 * wet[i]) * throat[i] / rt + ca * math.sin(TAU * cf * t)
+        out.append(v * e)
+    # The breath darkens as the lungs empty: a lowpass that closes from 4 kHz to 1.2 kHz.
+    y, dark = 0.0, []
+    for i, x in enumerate(out):
+        y += lp_coef(4000 - 2800 * i / n) * (x - y)
+        dark.append(y)
+    return dark
+
+
 def main() -> None:
     print(f"Writing to {OUT}")
     for name, fn in [
@@ -622,6 +804,11 @@ def main() -> None:
         ("nib", nib), ("sign", sign),
     ]:
         write(name, fn())
+    for name, fn, peak in [
+        ("deep", deep, 0.8), ("motif", motif, 0.7), ("motif_short", motif_short, 0.7),
+        ("exhale_near", exhale_near, 0.6),
+    ]:
+        write(name, fn(), peak)
 
 
 if __name__ == "__main__":
