@@ -73,6 +73,7 @@ func run_tests() -> void:
 	if _view_ready():
 		await view_checks(ROOM)
 		test_view_rects()
+		await test_view_presentation()
 	else:
 		print("SKIP: R06 view_checks and rect checks: the R06 view does not yet declare rects for every sim hotspot (view team)")
 
@@ -938,3 +939,107 @@ func test_view_rects() -> void:
 	for s in ["spring_creak", "compartment_drop", "latch_small"]:
 		check(s in soft, "R06 view: %s is in SFX_SOFT" % s)
 	check(float(m.get("SFX_SOFT_CUT", {}).get("spring_creak", 0.0)) >= 60.0, "R06 view: spring_creak is cut by at least 60 dB")
+
+# ---------------------------------------------------------------------------------------------
+# (20) the view presents the sim: walls, controls, holds, hollows, tint and loops
+# ---------------------------------------------------------------------------------------------
+func _view_at(scene, n: int) -> RoomView:
+	scene.room_jump(ROOM, n)
+	return scene.room_view
+
+func test_view_presentation() -> void:
+	var scene = new_scene("user://r06_view_test.json")
+	await process_frame
+	# Stage 0, Tide III: view A, the exits live, no Back.
+	var v = _view_at(scene, 0)
+	check(v.shown_wall() == "room" and v.exits_active() and not v.back_visible(), "view: A at Tide III, exits live")
+	check(v.label_for("ives_letter") == "Pigeonhole", "view: the pigeonhole before P08")
+	check(v.tint_for(1) == Color(1, 1, 1) and v.tint_for(7).is_equal_approx(Color(0.86, 0.89, 0.93)),
+		"view: tint runs from white at band 1 to (0.86, 0.89, 0.93) at band 7")
+	var mid: Color = v.tint_for(4)
+	check(is_equal_approx(mid.r, 0.93) and is_equal_approx(mid.b, 0.965), "view: the tint steps evenly")
+	scene.dispatch("to_curtain")
+	check(v.shown_wall() == "curtain" and v.back_visible() and not v.exits_active(), "view: B turns her round with Back, no exits")
+	scene.dispatch("back")
+	check(v.shown_wall() == "room", "view: Back from B is A")
+	# c_lockers stage 1: three placed, the glove on the tray; no venn_back yet.
+	v = _view_at(scene, 1)
+	var ids := []
+	for h in v.lockers_controls():
+		ids.append(h[0])
+	check(ids == ["card_bell", "card_rook", "card_venn", "card_ives", "shelf_bell", "shelf_rook", "shelf_venn",
+		"shelf_ives", "obj_glove"], "view: c_lockers controls one short (%s)" % [ids])
+	check(v.action_at(Vector2(560, 900)) == "obj_glove", "view: the glove answers at tray slot 2")
+	check(v.label_for("obj_glove") == "Glove" and v.label_for("card_bell") == "BELL card"
+		and v.label_for("shelf_ives") == "IVES shelf", "view: c_lockers hover labels")
+	scene.dispatch("obj_glove")
+	scene.dispatch("shelf_ives")
+	ids = []
+	for h in v.lockers_controls():
+		ids.append(h[0])
+	check(ids.find("venn_back") == 4 and not "obj_glove" in ids, "view: venn_back before the shelves after P08, tray empty")
+	check(v.venn_pending and v.token_on, "view: Venn's back waits for its sound; the rubbing shows in the chain")
+	v.on_sfx("compartment_drop")
+	check(not v.venn_pending, "view: the compartment opens at compartment_drop")
+	check(v.label_for("ives_letter") == "Ives's letter", "view: Ives's letter once the pigeonhole opens")
+	# The pillow hold: a hard cut on A, the first click only skips it.
+	scene.dispatch("back")
+	scene.dispatch("go:R05")
+	scene.dispatch("go:R06")
+	v = scene.room_view
+	check(v.hold_active() and v.shown_wall() == "room" and v.dent_alpha("venn") == 1.0, "view: the pillow is dented at full alpha at the hold's start")
+	check(v.action_at(Vector2(900, 700)) == "" and not v.hold_active(), "view: a click during the hold only skips it")
+	check(v.action_at(Vector2(900, 700)) == "venn_bunk", "view: then the bunk answers")
+	# Tide IV: the calendar notice shows the curtain wall; exits hide for that moment.
+	v = _view_at(scene, 4)
+	v.play_fx("notice_names_moved", {"id": "notice_names_moved", "view": "curtain"})
+	check(v.hold_active() and v.shown_wall() == "curtain" and not v.exits_active(), "view: the names hold shows B")
+	v.action_at(Vector2(10, 500))
+	check(v.shown_wall() == "room" and v.exits_active(), "view: after the hold, A again")
+	# every_bed: the A hollows not yet seen wait for their spring, in DENT_ORDER.
+	scene.tide_jump(8, ROOM)
+	v = scene.room_view
+	if v.motion:
+		v.play_fx("notice_every_bed", {"id": "notice_every_bed", "view": "room"})
+		check(v.dent_alpha("ives") == 1.0 and v.dent_alpha("rook") == 0.0, "view: every_bed starts from the band-5 hollows")
+		v.on_sfx("springs_eight")
+		v.tick(0.7 * 4 + 0.01)
+		check(v.dent_alpha("rook") == 1.0 and v.dent_alpha("hart") == 0.0, "view: Rook's hollow with the fifth spring, Hart's later")
+		v.action_at(Vector2(10, 500))
+		check(v.dent_alpha("hart") == 1.0, "view: a click lands every hollow")
+	# Loops by band.
+	var t: Dictionary = v.loop_targets()
+	check(t["r06_rain_roof"] == 0.0 and is_equal_approx(t["r06_beds_breath"], 0.22) and is_equal_approx(t["r06_wind_louvre"], 0.1),
+		"view: band 6 loops (rain gone, beds breathing)")
+	scene.tide_jump(3, ROOM)
+	t = scene.room_view.loop_targets()
+	check(is_equal_approx(t["r06_rain_roof"], 0.45) and is_equal_approx(t["r06_room"], 0.5) and t["r06_beds_breath"] == 0.0,
+		"view: band 1 loops")
+	# The sever rise: all four A hollows at first, then each lets go in order.
+	scene.tide_jump(9, ROOM)
+	scene.sim.state.ending = "sever"
+	v = scene.room_view
+	if v.motion:
+		v.play_fx("notice_rise", {"id": "notice_rise", "view": "room"})
+		check(v.dent_alpha("hart") == 1.0 and v.dent_alpha("venn") == 1.0, "view: the rise starts full")
+		v.on_sfx("dents_rise")
+		v.tick(1.6)
+		check(v.dent_alpha("venn") == 0.0 and v.dent_alpha("hart") == 1.0, "view: Venn's first, Hart's still there")
+	scene.sim.state.ending = ""
+	# c_slope: the printed line only while the card is on the rest; keys press on their sounds.
+	v = _view_at(scene, 7)
+	var sl := []
+	for h in v._controls():
+		sl.append(h[0])
+	check("printed_line" in sl and v.back_visible(), "view: the printed line with the card on the rest")
+	v.on_sfx("append_refuse")
+	check(v.key_t["append"] > 0.0 and v.key_t["erase"] == 0.0, "view: APPEND shows pressed")
+	scene.dispatch("append")
+	sl = []
+	for h in v._controls():
+		sl.append(h[0])
+	check(not "printed_line" in sl, "view: the rests are empty after P22")
+	scene.dispatch("back")
+	check(scene.room_view.hold_active() and scene.room_view.hold_rect == Rect2(48, 250, 100, 640),
+		"view: the cup notice focuses Bell's locker")
+	await free_scene(scene)
