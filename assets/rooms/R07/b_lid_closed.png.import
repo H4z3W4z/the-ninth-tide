@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://joggbhu2k6nx"
-path="res://.godot/imported/c_damp.png-75fb4bcefdc7a12c4a74b77feda4fbea.ctex"
+uid="uid://bdxvs2sorrlhv"
+path="res://.godot/imported/b_lid_closed.png-4e14165d3a9af036a5b2aa1f7166e51a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/rooms/R07/c_damp.png"
-dest_files=["res://.godot/imported/c_damp.png-75fb4bcefdc7a12c4a74b77feda4fbea.ctex"]
+source_file="res://assets/rooms/R07/b_lid_closed.png"
+dest_files=["res://.godot/imported/b_lid_closed.png-4e14165d3a9af036a5b2aa1f7166e51a.ctex"]
 
 [params]
 
