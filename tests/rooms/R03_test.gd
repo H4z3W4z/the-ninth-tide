@@ -36,6 +36,7 @@ func run_tests() -> void:
 	test_debug_jumps()
 	test_geometry()
 	await view_checks(ROOM)
+	await test_view()
 
 # ---------------------------------------------------------------------------
 # helpers
@@ -950,3 +951,145 @@ func test_geometry() -> void:
 			for h in all[w]:
 				check(not h[1].intersects(t[1]), "R03 %s does not overlap wall %s %s" % [t[0], w, h[0]])
 	check("turn_left" in tids and "turn_right" in tids, "R03 view has both turn arrows")
+
+# ---------------------------------------------------------------------------
+# the view: per-wall hit tests, turn plaques, notice hold, registration geometry, close-up
+# controls, loop targets, presentation-only hooks
+# ---------------------------------------------------------------------------
+func test_view() -> void:
+	var scene = new_scene("user://room_test_R03_view.json")
+	await process_frame
+	scene.room_jump(ROOM, 4)   # tide II, P04 done: every wall live
+	await process_frame
+	var v = scene.room_view
+	var r := scene.room_sim() as R03Sim
+	check(v != null and r != null, "R03 view mounts at stage 4")
+	if v == null:
+		await free_scene(scene)
+		return
+	# Each wall answers with its own list, small objects first; turns everywhere.
+	for w in R03Sim.WALLS:
+		r.wall = w
+		for h in v.WALL_HOTSPOTS[w]:
+			var a: String = v.action_at(h[1].get_center())
+			var first := ""
+			for k in v.WALL_HOTSPOTS[w]:
+				if k[1].has_point(h[1].get_center()):
+					first = k[0]
+					break
+			check(a == first, "wall %s: the centre of %s hits %s (got %s)" % [w, h[0], first, a])
+		for t in v.TURN_RECTS:
+			check(v.action_at(v.TURN_RECTS[t].get_center()) == t, "wall %s: %s is clickable" % [w, t])
+		check(v.label_for("turn_left").begins_with("◂ ") and v.label_for("turn_right").ends_with(" ▸"),
+			"wall %s: turn plaques name their direction" % w)
+	r.wall = "A"
+	check(v.label_for("turn_left") == "◂ Hatch wall" and v.label_for("turn_right") == "Recorder wall ▸",
+		"wall A turns to the hatch wall (left) and the recorder wall (right)")
+	r.wall = "B"
+	check(v.label_for("turn_left") == "◂ Chart wall" and v.label_for("turn_right") == "Hatch wall ▸",
+		"wall B turns to the chart wall (left) and the hatch wall (right)")
+	check(v.exits_active() and v.esc_action() == "menu" and not v.back_visible(), "walls: exits on, Esc is the menu")
+	# The notice hold: input ignored except a click, which skips it.
+	r.wall = "C"
+	v.play_fx("notice", {"notice": "n_p04"})
+	check(v.holding(), "a notice starts a hold")
+	check(v.hover_at(Vector2(700, 600)) == "" and not v.exits_active() and v.esc_action() == "",
+		"during the hold, hover, exits and Esc are ignored")
+	check(v.action_at(Vector2(700, 600)) == "" and not v.holding(), "a click skips the hold and does nothing else")
+	v.play_fx("notice", {"notice": "n_b7"})
+	for i in 120:
+		v.tick(1.0 / 60.0)
+	check(not v.holding(), "the hold ends by itself after about 1.5 s")
+	v.play_fx("notice", {"notice": "bogus"})
+	check(not v.holding(), "an unknown notice holds nothing")
+	# The scratches sit on the jamb, inside the hatch-frame hotspot.
+	var frame: Rect2 = v.WALL_HOTSPOTS.C[0][1]
+	for stroke in v.scratch_strokes():
+		for p in stroke:
+			check(frame.grow(2).has_point(p), "scratch point %s is on the jamb" % [p])
+	# Loop targets follow state and wall, never a clock.
+	r.wall = "B"
+	var t: Dictionary = v.audio_targets()
+	check(is_equal_approx(t.r03_drum, 0.45) and is_equal_approx(t.r03_scratch, 0.0), "P04 on wall B: the drum, no scratch")
+	r.wall = "C"
+	t = v.audio_targets()
+	check(t.r03_sea == 0.0 and is_equal_approx(t.r03_stair_air, 0.25), "P04 on wall C: no sea, stair air")
+	# Registration: the answer lands his sheet exactly on the table's.
+	r.state.reg_rot = 0
+	r.state.reg_snap = "lighthouse"
+	var xf: Transform2D = v.venn_xform()
+	for k in v.CROSSES:
+		check((xf * v.CROSSES[k]).distance_to(v.CROSSES[k]) < 0.01, "in register, his %s is on the table's" % k)
+	r.state.reg_rot = 2
+	r.state.reg_snap = ""
+	xf = v.venn_xform()
+	check((xf * v.CROSSES.lighthouse).distance_to(v.CROSSES.lighthouse) > 30.0, "loose and upside down, it's out of register")
+	r.state.reg_rot = 1
+	r.state.reg_snap = "buoy"
+	xf = v.venn_xform()
+	check((xf * v.CROSSES.buoy).distance_to(v.CROSSES.lighthouse) < 0.01, "pinned by his buoy, the buoy is on the table's lighthouse")
+	# The composite lies in band 3 between x 250 and 580.
+	for p in v.VENN_BRACKET + v.VENN_LINKED + v.VENN_EXIT + [v.VENN_LOOP_C]:
+		check(p.y >= 272 and p.y <= 368 and p.x >= 250 and p.x <= 580, "composite point %s is in band 3" % [p])
+	# Close-up controls.
+	r.state.reg_rot = 0
+	r.state.reg_snap = ""
+	r.local_view = "c_registration"
+	r.state.reg_laid = false
+	check(v.action_at(Vector2(204, 475)) == "reg_lay", "unlaid: the lay control lays")
+	r.state.reg_laid = true
+	check(v.action_at(Vector2(204, 475)) == "reg_lift", "laid: the same control lifts")
+	check(v.action_at(Vector2(1264, 790)) == "reg_clip" and v.action_at(Vector2(700, 760)) == "reg_table",
+		"CLIP and the light table answer")
+	var lh: Vector2 = v._venn_screen_xform() * v.CROSSES.datum
+	check(v.action_at(lh) == "reg_table", "after P03 his crosses no longer pin")
+	r.state.p03_complete = false
+	check(v.action_at(lh) == "reg_snap_datum", "clicking his visible cross pins by it")
+	r.state.p03_complete = true
+	check(v.back_visible() and v.esc_action() == "back" and not v.exits_active(), "close-up: Back, Esc backs out, no exits")
+	r.local_view = "c_recorder"
+	check(v.action_at(Vector2(329, 484)) == "rec_zero_up" and v.action_at(Vector2(569, 710)) == "rec_int_down",
+		"the wheel buttons answer after the threshold")
+	check(v.action_at(Vector2(989, 565)) == "rec_slot_0" and v.action_at(Vector2(1154, 885)) == "rec_record",
+		"after P04 the record panel is open")
+	check(v.action_at(Vector2(989, 745)) == "rec_plate_observer", "the rack's first home holds OBSERVER")
+	r.local_view = "c_plan"
+	check(v.action_at(Vector2(1335, 242)) == "plan_tile_body" and v.action_at(Vector2(720, 625)) == "plan_zone_centre",
+		"tray tiles and zones answer")
+	r.state.plan_tiles.body = "centre"
+	check(v.action_at(Vector2(720, 625)) == "plan_tile_body", "a placed tile is hit before its zone")
+	check(v.action_at(Vector2(1335, 242)) == "", "an empty home answers nothing")
+	r.state.plan_tiles.body = ""
+	r.local_view = "room"
+	# Presentation only: the view's hooks leave the story alone.
+	var before: Dictionary = scene.sim.to_dict()
+	v.apply_instantly()
+	v.reset_presentation()
+	for fx in ["composite", "drum_turn", "strip_print", "plan_resolve", "item_added"]:
+		v.play_fx(fx, {})
+	for sfx in ["strip_print", "strip_print_last", "relay_clack", "name_print", "plan_resolve"]:
+		v.on_sfx(sfx)
+	for i in 30:
+		v.tick(1.0 / 60.0)
+	check(JSON.stringify(scene.sim.to_dict()) == JSON.stringify(before), "the view's hooks never change story state")
+	# The strip types only on its cues.
+	scene.room_jump(ROOM, 5)
+	await process_frame
+	v = scene.room_view
+	r = scene.room_sim() as R03Sim
+	check(v.strip_visible().size() == 6, "a loaded strip shows all six lines")
+	v.play_fx("strip_print", {})
+	check(v.strip_visible().is_empty(), "printing starts blank")
+	for i in 60:
+		v.tick(1.0 / 60.0)
+	check(v.strip_visible().is_empty(), "nothing types before the print cue")
+	v.on_sfx("strip_print")
+	for i in 900:
+		v.tick(1.0 / 60.0)
+	check(v.strip_visible().size() == 4, "the first print types the head and her three moves, and waits")
+	v.on_sfx("strip_print_last")
+	v.on_sfx("relay_clack")
+	for i in 900:
+		v.tick(1.0 / 60.0)
+	check(v.strip_visible().size() == 6, "line 4 and the relay's reply follow their cues")
+	await free_scene(scene)
