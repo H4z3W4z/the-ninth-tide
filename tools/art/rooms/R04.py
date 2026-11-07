@@ -66,6 +66,14 @@ VIOLET = (116, 101, 119)    # #746577
 CORK = (164, 128, 90)
 CORK_DK = (132, 100, 68)
 CORK_HI = (184, 150, 110)
+# Round w1 (owner: de-orange the room): the R04 plates repainted in a grey-brown cork, the seat's
+# polish cooled with it. The cabinet lamp's pool is then the only warm island in the room.
+CORK_GREY = (128, 108, 86)
+CORK_GREY_DK = (100, 84, 66)
+CORK_GREY_HI = (150, 130, 106)
+SKIP5 = False                # True while painting the room_a* plates: the view draws horn 5 itself
+REST_AIM = None              # round w1 plates: the point every resting bell aims at (the seated stain)
+STAIN_AIM = (160, 440)
 PLASTER = (214, 207, 188)
 PLASTER_DK = (186, 177, 156)
 PLASTER_HI = (232, 227, 212)
@@ -371,6 +379,8 @@ def horn_geo(n, turned):
     collar, ctrl, N = HORNS[n]
     if turned:
         ang = math.atan2(AIM[1] - N[1], AIM[0] - N[0])
+    elif REST_AIM:           # round w1: at rest every bell aims at the seated stain (5 into the wall)
+        ang = math.atan2(REST_AIM[1] - N[1], REST_AIM[0] - N[0])
     else:
         ang = math.radians(BACK_ANG if n == 5 else STRAIGHT_ANG)
     u = (math.cos(ang), math.sin(ang))
@@ -506,6 +516,8 @@ def horn_shadows(p, geo):
     d = (-13, 11)
     for g in geo.values():
         sh.line([(x + d[0], y + d[1]) for x, y in tube_points(g)], SHADOW + (255,), 15)
+        if SKIP5 and g["n"] == 5:
+            continue
         sh.poly(horn_body(g, d=d), SHADOW + (255,), None)
         mouth_oval(sh, g, 1.0, fill=SHADOW + (255,), ink=None, d=d)
     p.put_soft(sh, 7, 0.32)
@@ -520,14 +532,17 @@ def funnels(p, rng, turned):
     for n in (1, 2, 3, 4, 5, 6):
         plaster_collar(p, crng, geo[n]["collar"])
     for n in (4, 6, 5, 1, 2, 3):
-        horn(p, geo[n])
+        if not (SKIP5 and n == 5):
+            horn(p, geo[n])
     for n in HORNS:  # a wire hanger from each rim to the number tab the view writes on
+        if SKIP5 and n == 5:
+            continue
         tx, ty = (TABS_TURNED if turned else TABS)[n]
         g = geo[n]
         near = min(mouth_points(g, 0.98) + horn_body(g), key=lambda q: math.hypot(q[0] - tx, q[1] - ty))
         p.line([near, (tx, ty + 2)], INK, 1.8)
         p.ell(tx, ty + 1, 3, 3, BRASS_HI, INK, 1.2)
-    if not turned:
+    if not turned and not SKIP5:
         p.ell(TAG5[0], TAG5[1], 4.5, 4.5, BRASS_HI, INK, 2)   # eyelet for funnel 5's tag string
     return geo
 
@@ -1451,8 +1466,9 @@ STAGE_TINT = {1: (1.0, 1.0, 1.0), 2: (0.93, 0.945, 0.955), 3: (0.84, 0.895, 0.88
               0: (0.9, 0.925, 0.96)}
 
 
-def light_maps(view, stage):
-    """(mul, add) RGB images at quarter size. stage 0 is the sever ending's grey daylight."""
+def light_maps(view, stage, rake=True):
+    """(mul, add) RGB images at quarter size. stage 0 is the sever ending's grey daylight.
+    rake=False drops the warm raking light on the plaster: the lamp pool stays the only warmth."""
     tint = STAGE_TINT[stage]
     mul = Image.new("RGB", (LW, LH))
     add = Image.new("RGB", (LW, LH))
@@ -1471,7 +1487,7 @@ def light_maps(view, stage):
                     dl = math.hypot(x - LAMP[0], (y - 560) * 1.3) / 1100.0
                     f *= 1.0 - (0.16 if stage >= 2 else 0.12) * min(1.0, dl)
                 pool = _gauss(x, y, 1060, 590, 300, 150) * 0.85 + _gauss(x, y, LAMP[0], 505, 80, 70) * 0.7
-                rake = _gauss(x, y, 860, 300, 260, 220) * 0.35
+                rake = _gauss(x, y, 860, 300, 260, 220) * 0.35 if rake else 0.0
                 k = lamp * pool + lamp * rake
                 ar, ag, ab = 78 * k, 52 * k, 22 * k
                 if stage == 4:  # the lamp has gone; the indicator jewel keeps a small pool
@@ -1490,9 +1506,9 @@ def light_maps(view, stage):
     return mul, add
 
 
-def _light(view, stage, which):
+def _light(view, stage, which, rake=True):
     def fn(_rng):
-        mul, add = light_maps(view, stage)
+        mul, add = light_maps(view, stage, rake)
         return mul if which == "mul" else add
     return fn
 
@@ -1727,11 +1743,20 @@ def paint_c_spindle(rng):
     p.line([(1270, 516), (1300, 516)], (86, 80, 72), 2)
     p.ell(1400, 400, 22, 22, BRASS_HI, INK, 3.5)
     p.ell(1400, 400, 8, 8, BRASS_DK, INK, 2)
+    if FOUR_BANDS:  # felt tray with four compartments: B, D, A, C (R04_view.gd TRAY_RECTS)
+        p.rect(200, 724, 1200, 926, TIMBER, INK, 4, r=6)
+        for x0 in TRAY4_X:
+            felt_cradle(p, x0, 740, x0 + 210, 910)
+        return p
     # felt tray with three compartments
     p.rect(280, 724, 1170, 926, TIMBER, INK, 4, r=6)
     for x0, x1 in ((300, 550), (600, 850), (900, 1150)):
         felt_cradle(p, x0, 740, x1, 910)
     return p
+
+
+FOUR_BANDS = False           # True while painting c_spindle_four
+TRAY4_X = (220, 467, 714, 961)
 
 
 def felt_cradle(p, x0, y0, x1, y1):
@@ -1919,6 +1944,225 @@ def paint_c_witness_down(rng):
     return p
 
 
+# ----------------------------------------------------------------------------- round w1 (fixer)
+#
+# New files only; every earlier plate stays byte-identical.
+#   room_a, room_a_s2, room_a_turned, room_a_s3, room_a_s4, room_a_sever, room_b, room_b_s2..s4
+#       the stage plates repainted in grey-brown cork (CORK_GREY*), the seat's polish cooled;
+#       room_a* leave horn 5's bell off (tube and collar stay): R04_view.gd draws that horn,
+#       because it turns toward the viewer at P04 and faces her after P19
+#   a_dew, a_dew_turned          the band 2-4 condensation without horn 5's beads
+#   stain_seated(_turned)        the damp patch in the shape of someone sitting, behind the horns
+#   a_damp_b3..b7, b_damp_b3..b7 flat navy damp creeping down from the ceiling band, per band
+#   a_eyes                       band 7: a flat eye round every collar, pupils on the seat
+#   a_glow_s1..s4, a_glow_sever  additive light without the warm rake on the plaster
+#   c_spindle_four               the spindle close-up with a four-band tray, grey cork
+#   c_channels_log               the channel close-up with the session log in place of the cards
+
+STAIN = (94, 84, 70)          # #5E5446
+STAIN_EDGE = (74, 64, 52)
+STAIN_A = 0.6                 # painted at the band-4 strength; the view draws it at 0.35/0.6 before
+NAVY_DAMP = STORM
+POLISH_COOL = ((146, 110, 82), (176, 140, 108), (118, 88, 64))
+
+
+def _swap(fn, **kv):
+    """Run a painter with module palette globals temporarily replaced (repeatable, no state left)."""
+    def run(rng):
+        g = globals()
+        saved = {k: g[k] for k in kv}
+        g.update(kv)
+        try:
+            return fn(rng)
+        finally:
+            g.update(saved)
+    return run
+
+
+def _grey(fn, skip5=False, four=False):
+    pol, pol_hi, pol_dk = POLISH_COOL
+    return _swap(fn, CORK=CORK_GREY, CORK_DK=CORK_GREY_DK, CORK_HI=CORK_GREY_HI, POLISH=pol,
+                 POLISH_HI=pol_hi, POLISH_DK=pol_dk, SKIP5=skip5, FOUR_BANDS=four,
+                 REST_AIM=STAIN_AIM, TABS=TABS_W1)
+
+
+def _aimed(fn):
+    return _swap(fn, REST_AIM=STAIN_AIM, TABS=TABS_W1)
+
+
+# Rest tabs for the round-w1 plates (R04_view.gd TABS mirrors these): under each bell's lowest rim.
+TABS_W1 = {1: (300, 270), 2: (466, 262), 3: (652, 252), 4: (268, 448), 5: (452, 470), 6: (626, 416)}
+
+
+def horn_mask(turned, skip5=True, pad=2.0):
+    """L mask (supersampled) of everything the horns put in front of the wall."""
+    lay = Pen(W, H, random.Random(0))
+    white = (255, 255, 255)
+    for n in HORNS:
+        g = horn_geo(n, turned)
+        lay.line(tube_points(g), white, 17 + pad)
+        lay.ell(g["collar"][0], g["collar"][1], 29 + pad, 27 + pad, white, None)
+        if skip5 and n == 5:
+            continue
+        lay.poly(horn_body(g), white, white, 3 + pad)
+        mouth_oval(lay, g, 1.0 + pad / HORN_R, fill=white, ink=None)
+        lay.ell(g["N"][0], g["N"][1], 12 + pad, 12 + pad, white, None)
+    return lay.im.getchannel("A")
+
+
+def _invert(m):
+    return m.point(lambda v: 255 - v)
+
+
+def seated_silhouette():
+    """Someone sitting very still in profile, facing into the room, on a chair that isn't
+    there: L mask, supersampled. Every resting bell aims at it (STAIN_AIM)."""
+    lay = Pen(W, H, random.Random(0))
+    w = (255, 255, 255)
+    dy = -8
+    lay.ell(166, 398 + dy, 19, 23, w, None)                                         # head
+    lay.rect(156, 414 + dy, 173, 434 + dy, w, None)                                 # neck
+    lay.poly([(148, 424 + dy), (178, 426 + dy), (190, 440 + dy), (188, 500 + dy), (140, 504 + dy),
+              (137, 450 + dy)], w, None)                                            # back and chest
+    lay.ell(164, 437 + dy, 25, 14, w, None)                                         # shoulders
+    lay.line([(170, 440 + dy), (177, 478 + dy), (218, 486 + dy)], w, 15)            # arm, hand on the knee
+    lay.rect(138, 484 + dy, 234, 512 + dy, w, None, r=11)                           # thighs, level
+    lay.rect(210, 498 + dy, 234, 548 + dy, w, None, r=6)                            # shins
+    lay.ell(240, 548 + dy, 17, 6, w, None)                                          # foot
+    m = lay.im.getchannel("A")
+    # a damp edge: soften, then cut with low-frequency noise so the outline wanders a little
+    m = m.filter(ImageFilter.GaussianBlur(2.5 * SS))
+    nz = value_noise(rng_for(601), W * SS, H * SS, 14 * SS)
+    m = ImageChops.add(m, nz.point(lambda v: (v - 128) // 3 if v > 128 else 0))
+    m = ImageChops.subtract(m, nz.point(lambda v: (128 - v) // 3 if v < 128 else 0))
+    return m.point(lambda v: 255 if v > 132 else 0)
+
+
+def paint_stain_seated(rng, turned=False):
+    p = Pen(W, H, rng)
+    sil = seated_silhouette()
+    # two damp runs from the feet, the way water leaves a wall
+    runs = Pen(W, H, rng)
+    for x0, length in ((150, 30), (176, 22)):   # water leaving the seat line
+        runs.line([(x0, 500), (x0 + 1, 500 + length * 0.5), (x0, 500 + length)], (255, 255, 255), 3)
+    sil = ImageChops.lighter(sil, runs.im.getchannel("A"))
+    plaster = plaster_mask(plaster_outline(rng_for(40)), p.im.size)
+    keep = ImageChops.multiply(plaster, _invert(horn_mask(turned)))
+    edge = ImageChops.subtract(sil, sil.filter(ImageFilter.MinFilter(2 * 3 * SS + 1)))
+    fill = Pen(W, H, rng)
+    fill.im = Image.new("RGBA", p.im.size, rgba(STAIN))
+    p.put(fill, STAIN_A, mask=ImageChops.multiply(sil, keep))
+    rim = Pen(W, H, rng)
+    rim.im = Image.new("RGBA", p.im.size, rgba(STAIN_EDGE))
+    p.put(rim, 0.45, mask=ImageChops.multiply(edge, keep))
+    return p
+
+
+def _damp_profile(width, base, rng):
+    """A ragged lower edge: x -> extra depth, the same for every band (the stain only grows)."""
+    pts = []
+    k = 0
+    for x in range(-8, width + 16, 16):
+        k += 1
+        pts.append((x, base * (1.0 + 0.35 * math.sin(x / 97.0 + 1.3) + 0.2 * math.sin(x / 41.0)) + rng.uniform(-6, 6)))
+    return pts
+
+
+def paint_damp(view, band):
+    def fn(rng):
+        p = Pen(W, H, rng)
+        top = 74 if view == "a" else 130
+        depth = 34 + 52 * (band - 3)
+        prng = rng_for(610 if view == "a" else 611)
+        edge = _damp_profile(W, depth, prng)
+        lay = p.layer()
+        lay.poly([(-8, top - 2)] + [(x, top + d) for x, d in edge] + [(W + 16, top - 2)], NAVY_DAMP, None)
+        drng = rng_for(612 if view == "a" else 613)
+        for _ in range(7 + 2 * (band - 3)):  # runs below the front, longer each band
+            x = drng.uniform(30, W - 30)
+            d0 = top + depth * 0.8
+            ln = drng.uniform(18, 46) * (1 + 0.4 * (band - 3))
+            lay.line([(x, d0), (x + drng.uniform(-2, 2), d0 + ln)], NAVY_DAMP, drng.uniform(4, 7))
+        if view == "a":
+            front = ImageChops.lighter(horn_mask(band >= 4, skip5=True, pad=3.0), clip_mask(
+                p.im.size, [(950, 190, 1290, 470), (1328, 150, W, H)]))
+            keep = _invert(front)
+        else:
+            m = Image.new("L", p.im.size, 255)
+            d = ImageDraw.Draw(m)
+            d.ellipse(((725 - 128) * SS, (215 - 128) * SS, (725 + 128) * SS, (215 + 128) * SS), fill=0)
+            d.rectangle((180 * SS, 352 * SS, 1270 * SS, 880 * SS), fill=0)
+            d.rectangle((0, 0, 118 * SS, H * SS), fill=0)
+            keep = m
+        p.put(lay, 0.18, mask=keep)
+        return p
+    return fn
+
+
+EYE = (217, 220, 214)        # #D9DCD6
+
+
+def paint_a_eyes(rng):
+    """Band 7: round every collar a flat pale disc, one iris ring, a vertical slit pupil, all
+    turned toward the seat. The pipe sinks into it."""
+    p = Pen(W, H, rng)
+    for n in HORNS:
+        cx, cy = HORNS[n][0]
+        dx, dy = AIM[0] - cx, AIM[1] - cy
+        m = math.hypot(dx, dy) or 1.0
+        ox, oy = dx / m * 20, dy / m * 17
+        p.ell(cx, cy, 50, 44, EYE, INK, 3)
+        p.ell(cx + ox, cy + oy, 25, 25, None, INK, 3)
+        p.ell(cx + ox, cy + oy, 5, 18, THROAT_DEEP, None)
+    return p
+
+
+def paint_c_channels_log(rng):
+    p = paint_c_channels(rng)
+    # cover the three card slots with plain timber, then pin the session log over them
+    p.rect(140, 806, 1310, 954, TIMBER, None)
+    y = 806
+    while y < 954:
+        p.line([(140, y), (1310, y)], TIMBER_DK, 2.5)
+        y += 37
+    sh = p.layer()
+    sh.rect(158, 806, 1310, 980, SHADOW + (255,), None)
+    p.put_soft(sh, 6, 0.35)
+    p.rect(150, 798, 1300, 972, PAPER_HI, INK, 3)
+    p.line([(160, 808), (1290, 808)], (244, 240, 230), 2)
+    p.line([(196, 802), (196, 968)], mix(VIOLET, PAPER, 0.35), 1.6)     # margin rule
+    for yy in (874, 916, 958):
+        p.line([(206, yy), (1286, yy)], mix(PAPER, INK, 0.22), 1.4)
+    for x in (180, 1270):
+        p.ell(x, 818, 8, 8, BRASS_HI, INK, 2.2)
+    return p
+
+
+ROUND_W1 = [
+    ("room_a", 0, _grey(lambda r: paint_view_a(r, False, 1), skip5=True), True, True),
+    ("room_a_s2", 0, _grey(lambda r: paint_view_a(r, False, 2), skip5=True), True, True),
+    ("room_a_turned", 0, _grey(lambda r: paint_view_a(r, True, 2), skip5=True), True, True),
+    ("room_a_s3", 0, _grey(lambda r: paint_view_a(r, True, 3), skip5=True), True, True),
+    ("room_a_s4", 0, _grey(lambda r: paint_view_a(r, True, 4), skip5=True), True, True),
+    ("room_a_sever", 0, _grey(lambda r: paint_view_a(r, False, 1, sever=True), skip5=True), True, True),
+    ("room_b", 10, _grey(paint_view_b), True, True),
+    ("room_b_s2", 10, _grey(lambda r: paint_view_b(r, 2)), True, True),
+    ("room_b_s3", 10, _grey(lambda r: paint_view_b(r, 3)), True, True),
+    ("room_b_s4", 10, _grey(lambda r: paint_view_b(r, 4)), True, True),
+    ("a_dew", 2, _swap(paint_a_condensation, HORNS={n: HORNS[n] for n in HORNS if n != 5}, REST_AIM=STAIN_AIM),
+     False, False),
+    ("a_dew_turned", 2, _swap(lambda r: paint_a_condensation(r, True), HORNS={n: HORNS[n] for n in HORNS if n != 5}),
+     False, False),
+    ("stain_seated", 60, _aimed(paint_stain_seated), False, False),
+    ("stain_seated_turned", 60, lambda r: paint_stain_seated(r, True), False, False),
+    ("a_eyes", 61, paint_a_eyes, False, True),
+    ("c_spindle_four", 30, _grey(paint_c_spindle, four=True), True, True),
+    ("c_channels_log", 34, paint_c_channels_log, True, True),
+] + [(f"{v}_damp_b{b}", 62, _aimed(paint_damp(v, b)), False, False) for v in ("a", "b") for b in range(3, 8)] \
+  + [(f"a_glow_{s}", 50, _light("a", n, "add", rake=False), True, False)
+     for n, s in ((1, "s1"), (2, "s2"), (3, "s3"), (4, "s4"), (0, "sever"))]
+
+
 # ----------------------------------------------------------------------------- registry
 
 ASSETS = [  # name, seed index, painter, opaque, grain
@@ -1962,7 +2206,7 @@ ASSETS = [  # name, seed index, painter, opaque, grain
     ("c_witness_down", 38, paint_c_witness_down, False, False),
 ] + [(f"{v}_{w}_{s}", 50, _light(v, n, w), True, False)
      for v in ("a", "b") for n, s in ((1, "s1"), (2, "s2"), (3, "s3"), (4, "s4"), (0, "sever"))
-     for w in ("mul", "add")]
+     for w in ("mul", "add")] + ROUND_W1
 
 
 def main(argv):

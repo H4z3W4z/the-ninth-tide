@@ -13,7 +13,7 @@ const TITLE := "Listening Room"
 const REQUIRES := ["P01"]
 const LOCKED := "The listening room door is latched. Electrically, by the feel of it."
 const RESUME := "Back in the listening room."
-const ARRIVAL := "The listening room. Ear trumpets point into a sealed plaster wall."
+const ARRIVAL := "The listening room. Six ear trumpets, all pointing at one damp patch in the plaster. It's the shape of someone sitting."
 ## [to, label, extra flags]: the ways out. The target's REQUIRES also apply.
 const EXITS := [
 	["R02", "Office", []],
@@ -26,9 +26,11 @@ const BOARD_HOTSPOTS := ["witness_key", "channel_a", "channel_b", "channel_c", "
 	"speaker", "to_funnels"]
 const CLOSEUPS := ["c_spindle", "c_mixer", "c_channels"]
 
-# --- P02: three bands on the spindle ---------------------------------------------------------
-## The felt tray's order (deliberately not alphabetical).
-const BANDS := ["C", "A", "B"]
+# --- P02: three of four bands on the spindle --------------------------------------------------
+## The felt tray's order (deliberately not alphabetical). D is the decoy: a second START band,
+## scratched 14 OCT on its rim, whose seam can be made to run on into A and B. The transcript
+## card is headed 17 OCT; only C is that day.
+const BANDS := ["B", "D", "A", "C"]
 const SOLUTION_ORDER := ["C", "A", "B"]
 ## Snap positions: 0 = I, 1 = II, 2 = III.
 const SOLUTION_ROT := {"C": 0, "A": 2, "B": 1}
@@ -37,6 +39,7 @@ const SOLUTION_ROT := {"C": 0, "A": 2, "B": 1}
 ## spindle's START arrow is phase 0.
 const SEAM := {
 	"C": {"in": 0, "out": 1, "start": true},
+	"D": {"in": 1, "out": 0, "start": true, "wrong_day": true},
 	"A": {"in": 2, "out": 0},
 	"B": {"in": 1, "end": true},
 }
@@ -46,18 +49,25 @@ const SEAM_LINES := {
 	"start_arrow": "It jumps right at the start. The notch isn't on the arrow.",
 	"join1": "It jumps at the first join. The seam doesn't carry on.",
 	"join2": "It jumps at the second join. The seam doesn't carry on.",
+	"wrong_day": "That's the wrong day.",
 }
 const SEAM_TRANSCRIPT := {
 	"start_end": ["[needle skips]  — seam —"],
 	"start_arrow": ["[needle skips]  — seam —"],
 	"join1": ["VENN: Grey—  — seam —"],
 	"join2": ["VENN: Greywake, seventeenth October. Calib—  — seam —"],
+	"wrong_day": ["VENN: Greywake, fourteenth October..."],
 }
+## The decoy's voice, when D starts the spindle and the seam breaks at the second join.
+const JOIN2_D := ["VENN: Greywake, fourteenth Oc—  — seam —"]
+## The day the transcript card is headed with, and the day scratched on D (the view writes both).
+const CARD_DAY := "17 OCT"
+const D_DAY := "14 OCT"
 ## [line, delay] of Venn's recording; the same four lines print on the transcript roll.
 const RECORDING := [
 	["VENN: Greywake, seventeenth October. Calibration zero is four. Write it down, whoever you are.", 0.6],
 	["VENN: The recorder is accurate. That is the difficulty.", 5.4],
-	["(a chair creaks; a throat clears) [unattributed breath]", 9.0],
+	["[a chair creaks on the cylinder. Then, close to the horn, someone who is not Venn breathes in.]", 9.0],
 	["VENN: Eighteenth October. Mercer will be standing at the chart table.", 11.8],
 ]
 const RECORDING_AFTER := [
@@ -94,7 +104,7 @@ const ANSWERS := {
 		"VENN: They answer. That's all I can tell you."],
 	"q_need": ["need", "MERCER: What do you need from me?",
 		"VENN: If you break it, they end, every trace. If you don't, someone has to stay.",
-		"VENN: Physically. Here. A witness, not a signature. I've done it three days and I'm wearing out."],
+		"VENN: Physically. Here. A witness, not a signature. Three days I have stood where you are standing. There is less of me each tide."],
 }
 const ANSWER_DELAYS := [0.0, 2.2, 6.0]
 const TAPE_MOTOR := "LIVE PLAYBACK NOT ISOLATED."
@@ -106,7 +116,7 @@ const ON_THE_LINE := "Not while he's on the line."
 ## First-time arrival holds, oldest first. Seeing one retires every older one.
 const NOTICES := ["throat", "leak_wind", "leak_silence", "funnels_turned", "c_presence", "plaster_bulge"]
 const NOTICE_LINES := {
-	"leak_wind": "Wind. Out of number five, the one that faces the wall.",
+	"leak_wind": "Wind. Out of number five. It has turned halfway out of the wall.",
 	"leak_silence": "Every funnel's gone quiet.",
 	"funnels_turned": "The funnels. They're pointing at the seat.",
 	"c_presence": "Channel C has something on it. Room tone. Another room's.",
@@ -117,11 +127,12 @@ const OBSERVATIONS := {
 	"funnels": "Six brass ear trumpets, numbered 1 to 6. Their pipes run into sealed plaster and don't come out the other side. Number 5's bell faces the wall.",
 	"throat": "Someone cleared their throat in funnel 3 the first time I came in. Its pipe runs into the plaster.",
 	"plaster": "Sealed plaster behind the funnels. On the other side is the outer wall, and then the sea.",
+	"stain_seated": "A damp patch in the plaster at chair height, the shape of someone sitting. All six trumpets point at it.",
 	"stool": "A tip-up listening seat, polished by use into the shape of one person sitting very still.",
-	"spindle": "Cylinder spindle. START is engraved at the left end with an arrow. Each band seats at one of three positions, I, II, III.",
-	"band_tray": "Three wax bands in a felt tray, laid out C, A, B. C has a START notch. A's seam runs off both edges. B's seam stops at an END notch.",
+	"spindle": "Cylinder spindle, three seats. START is engraved at the left end with an arrow. Each band seats at one of three positions, I, II, III. The transcript card above it is headed 17 OCT.",
+	"band_tray": "Four wax bands in a felt tray, laid out B, D, A, C. C has a START notch. So does D, and its rim is scratched 14 OCT. A's seam runs off both edges. B's seam stops at an END notch.",
 	"printer": "A transcript printer. It types whatever is played, under the speaker's name.",
-	"recording_tomorrow": "Venn's recording, 17 Oct. VENN: 'Greywake, seventeenth October. Calibration zero is four. Write it down, whoever you are.' VENN: 'The recorder is accurate. That is the difficulty.' (A chair creaks; a throat clears; an unattributed breath.) VENN: 'Eighteenth October. Mercer will be standing at the chart table.' The last line is dated tomorrow.",
+	"recording_tomorrow": "Venn's recording, 17 Oct. VENN: 'Greywake, seventeenth October. Calibration zero is four. Write it down, whoever you are.' VENN: 'The recorder is accurate. That is the difficulty.' [A chair creaks on the cylinder. Then, close to the horn, someone who is not Venn breathes in.] VENN: 'Eighteenth October. Mercer will be standing at the chart table.' The last line is dated tomorrow.",
 	"calibration_zero": "Venn's recording gives the recorder's calibration zero: 4.",
 	"board": "Channel board: a MOTOR switch, live channels A and B, dead channel C, and a key marked WITNESS.",
 	"socket_cuts": "The socket labels are cut, not printed: A one cut, B two cuts, C three cuts.",
@@ -132,12 +143,13 @@ const OBSERVATIONS := {
 	"bell_peaks": "Both tracks show one sharp bell peak with a bell mark. On track 2 it sits two steps right of the guide.",
 	"witness_procedure": "Venn: 'Leave the witness line open.' Nora: 'Tell them I was here.' Margin of the session log: an automatic countersign closes a record; a human correction keeps it open. The dead channel is Venn's station now.",
 	"c_presence": "Channel C carries room tone now, from a room that isn't this one. Once, it drew breath.",
-	"venn_answers": "Where are they? VENN: 'Here. In the instruments. I kept them where they could still be reached. I never found how to let them out.' Are they still themselves? VENN: 'I don't know. I can't promise you they're whole. They answer. That's all I can tell you.' What do you need from me? VENN: 'If you break it, they end, every trace. If you don't, someone has to stay. Physically. Here. A witness, not a signature. I've done it three days and I'm wearing out.' He kept them reachable. He can't promise they're whole. Breaking it ends them. Not breaking it needs someone to stay.",
+	"venn_answers": "Where are they? VENN: 'Here. In the instruments. I kept them where they could still be reached. I never found how to let them out.' Are they still themselves? VENN: 'I don't know. I can't promise you they're whole. They answer. That's all I can tell you.' What do you need from me? VENN: 'If you break it, they end, every trace. If you don't, someone has to stay. Physically. Here. A witness, not a signature. Three days I have stood where you are standing. There is less of me each tide.' He kept them reachable. He can't promise they're whole. Breaking it ends them. Not breaking it needs someone to stay.",
 	"funnel_voice": "After channel C went dark, with the motor off, his voice came through the speaker funnel: 'You'll want to be angry with me. Be angry in the office. The board is there.'",
 	"funnel_voice_letter": "After channel C went dark, with the motor off, his voice came through the speaker funnel: 'You've read the letter. Good. Stay angry; it keeps the record open.'",
 	"speaker_wet": "The speaker funnel's mouth was wet with seawater afterwards.",
 	"printer_questions": "The transcript printer typed my three questions under his answers, labelled MERCER.",
-	"leak_wind": "Wind blows out of funnel 5, whose bell faces solid plaster.",
+	"leak_wind": "Wind blows out of funnel 5. When I came it faced the plaster; it has turned halfway toward the room.",
+	"five_facing": "After Venn's answers, funnel 5 turned until its bell faced me. It stays that way.",
 	"leak_rain": "Rain comes through funnel 2. It isn't raining on the roof. The funnel bells are fogged on the inside.",
 	"leak_silence": "The weather leaks have stopped. Not one funnel makes a sound.",
 	"stool_rings": "Wax dust lies on the seat in rings, like ripples round a dropped stone.",
@@ -152,11 +164,13 @@ const OBJECTIVES := {
 	"wait_p18": "Channel C is Venn's station. Something in the vault comes first.",
 	"p19": "Address the dead channel.",
 	"p19_ask": "Ask Venn all three questions.",
+	"away": "Nothing here needs me yet. The horns are listening anyway.",
+	"done": "The board is quiet.",
 }
 const HINTS := {
 	"p02": [
 		"The Listening Room. Something on the spindle needs putting back together.",
-		"One band starts, one ends, and the seam has to run unbroken from the start end.",
+		"One band starts, one ends, and the seam has to run unbroken from the start end. The transcript card says which day.",
 		"Place C, then A, then B from the start end. Turn them to I, III, II so the seam is continuous. Then play.",
 	],
 	"p17": [
@@ -179,6 +193,16 @@ const HINTS := {
 		"All three answers matter. Any order.",
 		"Ask where they are, whether they're still themselves, and what he needs from me.",
 	],
+	"away": [
+		"Nothing in the listening room is waiting on me.",
+		"The board wakes when something elsewhere is finished.",
+		"Come back when the mixer has a spool on it, or the vault is done.",
+	],
+	"done": [
+		"The listening room has said what it had to say.",
+		"Venn answered all three. The rest is elsewhere.",
+		"Nothing more to do here.",
+	],
 }
 const ITEMS := {}
 
@@ -187,14 +211,14 @@ const SAVED_BOOLS := ["p02_complete", "p17_complete", "venn_on", "nora_on", "hea
 	"printer_q_seen"]
 
 ## Transient, never saved: what the view highlights after the last action.
-var seam_break := ""   # "" | "start_end" | "start_arrow" | "join1" | "join2"
+var seam_break := ""   # "" | "start_end" | "start_arrow" | "join1" | "join2" | "wrong_day"
 var mix_result := ""   # "" | "overlap" | "combined" | "venn" | "nora" | "silent"
 var board_tape := ""   # "" | TAPE_MOTOR | TAPE_A | TAPE_B
 var _board_said := false
 
 func initial_state() -> Dictionary:
 	return {
-		"p02_complete": false, "spindle": ["", "", ""], "band_rot": {"C": 1, "A": 0, "B": 2},
+		"p02_complete": false, "spindle": ["", "", ""], "band_rot": {"C": 1, "A": 0, "B": 2, "D": 0},
 		"p17_complete": false, "offset": 0, "venn_on": true, "nora_on": true,
 		"heard_venn": false, "heard_nora": false, "heard_combined": false, "c_breath_heard": false,
 		"motor_on": true, "ch_open": {"A": true, "B": true, "C": false}, "witness_open": false,
@@ -216,7 +240,9 @@ func objective() -> String:
 		return "wait_p18"
 	if state.p17_complete and game.flag("P18") and not state.p19_complete:
 		return "p19"
-	return ""
+	if state.p19_complete:
+		return "done"
+	return "away"
 
 ## Before the lamp the instrument doors are latched; after it, she's free to come.
 func locked_line() -> String:
@@ -260,6 +286,20 @@ func needle_mode(ch: String) -> String:
 		return "rest"
 	return "live" if indicator_lit(ch) else "rest"
 
+## Funnel 5's pose (the view draws it): "rest" (into the wall, at the stain), "half" (after P04
+## it has turned partway toward the room), "turned" (band 4+, at the seat with the others) or
+## "facing" (after P19, its bell full on the viewer for the rest of Tide VII).
+func funnel5_pose() -> String:
+	if ending() == "sever":
+		return "rest"
+	if ending() == "" and state.p19_complete and not game.flag("P21"):
+		return "facing"
+	if band() >= 4:
+		return "turned"
+	if game.flag("P04"):
+		return "half"
+	return "rest"
+
 func funnels_turned_shown() -> bool:
 	return band() >= 4 and ending() != "sever"
 
@@ -289,6 +329,8 @@ func current_notice() -> String:
 ## The transcript card under the spindle: the broken line after a failed play, the full
 ## recording once it has played, else nothing.
 func transcript_lines() -> Array:
+	if seam_break == "join2" and state.spindle[0] == "D":
+		return JOIN2_D.duplicate()
 	if seam_break != "":
 		return SEAM_TRANSCRIPT[seam_break].duplicate()
 	if state.p02_complete:
@@ -309,11 +351,13 @@ func mix_transcript() -> Array:
 			return [MIX_LINES[mix_result]]
 	return []
 
-## The first break in the seam for an arrangement, or "" when it runs START to END.
+## The first break in the seam for an arrangement, "wrong_day" when it runs START to END from
+## the decoy band D, or "" when it runs START to END from C.
 static func seam_failure(spindle: Array, rot: Dictionary) -> String:
-	if spindle[0] != "C":
+	var first: String = spindle[0]
+	if first == "" or not SEAM[first].has("start"):
 		return "start_end"
-	if (int(rot.C) + int(SEAM.C["in"])) % 3 != START_PHASE:
+	if (int(rot[first]) + int(SEAM[first]["in"])) % 3 != START_PHASE:
 		return "start_arrow"
 	for j in 2:
 		var a: String = spindle[j]
@@ -323,6 +367,8 @@ static func seam_failure(spindle: Array, rot: Dictionary) -> String:
 			broken = (int(rot[a]) + int(SEAM[a]["out"])) % 3 != (int(rot[b]) + int(SEAM[b]["in"])) % 3
 		if broken:
 			return "join%d" % (j + 1)
+	if SEAM[first].has("wrong_day"):
+		return "wrong_day"
 	return ""
 
 func evaluate() -> String:
@@ -338,6 +384,7 @@ func arrive(ev: Array, first: bool) -> void:
 		_sfx(ev, "throat_clear", 2.4)
 		_fx(ev, "notice_throat")
 		_observe("throat")
+		_observe("stain_seated")
 		_mark_notice("throat")
 	else:
 		var n := current_notice()
@@ -424,10 +471,13 @@ func _room(action: String, ev: Array) -> void:
 			_observe("funnels")
 			if ending() == "sever":
 				_say(ev, SEVER_LINES.funnels)
+			elif funnel5_pose() == "facing":
+				_say(ev, "Number five is looking straight at me. It's dark all the way down.")
+				_observe("five_facing")
 			elif b == 0:
 				_say(ev, "Six brass ear trumpets, numbered. Their pipes go into the plaster and don't come out the other side.")
 			elif b == 1:
-				_say(ev, "Wind is coming out of number five. Its bell faces the wall.")
+				_say(ev, "Wind is coming out of number five. It used to face the wall. It's turned halfway round.")
 				_observe("leak_wind")
 			elif b == 2:
 				_say(ev, "Rain in number two. It isn't raining on the roof. The bells have fogged on the inside.")
@@ -446,7 +496,8 @@ func _room(action: String, ev: Array) -> void:
 			if ending() == "sever":
 				_say(ev, SEVER_LINES.plaster)
 			elif b < 7:
-				_say(ev, "Sealed plaster, painted over many times. Behind it is the outer wall, then the sea.")
+				_say(ev, "Sealed plaster, painted over many times. The damp patch in it sits like a person waiting. Behind it, the outer wall, then the sea.")
+				_observe("stain_seated")
 			else:
 				_say(ev, "It bulges round the pipes, as if the wall had taken a breath and was letting it out.")
 				_observe("plaster_bulge")
@@ -466,7 +517,7 @@ func _room(action: String, ev: Array) -> void:
 		"spindle", "band_tray":
 			local_view = "c_spindle"
 			if not has_seen("spindle"):
-				_say(ev, "Three wax bands, a spindle marked START.")
+				_say(ev, "Four wax bands, three seats on a spindle marked START.")
 				_observe("spindle")
 				_observe("band_tray")
 			elif state.p02_complete:
@@ -607,6 +658,9 @@ func _play_recording(ev: Array) -> void:
 		seam_break = fail
 		_sfx(ev, "needle_down", 0.0)
 		match fail:
+			"wrong_day":
+				_sfx(ev, "wax_fragment_2", 0.2)
+				_sfx(ev, "needle_skip", 2.4)
 			"join1":
 				_sfx(ev, "wax_fragment_1", 0.2)
 				_sfx(ev, "needle_skip", 1.2)
@@ -616,7 +670,11 @@ func _play_recording(ev: Array) -> void:
 			_:
 				_sfx(ev, "needle_skip", 0.3)
 		_fx(ev, "seam_break")
-		_say(ev, SEAM_LINES[fail])
+		if fail == "wrong_day":
+			_say(ev, SEAM_TRANSCRIPT.wrong_day[0], 0.4, true)
+			_say(ev, SEAM_LINES.wrong_day, 2.6, true)
+		else:
+			_say(ev, SEAM_LINES[fail])
 		return
 	var first: bool = not state.p02_complete
 	if first:
@@ -811,7 +869,8 @@ func _mark_notice(n: String) -> void:
 func _set_p02_done() -> void:
 	state.p02_complete = true
 	state.spindle = SOLUTION_ORDER.duplicate()
-	state.band_rot = SOLUTION_ROT.duplicate()
+	for b in SOLUTION_ROT:
+		state.band_rot[b] = SOLUTION_ROT[b]
 
 func _set_p17_done() -> void:
 	state.p17_complete = true
