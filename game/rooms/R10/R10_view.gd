@@ -50,6 +50,8 @@ const CATALOGUE_HOTSPOTS := [
 const EXIT_RECTS := {
 	"R07": Rect2(20, 922, 250, 64),
 }
+## View A: the way back to the laboratory is the vault door itself, so its tab sits on the leaf.
+const DOOR_EXIT := Rect2(1214, 744, 206, 64)
 
 ## Close-up controls: [id, rect, hover label].
 const CONTACT_CONTROLS := [
@@ -77,7 +79,7 @@ const FOLDER_CONTROLS := [
 	["year_up", Rect2(1000, 626, 150, 64), "Year ▲"],
 	["year_dn", Rect2(1000, 796, 150, 64), "Year ▼"],
 	["compare", Rect2(1180, 626, 200, 110), "COMPARE"],
-	["release", Rect2(1180, 760, 200, 150), "TRAINING RELEASE"],
+	["release", Rect2(1160, 760, 260, 150), "TRAINING RELEASE"],
 ]
 const MODEL_CONTROLS := [
 	["faceplate", Rect2(220, 96, 1010, 110), "Faceplate"],
@@ -121,7 +123,11 @@ const TURN_PLATE := Rect2(612, 861, 224, 42)
 const RECESS := Rect2(250, 330, 90, 150)
 const DEEP_LAMP := Vector2(296, 372)
 const DEEP_PERIOD := 11.0
-const DEEP_PASS := 1.2
+## The passer: in to mid-recess, a stop facing out, then on and out of sight.
+const DEEP_IN := 0.6
+const DEEP_STOP := 0.5
+const DEEP_OUT := 0.6
+const DEEP_PASS := DEEP_IN + DEEP_STOP + DEEP_OUT
 const DIVIDER_PIVOT := Vector2(735, 606)
 const DIVIDER_PERIOD := 7.0
 const PENDANT_A := Vector2(770, 190)
@@ -142,6 +148,7 @@ const PANEL := Vector2(280, 360)
 const REST_X := [230.0, 490.0, 750.0, 1010.0]
 const REST_Y := 700.0
 const LOOSE_SCALE := 0.55
+const LOOSE_CLOCK := 1.3
 const CELL_X := [20.0, 85.0, 150.0, 215.0]
 const CELL := Rect2(0, 318, 50, 24)
 const PANEL_CLOCK := Vector2(56, 52)
@@ -171,7 +178,13 @@ const RESULT_WIN := Rect2(120, 830, 540, 50)
 const DATE_WIN := [Rect2(720, 694, 120, 96), Rect2(860, 694, 120, 96), Rect2(1000, 694, 150, 96)]
 const DATE_HEADS := ["DAY", "MONTH", "YEAR"]
 const COMPARE_POS := Vector2(1180, 626)
-const LEVER_POS := Vector2(1220, 745)
+const LEVER_POS := Vector2(1230, 745)
+const TRAINING_AT := Vector2(1214, 796)
+const RELEASE_AT := Vector2(1366, 796)
+const CMP_TRAY := Rect2(122, 652, 536, 136)
+## The NAME leaf bares a row of index tabs along its lower edge as it shuts (Motion off: the
+## final state keeps them).
+const TEETH_TIME := 0.12
 const RELEASE_SLIP := Rect2(1180, 916, 200, 66)
 const INDEX_CARD := Rect2(690, 884, 476, 102)
 const LEAF_STAGGER := 0.35
@@ -195,6 +208,10 @@ const STAMP_POS := Vector2(1080, 770)
 const TEST_POS := Vector2(560, 770)
 const RESET_POS := Vector2(860, 770)
 const PRINT_RATE := 18.0
+## The inspection glass on the faceplate: it shows the STAFF drawer behind her, mirrored.
+const MIRROR := Rect2(270, 112, 196, 78)
+const MIRROR_SRC := Rect2(420, 406, 220, 88)
+const AP_TIME := 1.0
 const KEY_DOWN_TIME := 0.15
 const PRESS_TIME := 0.15
 
@@ -213,6 +230,7 @@ const REVEAL_SOUND := {
 	"last_turn": ["blank_turn", 0], "index_close": ["index_close", 0], "riffle": ["tabs_riffle", 0],
 	"release": ["release_lever", 0], "records_back": ["records_return", 0], "stamp_closed": ["stamp_closed", 0],
 	"stamp_open": ["stamp_open", 0], "print2": ["strip_print", 1], "bridge_free": ["bridge_lift", 0],
+	"aperture_wider": ["staff_settle", 0],
 }
 ## Seconds a reveal still waits once its sound is no longer queued (it never arrived).
 const REVEAL_FALLBACK := 1.5
@@ -260,6 +278,10 @@ var press_t := 0.0
 var bridge_hold := false
 var key_down := ""
 var key_down_t := 0.0
+var cmp_date := ""              # the date COMPARE last read (stamped in the tray)
+var cmp_recs := []              # the records it read in the folders (their shadows in the tray)
+var ap_hold := false            # P23: the mirror still shows the STAFF opening as it was
+var ap_t := -1.0                # seconds into its widening in the mirror; -1 settled
 
 func _ready() -> void:
 	narrow = SystemFont.new()
@@ -320,10 +342,15 @@ func _band() -> int:
 func _side() -> String:
 	return "b" if _view() in ["catalogue", "c_folders", "c_model"] else "a"
 
+## Band 4: the stripes ripple once (the sea heard through the wall). Band 5 on: damp, the tide
+## line and leaning stripes. Band 7 (view A): the breach and the card trail.
 func plate_id() -> String:
+	var b := _band()
 	if _side() == "b":
-		return "view_b"
-	return "view_a_s7" if r.shelves_more() else "view_a"
+		return "view_b_s5" if b >= 5 else "view_b"
+	if r.shelves_more():
+		return "view_a_s7"
+	return "view_a_s5" if b >= 5 else "view_a"
 
 ## The view A / view B overlays drawn now, in order (tests and captures read this).
 func overlay_ids() -> Array:
@@ -412,6 +439,15 @@ func bar_y() -> float:
 	var k := clampf((idx_t - t0) / BAR_DROP, 0.0, 1.0)
 	return lerpf(top, BAR_Y, k * k)
 
+## The NAME leaf's tabs: for an instant as it shuts; Motion off, while the folders stay shut.
+func teeth_shown() -> bool:
+	if leaf_closed(2) < 0.999:
+		return false
+	if not motion:
+		return true
+	var t0 := LEAF_STAGGER * 2 + LEAF_FOLD
+	return idx_t >= t0 and idx_t < t0 + TEETH_TIME
+
 ## The release lever is down once P18 is done and its pull has been seen.
 func lever_down() -> bool:
 	return r.state.p18_complete and not (seq_on and rel_t < 0.0)
@@ -480,6 +516,10 @@ func tick(dt: float) -> void:
 		riffle_t += dt
 		if riffle_t > (RIFFLE_TIME if motion else RIFFLE_STILL):
 			riffle_t = -1.0
+	if ap_t >= 0.0:
+		ap_t += dt
+		if ap_t > AP_TIME:
+			ap_t = -1.0
 	if drawer_t >= 0.0:
 		drawer_t += dt
 		if drawer_t > DRAWER_SLIDE:
@@ -574,12 +614,13 @@ func play_fx(id: String, e: Dictionary) -> void:
 		"print":
 			print1_t = 0.0 if motion else -1.0
 			print2_hold = true
+			ap_hold = true
 		"stamp_closed", "stamp_open":
 			stamp_hold = true
 		"bridge_free":
 			bridge_hold = true
 		"aperture_wider":
-			return
+			ap_hold = true
 	if REVEAL_SOUND.has(id):
 		var s: Array = REVEAL_SOUND[id]
 		if float(e.get("delay", 0.0)) <= 0.0 and s[1] == 0 and not (game and game.sfx_pending(s[0])):
@@ -591,6 +632,16 @@ func on_sfx(id: String) -> void:
 	match id:
 		"compare_key":
 			_press("compare")
+			cmp_date = r.date_text()
+			cmp_recs = []
+			for f in R10Sim.FOLDER_ORDER:
+				var rec: String = r.state.filed[f]
+				if rec != "":
+					cmp_recs.append(rec)
+			if r.state.p18_complete:
+				cmp_recs = R10Sim.RECORDS.duplicate()
+		"folder_file", "folder_return":
+			cmp_date = ""
 		"test_key":
 			_press("test")
 		"reset_key":
@@ -650,8 +701,14 @@ func _begin(id: String) -> void:
 			print2_t = 0.0 if motion else -1.0
 		"bridge_free":
 			bridge_hold = false
+		"aperture_wider":
+			ap_hold = false
+			ap_t = 0.0 if motion else -1.0
 
 func on_view_changed(_before: String) -> void:
+	if _view() != "c_folders":
+		cmp_date = ""
+		cmp_recs = []
 	if riffle_owed and _view() == "catalogue":
 		riffle_owed = false
 		riffle_t = 0.0
@@ -677,7 +734,14 @@ func start_glance(target: String, _rect: Rect2) -> bool:
 	return false
 
 func exit_arrow(to: String) -> String:
-	return "left" if to == "R07" else ""
+	if to == "R07":
+		return "right" if _side() == "a" else "left"
+	return ""
+
+func exit_rects() -> Dictionary:
+	if _side() == "a":
+		return {"R07": DOOR_EXIT}
+	return EXIT_RECTS
 
 func apply_instantly() -> void:
 	reset_presentation()
@@ -716,6 +780,10 @@ func reset_presentation() -> void:
 	bridge_hold = false
 	key_down = ""
 	key_down_t = 0.0
+	cmp_date = ""
+	cmp_recs = []
+	ap_hold = false
+	ap_t = -1.0
 
 func redraw() -> void:
 	room.queue_redraw()
@@ -952,20 +1020,57 @@ func _draw_view_a(c: CanvasItem) -> void:
 func _draw_deep_lamp(c: CanvasItem) -> void:
 	c.draw_circle(DEEP_LAMP, 5.0, Color(AMBER, 0.35))
 	c.draw_circle(DEEP_LAMP, 3.0, AMBER)
-	if not (r.deep_lamp_passing() and motion):
+	var f := deep_figure()
+	if f.is_empty():
 		return
+	_draw_figure(c, f.x, f.facing_out)
+
+## Where the passer is now: {x, facing_out}, or {} when the recess is empty. Motion off: it
+## stands stopped at mid-recess, facing out, the way it pauses on its pass.
+func deep_figure() -> Dictionary:
+	if not r.deep_lamp_passing():
+		return {}
+	var mid := RECESS.get_center().x
+	if not motion:
+		return {"x": mid, "facing_out": true}
 	var ph := fmod(time, DEEP_PERIOD)
 	if ph >= DEEP_PASS:
-		return
-	var k := ph / DEEP_PASS
-	var x := lerpf(RECESS.position.x - 20.0, RECESS.end.x + 2.0, k)
-	# a flat figure-shaped occluder, clipped to the recess
-	var body := Rect2(x, 356, 18, RECESS.end.y - 356).intersection(RECESS)
-	if body.size.x > 0.0:
-		c.draw_rect(body, OCCLUDER)
-	var head := Vector2(x + 9, 346)
-	if head.x - 7 >= RECESS.position.x and head.x + 7 <= RECESS.end.x:
-		c.draw_circle(head, 7.0, OCCLUDER)
+		return {}
+	var x0 := RECESS.position.x - 24.0
+	var x1 := RECESS.end.x + 24.0
+	if ph < DEEP_IN:
+		return {"x": lerpf(x0, mid, smoothstep(0.0, 1.0, ph / DEEP_IN) * 0.5 + ph / DEEP_IN * 0.5), "facing_out": false}
+	if ph < DEEP_IN + DEEP_STOP:
+		return {"x": mid, "facing_out": true}
+	var k := (ph - DEEP_IN - DEEP_STOP) / DEEP_OUT
+	return {"x": lerpf(mid, x1, k * k * 0.5 + k * 0.5), "facing_out": false}
+
+## One joined flat silhouette, feet on the recess floor, about 70% of its height, clipped to
+## the recess. Walking: a profile with a slight forward hunch. Stopped: facing out, narrow
+## sloped shoulders.
+func _draw_figure(c: CanvasItem, x: float, facing_out: bool) -> void:
+	var feet := Vector2(x, RECESS.end.y)
+	var body: PackedVector2Array
+	var head: Vector2
+	if facing_out:
+		body = PackedVector2Array([Vector2(-14, 0), Vector2(-15, -46), Vector2(-17, -63), Vector2(-14, -70),
+			Vector2(-7, -75), Vector2(-5, -82), Vector2(5, -82), Vector2(7, -75), Vector2(14, -70),
+			Vector2(17, -63), Vector2(15, -46), Vector2(14, 0)])
+		head = Vector2(0, -91)
+	else:
+		body = PackedVector2Array([Vector2(-12, 0), Vector2(-13, -44), Vector2(-15, -62), Vector2(-10, -72),
+			Vector2(0, -78), Vector2(5, -84), Vector2(12, -82), Vector2(13, -74), Vector2(14, -64),
+			Vector2(12, -46), Vector2(10, 0)])
+		head = Vector2(7, -89)
+	var rect := PackedVector2Array([RECESS.position, Vector2(RECESS.end.x, RECESS.position.y), RECESS.end,
+		Vector2(RECESS.position.x, RECESS.end.y)])
+	var shapes := [body, Ink.ellipse(head, 11.0, 11.5, 20)]
+	for shape in shapes:
+		var moved := PackedVector2Array()
+		for q in shape:
+			moved.append(feet + q)
+		for part in Geometry2D.intersect_polygons(moved, rect):
+			c.draw_colored_polygon(part, OCCLUDER)
 
 func _draw_divider_tab(c: CanvasItem) -> void:
 	var deg := 2.0
@@ -1031,7 +1136,17 @@ func _draw_panel(c: CanvasItem, x: String, pos: Vector2, s: float) -> void:
 	if x == "C":
 		for pa in last_blank():
 			_sprite(c, pa[0], LAST_SEAT, pa[1])
-	_clock_hands(c, PANEL_CLOCK, R10Sim.panel_clock(x), 13.0, 21.0, 4.0, 3.0, INK)
+	if s < 1.0:
+		# on the felt the panels are small: their clocks are drawn a third larger to stay legible
+		var k := LOOSE_CLOCK
+		c.draw_circle(PANEL_CLOCK, 32.0 * k, Color("e3dccb"))
+		c.draw_arc(PANEL_CLOCK, 32.0 * k, 0.0, TAU, 40, INK, 3.0)
+		for t in 12:
+			var d := Vector2(sin(t * TAU / 12.0), -cos(t * TAU / 12.0))
+			c.draw_line(PANEL_CLOCK + d * 25.0 * k, PANEL_CLOCK + d * 30.0 * k, INK, 3.0 if t % 3 == 0 else 1.6)
+		_clock_hands(c, PANEL_CLOCK, R10Sim.panel_clock(x), 13.0 * k, 21.0 * k, 4.0 * k, 3.0 * k, INK)
+	else:
+		_clock_hands(c, PANEL_CLOCK, R10Sim.panel_clock(x), 13.0, 21.0, 4.0, 3.0, INK)
 	_rtext(c, x, LETTER_PLATE, 28, INK, narrow)
 	var nums := R10Sim.edge_numbers(x)
 	for k in 4:
@@ -1049,6 +1164,10 @@ func _draw_contact(c: CanvasItem) -> void:
 		if x == "":
 			continue
 		_draw_panel(c, x, Vector2(SLOT_X[k], SLOT_Y), 1.0)
+		if x == "C" and turn_t >= 0.0 and motion:
+			# a paper rim pulses on panel C's frame while its last blank turns
+			var a := 0.5 - 0.5 * cos(turn_t / TURN_TIME * TAU * 2.0)
+			c.draw_rect(Rect2(SLOT_X[k] - 3, SLOT_Y - 3, PANEL.x + 6, PANEL.y + 6), Color(PAPER_HI, a), false, 3.0)
 		# the pencil tally on its slip under the panel
 		var cx: float = SLOT_X[k] + PANEL.x / 2.0
 		var slip := Rect2(cx - 52, 626, 104, 36)
@@ -1147,15 +1266,23 @@ func _draw_folders(c: CanvasItem) -> void:
 		if ck <= 0.0:
 			continue
 		var pk: Rect2 = POCKETS[k]
-		c.draw_set_transform(pk.position, 0.0, Vector2(ck, 1.0))
-		_sprite(c, "c_leaf_closed", Vector2.ZERO)
-		c.draw_set_transform_matrix(Transform2D.IDENTITY)
+		var lt := _tex("c_leaf_closed")
+		if lt:
+			# two half-leaves swing in from either side and meet over the record
+			var hw := pk.size.x / 2.0
+			c.draw_texture_rect_region(lt, Rect2(pk.position, Vector2(hw * ck, pk.size.y)),
+				Rect2(0, 0, hw, pk.size.y))
+			c.draw_texture_rect_region(lt, Rect2(pk.end.x - hw * ck, pk.position.y, hw * ck, pk.size.y),
+				Rect2(hw, 0, hw, pk.size.y))
+		if k == 2 and teeth_shown():
+			_draw_leaf_teeth(c, pk)
 		if ck >= 0.95:
 			_rtext(c, R10Sim.FOLDER_ORDER[k], Rect2(pk.position.x + 110, pk.position.y + 18, 140, 26), 18, INK, narrow)
 	var by := bar_y()
 	if not is_nan(by):
 		_sprite(c, "c_index_bar", Vector2(BAR_X, by))
 	# the comparison tray
+	_draw_cmp_tray(c)
 	var tray: Array = st.tray
 	for i in tray.size():
 		_rec_at(c, tray[i], Vector2(132 + 178 * i, 662), 0.6)
@@ -1176,8 +1303,8 @@ func _draw_folders(c: CanvasItem) -> void:
 		_sprite(c, "c_key_down", COMPARE_POS)
 	_ctext(c, "COMPARE", COMPARE_POS.x + 100, COMPARE_POS.y + 51 + (19 if down else 0), 22, INK, narrow)
 	# the release: its printed panel either side of the knob, the lever, the slip below
-	_ctext(c, "TRAINING", 1224, 795, 17, INK, narrow)
-	_ctext(c, "RELEASE", 1338, 795, 17, INK, narrow)
+	_ctext(c, "TRAINING", TRAINING_AT.x, TRAINING_AT.y, 17, INK, narrow)
+	_ctext(c, "RELEASE", RELEASE_AT.x, RELEASE_AT.y, 17, INK, narrow)
 	_sprite(c, "c_lever_down" if lever_down() else "c_lever_up", LEVER_POS)
 	_slip(c, RELEASE_SLIP)
 	_cpara(c, "Training model. Release returns all records.", RELEASE_SLIP.get_center().x,
@@ -1186,6 +1313,45 @@ func _draw_folders(c: CanvasItem) -> void:
 		_slip(c, INDEX_CARD)
 		_cpara(c, "THE STATION INDEX RETAINED EIGHT SUBJECTS THROUGH THESE THREE CORRESPONDENCES. 18.X.27.",
 			INDEX_CARD.get_center().x, INDEX_CARD.position.y + 30, 20, INK, INDEX_CARD.size.x - 28, narrow, 1.2)
+
+## Index tabs along the NAME leaf's lower edge, the same as the STAFF drawer's: uneven heights,
+## each leaning its own way.
+func _draw_leaf_teeth(c: CanvasItem, pk: Rect2) -> void:
+	var n := 13
+	for i in n:
+		var x := pk.position.x + 26.0 + (pk.size.x - 52.0) * i / (n - 1)
+		var h: float = [16.0, 24.0, 12.0, 20.0, 27.0, 14.0, 22.0, 18.0, 26.0, 11.0, 21.0, 15.0, 23.0][i]
+		var lean: float = [-0.2, 0.1, 0.25, -0.1, 0.0, 0.2, -0.25, 0.1, -0.05, 0.2, -0.15, 0.05, 0.15][i]
+		var y := pk.end.y - 2.0
+		var hw := 7.0
+		var pts := PackedVector2Array([Vector2(x - hw, y), Vector2(x - hw + lean * h, y + h - 3),
+			Vector2(x - hw + 3 + lean * h, y + h), Vector2(x + hw - 3 + lean * h, y + h),
+			Vector2(x + hw + lean * h, y + h - 3), Vector2(x + hw, y)])
+		c.draw_colored_polygon(pts, PAPER_HI if i % 4 != 2 else Color("cbd8cf"))
+		pts.append(pts[0])
+		c.draw_polyline(pts, INK, 2.0)
+
+## What the comparison tray shows after COMPARE: the shadows of the records it read and the
+## date it read them on, stamped. Presentation only: cleared when she leaves the close-up.
+func _draw_cmp_tray(c: CanvasItem) -> void:
+	if cmp_date == "":
+		return
+	if r.state.tray.is_empty():
+		for i in cmp_recs.size():
+			var rec: String = cmp_recs[i]
+			var size: Vector2 = REC_SIZE[rec] * 0.6
+			var at := Vector2(CMP_TRAY.position.x + 18 + 178 * i, CMP_TRAY.position.y + 14)
+			var t := _tex(REC_SPRITE[rec])
+			if t:
+				# the record's shadow, as if it still lay on the glass: its own shape in navy
+				c.draw_texture_rect(t, Rect2(at, size), false, Color(0.16, 0.24, 0.3, 0.55))
+	var box := Rect2(CMP_TRAY.end.x - 236, CMP_TRAY.end.y - 62, 220, 50)
+	c.draw_set_transform(box.get_center(), deg_to_rad(-4.0), Vector2.ONE)
+	var local := Rect2(-box.size / 2.0, box.size)
+	c.draw_rect(local, Color(STAMP_CLOSED_COL, 0.85), false, 3.0)
+	c.draw_rect(local.grow(-5), Color(STAMP_CLOSED_COL, 0.6), false, 1.4)
+	_rtext(c, cmp_date, local, 24, Color(STAMP_CLOSED_COL, 0.9), narrow)
+	c.draw_set_transform_matrix(Transform2D.IDENTITY)
 
 # --- c_model ------------------------------------------------------------------------------
 func _cable(c: CanvasItem, a: Vector2, b: Vector2, sag: float) -> void:
@@ -1201,9 +1367,41 @@ func _cable(c: CanvasItem, a: Vector2, b: Vector2, sag: float) -> void:
 		hi.append(q + Vector2(-1, -1.5))
 	c.draw_polyline(hi, Color("5d7a86"), 1.6, true)
 
+## The STAFF opening's overlays in the mirror now: [[id, alpha], ...].
+func mirror_staff() -> Array:
+	if not r.staff_open():
+		return []
+	var ids := ["b_staff_open", "b_aperture_1", "b_aperture_2"]
+	var w := clampi(r.aperture_width(), 0, 2)
+	if ap_hold:
+		return [[ids[maxi(0, w - 1)], 1.0]]
+	if ap_t >= 0.0 and w >= 1:
+		var k := smoothstep(0.0, 1.0, ap_t / AP_TIME)
+		return [[ids[w - 1], 1.0 - k], [ids[w], k]]
+	return [[ids[w], 1.0]]
+
+func _draw_mirror(c: CanvasItem) -> void:
+	var plate := _tex("view_b_s5" if _band() >= 5 else "view_b")
+	c.draw_set_transform(MIRROR.position + Vector2(MIRROR.size.x, 0), 0.0, Vector2(-1, 1))
+	var dst := Rect2(Vector2.ZERO, MIRROR.size)
+	if plate:
+		c.draw_texture_rect_region(plate, dst, MIRROR_SRC)
+	for pa in mirror_staff():
+		var t := _tex(pa[0])
+		if t:
+			c.draw_texture_rect_region(t, dst, MIRROR_SRC, Color(1, 1, 1, pa[1]))
+	c.draw_set_transform_matrix(Transform2D.IDENTITY)
+	# the glass: a cool skin and one diagonal gleam
+	c.draw_rect(MIRROR, Color(0.55, 0.66, 0.7, 0.22))
+	var g := MIRROR.position
+	c.draw_colored_polygon(PackedVector2Array([g + Vector2(118, 0), g + Vector2(140, 0), g + Vector2(92, 78),
+		g + Vector2(70, 78)]), Color(PAPER_HI, 0.16))
+	c.draw_rect(MIRROR, INK, false, 2.4)
+
 func _draw_model(c: CanvasItem) -> void:
 	var st: Dictionary = r.state
 	_full(c, "c_model")
+	_draw_mirror(c)
 	# faceplate
 	_ctext(c, "INDEX MODEL. FOR TRAINING.", 725, 136, 24, INK, narrow)
 	_ctext(c, "A copied acknowledgement closes the cycle.", 725, 166, 20, INK)
