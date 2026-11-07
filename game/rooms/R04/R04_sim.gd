@@ -224,6 +224,13 @@ func locked_line() -> String:
 		return LOCKED
 	return "The latch has gone. The office isn't finished with me yet."
 
+## After the sever ending the room is released: grey daylight, the bells hang as they were hung.
+const SEVER_LINES := {
+	"funnels": "They hang the way they were hung. The bells are dry.",
+	"plaster": "Flat again. Old plaster, painted over many times.",
+	"stool": "Just a seat, folded up against the wall.",
+}
+
 # ---------------------------------------------------------------------------------------------
 # view helpers (read-only)
 # ---------------------------------------------------------------------------------------------
@@ -254,7 +261,7 @@ func needle_mode(ch: String) -> String:
 	return "live" if indicator_lit(ch) else "rest"
 
 func funnels_turned_shown() -> bool:
-	return band() >= 4
+	return band() >= 4 and ending() != "sever"
 
 func stool_rings_shown() -> bool:
 	return band() >= 3
@@ -415,7 +422,9 @@ func _room(action: String, ev: Array) -> void:
 	match action:
 		"funnels":
 			_observe("funnels")
-			if b == 0:
+			if ending() == "sever":
+				_say(ev, SEVER_LINES.funnels)
+			elif b == 0:
 				_say(ev, "Six brass ear trumpets, numbered. Their pipes go into the plaster and don't come out the other side.")
 			elif b == 1:
 				_say(ev, "Wind is coming out of number five. Its bell faces the wall.")
@@ -434,14 +443,18 @@ func _room(action: String, ev: Array) -> void:
 				_observe("plaster_bulge")
 		"plaster":
 			_observe("plaster")
-			if b < 7:
+			if ending() == "sever":
+				_say(ev, SEVER_LINES.plaster)
+			elif b < 7:
 				_say(ev, "Sealed plaster, painted over many times. Behind it is the outer wall, then the sea.")
 			else:
 				_say(ev, "It bulges round the pipes, as if the wall had taken a breath and was letting it out.")
 				_observe("plaster_bulge")
 		"stool":
 			_observe("stool")
-			if b <= 2:
+			if ending() == "sever":
+				_say(ev, SEVER_LINES.stool)
+			elif b <= 2:
 				_say(ev, "A tip-up seat, polished by use. The polish is the shape of one person sitting very still.")
 			elif b == 3:
 				_say(ev, "Wax dust on the seat, in rings. Like ripples round something dropped into still water.")

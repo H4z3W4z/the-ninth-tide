@@ -24,6 +24,8 @@ const REF_LINES := {
 }
 const PRESERVE := "'Preserve the recording before winding again.' I'll leave it as it is."
 const BOARD_MAX_Y := 914.0
+## A quarter of the transcript's 7 s breath: the lift at its peak.
+const PAPER_QUARTER := 1.75
 
 func run_tests() -> void:
 	skeleton_checks(ROOM, EXPECT_REQUIRES, OPEN_TIDE)
@@ -728,6 +730,13 @@ func test_endings() -> void:
 			check(not r.indicator_lit(ch) and r.needle_mode(ch) == "rest", "%s: indicator %s off" % [e, ch])
 		check(r.current_notice() == "", "%s: no notice" % e)
 		check(r.bulge_shown() == (e == "continue"), "%s: the bulge" % e)
+		check(r.funnels_turned_shown() == (e == "continue"), "%s: the funnels turned" % e)
+		check(r.stool_rings_shown(), "%s: the wax dust stays" % e)
+		var w := game_at(9, ROOM)   # walking the room after the end card
+		w.state.ending = e
+		for h in ["funnels", "plaster", "stool"]:
+			var said := says(w.dispatch(h))
+			check((said == R04Sim.SEVER_LINES[h]) == (e == "sever"), "%s: the %s line (%s)" % [e, h, said])
 	var s := game_at(9, ROOM)
 	s.state.ending = "continue"
 	check(not r04(s).indicator_lit("A") and r04(s).current_notice() == "", "ending set in state: indicators off")
@@ -910,7 +919,41 @@ func test_view_scene() -> void:
 				rest += t[id]
 		check(rest == 0.0 and t.r04_room > 0.0, "view: %s keeps only the room tone" % e)
 		check(not v.lamp_lit("A") and not v.lamp_lit("B") and not v.lamp_lit("C"), "view: %s, lamps off" % e)
+		check(v.stage() == ("sever" if e == "sever" else "s4"), "view: %s light stage" % e)
+		check(v.plate_id() == ("view_a_sever" if e == "sever" else "view_a_s4"), "view: %s plate" % e)
+		check(v.turned() == (e == "continue"), "view: %s, the bells' aim" % e)
 		scene.sim.state.ending = ""
+	# stage plates and light maps by band, both views; every one is painted
+	var want_a := ["view_a", "view_a", "view_a", "view_a_s2", "view_a_turned", "view_a_s3", "view_a_s3", "view_a_s4"]
+	var want_s := ["s1", "s1", "s1", "s2", "s2", "s3", "s3", "s4"]
+	for tide in range(1, 10):
+		scene.tide_jump(tide, ROOM)
+		await process_frame
+		v = scene.room_view
+		r = scene.room_sim() as R04Sim
+		var bnd := r.band()
+		check(v.plate_id() == want_a[bnd] and v.stage() == want_s[bnd] and v.turned() == (bnd >= 4),
+			"view: tide %d (band %d) plate %s" % [tide, bnd, v.plate_id()])
+		for side in ["a", "b"]:
+			for kind in ["mul", "add"]:
+				check(v._tex("%s_%s_%s" % [side, kind, v.stage()]) != null, "view: %s %s light at tide %d" % [side, kind, tide])
+		check(v._tex(v.plate_id()) != null, "view: plate %s painted" % v.plate_id())
+		scene.dispatch("to_board")
+		check(v.plate_id().begins_with("view_b") and v._tex(v.plate_id()) != null, "view: board plate at tide %d" % tide)
+		scene.dispatch("back")
+	for id in ["view_a_sever", "a_condensation_turned", "a_printout_long", "a_mul_sever", "a_add_sever",
+			"b_mul_sever", "b_add_sever"]:
+		check(v._tex(id) != null, "view: %s painted" % id)
+	# deadpan loops at tide IX: the plaster breathes and the transcript lifts with motion on;
+	# with motion off both hold still
+	scene.tide_jump(9, ROOM)
+	await process_frame
+	v = scene.room_view
+	scene.time = PAPER_QUARTER
+	check(v._breath(v.PAPER_PERIOD) > 0.9, "view: the transcript lifts with motion on")
+	scene.sim.settings.motion = false
+	check(v._breath(v.PAPER_PERIOD) == 0.0, "view: still alternative, the transcript at rest")
+	scene.sim.settings.motion = true
 	# Motion & flicker off: still poses, no timed motion
 	scene.room_jump(ROOM, 0)
 	await process_frame

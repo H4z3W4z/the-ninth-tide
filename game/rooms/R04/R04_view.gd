@@ -4,8 +4,10 @@ extends RoomView
 ## fades) is presentation and is never saved.
 ##
 ## Layering:
-##   `room` (world, under CanvasModulate + small lamp lights): base view A (funnel wall) or B
-##          (channel board), the painted escalation overlays and the code-drawn labels.
+##   `room` (world, under CanvasModulate + small lamp lights): the stage plate of view A (funnel
+##          wall) or B (channel board), the painted escalation overlays and the code-drawn labels;
+##          over them two light layers, `light_mul` (multiply: vignette, falloff from the lamp, the
+##          stage's cold) and `light_add` (additive: the lamp's warm pool), painted per stage.
 ##   CanvasLayer 5 `close`: the close-ups c_spindle, c_mixer, c_channels (always fully lit).
 ##
 ## Painted plates: assets/rooms/R04/*.png (tools/art/rooms/R04.py). Every label, numeral,
@@ -21,7 +23,7 @@ const BRUISE := Color("746577")
 const BRASS := Color("9c7e46")
 const BRASS_HI := Color("c9a869")
 const THROAT := Color("0e161c")
-const TRACE := Color("b0d6c6")
+const GUIDE := Color("805434")       # brown ink: the guide ruled on the chart glass
 const PENCIL := Color(0.30, 0.31, 0.34)
 const SEAGLASS_HI := Color("96b2a6")
 
@@ -31,7 +33,7 @@ const HOTSPOTS := [
 	["band_tray", Rect2(1230, 520, 110, 72), "Recording bands"],
 	["printer", Rect2(1010, 220, 260, 200), "Transcript printer"],
 	["stool", Rect2(150, 610, 240, 300), "Listening seat"],
-	["funnels", Rect2(190, 140, 620, 300), "Ear trumpets"],
+	["funnels", Rect2(160, 100, 660, 420), "Ear trumpets"],
 	["plaster", Rect2(90, 96, 820, 420), "Sealed plaster"],
 	["to_board", Rect2(1350, 640, 90, 250), "Channel board"],
 ]
@@ -91,16 +93,25 @@ const DUCK_IDS := ["recording_p02", "mix_overlap", "mix_combined", "mix_venn", "
 const LOOP_RATE := 0.11        # linear units / s: a ~1.5 s fade at these levels
 const DARK_SILENCE := 4.0      # seconds of silence round the funnel voice after channel C goes dark
 
-## Interior tint per weather band: never darker than (0.84, 0.86, 0.92).
-const TINT := [Color(1, 1, 1), Color(0.96, 0.97, 1), Color(0.93, 0.95, 0.99), Color(0.91, 0.93, 0.97),
-	Color(0.89, 0.91, 0.96), Color(0.87, 0.89, 0.95), Color(0.86, 0.88, 0.94), Color(0.84, 0.86, 0.92)]
+## Interior tint per weather band. The stage's light and cold are painted (the light maps),
+## so this only cools the room a touch more as the band rises.
+const TINT := [Color(1, 1, 1), Color(1, 1, 1), Color(0.99, 0.99, 1), Color(0.98, 0.99, 1),
+	Color(0.97, 0.98, 1), Color(0.96, 0.975, 0.99), Color(0.95, 0.97, 0.99), Color(0.94, 0.96, 0.98)]
 
-## Funnel number tabs (bell centres; the tab hangs 56-80 px below). Turned: view_a_turned.
-const BELLS := [Vector2(300, 215), Vector2(500, 205), Vector2(700, 215), Vector2(300, 370),
-	Vector2(500, 380), Vector2(700, 370)]
-const BELLS_TURNED := [Vector2(289.7, 222.7), Vector2(489.9, 204.4), Vector2(691.4, 206.7),
-	Vector2(289.3, 378.0), Vector2(500, 380), Vector2(694.0, 364.3)]
-const TAG5_EYELET := Vector2(548, 352)
+## Funnel number tabs (centre x, top y), hung on wires painted in tools/art/rooms/R04.py
+## (TABS / TABS_TURNED there). Turned: the bells aimed at the seat (band 4+).
+const TABS := [Vector2(353, 262), Vector2(553, 262), Vector2(753, 262), Vector2(353, 452),
+	Vector2(456, 364), Vector2(753, 452)]
+const TABS_TURNED := [Vector2(294, 267), Vector2(465, 266), Vector2(644, 261), Vector2(292, 457),
+	Vector2(471, 509), Vector2(702, 394)]
+const TAG5_EYELET := Vector2(540, 392)
+## Band 7: the plaster swells about this point, 1-2 px on a 6 s breath.
+const BULGE_CENTRE := Vector2(510, 300)
+const BULGE_PERIOD := 6.0
+const BULGE_AMP := 0.0035
+## Band 5+: the transcript strip lifts from the printer as if breathed on, every 7 s.
+const PAPER_PIVOT := Vector2(1138, 398)
+const PAPER_PERIOD := 7.0
 const CHANNEL_X := {"A": 505.0, "B": 675.0, "C": 845.0}
 const CUTS := {"A": 1, "B": 2, "C": 3}
 const CUT_WORDS := {"A": "one cut", "B": "two cuts", "C": "three cuts"}
@@ -111,8 +122,8 @@ const HOLD_TIME := 1.5
 const NOTICE_FOCUS := {
 	"throat": Rect2(630, 145, 140, 140),
 	"leak_wind": Rect2(430, 310, 140, 140),
-	"leak_silence": Rect2(190, 140, 620, 300),
-	"funnels_turned": Rect2(150, 140, 660, 770),
+	"leak_silence": Rect2(160, 100, 660, 420),
+	"funnels_turned": Rect2(150, 100, 680, 810),
 	"plaster_bulge": Rect2(90, 96, 820, 420),
 }
 
@@ -162,6 +173,8 @@ var narrow: SystemFont
 var room: Node2D
 var close: Node2D
 var shade: CanvasModulate
+var light_mul: Node2D         # multiply light map over the plate and overlays
+var light_add: Node2D         # additive warm light
 var lamp_lights := {}          # "A"/"B"/"C" -> PointLight2D
 var mixer: LoopMixer
 var wave := PackedFloat32Array()
@@ -228,11 +241,13 @@ func _build_nodes() -> void:
 	room.draw.connect(_draw_room)
 	shade = CanvasModulate.new()
 	add_child(shade)
+	light_mul = _light_layer(CanvasItemMaterial.BLEND_MODE_MUL, "mul")
+	light_add = _light_layer(CanvasItemMaterial.BLEND_MODE_ADD, "add")
 	var glow := _radial(256)
 	for ch in ["A", "B", "C"]:
 		var l := PointLight2D.new()
 		l.texture = glow
-		l.texture_scale = 0.75
+		l.texture_scale = 1.3
 		l.color = AMBER.lightened(0.2)
 		l.energy = 0.0
 		l.position = Vector2(CHANNEL_X[ch], 440)
@@ -244,6 +259,51 @@ func _build_nodes() -> void:
 	close = Node2D.new()
 	layer.add_child(close)
 	close.draw.connect(_draw_close)
+
+func _light_layer(mode: int, kind: String) -> Node2D:
+	var n := Node2D.new()
+	n.name = "Light_" + kind
+	var m := CanvasItemMaterial.new()
+	m.blend_mode = mode
+	n.material = m
+	n.light_mask = 0
+	n.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	room.add_child(n)
+	n.draw.connect(func() -> void: _draw_light(n, kind))
+	return n
+
+## "s1" bands 0-2, "s2" 3-4, "s3" 5-6, "s4" 7; "sever" once the room has been released.
+func stage() -> String:
+	if r.ending() == "sever":
+		return "sever"
+	var b := _band()
+	return "s1" if b <= 2 else ("s2" if b <= 4 else ("s3" if b <= 6 else "s4"))
+
+func _side() -> String:
+	return "b" if _view() == "board" or (r.is_closeup() and _view() != "c_spindle") else "a"
+
+func plate_id() -> String:
+	var b := _band()
+	if _side() == "b":
+		return {"s1": "view_b", "s2": "view_b_s2", "s3": "view_b_s3", "s4": "view_b_s4", "sever": "view_b"}[stage()]
+	if stage() == "sever":
+		return "view_a_sever"
+	if b <= 2:
+		return "view_a"
+	if b == 3:
+		return "view_a_s2"
+	if b == 4:
+		return "view_a_turned"
+	return "view_a_s3" if b <= 6 else "view_a_s4"
+
+## The bells aim at the seat from band 4, until the room is released.
+func turned() -> bool:
+	return _band() >= 4 and r.ending() != "sever"
+
+func _draw_light(n: Node2D, kind: String) -> void:
+	var t := _tex("%s_%s_%s" % [_side(), kind, stage()])
+	if t:
+		n.draw_texture_rect(t, Rect2(Vector2.ZERO, SIZE), false)
 
 func _build_audio() -> void:
 	mixer = LoopMixer.new()
@@ -338,13 +398,12 @@ func tick(dt: float) -> void:
 	dark_t = maxf(0.0, dark_t - dt)
 	soft_cut_t = maxf(0.0, soft_cut_t - dt)
 	_tick_audio(dt)
-	room.queue_redraw()
-	close.queue_redraw()
+	redraw()
 
 func _tick_lamps() -> void:
 	var on_board := _view() == "board"
 	for ch in lamp_lights:
-		lamp_lights[ch].energy = 0.55 if on_board and lamp_lit(ch) else 0.0
+		lamp_lights[ch].energy = 1.0 if on_board and lamp_lit(ch) else 0.0
 
 func loop_targets() -> Dictionary:
 	var b := _band()
@@ -498,6 +557,8 @@ func reset_presentation() -> void:
 func redraw() -> void:
 	room.queue_redraw()
 	close.queue_redraw()
+	light_mul.queue_redraw()
+	light_add.queue_redraw()
 
 func back_visible() -> bool:
 	return _view() != "room"
@@ -631,27 +692,51 @@ func _full(c: CanvasItem, id: String) -> void:
 	if t:
 		c.draw_texture_rect(t, Rect2(Vector2.ZERO, SIZE), false)
 
+## 0..1, a slow intake and a quicker release; 0 with motion off (the still alternative).
+func _breath(period: float, phase: float = 0.0) -> float:
+	if not motion:
+		return 0.0
+	return pow(maxf(0.0, sin(TAU * (time / period + phase))), 3.0)
+
 func _draw_view_a(c: CanvasItem) -> void:
 	var b := _band()
-	var turned := b >= 4
-	_full(c, "view_a_turned" if turned else "view_a")
-	if b == 2 or b == 3:
-		_full(c, "a_condensation")
-	if b >= 3:
-		_full(c, "a_seat_rings")
+	var sever := r.ending() == "sever"
+	var tu := turned()
+	_full(c, plate_id())
+	if not sever:
+		if b == 2 or b == 3:
+			_full(c, "a_condensation")
+		elif b >= 4:
+			_full(c, "a_condensation_turned")
+		if b == 3 or b == 4:
+			_full(c, "a_seat_rings")   # on the folded-up seat; let down from band 5
 	if r.bulge_shown():
-		_full(c, "a_bulge")
+		var bt := _tex("a_bulge")
+		if bt:
+			var s := 1.0 + BULGE_AMP * (sin(TAU * time / BULGE_PERIOD) if motion else 0.0)
+			c.draw_set_transform(BULGE_CENTRE * (1.0 - s), 0.0, Vector2(s, s))
+			c.draw_texture_rect(bt, Rect2(Vector2.ZERO, SIZE), false)
+			c.draw_set_transform_matrix(Transform2D.IDENTITY)
 	if r.state.p02_complete:
 		_full(c, "a_mounted")
-		_full(c, "a_transcript")
+		if b == 7 and not sever:
+			_full(c, "a_printout_long")
+		var tt := _tex("a_transcript")
+		if tt:
+			var lift := 0.0
+			if b >= 5 and not sever:
+				lift = -deg_to_rad(1.6) * _breath(PAPER_PERIOD)
+			c.draw_set_transform(PAPER_PIVOT, lift, Vector2.ONE)
+			c.draw_texture_rect(tt, Rect2(-PAPER_PIVOT, SIZE), false)
+			c.draw_set_transform_matrix(Transform2D.IDENTITY)
 	# funnel numbers on their enamel tabs
-	var bells: Array = BELLS_TURNED if turned else BELLS
+	var tabs: Array = TABS_TURNED if tu else TABS
 	for i in 6:
-		var p: Vector2 = bells[i]
-		var tab := Rect2(p.x - 15, p.y + 63, 30, 27)
+		var p: Vector2 = tabs[i]
+		var tab := Rect2(p.x - 15, p.y + 4, 30, 27)
 		c.draw_rect(tab, PAPER_HI)
 		c.draw_rect(tab, INK, false, 2.0)
-		_ctext(c, str(i + 1), p.x, p.y + 84, 20, INK)
+		_ctext(c, str(i + 1), p.x, p.y + 25, 20, INK)
 	# funnel 5's paper tag: lifted by the wind at bands 1-2
 	if b == 1 or b == 2:
 		var tag := _tex("a_tag5")
@@ -680,8 +765,8 @@ func _notches(c: CanvasItem, x: float, top: float, n: int, w: float, h: float) -
 
 func _draw_view_b(c: CanvasItem) -> void:
 	var b := _band()
-	_full(c, "view_b")
-	if b >= 2:
+	_full(c, plate_id())
+	if b >= 2 and r.ending() != "sever":
 		_full(c, "b_condensation")
 	if r.state.p19_complete:
 		_full(c, "b_speaker_wet")
@@ -707,7 +792,7 @@ func _draw_view_b(c: CanvasItem) -> void:
 		_ctext(c, ch, x - 34, 416, 20, INK)
 		_notches(c, x + 6, 394, CUTS[ch], 9.0, 10.0)
 		if lamp_lit(ch) and lit_tex:
-			c.draw_texture(lit_tex, Vector2(x - 36, 404))
+			c.draw_texture(lit_tex, Vector2(x, 440) - lit_tex.get_size() / 2.0)
 		if needle:
 			c.draw_set_transform(Vector2(x, 548), deg_to_rad(needles[ch]), Vector2.ONE)
 			c.draw_texture(needle, Vector2(-5, -72))
@@ -734,17 +819,17 @@ func _draw_b_traces(c: CanvasItem) -> void:
 		var i := 0
 		while x <= 986.0:
 			if absf(x - peak) < 8.0:
-				pts.append(Vector2(peak - 7, base))
-				pts.append(Vector2(peak, base - 22))
-				pts.append(Vector2(peak + 7, base))
+				pts.append(Vector2(peak - 6, base))
+				pts.append(Vector2(peak, base - 24))
+				pts.append(Vector2(peak + 6, base + 3))
 				x = peak + 10.0
 				continue
 			pts.append(Vector2(x, base + (wave[(i + lane * 37) % wave.size()] - 0.5) * 6.0))
 			x += 6.0
 			i += 1
-		c.draw_polyline(pts, TRACE, 2.0, true)
+		c.draw_polyline(pts, INK, 2.0, true)
 	for y in range(692, 770, 8):
-		c.draw_line(Vector2(gx, y), Vector2(gx, y + 4), AMBER, 2.0)
+		c.draw_line(Vector2(gx, y), Vector2(gx, y + 4), GUIDE, 2.0)
 
 # ---------------------------------------------------------------------------
 # drawing: close-ups (layer 5)
@@ -992,21 +1077,32 @@ func _bell(c: CanvasItem, top: Vector2, col: Color) -> void:
 	c.draw_polyline(pts, col, 2.0, true)
 	c.draw_circle(top + Vector2(0, 20), 2.5, col)
 
+## One lane of the strip chart: a continuous ink pen trace, the bell an inked spike.
 func _draw_lane(c: CanvasItem, lane: int, shift: float, on: bool) -> void:
 	var cy: float = LANE_Y[lane]
-	var col := TRACE if on else Color(TRACE, 0.3)
+	var col := INK if on else Color(INK, 0.28)
 	var peak := GUIDE_X + (0.0 if lane == 0 else STEP_PX * 2.0) + shift
+	var pts := PackedVector2Array()
+	var spiked := false
 	var i := 0
 	var x := WIN_X0 + 4.0 + shift
 	while x < WIN_X1:
-		if x >= WIN_X0 + 2.0 and absf(x - peak) > 7.0:
-			var amp := 6.0 + 30.0 * wave[(i + lane * 53) % wave.size()] * (0.55 + 0.45 * sin(i * 0.21 + lane))
-			c.draw_line(Vector2(x, cy - amp), Vector2(x, cy + amp), col, 3.0)
+		if x >= WIN_X0 + 2.0:
+			if absf(x - peak) <= 7.0:
+				if not spiked:
+					pts.append_array(PackedVector2Array([Vector2(peak - 5, cy), Vector2(peak, cy - 58),
+						Vector2(peak + 4, cy + 22), Vector2(peak + 8, cy)]))
+					spiked = true
+			else:
+				var amp := 6.0 + 30.0 * wave[(i + lane * 53) % wave.size()] * (0.55 + 0.45 * sin(i * 0.21 + lane))
+				pts.append(Vector2(x, cy - amp))
+				pts.append(Vector2(x + 3.0, cy + amp * 0.85))
 		x += 6.0
 		i += 1
+	if pts.size() > 1:
+		c.draw_polyline(pts, col, 2.0, true)
 	if peak > WIN_X0 and peak < WIN_X1:
-		c.draw_line(Vector2(peak, cy - 58), Vector2(peak, cy + 58), PAPER_HI, 4.0)
-		_bell(c, Vector2(peak, cy - 80), PAPER_HI)
+		_bell(c, Vector2(peak, cy - 80), col)
 
 func _draw_mixer(c: CanvasItem) -> void:
 	_full(c, "c_mixer")
@@ -1017,8 +1113,10 @@ func _draw_mixer(c: CanvasItem) -> void:
 	for lane in 2:
 		var top: float = [180.0, 370.0][lane]
 		var lab: String = ["1 VENN", "2 NORA"][lane]
-		c.draw_rect(Rect2(214, top + 4, 96, 30), Color(0.05, 0.09, 0.11, 0.9))
-		_text(c, lab, Vector2(222, top + 27), 20, PAPER_HI, narrow)
+		var tag := Rect2(214, top + 4, 96, 30)
+		c.draw_rect(tag, PAPER)
+		c.draw_rect(tag, INK, false, 2.0)
+		_text(c, lab, Vector2(222, top + 27), 20, INK, narrow)
 	# detents and the knob
 	for k in range(-3, 4):
 		var dx := GUIDE_X + DETENT_PX * k
@@ -1052,15 +1150,15 @@ func _draw_mixer(c: CanvasItem) -> void:
 	# result tape
 	var res: Array = r.mix_transcript()
 	if res.size() > 0:
-		var tape := Rect2(232, 544, 986, 44)
+		var tape := Rect2(232, 512, 986, 40)   # inside the window, under lane 2
 		c.draw_rect(tape, PAPER_HI)
 		c.draw_rect(tape, INK, false, 2.0)
 		if res.size() == 2:
-			_text(c, res[0], Vector2(252, 573), 18, INK, mono)
-			_text(c, res[1], Vector2(737, 573), 18, INK, mono)
-			c.draw_line(Vector2(725, 548), Vector2(725, 584), Color(INK, 0.4), 1.5)
+			_text(c, res[0], Vector2(252, 538), 18, INK, mono)
+			_text(c, res[1], Vector2(737, 538), 18, INK, mono)
+			c.draw_line(Vector2(725, 516), Vector2(725, 548), Color(INK, 0.4), 1.5)
 		else:
-			_ctext(c, res[0], 725, 573, 18, INK, mono)
+			_ctext(c, res[0], 725, 538, 18, INK, mono)
 	_draw_session_log(c)
 
 func _arrow_left(c: CanvasItem, at: Vector2) -> void:
