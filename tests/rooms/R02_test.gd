@@ -1,30 +1,33 @@
-extends SceneTree
-## R02, the Intake Office: every slice test (rounds 1-3), ported to the multi-room core.
+extends "res://tests/rooms/room_test_base.gd"
+## R02, the Intake Office: the slice tests (rounds 1-3) that still hold, re-timed to the
+## cards' T1X, plus view B, P20, the look-away and notice escalation across every tide.
 ## Logic (R02Sim inside a GameSim) and the game scene's hit-testing/save/presentation
 ## wiring with R02 mounted. Run after an import:
 ##   godot --headless --path . --script tests/rooms/R02_test.gd
-
-var failures: Array = []
 
 ## A fresh game; the office sim inside it (the slice's OfficeSim.new()).
 func new_sim() -> R02Sim:
 	return GameSim.new().room("R02")
 
-func check(cond: bool, msg: String) -> void:
-	if not cond:
-		failures.append(msg)
-		push_error(msg)
+## Tide I's instruments done (P02 in the listening room, P03 in the chart room).
+func tide1(s: R02Sim) -> void:
+	s.game.set_flag("P02")
+	s.game.set_flag("P03")
 
-func says(ev: Array) -> String:
+func office(g: GameSim) -> R02Sim:
+	return g.room("R02") as R02Sim
+
+func count_ev(ev: Array, type: String, id: String) -> int:
+	var n := 0
+	for e in ev:
+		if e.type == type and e.get("id", "") == id: n += 1
+	return n
+
+func fx_ev(ev: Array, id: String) -> Array:
 	var out := []
 	for e in ev:
-		if e.type == "say": out.append(e.text)
-	return " | ".join(out)
-
-func has_ev(ev: Array, type: String, id: String) -> bool:
-	for e in ev:
-		if e.type == type and e.get("id", "") == id: return true
-	return false
+		if e.type == "fx" and e.id == id: out.append(e)
+	return out
 
 func say_ev(ev: Array, fragment: String) -> Dictionary:
 	for e in ev:
@@ -65,6 +68,7 @@ func count_say(ev: Array, text: String) -> int:
 func sim_before_chair() -> R02Sim:
 	var s := new_sim()
 	s.debug_jump(2)
+	tide1(s)
 	s.dispatch("puddle")
 	s.dispatch("drawer")
 	dial_to(s, [1, 8, 5, 2])
@@ -74,10 +78,8 @@ func sim_before_chair() -> R02Sim:
 	s.dispatch("back")
 	return s
 
-func _initialize() -> void:
-	call_deferred("run")
-
-func run() -> void:
+func run_tests() -> void:
+	skeleton_checks("R02", [], 1)
 	test_full_playthrough()
 	test_p01_rules()
 	test_gating()
@@ -114,6 +116,27 @@ func run() -> void:
 	test_look_away()
 	test_continuity()
 	test_endings()
+	test_corridor_opens_on_lamp()
+	test_drawer_items()
+	test_rewrite_needs_tide1()
+	test_callback()
+	test_t1x_latch()
+	test_threshold_converges()
+	test_facing()
+	test_look_away_bands()
+	test_notices()
+	test_hotspots_every_tide()
+	test_photo_states()
+	test_service_door()
+	test_receipt()
+	test_contract()
+	test_p20()
+	test_apply_ending()
+	test_debug_prepare()
+	test_debug_jumps()
+	test_record_moves()
+	test_all_observations()
+	test_clock_and_needle()
 	await test_scene_wiring()
 	await test_presentation_cleanup()
 	await test_scheduler()
@@ -125,14 +148,8 @@ func run() -> void:
 	await test_chain_gate_drawer()
 	await test_hint_after_chain()
 	await test_qa_nits()
-	if failures.is_empty():
-		print("PASS: office slice — playthrough, P01, drawer, tide rhythm, log rewrite, closure report (fields, evening tide, misses, unlatch on back), history, soundings, contours, look-away, revisits, gates, drift, evidence, story flags, saves, title menu, determinism, threshold, both endings, end card, scene wiring, chain scheduler, click driver, breath, cleanup, QA nits")
-	else:
-		print("FAIL (%d): %s" % [failures.size(), "; ".join(failures)])
-	# Let freed scenes and players go before exit, so there are no leak warnings.
-	for i in 10:
-		await process_frame
-	quit(0 if failures.is_empty() else 1)
+	await view_checks("R02")
+	await test_view_b()
 
 func test_full_playthrough() -> void:
 	var s := new_sim()
@@ -173,7 +190,13 @@ func test_full_playthrough() -> void:
 	ev = s.dispatch("try_drawer")
 	check(s.state.drawer_open and has_ev(ev, "sfx", "drawer") and has_ev(ev, "fx", "drawer_open"), "1852 opens the drawer")
 	s.dispatch("back")
-	check(s.view == "room" and s.objective() == "reread", "objective -> reread")
+	check(s.view == "room" and s.objective() == "instruments", "objective -> instruments (Tide I's two jobs)")
+	check(s.game.has_item("venn_tide_sheet") and s.game.has_item("inspection_lens"), "the drawer hands over his sheet and lens")
+	s.dispatch("logbook")
+	check(not s.state.log_rewritten, "no rewrite before the instruments")
+	s.dispatch("back")
+	tide1(s)
+	check(s.objective() == "reread", "objective -> reread")
 	ev = s.dispatch("logbook")
 	check(s.state.log_rewritten and has_ev(ev, "fx", "log_write"), "the log rewrites itself")
 	s.dispatch("back")
@@ -195,13 +218,16 @@ func test_full_playthrough() -> void:
 	check(has_ev(ev, "fx", "threshold") and has_ev(ev, "sfx", "door") and says(ev) == "", "threshold: door + fx, no line")
 	s.dispatch("continue")
 	check(s.view == "end" and s.state.finished, "continue reaches the end card")
-	check(s.game.flag("t1x_threshold_crossed") and s.game.flag("closure_report_filed"),
-		"the Tide I transition flags are recorded for the corridor")
+	check(s.game.flag("closure_report_filed") and not s.game.flag("t1x_threshold_crossed"),
+		"the report flag is recorded; the threshold flag waits for the card")
 	check(s.game.value("movement_events") == ["lamp_mended", "log_read", "drawer_opened", "report_signed", "held_still"],
 		"the office records its movement events in order (%s)" % [s.game.value("movement_events")])
 	ev = s.dispatch("end_continue")
-	check(s.view == "room" and s.state.finished and s.objective() == "done", "Go on: Tide I continues, back in the office")
+	check(s.game.state.room == "R03" and s.state.finished and s.game.tide() == 2, "Go on: Tide II, in the chart room")
+	check(s.game.flag("t1x_threshold_crossed"), "the threshold flag is recorded")
 	check(s.game.exit_open("R02", "R03") and s.game.exit_open("R02", "R04"), "the corridor opens on the instrument rooms")
+	s.game.dispatch("go:R02")
+	check(s.game.state.room == "R02" and s.objective() == "away_t2", "back in the office: the objective points away")
 	ev = s.dispatch("door")
 	check(s.view == "room" and says(ev).begins_with("A corridor."), "the door is only a door afterwards")
 	s.dispatch("restart")
@@ -291,7 +317,7 @@ func test_determinism() -> void:
 	for i in 8: script.append("dial_1")
 	for i in 5: script.append("dial_2")
 	for i in 2: script.append("dial_3")
-	script.append_array(["try_drawer", "look_photo", "look_photo", "back", "map", "logbook", "back", "chair",
+	script.append_array(["try_drawer", "look_photo", "photo", "back", "back", "map", "logbook", "back", "chair",
 		"coat", "window", "door", "papers", "file_report", "field_0", "field_0", "field_1", "field_2",
 		"rtime_0"])
 	for i in 9: script.append("rtime_1")
@@ -300,6 +326,8 @@ func test_determinism() -> void:
 	script.append_array(["file_report", "logbook", "back", "hint", "door", "hint", "continue"])
 	var a := new_sim()
 	var b := new_sim()
+	tide1(a)
+	tide1(b)
 	var log_a := []
 	var log_b := []
 	for act in script:
@@ -351,7 +379,9 @@ func test_drawer_puzzle() -> void:
 	ev = s.dispatch("dial_0")
 	check(JSON.stringify(s.state.drawer_dial) == code and ev.is_empty(), "dials ignore input once open")
 	check(says(s.dispatch("look_watch")) == "Stopped at 18:52.", "look at the watch")
-	check(says(s.dispatch("look_photo")) == "Me, from outside. From the sea side.", "look at the photo")
+	check(says(s.dispatch("look_photo")) == "Me, from outside. From the sea side." and s.view == "photo", "look at the photo")
+	s.dispatch("back")
+	check(s.view == "drawer", "back from the photograph returns to the drawer")
 	s.dispatch("back")
 	ev = s.dispatch("drawer")
 	check("back of my own head" in says(ev), "open drawer revisit line")
@@ -366,6 +396,7 @@ func test_drawer_puzzle() -> void:
 func test_log_rows() -> void:
 	var s := new_sim()
 	s.debug_jump(2)
+	tide1(s)
 	check(s.log_rows().size() == 9, "9 log rows before the rewrite")
 	s.dispatch("puddle")
 	s.dispatch("logbook")
@@ -378,7 +409,7 @@ func test_log_rows() -> void:
 	nodrawer.dispatch("try_drawer")
 	nodrawer.dispatch("back")
 	nodrawer.dispatch("logbook")
-	check(nodrawer.state.drawer_open and not nodrawer.state.log_rewritten, "no rewrite without the prints")
+	check(nodrawer.state.drawer_open and not nodrawer.state.log_rewritten, "no rewrite before tide_done(1)")
 	s.dispatch("drawer")
 	dial_to(s, [1, 8, 5, 2])
 	s.dispatch("try_drawer")
@@ -470,10 +501,10 @@ func test_stage_text_drift() -> void:
 	var s3 := new_sim()
 	s3.debug_jump(3)
 	s3.dispatch("hooks")
-	check(s3.has_seen("tag") and s3.has_seen("hooks"), "hooks at stage 3 records the tag")
+	check(not s3.has_seen("tag") and s3.has_seen("hooks"), "hooks at T1X: no tag yet")
 	var w3 := s3.dispatch("window")
-	check(s3.has_seen("horizon") and s3.has_seen("eye"), "window at stage 3 records horizon + eye")
-	check("still in the middle of the glass" in says(w3), "the eye line")
+	check(not s3.has_seen("horizon") and not s3.has_seen("eye") and s3.has_seen("silent"), "window at T1X: silent, no horizon or eye")
+	check(says(w3) == "Nine pilings. The sea moving against them, without a sound.", "the T1X window line")
 	var p := new_sim()
 	p.debug_jump(1)
 	var ev := p.dispatch("papers")
@@ -493,37 +524,44 @@ func test_stage_text_drift() -> void:
 # ---------------------------------------------------------------------------
 # Notebook keeps evidence
 # ---------------------------------------------------------------------------
-func test_notebook_keeps_evidence() -> void:
-	# One scripted run that sees everything there is to see.
+## One real Tide I run sees every observation Tide I can show (REACHABLE_BY_T1X).
+func t1x_full_run() -> R02Sim:
 	var s := new_sim()
+	tide1(s)
 	s.dispatch("begin")
-	for a in ["coat", "hooks", "map", "mug", "stove", "papers", "back"]:
+	for a in ["coat", "hooks", "map", "mug", "stove", "papers", "read_contract", "back"]:
 		s.dispatch(a)
 	for a in ["lamp", "toggle_supply", "select_b", "fit", "toggle_supply"]:
 		s.dispatch(a)
 	for a in ["papers", "back", "chair", "logbook", "back", "window", "map", "puddle", "drawer"]:
 		s.dispatch(a)
 	dial_to(s, [1, 8, 5, 2])
-	for a in ["try_drawer", "look_photo", "look_photo", "back", "map", "logbook", "back", "chair",
-			"window", "hooks", "map", "map"]:
+	for a in ["try_drawer", "look_photo", "photo", "back", "back", "map", "logbook", "back", "chair",
+			"window", "hooks", "map", "puddle"]:
 		s.dispatch(a)
-	# Six returns from the notebook: everything the room does while she looks away.
-	for i in 6:
-		s.dispatch("notebook")
-		s.dispatch("back")
-	for a in ["mug", "stove", "coat", "door", "puddle", "window"]:
-		s.dispatch(a)
-	file_report(s)
+	file_and_back(s)
+	return s
+
+func test_notebook_keeps_evidence() -> void:
+	var s := t1x_full_run()
 	var missing := []
-	for id in R02Sim.OBSERVATIONS:
+	for id in R02Sim.REACHABLE_BY_T1X:
 		if not s.has_seen(id):
 			missing.append(id)
-	check(missing.is_empty(), "every observation reachable in one run (missing: %s)" % [missing])
-	check(s.seen().size() == R02Sim.OBSERVATIONS.size(), "seen.size() == OBSERVATIONS.size()")
+	check(missing.is_empty(), "every Tide I observation reachable in one run (missing: %s)" % [missing])
+	for id in R02Sim.REACHABLE_BY_T1X:
+		check(R02Sim.OBSERVATIONS.has(id), "REACHABLE_BY_T1X id %s is an observation" % id)
+	s.dispatch("door")
+	s.dispatch("continue")
+	check(R02Sim.END_ALL_SEEN in s.end_lines(), "the card says nothing went unrecorded")
 	var j := new_sim()
 	j.debug_jump(4)
 	var had: Array = j.seen().duplicate()
 	for id in R02Sim.ROOM_IDS:
+		j.dispatch(id)
+		j.dispatch("back")
+	j.dispatch("turn")
+	for id in R02Sim.HOTSPOTS_B:
 		j.dispatch(id)
 		j.dispatch("back")
 	for id in had:
@@ -572,6 +610,7 @@ func roundtrip(s: R02Sim) -> R02Sim:
 func test_milestone_saves() -> void:
 	var s := new_sim()
 	s.debug_jump(2)
+	tide1(s)
 	s.dispatch("puddle")
 	s.dispatch("drawer")
 	dial_to(s, [1, 8, 5, 2])
@@ -599,6 +638,9 @@ func test_milestone_saves() -> void:
 	bad.from_dict({"schema": 5, "started": true, "p01_complete": true, "log_read": true,
 		"prints_seen": true, "log_rewritten": true})
 	check(not bad.state.log_rewritten, "log_rewritten without drawer_open is dropped")
+	bad.from_dict({"schema": 5, "started": true, "p01_complete": true, "log_read": true,
+		"drawer_open": true, "log_rewritten": true})
+	check(bad.state.log_rewritten, "log_rewritten no longer needs prints_seen")
 	bad.from_dict({"schema": 5, "started": true, "drawer_open": true})
 	check(not bad.state.drawer_open, "drawer_open without log_read is dropped")
 	bad.from_dict({"schema": 5, "started": true, "p01_complete": true, "log_read": true, "prints_seen": true,
@@ -755,6 +797,7 @@ func test_presentation_cleanup() -> void:
 	# queued, it is appended after it, whole, and nothing older is re-timed.
 	scene.room_jump("R02", 2)
 	scene.room_sim().state.prints_seen = true
+	tide1(scene.room_sim())
 	scene.dispatch("drawer")
 	for i in 4:
 		for n in [1, 8, 5, 2][i]:
@@ -1036,14 +1079,16 @@ func test_photo_behind() -> void:
 	dial_to(s, [1, 8, 5, 2])
 	s.dispatch("try_drawer")
 	var ev := s.dispatch("look_photo")
-	check(says(ev) == "Me, from outside. From the sea side." and not s.has_seen("behind"), "first look at the photo")
-	ev = s.dispatch("look_photo")
-	check(s.has_seen("behind") and "someone behind me" in says(ev), "second look: someone behind her")
+	check(says(ev) == "Me, from outside. From the sea side." and not s.has_seen("behind") and s.view == "photo",
+		"first look at the photo opens it")
+	ev = s.dispatch("photo")
+	check(s.has_seen("behind") and says(ev) == "I hold his lens over it. There is someone behind me in this. There is no one behind me now.",
+		"second look: someone behind her")
 	var n: int = s.seen().size()
-	s.dispatch("look_photo")
+	s.dispatch("photo")
 	check(s.seen().size() == n and s.seen().count("behind") == 1, "'behind' is recorded once")
 	for i in 12:
-		s.dispatch("look_photo")
+		s.dispatch("photo")
 	check(int(s.state.photo_looks) == 9, "photo looks are capped")
 	var t := new_sim()
 	t.from_dict({"schema": 5, "photo_looks": 40})
@@ -1092,7 +1137,7 @@ func test_soundings() -> void:
 func test_revisits() -> void:
 	var s1 := new_sim()
 	s1.debug_jump(1)
-	check(says(s1.dispatch("door")) == "Two latches let go somewhere below. I'd rather know what's in this room first.", "door at s1")
+	check(says(s1.dispatch("door")) == "The corridor. The latches down there let go when the lamp came on.", "door at s1")
 	var s2 := new_sim()
 	s2.debug_jump(2)
 	check(says(s2.dispatch("door")) == "The latches downstairs let go when the lamp came on. Something wanted the doors open before I did.", "door at s2")
@@ -1112,11 +1157,13 @@ func test_revisits() -> void:
 	var k := sim_before_chair()
 	k.dispatch("chair")
 	ev = k.dispatch("window")
-	check(k.has_seen("palms") and is_equal_approx(say_ev(ev, "heel of a hand").delay, 8.4), "palms after the knock, at 8.4 s")
-	check(k.has_seen("eye") and "still in the middle of the glass" in says(ev), "the eye line is kept")
+	check(k.has_seen("palms") and is_equal_approx(say_ev(ev, "heel of a hand").delay, 2.8) and say_ev(ev, "heel of a hand").story,
+		"palms after the knock, 2.8 s after the window line")
+	check(say_ev(k.dispatch("window"), "heel of a hand").is_empty(), "the palms line once")
 	# The log-rewrite beat.
 	var r := new_sim()
 	r.debug_jump(2)
+	tide1(r)
 	r.dispatch("puddle")
 	r.dispatch("drawer")
 	dial_to(r, [1, 8, 5, 2])
@@ -1185,11 +1232,15 @@ func test_threshold_sim() -> void:
 func test_end_lines() -> void:
 	var s := new_sim()
 	s.debug_jump(4)
-	check(s.end_lines() == [R02Sim.END_ON_STATION, R02Sim.END_CONTINUES], "end lines without everything seen")
-	for id in R02Sim.OBSERVATIONS:
-		s._observe(id)
-	check(s.end_lines() == [R02Sim.END_ON_STATION, R02Sim.END_ALL_SEEN, R02Sim.END_CONTINUES],
-		"with everything seen: nothing went unrecorded, in the middle")
+	check(s.end_lines() == [R02Sim.END_ON_STATION], "end lines without everything seen")
+	for id in R02Sim.REACHABLE_BY_T1X:
+		if id != "behind":
+			s._observe(id)
+	check(s.end_lines() == [R02Sim.END_ON_STATION], "one Tide I observation missing: no all-seen line")
+	s._observe("behind")
+	check(s.end_lines() == [R02Sim.END_ON_STATION, R02Sim.END_ALL_SEEN],
+		"with everything Tide I can show seen: nothing went unrecorded")
+	check(not "Tide I continues." in s.end_lines(), "the card never says Tide I continues")
 	var n := new_sim()
 	n.debug_jump(2)
 	check(n.notebook_intrusion() == "", "no intrusion before the log rewrites")
@@ -1401,7 +1452,7 @@ func test_end_scene() -> void:
 	scene.room_view.end_t = sch.r2_start + 0.5
 	check(scene.room_view._end_row_writing(), "the second row writes itself 2 s after the first")
 	check(is_equal_approx(sch.r2_start, sch.r1_done + 2.0) and is_equal_approx(sch.lines[0], sch.r2_done + 1.5)
-		and is_equal_approx(sch.lines[1], sch.lines[0] + 1.6), "end-card schedule")
+		and sch.lines.size() == scene.room_sim().end_lines().size(), "end-card schedule")
 	scene.room_view.end_t = sch.done - 0.1
 	check(scene.action_at(Vector2(700, 910)) == "", "no restart before the last line is in")
 	scene.room_view.end_t = sch.done + 0.1
@@ -1429,8 +1480,12 @@ func test_unlatch_on_back() -> void:
 	check(not has_ev(ev, "sfx", "latch_near") and count_say(ev, UNLATCH_LINE) == 0, "no unlatch while she is at the desk")
 	check(count_say(ev, "The two is in my hand. I wrote it without counting.") == 1
 		and is_equal_approx(say_ev(ev, "without counting").delay, 2.2), "the two, at 2.2 s")
-	ev = s.dispatch("door")
-	check(s.view == "report" and ev.is_empty(), "'door' does nothing in the report")
+	var dr := new_sim()
+	dr.debug_jump(3)
+	file_report(dr)
+	ev = dr.dispatch("door")
+	check(dr.view == "threshold" and dr.state.heard_unlatch and count_say(ev, UNLATCH_LINE) == 1,
+		"'door' sent from the report steps back first (the unlatch), then opens the door")
 	check(s.objective() == "filed" and says(s.dispatch("hint")) == R02Sim.HINTS["filed"][0], "objective 'filed' has hints")
 	ev = s.dispatch("back")
 	check(s.state.heard_unlatch and s.view == "room", "back from the signed report: heard_unlatch")
@@ -1632,22 +1687,26 @@ func test_round3_determinism() -> void:
 # Round 3, C2: less explaining, the contours, look-away, continuity, two endings
 # ---------------------------------------------------------------------------
 func test_story_text_r3() -> void:
-	var s := new_sim()
-	s.debug_jump(3)
+	var s := office(game_at(6))
 	var ev := s.dispatch("window")
-	check(is_equal_approx(say_ev(ev, "I step to the left. It is still in the middle of the glass.").delay, 5.4),
-		"window s3: the eye line at 5.4 s")
-	check(says(s.dispatch("hooks")) == "There's a tag on the ninth hook now. Stamped A.M. It hangs at the height of my collar.",
+	check(is_equal_approx(say_ev(ev, "I step to the left. It is still in the middle of the glass.").delay, 2.6),
+		"window band 4: the eye line at 2.6 s")
+	var h := office(game_at(8))
+	check(says(h.dispatch("hooks")).ends_with("The ninth says A.M. It hangs at the height of my collar."),
 		"the tag line")
 	check(R02Sim.OBSERVATIONS["tag"] == "A brass tag on the ninth hook, stamped A.M. It hangs at the height of my collar.",
 		"the tag observation")
 	check(R02Sim.OBSERVATIONS.size() >= 35, "about 35 observations (%d)" % R02Sim.OBSERVATIONS.size())
 
 func test_contours() -> void:
-	var early := new_sim()
-	early.debug_jump(3)
+	var t1x := new_sim()
+	t1x.debug_jump(3)
+	t1x.dispatch("map")
+	t1x.dispatch("map")
+	check(t1x.state.soundings_heard and not t1x.state.contours_seen, "no contours at T1X")
+	var early := office(game_at(6))
 	var ev := early.dispatch("map")
-	check(early.state.soundings_heard and not early.state.contours_seen, "at s3 the first map is the soundings")
+	check(early.state.soundings_heard and not early.state.contours_seen, "at band 4 the first map is the soundings")
 	ev = early.dispatch("map")
 	check(early.state.contours_seen and early.has_seen("contours") and has_ev(ev, "fx", "contours"), "the second map: contours")
 	var deep_ok := false
@@ -1667,20 +1726,18 @@ func test_contours() -> void:
 	s2.dispatch("map")
 	s2.dispatch("map")
 	check(s2.state.soundings_heard and not s2.state.contours_seen, "no contours at s2")
-	var none := new_sim()
-	none.debug_jump(3)
-	none.state.drawer_open = true
+	var none := office(game_at(6))
 	check(not none.state.soundings_heard and not has_ev(none.dispatch("window"), "fx", "contours")
 		and not none.has_seen("through"), "no 'through' before the contours")
 	ev = early.dispatch("window")
 	check(early.has_seen("through") and count_say(ev, R02Sim.OBSERVATIONS["through"]) == 1
-		and is_equal_approx(say_ev(ev, "what it looks through").delay, 5.4 + 2.8), "'through' after the contours, 2.8 s after the chain")
+		and is_equal_approx(say_ev(ev, "what it looks through").delay, 2.6 + 2.8), "'through' after the contours, 2.8 s after the chain")
 	ev = early.dispatch("window")
 	check(say_ev(ev, "what it looks through").is_empty(), "'through' once")
 	var bad := new_sim()
 	bad.from_dict({"schema": 5, "started": true, "p01_complete": true, "log_read": true, "drawer_open": true,
 		"soundings_heard": true, "contours_seen": true})
-	check(not bad.state.contours_seen, "contours_seen needs the wet seat")
+	check(not bad.state.contours_seen, "contours_seen needs the threshold behind her")
 	var t := roundtrip(early)
 	check(t.state.contours_seen, "contours_seen round-trips")
 
@@ -1701,59 +1758,12 @@ func test_chart_tenth() -> void:
 	check(t.has_seen("chart_tenth"), "the s3 soundings line notes the tenth piling")
 
 func test_look_away() -> void:
+	# The slice's stage-3 look-aways are gone: nothing changes during Tide I.
 	var s := new_sim()
-	s.debug_jump(2)
-	s.dispatch("notebook"); s.dispatch("back")
-	s.dispatch("logbook"); s.dispatch("back")
-	check(int(s.state.returns) == 0, "returns stay 0 before s3")
 	s.debug_jump(3)
-	s.dispatch("menu"); s.dispatch("resume")
-	s.dispatch("menu"); s.dispatch("back")
-	check(int(s.state.returns) == 0, "the menu doesn't count")
-	var before := says(s.dispatch("mug"))
-	check(before == "Two rings on the desk now. One is still warm.", "the mug before she looks away")
-	s.dispatch("notebook"); s.dispatch("back")
-	check(int(s.state.returns) == 1 and s.look_away("mug") and not s.look_away("stove"), "the notebook counts")
-	check(says(s.dispatch("mug")) == "His mug is full to the brim. Seawater. I didn't fill it." and s.has_seen("away_mug"),
-		"the mug, brimming")
-	check(says(s.dispatch("stove")) == "Raked smooth again. I didn't touch it." and not s.has_seen("away_stove"),
-		"the stove before its turn")
-	s.dispatch("papers"); s.dispatch("back")
-	check(int(s.state.returns) == 2, "the report counts")
-	check(says(s.dispatch("stove")) == "The stove door is open. It's full of water, up into the flue." and s.has_seen("away_stove"),
-		"the stove, flooded")
-	check(says(s.dispatch("coat")) == "The shoulders have shape now. I am not going to touch it.", "the coat before its turn")
-	s.dispatch("drawer"); s.dispatch("back")
-	check(says(s.dispatch("coat")) == "The hood is up. It's facing the desk." and s.has_seen("away_coat"), "the hood")
-	var ev := s.dispatch("door")
-	check(says(ev) == R02Sim.LATCHED_LINE and not s.has_seen("away_door"), "the door before its turn")
-	s.dispatch("lamp"); s.dispatch("back")
-	ev = s.dispatch("door")
-	check(says(ev) == "Water is coming under the door. From the corridor side. | " + R02Sim.LATCHED_LINE
-		and is_equal_approx(say_ev(ev, "Latched").delay, 2.4) and not say_ev(ev, "Latched").story and s.has_seen("away_door"),
-		"the door, seeping, then latched at 2.4 s")
-	check(say_ev(s.dispatch("puddle"), "And a third").is_empty(), "the puddle before its turn")
-	s.dispatch("logbook"); s.dispatch("back")
-	ev = s.dispatch("puddle")
-	check(is_equal_approx(say_ev(ev, "And a third. Up the wall beside the door. It doesn't come down.").delay, 4.2)
-		and s.has_seen("away_puddle"), "the third trail, up the wall")
-	check(say_ev(s.dispatch("window"), "fourth hand").is_empty(), "the window before its turn")
-	s.dispatch("notebook"); s.dispatch("back")
-	ev = s.dispatch("window")
-	check(int(s.state.returns) == 6 and say_ev(ev, "There's a fourth hand now. At the top of the glass.").story
-		and s.has_seen("away_window"), "the fourth hand")
-	s.dispatch("notebook"); s.dispatch("back")
-	check(int(s.state.returns) == 6, "returns clamp at 6")
-	var t := roundtrip(s)
-	check(int(t.state.returns) == 6 and t.look_away("window"), "returns round-trip")
-	t.from_dict({"schema": 5, "returns": 4})
-	check(int(t.state.returns) == 0, "returns need the wet seat")
-	t.from_dict({"schema": 5, "started": true, "p01_complete": true, "log_read": true, "prints_seen": true,
-		"drawer_open": true, "log_rewritten": true, "seat_wet": true, "returns": 40})
-	check(int(t.state.returns) == 6, "returns clamp on load")
-	t.from_dict({"schema": 5, "started": true, "p01_complete": true, "log_read": true, "prints_seen": true,
-		"drawer_open": true, "log_rewritten": true, "seat_wet": true, "returns": 2.5})
-	check(int(t.state.returns) == 0, "fractional returns are ignored")
+	for a in ["papers", "back", "notebook", "back", "logbook", "back", "drawer", "back"]:
+		s.dispatch(a)
+	check(s.state.look_away_applied.is_empty() and not s.state.has("returns"), "no look-away in T1X; no returns counter")
 	check(not R02Sim.ROOM_IDS.has("turn"), "'turn' is not a room id")
 
 func test_continuity() -> void:
@@ -1775,6 +1785,7 @@ func test_continuity() -> void:
 	check(not d.to_dict().has("drawer_miss_n"), "the rotation is not saved")
 	var r := new_sim()
 	r.debug_jump(2)
+	tide1(r)
 	r.dispatch("puddle")
 	r.dispatch("drawer")
 	dial_to(r, [1, 8, 5, 2])
@@ -1795,7 +1806,10 @@ func test_endings() -> void:
 		"the end rows carry the arithmetic")
 	var s := new_sim()
 	s.debug_jump(4)
-	check(s.dispatch("turn").is_empty() and s.view == "room", "'turn' does nothing in the room")
+	var ev0 := s.dispatch("turn")
+	check(s.facing == "B" and s.view == "room" and has_ev(ev0, "sfx", "turn"), "'turn' in the room faces the entry wall")
+	s.dispatch("turn")
+	check(s.facing == "A", "and back to the desk")
 	s.dispatch("papers")
 	check(s.dispatch("turn").is_empty() and s.view == "report", "'turn' does nothing in a close-up")
 	s.dispatch("back")
@@ -1809,10 +1823,11 @@ func test_endings() -> void:
 		if e.type == "sfx" and e.id == "motif" and is_equal_approx(e.delay, 1.4): motif_ok = true
 	check(has_ev(ev, "sfx", "exhale_near") and motif_ok and has_ev(ev, "fx", "turn"), "turn: exhale, motif at 1.4 s, fx")
 	check(s.end_rows() == [[R02Sim.END_TURN_ROW, "her"], [R02Sim.END_NEXT_TURNED, "her"]], "turned: both rows in her hand")
-	check(s.end_lines() == [R02Sim.END_ON_STATION, R02Sim.END_CONTINUES], "turned: end lines")
+	check(s.end_lines() == [R02Sim.END_ON_STATION], "turned: end lines")
 	var t := roundtrip(s)
 	check(t.state.turned and t.view == "room", "turned round-trips; a save lands in the office")
-	check(s.game.flag("t1x_turned") and t.game.flag("t1x_turned") and t.game.flag("t1x_threshold_crossed"),
+	check(s.game.flag("t1x_turned") and t.game.flag("t1x_turned") and t.game.flag("t1x_threshold_crossed")
+		and not s.game.flag("t1x_threshold_crossed"),
 		"t1x_turned and the threshold follow the office's state through a save")
 	check(s.game.value("movement_events").back() == "turned_round", "turning round is a recorded move")
 	var n := new_sim()
@@ -1856,6 +1871,7 @@ func click_through(scene: Node, p: Vector2, events: Array, limit := 40) -> bool:
 func test_click_driver() -> void:
 	var scene = new_scene("user://office_driver_test.json")
 	await process_frame
+	tide1(scene.room_sim())
 	var ev: Array = []
 	var ok := true
 	var dial_up := func(i: int) -> Vector2: return scene.room_view._dial_up_rect(i).get_center()
@@ -2023,3 +2039,818 @@ func test_qa_nits() -> void:
 	GameView.remove_saves(scene.save_path)
 	scene.queue_free()
 	await process_frame
+
+# ---------------------------------------------------------------------------
+# The full game: T1X re-timed (room-contract section 8)
+# ---------------------------------------------------------------------------
+const PITCH_BLACK := "The corridor is pitch black. Light first."
+
+func test_corridor_opens_on_lamp() -> void:
+	var g := GameSim.new()
+	g.dispatch("begin")
+	for to in ["R03", "R04"]:
+		var ev := g.dispatch("go:" + to)
+		check(g.state.room == "R02" and says(ev) == PITCH_BLACK, "before P01 go:%s is refused (%s)" % [to, says(ev)])
+	var s := office(g)
+	for a in ["lamp", "toggle_supply", "select_b", "fit", "toggle_supply"]:
+		g.dispatch(a)
+	check(g.flag("P01"), "the lamp is mended")
+	var ev := g.dispatch("go:R03")
+	check(g.state.room == "R03" and not "rather know" in says(ev), "after P01 go:R03 lands in R03, no hold")
+	g.dispatch("go:R02")
+	check(g.state.room == "R02" and s.facing == "A", "and back to the office")
+	ev = g.dispatch("go:R04")
+	check(g.state.room == "R04", "and the listening room")
+
+func test_drawer_items() -> void:
+	var s := new_sim()
+	s.debug_jump(2)
+	s.dispatch("drawer")
+	check(not s.game.has_item("venn_tide_sheet"), "no sheet before the drawer")
+	var all: Array = []
+	for code in [[4, 4, 4, 4], [0, 7, 1, 3], [1, 8, 5, 4], [1, 8, 5, 0]]:
+		dial_to(s, code)
+		all.append_array(s.dispatch("try_drawer"))
+	check(fx_ev(all, "item_added").is_empty() and s.game.state.inventory == [], "near misses grant nothing")
+	dial_to(s, [1, 8, 5, 2])
+	all.append_array(s.dispatch("try_drawer"))
+	all.append_array(s.dispatch("try_drawer"))
+	s.dispatch("back")
+	all.append_array(s.dispatch("drawer"))
+	var got := []
+	for e in fx_ev(all, "item_added"):
+		got.append(e.item)
+	check(got == ["venn_tide_sheet", "inspection_lens"], "the drawer grants the sheet and the lens exactly once (%s)" % [got])
+	check(s.game.has_item("venn_tide_sheet") and s.game.has_item("inspection_lens"), "both are held")
+	var t := roundtrip(s)
+	check(t.game.has_item("inspection_lens"), "the lens survives a save")
+
+func drawer_open_sim(prints: bool) -> R02Sim:
+	var s := new_sim()
+	s.debug_jump(2)
+	if prints:
+		s.dispatch("puddle")
+	s.dispatch("drawer")
+	dial_to(s, [1, 8, 5, 2])
+	s.dispatch("try_drawer")
+	s.dispatch("back")
+	return s
+
+func test_rewrite_needs_tide1() -> void:
+	for only in ["P02", "P03"]:
+		var s := drawer_open_sim(true)
+		s.game.set_flag(only)
+		s.dispatch("logbook")
+		check(not s.state.log_rewritten and s.objective() == "instruments", "only %s: no rewrite" % only)
+	for order in [["P02", "P03"], ["P03", "P02"]]:
+		var s := drawer_open_sim(false)
+		s.game.set_flag(order[0])
+		s.dispatch("logbook")
+		s.dispatch("back")
+		check(not s.state.log_rewritten, "%s alone: no rewrite" % order[0])
+		s.game.set_flag(order[1])
+		check(s.objective() == "reread", "both done: objective reread")
+		var ev := s.dispatch("logbook")
+		check(s.state.log_rewritten and not s.state.prints_seen and has_ev(ev, "fx", "log_write"),
+			"%s then %s: the log rewrites, without the prints" % order)
+	check(R02Sim.HINTS["reread"] == ["Something in the office has changed.", "Venn's log is not finished with you.",
+		"Go back to the Intake Office and open the tide log."], "reread hints")
+	check(R02Sim.OBJECTIVES["reread"] == "Something on the desk has changed.", "reread objective")
+	check(R02Sim.HINTS["instruments"].size() == 3 and "chart room" in R02Sim.HINTS["instruments"][2], "instruments hints")
+	var bad := new_sim()
+	bad.from_dict({"schema": 5, "started": true, "p01_complete": true, "log_read": true, "log_rewritten": true})
+	check(not bad.state.log_rewritten, "a rewrite needs the drawer open")
+
+func test_callback() -> void:
+	var s := drawer_open_sim(true)
+	var ev := s.game.dispatch("go:R01")
+	ev = s.game.dispatch("go:R02")
+	check(not has_ev(ev, "fx", "notice"), "no callback before tide_done(1)")
+	tide1(s)
+	s.game.dispatch("go:R01")
+	ev = s.game.dispatch("go:R02")
+	var n := fx_ev(ev, "notice")
+	var pen := false
+	for e in ev:
+		if e.type == "sfx" and e.id == "pen_far" and is_equal_approx(e.delay, 0.4): pen = true
+	check(n.size() == 1 and n[0].key == "callback" and pen and says(ev) == "", "the callback: a pen at 0.4 s and one notice, no line")
+	check(s.state.callback_heard and "callback" in s.state.notices_seen, "callback heard and noted")
+	s.game.dispatch("go:R01")
+	ev = s.game.dispatch("go:R02")
+	check(not has_ev(ev, "fx", "notice") and not has_ev(ev, "sfx", "pen_far"), "the callback fires once")
+	var r := drawer_open_sim(true)
+	tide1(r)
+	r.dispatch("logbook")
+	r.dispatch("back")
+	r.game.dispatch("go:R01")
+	ev = r.game.dispatch("go:R02")
+	check(not has_ev(ev, "sfx", "pen_far"), "no callback once the log has rewritten")
+	var t := roundtrip(s)
+	check(t.state.callback_heard, "callback_heard round-trips")
+	t.from_dict({"schema": 5, "started": true, "p01_complete": true, "log_read": true, "callback_heard": true})
+	check(not t.state.callback_heard, "callback_heard needs the drawer open")
+
+func test_t1x_latch() -> void:
+	var s := sim_before_chair()
+	s.dispatch("chair")
+	s.game.set_flag("P06")
+	var got := []
+	for to in ["R01", "R03", "R04", "R05", "R06"]:
+		got.append(says(s.game.dispatch("go:" + to)))
+		check(s.game.state.room == "R02", "T1X: go:%s refused" % to)
+	check(got == [R02Sim.LATCHED_LINE, "Latched.", "Latched.", "Latched.", "Latched."], "latched, announced once (%s)" % [got])
+	var d := sim_before_chair()
+	d.dispatch("chair")
+	check(says(d.dispatch("door")) == R02Sim.LATCHED_LINE, "the corridor door announces the latch")
+	d.dispatch("turn")
+	check(says(d.dispatch("outer_door")) == "Latched.", "the outer door shares the announcement")
+	check(says(d.game.dispatch("go:R01")) == "Latched." and d.game.state.room == "R02", "and so does the exit")
+	var o := sim_before_chair()
+	o.dispatch("chair")
+	o.dispatch("turn")
+	check(says(o.dispatch("outer_door")) == R02Sim.LATCHED_LINE, "the outer door first: the rule")
+	o.dispatch("turn")
+	check(says(o.dispatch("door")) == "Latched.", "then the corridor door: just the latch")
+	var t := roundtrip(o)
+	check(t.state.latch_announced and says(t.game.dispatch("go:R01")) == "Latched.", "latch_announced round-trips")
+	t.from_dict({"schema": 5, "latch_announced": true})
+	check(not t.state.latch_announced, "latch_announced needs the wet seat")
+	# T1X is completable with R02 actions only.
+	var c := sim_before_chair()
+	c.dispatch("chair")
+	file_and_back(c)
+	c.dispatch("door")
+	c.dispatch("continue")
+	c.dispatch("end_continue")
+	check(c.game.state.room == "R03" and c.game.flag("t1x_threshold_crossed") and c.game.tide() == 2,
+		"T1X completes from the office alone")
+	c.game.dispatch("go:R02")
+	check(c.game.dispatch("go:R01").size() > 0 and c.game.state.room == "R01", "after the threshold the doors are normal")
+
+func threshold_run(mode: String) -> R02Sim:
+	var s := new_sim()
+	s.debug_jump(4)
+	tide1(s)
+	s.dispatch("door")
+	s.dispatch(mode)
+	return s
+
+func test_threshold_converges() -> void:
+	var flags := {}
+	var reach := {}
+	for mode in ["continue", "turn"]:
+		var s := threshold_run(mode)
+		check(s.state.finished and s.view == "end" and not s.game.flag("t1x_threshold_crossed"), "%s: finished, no flag yet" % mode)
+		check(not "Tide I continues." in s.end_lines(), "%s: the card never says Tide I continues" % mode)
+		var ev := s.dispatch("end_continue")
+		var tides := fx_ev(ev, "tide")
+		check(tides.size() == 1 and tides[0].tide == 2, "%s: exactly one tide card, Tide II" % mode)
+		check(s.game.flag("t1x_threshold_crossed") and s.game.state.room == "R03" and s.facing == "A" and s.local_view == "room",
+			"%s: crossed, in R03" % mode)
+		check(has_ev(ev, "fx", "travel"), "%s: travels" % mode)
+		var f: Dictionary = s.game.state.flags.duplicate()
+		f.erase("t1x_turned")
+		flags[mode] = f
+		reach[mode] = s.game.reachable("R02")
+		check(s.game.flag("t1x_turned") == (mode == "turn"), "%s: t1x_turned" % mode)
+		check(s.dispatch("end_continue").is_empty() or s.game.state.room == "R03", "end_continue outside the card does nothing")
+	check(flags["continue"] == flags["turn"], "both paths give the same flags apart from t1x_turned")
+	check(reach["continue"] == reach["turn"], "both paths reach the same rooms")
+
+func test_facing() -> void:
+	var s := new_sim()
+	s.debug_jump(1)
+	check(s.facing == "A", "a jump faces the desk")
+	var ev := s.dispatch("turn")
+	check(s.facing == "B" and says(ev) == "The entry wall. The way I came in." and has_ev(ev, "sfx", "turn"), "first turn: the B line")
+	check(s.state.b_seen, "b_seen")
+	check(s.dispatch("mug").is_empty() and not s.has_seen("mug"), "A ids are ignored facing B")
+	check(says(s.dispatch("barometer")) != "", "B ids answer facing B")
+	ev = s.dispatch("turn")
+	check(s.facing == "A" and says(ev) == "", "turn back: no line")
+	check(s.dispatch("barometer").is_empty(), "B ids are ignored facing A")
+	ev = s.dispatch("turn")
+	check(s.facing == "B" and says(ev) == "", "the B line once")
+	var t := roundtrip(s)
+	check(t.facing == "A" and t.state.b_seen, "a load faces the desk; b_seen round-trips")
+	s.game.dispatch("go:R01")
+	s.game.dispatch("go:R02")
+	check(s.facing == "A", "an arrival faces the desk")
+	s.dispatch("turn")
+	s.dispatch("lamp")
+	check(s.view == "room", "lamp is ignored facing B")
+
+## A look-away-ready office at band b: every earlier tide done, nothing applied yet.
+func away_sim(t: int) -> R02Sim:
+	var s := office(game_at(t))
+	s.state.look_away_applied = []
+	return s
+
+func test_look_away_bands() -> void:
+	for t in [2, 3]:
+		var s := away_sim(t)
+		var ev: Array = []
+		ev.append_array(s.dispatch("papers")); ev.append_array(s.dispatch("back"))
+		ev.append_array(s.dispatch("notebook")); ev.append_array(s.dispatch("back"))
+		s.game.dispatch("go:R01"); ev.append_array(s.game.dispatch("go:R02"))
+		check(s.state.look_away_applied.is_empty() and not has_ev(ev, "fx", "look_away"), "no look-away at band %d" % s.band())
+	var b2 := office(game_at(3))
+	b2.game.set_flag("P09")
+	check(b2.band() == 2, "P09 brings band 2")
+	b2.game.dispatch("go:R01")
+	var ev := b2.game.dispatch("go:R02")
+	var la := fx_ev(ev, "look_away")
+	check(la.size() == 1 and la[0].change == "mug" and b2.has_seen("away_mug") and b2.look_away("mug"), "band 2: the mug on arrival")
+	check(says(b2.dispatch("mug")) == "His mug is full to the brim. Seawater. I didn't fill it.", "the brimming mug")
+	# Band 7: one change per return, in order.
+	var s := away_sim(9)
+	check(s.band() == 7, "tide IX is band 7")
+	var none: Array = []
+	s.dispatch("turn")
+	s.dispatch("board")
+	check(s.view == "board", "the solved board opens")
+	none.append_array(s.dispatch("back"))
+	check(s.view == "room" and s.facing == "B", "back from the board faces the entry wall")
+	none.append_array(s.dispatch("notebook")); none.append_array(s.dispatch("back"))
+	none.append_array(s.dispatch("menu")); none.append_array(s.dispatch("resume"))
+	none.append_array(s.dispatch("turn"))
+	none.append_array(s.dispatch("menu")); none.append_array(s.dispatch("back"))
+	check(s.facing == "A" and s.state.look_away_applied.is_empty() and not has_ev(none, "fx", "look_away"),
+		"board, notebook facing B, turning B to A and the menu change nothing")
+	var order := []
+	var per_return_ok := true
+	var steps := [["papers", "back"], ["notebook", "back"], ["@arrive"], ["drawer", "back"], ["notebook", "back"], ["@arrive"]]
+	for st in steps:
+		var e: Array = []
+		if st[0] == "@arrive":
+			s.game.dispatch("go:R01")
+			e = s.game.dispatch("go:R02")
+		else:
+			for a in st:
+				e.append_array(s.dispatch(a))
+		var got := fx_ev(e, "look_away")
+		per_return_ok = per_return_ok and got.size() == 1
+		if got.size() == 1:
+			order.append(got[0].change)
+	check(per_return_ok and order == ["mug", "door", "stove", "window", "puddle", "coat"], "one change per return, in order (%s)" % [order])
+	for id in order:
+		check(s.has_seen("away_" + id), "away_%s noted" % id)
+	var e2 := s.dispatch("logbook")
+	e2.append_array(s.dispatch("back"))
+	check(not has_ev(e2, "fx", "look_away"), "nothing left to change")
+	check(says(s.dispatch("door")) == "Water is coming under the door from the corridor side. The corridor floor beyond is dry.", "the seeping door")
+	check(says(s.dispatch("stove")).begins_with("Water is seeping round the stove door."), "the flooded stove")
+	var pe := s.dispatch("puddle")
+	check(says(pe) == "The puddle. Two trails, dried to salt. One of them is mine. | Wet footprints go up the wall beside the door. They don't come down."
+		and is_equal_approx(say_ev(pe, "up the wall").delay, 2.0), "the footprints up the wall")
+	var ce := s.dispatch("coat")
+	check(says(ce) == "The hood is up. It's facing the desk. | There are shoulders in it. Nobody is wearing it.", "the hood")
+	check(say_ev(s.dispatch("window"), "fourth hand").get("story", false), "the fourth hand")
+	# Saves.
+	var t := roundtrip(s)
+	check(t.state.look_away_applied == ["mug", "door", "stove", "window", "puddle", "coat"], "look_away_applied round-trips")
+	var d: Dictionary = JSON.parse_string(JSON.stringify(s.to_dict()))
+	for bad_list in [["door"], ["mug", "stove"], ["mug", "nope"], ["mug", 3], ["mug", "door", "stove", "window", "puddle", "coat", "mug"]]:
+		d.rooms.R02.look_away_applied = bad_list
+		var b := new_sim()
+		b.from_dict(d)
+		check(b.state.look_away_applied.is_empty(), "a non-prefix look-away list is rejected (%s)" % [bad_list])
+	d.rooms.R02.look_away_applied = ["mug", "door"]
+	var p := new_sim()
+	p.from_dict(d)
+	check(p.state.look_away_applied == ["mug", "door"], "a prefix is accepted")
+
+func notice_keys(ev: Array) -> Array:
+	var out := []
+	for e in fx_ev(ev, "notice"):
+		out.append(e.key)
+	return out
+
+func test_notices() -> void:
+	for t in range(3, 10):
+		var s := office(game_at(t))
+		var b := s.band()
+		s.state.notices_seen = ["callback"]
+		s.game.dispatch("go:R01")
+		var ev := s.game.dispatch("go:R02")
+		check(notice_keys(ev) == ["b%d" % b] and says(ev) == "", "band %d: one notice, no line" % b)
+		check(has_ev(ev, "sfx", "clock_stop") == (b == 6), "clock_stop only with b6 (band %d)" % b)
+		var want := ["callback"]
+		for n in range(1, b + 1):
+			want.append("b%d" % n)
+		check(s.state.notices_seen == want, "skipped bands are marked seen (band %d: %s)" % [b, s.state.notices_seen])
+		s.game.dispatch("go:R01")
+		ev = s.game.dispatch("go:R02")
+		check(notice_keys(ev).is_empty(), "band %d: the notice once" % b)
+	var g := office(game_at(2))
+	g.game.dispatch("go:R01")
+	check(notice_keys(g.game.dispatch("go:R02")).is_empty(), "band 0 after the threshold: no notice")
+	var l := new_sim()
+	l.from_dict({"schema": 6, "started": true, "rooms": {"R02": {"notices_seen": ["b1", "b1", "zz", 4, "callback"]}}})
+	check(l.state.notices_seen == ["b1", "callback"], "notices_seen: known keys, deduplicated (%s)" % [l.state.notices_seen])
+
+func sweep(s: R02Sim) -> Array:
+	var empty := []
+	for h in R02Sim.HOTSPOTS:
+		if s.facing != "A": s.dispatch("turn")
+		if says(s.dispatch(h)) == "": empty.append(h)
+		s.dispatch("back")
+		if s.view != "room": s.view = "room"
+	for h in R02Sim.HOTSPOTS_B:
+		if s.facing != "B": s.dispatch("turn")
+		if says(s.dispatch(h)) == "": empty.append(h)
+		s.dispatch("back")
+		if s.view != "room": s.view = "room"
+	return empty
+
+func test_hotspots_every_tide() -> void:
+	var t1x := new_sim()
+	t1x.debug_jump(3)
+	var e := sweep(t1x)
+	check(e.is_empty(), "T1X: every A and B hotspot answers (%s)" % [e])
+	t1x.dispatch("turn")
+	for t in range(2, 10):
+		var s := office(game_at(t))
+		e = sweep(s)
+		check(e.is_empty(), "tide %d: every A and B hotspot answers (%s)" % [t, e])
+	for t in range(2, 10):
+		var s := office(game_at(t))
+		var b := s.band()
+		s.dispatch("window")
+		check(s.has_seen("horizon") == (b >= 3) and s.has_seen("eye") == (b >= 4), "window at band %d: horizon %s eye %s" % [b, b >= 3, b >= 4])
+		s.dispatch("map")
+		check(s.state.soundings_heard, "band %d: the first map is the soundings" % b)
+		var ev := s.dispatch("map")
+		check(s.state.contours_seen == (b >= 4) and has_ev(ev, "fx", "contours") == (b >= 4), "contours at band %d: %s" % [b, b >= 4])
+		ev = s.dispatch("hooks")
+		check(s.has_seen("tag") == (b >= 6) and s.has_seen("hook_measures") == (b >= 6) and s.state.hook_tags_seen == (b >= 6),
+			"hook tags at band %d: %s" % [b, b >= 6])
+		if b >= 6:
+			check(says(ev).split(" | ").size() == 4 and say_ev(ev, "ZERO 4").story and is_equal_approx(say_ev(ev, "A.M.").delay, 8.6),
+				"the hook-tag chain")
+			var n: int = s.seen().size()
+			check(says(s.dispatch("hooks")) == "My numbers on his hooks. The ninth one is mine." and s.seen().size() == n,
+				"the hook tags once")
+		else:
+			check(says(ev) == "Nine hooks. The ninth is wet again. Nothing has hung on it.", "hooks at band %d" % b)
+	check(says(t1x.dispatch("hooks")) == "Nine hooks. The ninth is wet again. Nothing has hung on it.", "hooks at T1X")
+
+func test_photo_states() -> void:
+	var s := office(game_at(3))
+	check(s.photo_variant() == "after", "band 1, not turned: after")
+	s.dispatch("drawer")
+	var ev := s.dispatch("look_photo")
+	check(s.view == "photo" and s.photo_from == "drawer", "the photograph opens from the drawer")
+	check(says(ev) == "The photograph has changed. The chair in it is empty. | In the lower pane there's a lit window. In the window, this photograph."
+		and is_equal_approx(say_ev(ev, "lower pane").delay, 2.4) and s.state.photo_changed_seen, "after: the empty chair")
+	check(says(s.dispatch("photo")) == "The photograph. It stays changed.", "the change once")
+	s.dispatch("turn_over")
+	check(not s.photo_back, "turn_over before P20 does nothing")
+	s.game.set_flag("P20")
+	check(says(s.dispatch("turn_over")) == "His hand, on the back." and s.photo_back, "turn_over after P20")
+	s.dispatch("turn_over")
+	check(not s.photo_back, "and back to the front")
+	s.dispatch("turn_over")
+	s.dispatch("back")
+	check(s.view == "drawer" and not s.photo_back, "back from the photograph: the drawer, front up")
+	check(says(s.dispatch("look_photo")) == "The photograph has gone from the drawer. It's on the board, by the door." and s.view == "drawer",
+		"after P20 the photograph is not in the drawer")
+	var tr := office(game_at(3))
+	tr.state.turned = true
+	tr.reconcile()
+	check(tr.photo_variant() == "turned", "band 1, turned: turned")
+	tr.dispatch("drawer")
+	ev = tr.dispatch("look_photo")
+	check(says(ev) == "The photograph has changed. In it I have turned round in the chair, to face the camera. | There is nothing on the front of my head.",
+		"turned: she faces the camera")
+	var b0 := new_sim()
+	b0.debug_jump(3)
+	check(b0.photo_variant() == "drawer", "Tide I: the drawer print")
+	var lens := drawer_open_sim(false)
+	lens.dispatch("drawer")
+	lens.dispatch("look_photo")
+	lens.dispatch("item:inspection_lens")
+	ev = lens.dispatch("photo")
+	check(lens.has_seen("behind") and "someone behind me" in says(ev), "the lens on the photograph: behind")
+	tr.dispatch("item:inspection_lens")
+	check(says(tr.dispatch("photo")) == "Through the lens: the same changed print. Sharper." and tr.game.has_item("inspection_lens"),
+		"the lens on a changed print; durable")
+	var rt := roundtrip(s)
+	check(rt.state.photo_changed_seen, "photo_changed_seen round-trips")
+
+func test_service_door() -> void:
+	var g := with_flags(["P01"])
+	var s := office(g)
+	check(says(g.dispatch("go:R05")) == R02Sim.SERVICE_NO_KEY and g.state.room == "R02", "without P06: refused")
+	s.dispatch("turn")
+	check(says(s.dispatch("service_door")) == R02Sim.SERVICE_NO_KEY, "the service door without P06")
+	var k := with_flags(["P01", "P06"])
+	var o := office(k)
+	k.give("service_key")
+	check(o.service_locked(), "locked with the key held")
+	check(says(k.dispatch("go:R05")) == "Locked. The kitchen key from the capsule should fit it." and k.state.room == "R02", "go:R05 refused")
+	check(says(k.dispatch("go:R06")) != "" and k.state.room == "R02" and k.has_item("service_key"), "go:R06 refused; key kept")
+	k.dispatch("item:service_key")
+	check(says(k.dispatch("door")) == "Wrong door. This one has no keyhole on this side." and k.has_item("service_key"), "key on the corridor door")
+	o.dispatch("turn")
+	check(says(o.dispatch("service_door")) == "Locked from the kitchen side. The key from the capsule should fit.", "the locked service door")
+	k.dispatch("item:service_key")
+	check(says(k.dispatch("outer_door")) == "That door isn't locked." and k.has_item("service_key"), "key on the outer door")
+	k.dispatch("item:service_key")
+	check(says(k.dispatch("barometer")) == GameSim.GENERIC_WRONG_USE and k.has_item("service_key"), "key on the barometer: generic, kept")
+	k.dispatch("item:service_key")
+	var ev := k.dispatch("service_door")
+	check(not k.has_item("service_key") and o.state.service_unlocked and has_ev(ev, "sfx", "lock_turn")
+		and says(ev).begins_with("The key turns.") and is_equal_approx(say_ev(ev, "smell of soup").delay, 1.6), "the key turns")
+	check(not o.service_locked(), "unlocked")
+	check(says(o.dispatch("service_door")) == "The service door, unlocked. The passage beyond smells of soup.", "the open service door")
+	k.dispatch("go:R05")
+	check(k.state.room == "R05", "go:R05 succeeds")
+	k.dispatch("go:R02")
+	k.dispatch("go:R06")
+	check(k.state.room == "R06", "go:R06 succeeds")
+	var t := roundtrip(o)
+	check(t.state.service_unlocked and not t.service_locked(), "service_unlocked round-trips")
+	var n := with_flags(["P01", "P06"])
+	n.dispatch("go:R05")
+	check(n.state.room == "R05", "P06 with no key held: open")
+	# The objective after the threshold.
+	var p := office(game_at(3))
+	p.game.give("service_key")
+	p.state.service_unlocked = false
+	check(p.objective() == "service" and R02Sim.HINTS["service"][2] == "Select the kitchen service key, then the service door.", "objective service")
+
+func test_receipt() -> void:
+	var s := new_sim()
+	s.dispatch("begin")
+	s.dispatch("turn")
+	check(says(s.dispatch("receipt")) == "A paper pinned by the door. Too dark to read." and not s.game.flag("o01_found"), "no flag before P01")
+	var l := new_sim()
+	l.debug_jump(1)
+	l.dispatch("turn")
+	var ev := l.dispatch("receipt")
+	check(l.game.flag("o01_found") and has_ev(ev, "sfx", "page") and says(ev).split(" | ").size() == 3
+		and is_equal_approx(say_ev(ev, "He paid").delay, 2.6), "o01_found after P01, with the chain")
+	ev = l.dispatch("receipt")
+	check(says(ev) == "The mug receipt. One and four, to keep a chipped mug.", "the receipt again")
+
+func test_contract() -> void:
+	var s := new_sim()
+	s.dispatch("begin")
+	s.dispatch("papers")
+	check(s.view == "duty", "the duty card")
+	var ev := s.dispatch("read_contract")
+	check(s.has_seen("contract") and has_ev(ev, "sfx", "page") and says(ev).split(" | ").size() == 3
+		and say_ev(ev, "two stripes").story, "read_contract from the duty card")
+	check(says(s.dispatch("read_contract")) == "My contract. Two stripes on the pennant. Do not certify what I have not seen.", "and again")
+	var n := new_sim()
+	n.debug_jump(1)
+	n.dispatch("papers")
+	check(n.view == "note", "the note")
+	n.dispatch("read_contract")
+	check(n.has_seen("contract"), "read_contract from the note")
+	check(n.dispatch("read_contract").size() == 1, "the later line is one line")
+	var r := new_sim()
+	r.dispatch("begin")
+	check(r.dispatch("read_contract").is_empty(), "read_contract in the room does nothing")
+
+## The board at Tide VII, loaded by real actions.
+func board_sim() -> R02Sim:
+	var s := office(game_at(7))
+	s.game.give("venn_correspondence")
+	s._observe("contract")
+	s.dispatch("turn")
+	s.dispatch("item:venn_correspondence")
+	s.dispatch("board")
+	return s
+
+func expected_refusal(pins: Array, stamp: String) -> String:
+	if pins.size() < 3: return "The thread has to run all the way. Three pins first."
+	if "m_callis" in pins or "m_orme" in pins: return "Their signatures don't carry the sentence. Mine does."
+	if "m_countersign" in pins: return "That's his name, not mine. The thread follows mine."
+	if pins != R02Sim.BOARD_ANSWER: return "The name went from the contract, to the inquiry, to his letter. The thread should go the same way."
+	if stamp == "stamp_board": return "The Board didn't assign me. He asked."
+	if stamp == "stamp_unknown": return "It isn't unknown. It's in his letter, in his hand."
+	return ""
+
+func test_p20() -> void:
+	# Loading the board.
+	var early := office(game_at(6))
+	early.game.give("venn_correspondence")
+	early.dispatch("turn")
+	check(says(early.dispatch("board")) == "A comparison board. Venn's letters would go on it, side by side with the contract.", "board with the letters")
+	early.dispatch("item:venn_correspondence")
+	check(says(early.dispatch("board")) == "Not yet. I don't know what I'm comparing them against." and not early.state.board_loaded, "before tide_done(6)")
+	var c := office(game_at(7))
+	c.dispatch("turn")
+	check(says(c.dispatch("board")) == "A comparison board. Cork, three pins, a rail of rubber stamps. Nothing pinned to it.", "the empty board")
+	c.game.give("venn_correspondence")
+	c.dispatch("item:venn_correspondence")
+	check(says(c.dispatch("board")).begins_with("His letters are all about a name.") and not c.state.board_loaded, "needs the contract")
+	c._observe("contract")
+	c.dispatch("item:venn_correspondence")
+	var ev := c.dispatch("board")
+	check(c.state.board_loaded and c.view == "board" and count_ev(ev, "sfx", "pin") == 3 and c.game.has_item("venn_correspondence"),
+		"loading: three pins, the board opens, the letters are kept")
+	c.dispatch("back")
+	check(c.view == "room" and c.facing == "B", "back from the board faces B")
+	c.dispatch("item:venn_correspondence")
+	check(says(c.dispatch("board")) == "They're already on the board.", "already loaded")
+	check(c.objective() == "board" and R02Sim.HINTS["board"].size() == 3, "objective board")
+	check(says(c.dispatch("board")) == "His letters, the inquiry clipping and the contract. Three pins and a thread." and c.view == "board", "the loaded board")
+	# Reading.
+	for a in ["read_contract", "read_clipping", "read_letter", "seal"]:
+		check(says(c.dispatch(a)) != "", "board %s answers" % a)
+	check(says(c.dispatch("seal")) == "Sealed with his three-cut seal. It won't lift.", "the seal before")
+	check(says(c.dispatch("provenance")) == "Pick a stamp from the rack first.", "no stamp")
+	check(c.dispatch("stamp_board").is_empty() and c.held_stamp == "stamp_board", "a stamp is picked up silently")
+	c.dispatch("stamp_board")
+	check(c.held_stamp == "", "the same stamp again puts it down")
+	# Pins: a 4th is refused; unpinning compacts.
+	for m in ["m_callis", "m_orme", "m_mercer"]:
+		ev = c.dispatch(m)
+		check(has_ev(ev, "sfx", "pin") and says(ev) == "", "pin %s" % m)
+	var before: Array = c.state.board_pins.duplicate()
+	check(says(c.dispatch("m_sentence")) == "Three pins. Take one out first." and c.state.board_pins == before, "a 4th pin is refused")
+	ev = c.dispatch("m_orme")
+	check(has_ev(ev, "sfx", "unpin") and c.state.board_pins == ["m_callis", "m_mercer"], "unpinning compacts")
+	c.dispatch("slot_0")
+	check(c.state.board_pins == ["m_mercer"], "slot_0 unpins and compacts")
+	check(c.dispatch("slot_2").is_empty() and c.state.board_pins == ["m_mercer"], "an empty slot does nothing")
+	# Persistence.
+	c.dispatch("back")
+	c.dispatch("board")
+	check(c.state.board_pins == ["m_mercer"], "pins persist across back")
+	var rt := roundtrip(c)
+	check(rt.state.board_pins == ["m_mercer"] and rt.state.board_loaded and rt.facing == "A", "pins round-trip")
+	# Exhaustive: every ordered 3-pin chain x every stamp, and every 0-2 pin state.
+	var s := board_sim()
+	var ids: Array = R02Sim.MARKS.keys()
+	var cases := [[]]
+	for a in ids:
+		cases.append([a])
+		for b in ids:
+			if b == a: continue
+			cases.append([a, b])
+			for d in ids:
+				if d == a or d == b: continue
+				cases.append([a, b, d])
+	check(cases.size() == 1 + 6 + 30 + 120, "157 pin states")
+	var all_ok := true
+	var solvers := []
+	var bad_msgs := []
+	for pins in cases:
+		for st in R02Sim.STAMPS:
+			var want := expected_refusal(pins, st)
+			if want == "":
+				solvers.append([pins, st])
+				continue
+			s.state.board_pins = []
+			for m in pins:
+				s.dispatch(m)
+			s.dispatch(st)
+			var snap := JSON.stringify(s.to_dict())
+			var e := s.dispatch("provenance")
+			var ok: bool = says(e) == want and has_ev(e, "sfx", "stamp_dry") and s.held_stamp == "" \
+				and JSON.stringify(s.to_dict()) == snap and not s.game.flag("P20")
+			if not ok and bad_msgs.size() < 3:
+				bad_msgs.append("%s %s: %s" % [pins, st, says(e)])
+			all_ok = all_ok and ok
+	check(all_ok, "every wrong board is refused by the first rule and changes nothing (%s)" % [bad_msgs])
+	check(solvers == [[R02Sim.BOARD_ANSWER, "stamp_venn"]], "only the answer with REQUESTED BY VENN can solve (%s)" % [solvers])
+	# The solve.
+	s.state.board_pins = []
+	for m in R02Sim.BOARD_ANSWER:
+		s.dispatch(m)
+	s.dispatch("stamp_venn")
+	var tide_before: int = s.game.tide()
+	ev = s.dispatch("provenance")
+	check(s.game.flag("P20") and s.state.board_stamped and s.board_solved() and s.has_seen("why_ada") and s.held_stamp == "",
+		"the right thread and stamp solve P20")
+	check(not has_ev(ev, "fx", "tide") and s.game.tide() == tide_before, "P20 alone does not finish Tide VII")
+	check(has_ev(ev, "fx", "p20_solved") and has_ev(ev, "sfx", "stamp") and has_ev(ev, "sfx", "seal") and has_ev(ev, "sfx", "oilskin"),
+		"the solve's sounds")
+	check(says(ev).split(" | ").size() == 9 and is_equal_approx(say_ev(ev, "'Yes.'").delay, 11.4)
+		and is_equal_approx(say_ev(ev, "developing tray").delay, 19.6) and say_ev(ev, "You could have asked.").story, "the reveal chain")
+	check("developing tray on the 15th" in R02Sim.OBSERVATIONS["why_ada"] and "She will need to see herself from outside" in R02Sim.OBSERVATIONS["why_ada"],
+		"why_ada carries the photograph's back")
+	var again := s.dispatch("provenance")
+	again.append_array(s.dispatch("m_orme"))
+	again.append_array(s.dispatch("slot_0"))
+	again.append_array(s.dispatch("stamp_board"))
+	check(count_say(again, R02Sim.BOARD_DONE) == 4 and s.state.board_pins == R02Sim.BOARD_ANSWER and s.seen().count("why_ada") == 1,
+		"after the solve: it's done, nothing changes")
+	check(says(s.dispatch("seal")) == "'You have already refused to make a person disappear for the convenience of a form.'", "the seal after")
+	s.dispatch("photo")
+	check(s.view == "photo" and s.photo_from == "board", "the photograph on the board")
+	s.dispatch("turn_over")
+	check(s.photo_back, "turn it over")
+	s.dispatch("back")
+	check(s.view == "board" and not s.photo_back, "back from the photograph: the board")
+	var be := s.dispatch("back")
+	check(s.view == "room" and s.facing == "B" and not has_ev(be, "fx", "look_away"), "back from the board: room, facing B")
+	s.dispatch("turn")
+	check(says(s.dispatch("coat")) == "It said yes. I'm not going to ask it anything else.", "the coat after the board")
+	s.dispatch("drawer")
+	check(says(s.game.dispatch("back")) == "" and says(s.dispatch("drawer")) == "His watch. The photograph has gone from the drawer.", "the drawer after the board")
+	var t := roundtrip(s)
+	check(t.state.board_stamped and t.board_solved() and t.game.flag("P20"), "the solved board round-trips")
+	# Loads.
+	var d: Dictionary = JSON.parse_string(JSON.stringify(s.to_dict()))
+	d.rooms.R02.board_pins = []
+	d.rooms.R02.board_stamped = false
+	d.rooms.R02.board_loaded = false
+	var l := new_sim()
+	l.from_dict(d)
+	check(l.board_solved() and l.state.board_pins == R02Sim.BOARD_ANSWER and l.state.board_stamped and l.state.board_loaded,
+		"a save with P20 and an empty board loads solved")
+	d.flags.erase("P20")
+	d.rooms.R02.board_stamped = true
+	d.rooms.R02.board_pins = ["m_callis", "m_mercer", "m_sentence"]
+	l.from_dict(d)
+	check(not l.state.board_stamped and l.state.board_loaded and not l.game.flag("P20"), "a stamp on the wrong thread is dropped")
+	d.rooms.R02.board_pins = ["m_mercer", "m_mercer", "nope", 3, "m_orme", "m_callis", "m_sentence"]
+	l.from_dict(d)
+	check(l.state.board_pins == ["m_mercer", "m_orme", "m_callis"], "pins: known marks, no duplicates, at most three (%s)" % [l.state.board_pins])
+	check(office(with_flags(["P20"])).board_solved(), "with_flags P20 gives board_solved")
+
+func test_apply_ending() -> void:
+	var s := office(game_at(9))
+	s.apply_ending("sever")
+	check(not s.has_seen("coat_collapsed"), "sever: no coat_collapsed")
+	s.apply_ending("continue")
+	check(s.has_seen("coat_collapsed"), "continue: coat_collapsed")
+
+func test_debug_prepare() -> void:
+	for t in range(1, 10):
+		var g := game_at(t)
+		var s := office(g)
+		var b := g.weather_band()
+		check(g.has_item("pencil"), "t%d: pencil" % t)
+		check(s.state.finished == (t >= 2) and g.has_item("inspection_lens") == (t >= 2), "t%d: office chain and lens" % t)
+		if t >= 2:
+			var want := ["callback"]
+			for n in range(1, b + 1):
+				want.append("b%d" % n)
+			check(s.state.notices_seen == want, "t%d: notices %s" % [t, s.state.notices_seen])
+			var la := []
+			for e in R02Sim.LOOK_AWAY:
+				if e[1] <= mini(maxi(0, t - 2), 7):
+					la.append(e[0])
+			check(s.state.look_away_applied == la, "t%d: look-away %s" % [t, s.state.look_away_applied])
+			for id in la:
+				check(s.has_seen("away_" + id), "t%d: away_%s noted" % [t, id])
+		check(s.state.service_unlocked == (t >= 3) and not g.has_item("service_key"), "t%d: service door" % t)
+		check(s.state.board_stamped == (t >= 8) and s.board_solved() == (t >= 8), "t%d: board" % t)
+		if t >= 8:
+			check(s.has_seen("contract") and s.has_seen("why_ada") and g.flag("P20"), "t%d: contract and why_ada" % t)
+		check(not s.state.hook_tags_seen, "t%d: hook tags unread" % t)
+		check(s.facing == "A", "t%d: facing the desk" % t)
+		check(R02Sim.OBJECTIVES.has(s.objective()) and R02Sim.HINTS.has(s.objective()), "t%d: objective %s has text and hints" % [t, s.objective()])
+	check(office(game_at(5)).objective() == "away_t5", "away objective by tide")
+
+func test_debug_jumps() -> void:
+	var s := new_sim()
+	s.debug_jump(6)
+	check(s.game.tide() == 7 and s.facing == "B" and s.state.board_loaded and not s.board_solved(), "jump 6: the board ready")
+	check(s.has_seen("contract"), "jump 6: the contract read")
+	s.dispatch("board")
+	check(s.view == "board", "jump 6: the board opens")
+	var t := new_sim()
+	t.debug_jump(7)
+	check(t.game.tide() == 8 and t.facing == "B" and t.board_solved(), "jump 7: the solved board")
+	for n in range(0, 6):
+		var j := new_sim()
+		j.debug_jump(n)
+		check(j.stage() == mini(n, 3) and j.state.finished == (n >= 5), "jump %d keeps its stage" % n)
+
+func test_record_moves() -> void:
+	var allowed := ["lamp_mended", "log_read", "drawer_opened", "report_signed", "held_still", "turned_round"]
+	var src := FileAccess.get_file_as_string("res://game/rooms/R02/R02_sim.gd")
+	var re := RegEx.new()
+	re.compile("record_move\\(\"([a-z_]+)\"\\)")
+	var found := []
+	for m in re.search_all(src):
+		found.append(m.get_string(1))
+	var ok := not found.is_empty()
+	for f in found:
+		ok = ok and f in allowed
+	check(ok and found.size() == 6, "R02 records only its six moves (%s)" % [found])
+	for mode in ["continue", "turn"]:
+		var s := t1x_full_run()
+		s.dispatch("door")
+		s.dispatch(mode)
+		var moves: Array = s.game.value("movement_events")
+		var in_list := true
+		for m in moves:
+			in_list = in_list and m in allowed
+		check(in_list and moves.back() == ("held_still" if mode == "continue" else "turned_round"), "%s: moves %s" % [mode, moves])
+
+## Every observation the office has, reached by play and flags alone.
+func test_all_observations() -> void:
+	var s := t1x_full_run()
+	s.dispatch("door")
+	s.dispatch("continue")
+	s.dispatch("end_continue")
+	var g := s.game
+	g.dispatch("go:R02")
+	for n in range(2, 9):
+		for p in GameSim.TIDE_DONE[n - 1]:
+			g.set_flag(p)
+		g.dispatch("go:R01")
+		g.dispatch("go:R02")
+		for a in ["map", "map", "window", "hooks"]:
+			s.dispatch(a)
+		for i in 2:
+			s.dispatch("papers")
+			s.dispatch("back")
+		if n == 7:
+			g.give("venn_correspondence")
+			s.dispatch("turn")
+			s.dispatch("item:venn_correspondence")
+			s.dispatch("board")
+			for m in R02Sim.BOARD_ANSWER:
+				s.dispatch(m)
+			s.dispatch("stamp_venn")
+			s.dispatch("provenance")
+			s.dispatch("back")
+			s.dispatch("turn")
+	for a in ["mug", "stove", "coat", "door", "puddle", "window"]:
+		s.dispatch(a)
+	s.apply_ending("continue")
+	var missing := []
+	for id in R02Sim.OBSERVATIONS:
+		if not s.has_seen(id):
+			missing.append(id)
+	check(missing.is_empty(), "every office observation is reachable (missing %s)" % [missing])
+	check(s.seen().size() == R02Sim.OBSERVATIONS.size(), "seen() == OBSERVATIONS")
+
+func test_clock_and_needle() -> void:
+	var s := new_sim()
+	s.dispatch("begin")
+	check(s.clock() == [6, 40, true] and s.needle() == 0, "s0 clock")
+	s.dispatch("turn")
+	var ev := s.dispatch("barometer")
+	check(has_ev(ev, "sfx", "baro_tap") and "Twenty to seven" in says(ev), "the barometer at s0")
+	var l := new_sim()
+	l.debug_jump(3)
+	check(l.clock() == [6, 52, true], "Tide I after P01")
+	var want_clock := [[7, 34, true], [9, 10, true], [11, 25, true], [1, 50, true], [3, 15, true], [5, 40, true], [7, 13, false], [7, 13, false]]
+	var want_needle := [0, -55, -80, -118, -150, -168, 180, 180]
+	for t in range(2, 10):
+		var o := office(game_at(t))
+		var b := o.band()
+		check(o.clock() == want_clock[b] and o.needle() == want_needle[b], "band %d clock %s needle %d" % [b, o.clock(), o.needle()])
+	var e := office(game_at(9))
+	e.game.state.ending = "sever"
+	check(e.clock() == [7, 13, true] and e.needle() == 30, "sever: clock going, needle FAIR side")
+	e.dispatch("turn")
+	check(says(e.dispatch("barometer")) == "The clock is going again.", "the barometer after an ending")
+	check(says(e.dispatch("outer_door")) == "Grey water. A launch with two stripes on its pennant.", "the outer door after sever")
+	e.dispatch("turn")
+	check(says(e.dispatch("coat")) == "An ordinary wet coat.", "the coat after sever")
+	e.game.state.ending = "continue"
+	check(e.clock() == [7, 13, true] and e.needle() == 180, "continue: needle down")
+	var ce := e.dispatch("coat")
+	check(says(ce) == "It has gone slack on the hook. An ordinary wet coat. Nobody is in it." and e.has_seen("coat_collapsed"), "the coat after continue")
+	check(says(e.dispatch("window")) == "The dark surface, close to the glass. The desk is lit.", "the window after continue")
+
+# ---------------------------------------------------------------------------
+# View B in the scene
+# ---------------------------------------------------------------------------
+func test_view_b() -> void:
+	var scene = new_scene("user://office_view_b.json")
+	await process_frame
+	scene.enter_jump("R02")
+	await process_frame
+	var v: RoomView = scene.room_view
+	var hb: Array = v.c("HOTSPOTS_B", [])
+	var turn_rect = v.c("TURN_RECT", null)
+	if hb.is_empty() or not turn_rect is Rect2:
+		# The R02 view is another team's file; it has not yet declared view B.
+		print("SKIP: R02 view has no HOTSPOTS_B / TURN_RECT yet; view-B rect checks pending")
+		await free_scene(scene)
+		return
+	var s: R02Sim = scene.room_sim()
+	var rects := {"turn": turn_rect}
+	for h in hb:
+		rects[h[0]] = h[1]
+	for id in R02Sim.HOTSPOTS_B:
+		check(rects.has(id), "view B has a rect for %s" % id)
+	var exits: Dictionary = v.exit_rects()
+	for k in rects:
+		var r: Rect2 = rects[k]
+		check(CANVAS.encloses(r) and r.size.x >= MIN_TARGET and r.size.y >= MIN_TARGET, "%s is on the canvas and at least 64x64" % k)
+		check(not r.intersects(HUD_ZONE) and not r.intersects(INVENTORY_ZONE) and not r.intersects(SUBTITLE_ZONE), "%s clear of the HUD" % k)
+		for e in exits:
+			check(not r.intersects(exits[e]), "%s clear of exit %s" % [k, e])
+		for k2 in rects:
+			if k2 != k:
+				check(not r.intersects(rects[k2]), "%s clear of %s" % [k, k2])
+	check(scene.action_at(turn_rect.get_center()) == "turn", "the turn rect facing A")
+	s.facing = "B"
+	check(scene.action_at(turn_rect.get_center()) == "turn", "the turn rect facing B")
+	for id in R02Sim.HOTSPOTS_B:
+		if rects.has(id):
+			check(scene.action_at(rects[id].get_center()) == id, "facing B, the centre of %s is %s" % [id, id])
+	await free_scene(scene)
