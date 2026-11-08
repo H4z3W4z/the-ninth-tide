@@ -8,8 +8,10 @@ extends RoomSim
 ## (P05 done, P06 not: the three-stripe boat waits at the jetty), "s1".."s7" (after P06,
 ## one per weather band) and "A" (ending A, the real launch). Every hotspot answers in
 ## every state. P06: look at the boat through the lens (launch_mismatch), then on the
-## mooring panel set UNVERIFIED RETURN and ring the bell under the broken pennant (bell 2;
-## the placard names pennants, not numbers: BELL_PENNANTS). Wrong commits never consume,
+## mooring panel set UNVERIFIED RETURN and ring the bell under the broken pennant (bell 2).
+## The placard states neither: it says only compare and do not board what you have not
+## verified; the broken outline drawn on the UNVERIFIED tally is the one painted over bell 2
+## (BELL_PENNANTS), so the match is seen, not read or counted. Wrong commits never consume,
 ## take or lock anything. The reward is the capsule that rises up the mooring line: the
 ## kitchen service key and Venn's note.
 ##
@@ -47,9 +49,7 @@ const TALLY_LABELS := {"verified": "VERIFIED", "unverified": "UNVERIFIED RETURN"
 const PLACARD_LINES := [
 	"MOORING PROCEDURE",
 	"1. Compare the vessel's pennant with the contract.",
-	"2. Matching: set VERIFIED, ring the bell under the matching pennant, board.",
-	"3. Mismatched: set UNVERIFIED RETURN, ring the bell under the broken pennant, do not board.",
-	"4. The wave and the cross: weather and fire only.",
+	"2. Do not board what you have not verified.",
 	"By order of the Board, 1919.",
 ]
 ## The pennant painted over each bell, left to right (tools/art/rooms/R01.py BELL_PENNANTS):
@@ -83,7 +83,7 @@ const OBSERVATIONS := {
 	"lighthouse_behind": "The lighthouse stands behind the station, above the roof, where there is no land.",
 	"causeway": "The old service causeway, broken in three places. Nobody is walking out on that.",
 	"causeway_ladder": "Through the lens: an iron ladder goes down into the causeway's middle gap, and on below the water.",
-	"panel": "Mooring panel placard: compare the vessel's pennant with the contract. Matching: set VERIFIED, ring the bell under the matching pennant, board. Mismatched: set UNVERIFIED RETURN, ring the bell under the broken pennant, do not board. The wave and the cross are weather and fire. Each bell hangs under its painted pennant; the broken one is the outline on the UNVERIFIED tally. In pencil, Venn: 'It comes when called. Not only then.'",
+	"panel": "Mooring panel placard: 'Compare the vessel's pennant with the contract. Do not board what you have not verified.' Two tallies, VERIFIED and UNVERIFIED RETURN, each with a pennant drawn on it. Four bells, each hanging under a painted pennant. In pencil, Venn: 'It comes when called. Not only then.'",
 	"placard_ada": "Under Venn's pencil line on the placard, a second line in my handwriting: 'It came when called. A.M.' I didn't write it.",
 	"boat": "A boat at the jetty, and no water under it. It sits level on nothing.",
 	"launch_mismatch": "The boat has a three-stripe pennant. The contract's launch has two. Through its window: the chart room, my chart on the table.",
@@ -132,7 +132,9 @@ const OBJECTIVES := {
 }
 ## P06's evidence tier: what the notebook and the placard already say, short of the answer.
 const EVIDENCE_INSPECT := "The contract's launch flies two stripes; this one flies three. And I can't certify what I haven't looked into."
-const EVIDENCE_SIGNAL := "My notebook: three stripes on its pennant, the contract's launch has two. The placard's third rule is for a mismatched vessel, and each bell hangs under a pennant."
+const EVIDENCE_SIGNAL := "My notebook: three stripes on its pennant, the contract's launch has two. The placard says not to board what I haven't verified, and the panel has a tally for that."
+## The signal ladder's third tier: the tally's drawn pennant is the bell's painted one.
+const HINT_PENNANT := "The tallies have a pennant drawn on them. One of the bells hangs under the same shape."
 const HINTS := {
 	"explore": [
 		"Nothing out here needs me yet. Something may come in later.",
@@ -140,6 +142,8 @@ const HINTS := {
 		"Restore the departure signal in the chart room. Then come back to the jetty.",
 	],
 	# P06 has four tiers (hint_tiers()): a nudge, the relationship, the evidence, the answer.
+	# Once the lens has shown the mismatch ("signal") the relationship is spent; its tiers are
+	# the nudge, the evidence, the tally-to-bell pennant (HINT_PENNANT), the answer.
 	"inspect": [
 		"The boat at the jetty doesn't match something you've read.",
 		"Compare its pennant with the launch on the contract. Its lit window wants a closer look.",
@@ -148,8 +152,8 @@ const HINTS := {
 	],
 	"signal": [
 		"The boat at the jetty doesn't match something you've read.",
-		"Compare its pennant with the launch on the contract, then follow the mooring panel's placard.",
 		EVIDENCE_SIGNAL,
+		HINT_PENNANT,
 		"Set UNVERIFIED RETURN on the mooring panel and ring the bell under the broken pennant, second from the left.",
 	],
 	"capsule": [
@@ -175,9 +179,9 @@ const ITEMS := {
 
 const KEY_LINE := "That's for the office's service door, not anything out here."
 const VERIFIED_MISS := "The pennant's wrong. The contract boat has two stripes. This one has three."
-const BELL_MISS := "That's not the bell for a mismatched vessel. The placard says the broken pennant."
+const BELL_MISS := "That's not the bell for a mismatched vessel. Each bell hangs under its own pennant."
 const REFUSAL := "I haven't looked at it properly. 'Do not certify an observation you have not made.'"
-const NO_TALLY := "The placard wants a tally set before a bell."
+const NO_TALLY := "A tally first. Then a bell."
 const CAP_ON := "The cap's still on."
 const CAUSEWAY_MUD := "The causeway stands on bare mud now. A ladder goes down into the middle gap, into the mud."
 const SEA_OUT_BELL := "The sea's gone out to the horizon. The water round the bell hasn't. It stands there in a column, level with the lip, on its own."
@@ -528,7 +532,7 @@ func _panel(action: String, ev: Array) -> void:
 				_: _say(ev, "Tally cleared.")
 		"placard":
 			_observe("panel")
-			_say(ev, "'Mismatched: set UNVERIFIED RETURN, ring the bell under the broken pennant, do not board.'")
+			_say(ev, "'Compare the vessel's pennant with the contract. Do not board what you have not verified.'")
 		_:
 			_ring(int(action.substr(5)), ev)
 
@@ -656,7 +660,7 @@ func use_item(item: String, target: String, ev: Array) -> bool:
 
 func _use_lens(target: String, ev: Array) -> bool:
 	if target in PANEL_CONTROLS:
-		_say(ev, "The lens won't choose for me. The placard does.")
+		_say(ev, "The lens won't choose for me. The pennants are painted plain enough.")
 		return true
 	if target in CAPSULE_CONTROLS:
 		_say(ev, "Clean brass. Nothing grows on it. It came up from the bottom.")
