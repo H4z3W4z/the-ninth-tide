@@ -58,6 +58,7 @@ const VENN_SEAL := "Venn's personal seal: three cuts."
 const NORA_AMENDMENT := "'No surviving personal effects.' Amended, in my hand: personal effect identified, repaired cup, Nora Bell."
 const ERASE := "No. Corrections append. The original stands, and so does this."
 const ERASE_NOTHING := "There's nothing on the rest to erase."
+const EVIDENCE_REST_ITEM := "The EVIDENCE rest wants a document, not a pencil. It takes what I give it from the notebook."
 const NO_SKETCH := "I need the evidence beside it, or it's only my word."
 const NO_P21 := "I could write it. I don't know yet what this card is part of."
 const CUP_LINES := "Her cup is warm. There's a dry ring under it, as if it had just been put down. | Tea without sugar. I'd have guessed sugar."
@@ -641,6 +642,26 @@ func test_p22_refusals() -> void:
 	u.dispatch("rest_evidence")
 	check(says(u.dispatch("rest_evidence")) == "I take the sketch back." and not r06(u).state.sketch_on_rest, "P22: sketch lifts back")
 
+## P22: an item handed to the empty EVIDENCE rest is answered, kept, and lays nothing; the rest is
+## filled by clicking it (from the notebook). With the sketch already there, the generic refusal.
+func test_p22_evidence_rest_items() -> void:
+	var g := game_at(8, ROOM)
+	var r := r06(g)
+	g.give("pencil")
+	to_slope(g)
+	var before := inv(g)
+	var ev := use(g, "pencil", "rest_evidence")
+	check(says(ev) == EVIDENCE_REST_ITEM, "P22: the pencil on the empty EVIDENCE rest (got '%s')" % says(ev))
+	check(EVIDENCE_REST_ITEM == "The EVIDENCE rest wants a document, not a pencil. It takes what I give it from the notebook.",
+		"P22: the EVIDENCE rest line is word for word")
+	check(inv(g) == before and g.has_item("pencil"), "P22: the pencil is not consumed")
+	check(not r.state.sketch_on_rest and not r.state.p22_complete, "P22: the pencil lays nothing")
+	g.dispatch("rest_evidence")
+	check(r.state.sketch_on_rest, "P22: clicking the rest still lays the sketch")
+	ev = use(g, "pencil", "rest_evidence")
+	check(says(ev) == GameSim.GENERIC_WRONG_USE and r.state.sketch_on_rest,
+		"P22: with the sketch there, the generic refusal and the sketch stays (got '%s')" % says(ev))
+
 func test_p22_commit() -> void:
 	# Each of her three ways of writing it: the pencil on APPEND, on the amendment line, or selected
 	# then APPEND (the core turns that into use_item("pencil", "append")).
@@ -1095,6 +1116,11 @@ func test_wrong_item_uses() -> void:
 		[8, "witness_bridge", "slope", "curtain", "Not this. The bridge is for the chamber."],
 		[8, "pencil", "printed_line", "c_slope", ERASE_NOTHING],
 		[8, "pencil", "calendar", "curtain", "I'm not writing on that. Something else does."],
+		[8, "pencil", "rest_evidence", "c_slope", EVIDENCE_REST_ITEM],
+		[3, "pencil", "rest_evidence", "c_slope", EVIDENCE_REST_ITEM],
+		[8, "nora_register_card", "rest_evidence", "c_slope", EVIDENCE_REST_ITEM],
+		[8, "token_bunk_half", "rest_evidence", "c_slope", "The other half's in the kitchen. The token belongs in the service board there."],
+		[8, "inspection_lens", "rest_evidence", "c_slope", EVIDENCE_REST_ITEM],
 		[4, "inspection_lens", "venn_bunk", "room", "Under the lens the dent has the weave of a pillowcase pressed into it. Recent."],
 		[3, "inspection_lens", "luggage", "room", "No tag was ever tied on. No holes worn in the handles."],
 		[4, "inspection_lens", "calendar", "curtain", "Under the lens: pencil, and under the pencil the dents of other names pressed through."],
@@ -1119,7 +1145,7 @@ func test_wrong_item_uses() -> void:
 			check(says(ev) == GameSim.GENERIC_WRONG_USE, "%s: the generic refusal (got '%s')" % [label, says(ev)])
 		check(inv(g) == before, "%s: the inventory is unchanged" % label)
 		check(JSON.stringify(g.state.flags) == flags_before, "%s: no flags" % label)
-		if cse[1] == "nora_register_card" and cse[0] >= 8:
+		if cse[1] == "nora_register_card" and cse[0] >= 8 and cse[2] != "rest_evidence":
 			check(r.has_seen("card_vs_cup"), "%s: card_vs_cup noted" % label)
 
 # ---------------------------------------------------------------------------------------------
@@ -1281,6 +1307,12 @@ func test_view_presentation() -> void:
 	check(v.shown_wall() == "curtain" and v.back_visible() and not v.exits_active(), "view: B turns her round with Back, no exits")
 	scene.dispatch("back")
 	check(v.shown_wall() == "room", "view: Back from B is A")
+	# P22: the empty EVIDENCE rest carries a faint dashed outline, gone once the sketch lies there.
+	check(v.evidence_slot_visible(), "view: the empty EVIDENCE rest is outlined")
+	check(Rect2(808, 200, 480, 420).encloses(v.EVIDENCE_SLOT), "view: the outline sits inside the rest's hotspot")
+	v.r.state.sketch_on_rest = true
+	check(not v.evidence_slot_visible(), "view: no outline under the sketch")
+	v.r.state.sketch_on_rest = false
 	# c_lockers stage 1: three placed, the glove on the tray; no venn_back yet.
 	v = _view_at(scene, 1)
 	var ids := []
