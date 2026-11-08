@@ -636,14 +636,17 @@ func _r12_room() -> void:
 		guard += 1
 	check(chamber.local_view == "room", "R12: in the chamber")
 
-## R12 P26: preview both routes, ENDS for SEVER and REMAINS for CONTINUE, CONFIRM. The checkpoint.
+## R12 P26: preview both routes and watch each in the window; the second preview is P26.
+## The checkpoint.
 func play_p26() -> void:
 	_r12_room()
-	for a in ["to_routing", "plate_sever", "preview_sever", "preview_continue",
-			"cc_ends", "slot_sever", "cc_remains", "slot_continue"]:
+	for a in ["to_routing", "plate_sever", "preview_sever"]:
 		_qd(a)
-	_qd("confirm")
-	check(g.flag("P26") and chamber.routes() == R12Sim.SOLUTION_ROUTES, "P26: both routes understood")
+	check(not g.flag("P26") and chamber.previewed("sever"), "P26: one route seen is not enough")
+	_r12_room()   # the SEVER preview's window glance may have put the close-up down
+	for a in ["to_routing", "plate_continue", "preview_continue"]:
+		_qd(a)
+	check(g.flag("P26") and chamber.previewed("sever") and chamber.previewed("continue"), "P26: both routes seen")
 	check(not g.checkpoint.is_empty(), "P26: the pre-ending checkpoint is stored")
 
 ## R12 P27, played as SEVER: the yoke across the feed contacts, preview, SEVER; then every
