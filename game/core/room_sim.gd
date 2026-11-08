@@ -134,7 +134,13 @@ func objective_puzzle() -> String:
 func objective_text() -> String:
 	return c("OBJECTIVES", {}).get(objective(), "")
 
-## The hint for the current objective at `level` (0..2). Override for special cases.
+## How many tiers the current objective's hint ladder has: 3, or 4 when its HINTS entry
+## lists four lines. The core says a confirmation before the last tier. Override for
+## special cases (a hint_line() that builds its own fourth tier).
+func hint_tiers() -> int:
+	return 4 if c("HINTS", {}).get(objective(), []).size() >= 4 else 3
+
+## The hint for the current objective at `level` (0..hint_tiers()-1). Override for special cases.
 func hint_line(level: int) -> String:
 	var ladder: Array = c("HINTS", {}).get(objective(), [])
 	if ladder.is_empty():

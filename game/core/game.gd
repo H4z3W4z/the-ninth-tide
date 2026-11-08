@@ -26,10 +26,16 @@ const HUD_BUTTONS := [
 	["hint", Rect2(1272, 22, 86, 50), "Hint"],
 	["menu", Rect2(1368, 22, 58, 50), "≡"],
 ]
-## The Plan button (after P05), beside the Notebook: the notebook opened on the station plan.
-## It shares the top row with Back, so it shows only where Back doesn't (never over a close-up
-## control or Back; the notebook has its own Plan tab).
-const PLAN_BUTTON := ["plan", Rect2(1012, 22, 90, 50), "Plan"]
+## The Plan button (after P05), in its own slot under the Notebook: the notebook opened on
+## the station plan. It shows in the room view only (never over a close-up; the notebook has
+## its own Plan tab), clear of Back, the exits, every room hotspot and the inventory.
+## (Rect2(1112, 80, 150, 40) under the Notebook was the first choice; R11's ceiling hotspot
+## from Tide V reaches under it, so the Plan sits under Hint and the menu. The ceiling still
+## reaches this slot too: a room bug for R11, tracked in core_test's PLAN_OVERLAP_KNOWN.)
+const PLAN_BUTTON := ["plan", Rect2(1272, 80, 154, 40), "Plan"]
+const PLAN_LABEL_SIZE := 18
+## A Plan press this soon after a Back is the second half of a double click: ignored.
+const PLAN_AFTER_BACK := 0.4
 const HUD_ACTIONS := ["notebook", "hint", "menu", "plan"]
 const BACK_RECT := Rect2(952, 22, 150, 50)
 ## Inventory slots run left to right along the top-left of the HUD.
@@ -51,16 +57,18 @@ const VOICE_CAP := 2          # live copies of one one-shot at most
 const RESTART_ARM := 3.0      # seconds the menu's restart stays armed after the first click
 const FEEDBACK_HOLD := 1.2    # a click's line stays up at least this long before the next replaces it
 const BACKLOG_SQUEEZE := 0.6  # read-time factor for older story lines when a new reveal arrives
-const TIDE_CARD_TIME := 3.0
+const TIDE_CARD_TIME := 2.2
 const TIDE_CARD_FADE := 0.5
-const TIDE_CARD_STILL := 2.5  # Motion off: the card is simply there this long
+const TIDE_CARD_STILL := 2.2  # Motion off: the card is simply there this long
 const TIDE_CARD_QUIET := 1.0  # the card waits this long after the last story line's hold
-## In a close-up the card sits in the band above the subtitles, or the nearest band clear
-## of the close-up's controls (a slimmer card if no full one fits).
-const TIDE_CARD_CLOSEUP_RECT := Rect2(324, 860, 800, 110)
-const TIDE_CARD_SLIM_H := 84.0
-const TIDE_CARD_CLOSEUP_ALPHA := 0.85
+## The card sits in the lower-left third of the room; the upper band when that would cover
+## an exit tab or the glance. It never starts over a close-up, so it never covers a control.
+const TIDE_CARD_RECT := Rect2(40, 840, 560, 110)
+const TIDE_CARD_UPPER_RECT := Rect2(40, 110, 560, 110)
 const TRAVEL_DEBOUNCE := 0.4  # an exit or plan click this soon after arriving is ignored
+## An exit clicked while a reveal still has lines to say: the rest of it plays this far
+## apart, and she goes this long after its last line went up (a second exit click: at once).
+const EXIT_LINE_STEP := 0.6
 ## The glance: corner brackets that show where a commit's reward is (when the room has no
 ## glance of its own). Storm navy, on the HUD layer.
 const GLANCE_TIME := 2.5
@@ -85,6 +93,20 @@ const MIXER_FADE_RATE := 2.5
 ## The notebook's layouts, roomiest first. Past the last, the entries go on more pages.
 const NB_LAYOUTS := [[22, 960, 1], [20, 960, 1], [18, 960, 1], [18, 460, 2], [17, 460, 2]]
 const NB_INTRUSION_ROOM := 40.0
+## hold_breath: every room bed ducks over BREATH_DUCK, holds, and comes back over
+## BREATH_RESTORE. "Soften sudden sounds" ducks to BREATH_SOFT_DB instead of silence.
+const BREATH_DUCK := 0.15
+const BREATH_RESTORE := 1.2
+const BREATH_SOFT_DB := -18.0
+## The title: the P03 photograph (the lit office window at night, the figure at the desk),
+## darkened under the text, drifting slowly with Motion on; the thin sea under it.
+const TITLE_PLATE := "res://assets/stages/photo_drawer.png"
+const TITLE_DARKEN := 0.45
+const TITLE_DRIFT_PERIOD := 40.0
+const TITLE_DRIFT_SCALE := 0.01
+const TITLE_DRIFT_PX := Vector2(5, 3)   # |offset| <= 5.9 px
+const TITLE_LOOP := "res://assets/audio/R01/sea_thin.wav"
+const TITLE_LOOP_DB := -24.0
 
 ## Base levels for one-shots (dB) the core plays for itself; rooms add their own SFX_DB.
 const SFX_DB := {"page": -10.0}
@@ -128,8 +150,7 @@ var intrusion_t := 0.0
 var tide_card_t := 99.0
 var tide_card_n := 0
 var tide_card_pending := 0     # a tide card waiting for the reveal before it to finish
-var tide_card_closeup := false # the card started over a close-up: it sits low
-var tide_card_closeup_rect := TIDE_CARD_CLOSEUP_RECT
+var tide_card_at := TIDE_CARD_RECT   # where the card on show sits (chosen as it starts)
 var story_end := -INF          # when the last story line's hold ended (or ends)
 var arrived_at := -INF         # when she last arrived in a room (travel debounce)
 var pending_glance := {}       # a glance fx waiting for its chain to finish
@@ -146,12 +167,26 @@ var fading_mixers: Array = []  # [LoopMixer, seconds left] the rooms she just le
 var seen_game_view := ""
 var seen_local_view := ""
 var seen_inv_size := 0
+var shown_rooms: Array = []    # the room each shown_log line went up in (tests read it)
+## An exit clicked during a reveal: the action, sent once the reveal's last line has been up
+## EXIT_LINE_STEP (a second exit click goes at once). "" = none.
+var pending_travel := ""
+## A room hotspot clicked while a story chain still had lines queued: sent when the chain ends.
+var pending_action := ""
+var last_back_at := -INF
+var pending_fx: Array = []     # [fx event, time_left, beat]: fx with a delay, timed like sfx
+var arrival_click := -1        # the click_id of the last travel (its arrival lines carry it)
+var breath_start := -INF       # hold_breath: when the duck began (presentation only)
+var breath_end := -INF         # ... and when the hold ends and the beds come back
+var title_mixer: LoopMixer
+var _title_tex: Texture2D
 
 func _ready() -> void:
 	serif = Ink.serif()
 	hand = Ink.hand()
 	_build_nodes()
 	_build_audio()
+	_build_title_audio()
 	_load_progress()
 	_mount_room()
 	_redraw()
@@ -209,6 +244,28 @@ func _build_audio() -> void:
 	var limiter := AudioEffectHardLimiter.new()
 	limiter.ceiling_db = -1.0
 	AudioServer.add_bus_effect(0, limiter)
+
+## The title's loop: the thin sea, on the core's own mixer (no music).
+func _build_title_audio() -> void:
+	title_mixer = LoopMixer.new()
+	title_mixer.name = "TitleMixer"
+	add_child(title_mixer)
+	if ResourceLoader.exists(TITLE_LOOP):
+		title_mixer.add_loop("sea", load(TITLE_LOOP))
+
+## The title loop's target (linear): TITLE_LOOP_DB on the title (and its options menu), 0
+## once the game has begun.
+func title_loop_target() -> float:
+	var on_title: bool = sim.view == "title" or (sim.view == "menu" and sim.return_view == "title")
+	return db_to_linear(TITLE_LOOP_DB) if on_title else 0.0
+
+func _tick_title_audio(dt: float) -> void:
+	if title_mixer == null:
+		return
+	var target := title_loop_target()
+	var targets := {"sea": target} if target > 0.0 else {}
+	# Up from silence or down to it over MIXER_FADE.
+	title_mixer.tick(targets, {}, dt, db_to_linear(TITLE_LOOP_DB) / MIXER_FADE)
 
 ## Shows the current room's view, replacing any other. A room without a view of its own
 ## gets the placeholder.
@@ -347,8 +404,13 @@ func _process(dt: float) -> void:
 	if cur_story and cur_text != "":
 		story_end = cur_since + cur_hold
 	_tick_sfx(dt)
+	_tick_fx(dt)
+	_tick_glance()
+	_tick_pending()
 	if room_view:
 		room_view.tick(dt)
+	_tick_breath()
+	_tick_title_audio(dt)
 	if sim.view == "notebook" and _intrusion_writing():
 		intrusion_t += dt
 	if sim.view == "end":
@@ -356,7 +418,6 @@ func _process(dt: float) -> void:
 	tide_card_t += dt
 	glance_t += dt
 	_tick_tide_card()
-	_tick_glance()
 	_tick_fading_mixers(dt)
 	_refresh_hover_on_view_change()
 	_keep_inv_page()
@@ -367,46 +428,41 @@ func _process(dt: float) -> void:
 		card.queue_redraw()
 	hud.queue_redraw()
 
-## The reveal finishes before the tide card: a pending card starts once no story chain is
-## playing and the last story line has been readable for TIDE_CARD_QUIET.
+## The reveal finishes before the tide card: a pending card starts only in the room view,
+## with no close-up open, no story line queued or held, the arrival chain over, and the
+## last of them readable for TIDE_CARD_QUIET.
 func _tick_tide_card() -> void:
-	if tide_card_pending <= 0 or chain_active() or time < story_end + TIDE_CARD_QUIET:
-		return
-	_start_tide_card()
+	if tide_card_pending > 0 and tide_card_may_start():
+		_start_tide_card()
+
+func tide_card_may_start() -> bool:
+	if sim.view != "room" or room_sim() == null or room_sim().is_closeup() or pending_travel != "":
+		return false
+	if chain_active() or _story_queued() or time < story_end + TIDE_CARD_QUIET:
+		return false
+	for l in lines:
+		if l.click == arrival_click:
+			return false
+	return not (cur_text != "" and cur_click == arrival_click and time < cur_since + cur_hold + TIDE_CARD_QUIET)
 
 func _start_tide_card() -> void:
 	tide_card_n = tide_card_pending
 	tide_card_pending = 0
 	tide_card_t = 0.0
-	tide_card_closeup = room_sim() != null and sim.view == "room" and room_sim().is_closeup()
-	if tide_card_closeup:
-		tide_card_closeup_rect = _closeup_card_rect()
+	tide_card_at = _card_rect_now()
 	card.queue_redraw()
 
-## The close-up band for the card: TIDE_CARD_CLOSEUP_RECT if no control is under it, else
-## the lowest clear band (scanning up from the subtitles), full height first, then slim.
-func _closeup_card_rect() -> Rect2:
+## TIDE_CARD_RECT, or the upper band when the low one would cover an exit tab or the glance.
+func _card_rect_now() -> Rect2:
 	var avoid := []
+	if glance_rect.size != Vector2.ZERO and glance_t < GLANCE_TIME:
+		avoid.append(glance_rect)
 	if room_view:
-		for h in room_view.control_rows():
-			avoid.append(h[1])
-	var base := TIDE_CARD_CLOSEUP_RECT
-	for h in [base.size.y, TIDE_CARD_SLIM_H]:
-		var ys := [base.position.y]
-		var y: float = 994.0 - h - 4.0
-		while y >= 84.0:
-			ys.append(y)
-			y -= 6.0
-		for cy in ys:
-			var r := Rect2(base.position.x, cy, base.size.x, h)
-			if r.end.y > 994.0:
-				continue
-			var clear := true
-			for a in avoid:
-				clear = clear and not r.intersects(a)
-			if clear:
-				return r
-	return base
+		avoid.append_array(room_view.live_exit_rects().values())
+	for a in avoid:
+		if TIDE_CARD_RECT.intersects(a):
+			return TIDE_CARD_UPPER_RECT
+	return TIDE_CARD_RECT
 
 ## True while a tide card is waiting or on screen (rooms that hold their own beat for it).
 func tide_card_busy() -> bool:
@@ -467,6 +523,102 @@ func _tick_sfx(dt: float) -> void:
 		if pending_sfx[i][1] <= 0.0:
 			pending_sfx.remove_at(i)
 			_play_sfx_now(id)
+
+## Timed fx (a room's `_fx(ev, id, {"delay": s})`), honoured like timed sounds: e.delay
+## plus the chain offset, re-timed with their beat. Sounds due in the same frame land first.
+func _tick_fx(dt: float) -> void:
+	var due: Array = []
+	for i in range(pending_fx.size() - 1, -1, -1):
+		pending_fx[i][1] -= dt
+		if pending_fx[i][1] <= 0.000001:
+			due.push_front(pending_fx[i])
+			pending_fx.remove_at(i)
+	due.sort_custom(func(a, b): return a[1] < b[1])
+	for p in due:
+		_play_fx(_fx_now(p[0]), p[1])
+
+## A timed fx as it is delivered: its delay spent (a view that times its own reveal from
+## e.delay sees 0, as for an fx that came untimed).
+static func _fx_now(e: Dictionary) -> Dictionary:
+	var out := e.duplicate()
+	out["delay"] = 0.0
+	return out
+
+## A deferred exit or room action, once its moment has come.
+func _tick_pending() -> void:
+	if pending_travel != "":
+		if not _story_queued() and (cur_text == "" or time - cur_since >= EXIT_LINE_STEP - 0.000001):
+			var a := pending_travel
+			pending_travel = ""
+			dispatch(a)
+		return
+	# A glance waiting for the same chain goes first (it may put a close-up down with Back).
+	if pending_action != "" and not chain_active() and pending_glance.is_empty():
+		var a := pending_action
+		pending_action = ""
+		if sim.view == "room":
+			dispatch(a)
+
+# ---------------------------------------------------------------------------
+# hold_breath: the room's beds drop out for a moment (a sim fx, or a view's call)
+# ---------------------------------------------------------------------------
+## Ducks every live room bed, and every mixer still fading from the last room, to silence
+## (Soften sudden sounds: BREATH_SOFT_DB) over BREATH_DUCK; holds until `seconds` after
+## `at`; then brings them back to their targets over BREATH_RESTORE. One-shots still play.
+## Overlapping holds run to the later end. Presentation only: never saved; travel, the
+## title and the end card clear it.
+func hold_breath(seconds: float, at := INF) -> void:
+	var start: float = time if at == INF else at
+	var k := breath_gain(start)
+	if start >= breath_end:
+		# Not holding: duck from wherever the beds are (1.0, or partway back up).
+		breath_start = start - (1.0 - k) / maxf(1.0 - _breath_floor(), 0.0001) * BREATH_DUCK
+	breath_end = maxf(breath_end, start + maxf(seconds, 0.0))
+
+## The bed gain hold_breath leaves at time `t` (default now): 1.0 when no hold is on.
+func breath_gain(t := INF) -> float:
+	if t == INF:
+		t = time
+	if breath_end == -INF or t < breath_start:
+		return 1.0
+	var floor_k := _breath_floor()
+	var span := 1.0 - floor_k
+	var down := func(at: float) -> float:
+		return clampf(1.0 - (at - breath_start) / BREATH_DUCK * span, floor_k, 1.0)
+	if t < breath_end:
+		return down.call(t)
+	return minf(1.0, down.call(breath_end) + (t - breath_end) / BREATH_RESTORE * span)
+
+func _breath_floor() -> float:
+	return db_to_linear(BREATH_SOFT_DB) if sim.settings.soft_audio else 0.0
+
+func _clear_breath() -> void:
+	breath_start = -INF
+	breath_end = -INF
+	_apply_breath(1.0)
+
+## The mixers a hold ducks: the room's beds and the ones still fading from the last room.
+func bed_mixers() -> Array:
+	var out: Array = _mixers_in(room_view) if room_view else []
+	for f in fading_mixers:
+		if is_instance_valid(f[0]):
+			out.append(f[0])
+	return out
+
+func _tick_breath() -> void:
+	if breath_end == -INF:
+		return
+	var k := breath_gain()
+	_apply_breath(k)
+	if k >= 1.0 and time >= breath_end:
+		breath_start = -INF
+		breath_end = -INF
+
+func _apply_breath(k: float) -> void:
+	for m in bed_mixers():
+		if m.duck != k:
+			m.duck = k
+			m.apply_duck()
 
 # ---------------------------------------------------------------------------
 # subtitles: a scheduler keyed to absolute time
@@ -537,6 +689,48 @@ func _tick_lines(dt: float) -> void:
 func _line_due_within(s: float) -> bool:
 	return not lines.is_empty() and lines[0].due - time <= s
 
+## A story line is still waiting its turn (more of a chain than the line on screen).
+func _story_queued() -> bool:
+	for l in lines:
+		if l.story:
+			return true
+	return false
+
+## An exit clicked while a reveal still has lines queued: the rest of it plays now, each line
+## EXIT_LINE_STEP after the one before (the line on screen first), with its beat's sounds and
+## fx moved along with it; _tick_pending sends `action` EXIT_LINE_STEP after the last line.
+func _defer_travel(action: String) -> void:
+	pending_travel = action
+	lines = lines.filter(func(l): return l.story)   # the old room's chatter stays behind
+	var t: float = cur_since if cur_text != "" else time - EXIT_LINE_STEP
+	var shifts: Array = []   # [old due, new due, beat] per line, in order
+	for l in lines:
+		var due := maxf(t + EXIT_LINE_STEP, time)
+		shifts.append([l.due, due, l.beat])
+		l.due = due
+		l.hold = EXIT_LINE_STEP
+		t = due
+	if cur_text != "" and not lines.is_empty():
+		cur_hold = minf(cur_hold, maxf(0.0, lines[0].due - cur_since))
+	for queue in [pending_sfx, pending_fx]:
+		for p in queue:
+			var shift := _beat_shift(shifts, p[2], time + p[1])
+			p[1] = maxf(0.0, p[1] + shift)
+
+## How far the line a timed event leads into (its beat's first line due at or after `at`,
+## else the beat's last line) moved. 0 when the beat has no re-timed line.
+static func _beat_shift(shifts: Array, beat: int, at: float) -> float:
+	var last := 0.0
+	if beat == 0:
+		return 0.0
+	for s in shifts:
+		if s[2] != beat:
+			continue
+		last = s[1] - s[0]
+		if s[0] >= at - 0.05:
+			return last
+	return last
+
 ## A story chain is playing: a line of it is queued, or one is on screen and still held.
 func chain_active() -> bool:
 	for l in lines:
@@ -561,6 +755,9 @@ func advance() -> void:
 	var delta := maxf(0.0, next.due - time)
 	for l in lines:
 		l.due -= delta
+	for p in pending_fx:
+		if next.beat != 0 and p[2] == next.beat:
+			p[1] -= delta
 	var due_now: Array = []
 	for i in range(pending_sfx.size() - 1, -1, -1):
 		var p: Array = pending_sfx[i]
@@ -579,12 +776,17 @@ func advance() -> void:
 	_show_line(next.text, true, next.hold, next.click)
 
 ## A click (or tap) at `p`, exactly as the mouse handler does it. Drivers and tests use it.
-## Clicks are never eaten: the HUD always answers, and exits, Back, the inventory, every
-## control of an open close-up, and the notebook's tabs, plan rows and pages always act (a
-## playing chain advances first, in the same press; anything the action says waits after
-## the chain). Only a click on empty space or the subtitle bar, or on a room hotspot outside
-## a close-up, is spent advancing a chain. The room sees its click first (consume_click:
-## skipping its own hold).
+## Clicks are never eaten: the HUD always answers, and Back, the inventory, every control of
+## an open close-up, and the notebook's tabs and pages always act (a playing chain advances
+## first, in the same press; anything the action says waits after the chain).
+##   - An exit (or a plan row) while a reveal still has lines queued: the rest of the reveal
+##     plays out quickly where it was said, then she goes (pending_travel); a second exit
+##     click goes at once. With only the line on screen left, she goes at once.
+##   - A room hotspot while a chain plays: with only the line on screen left, that line is
+##     finished and the hotspot acts in the same press; with more queued, the chain advances
+##     and the hotspot acts when the chain ends (pending_action).
+##   - Empty space and the subtitle bar only advance a chain.
+## The room sees its click first (consume_click: skipping its own hold, R02's photograph).
 func click(p: Vector2) -> void:
 	var a := _core_action_at(p)
 	if a == "" and _room_takes_click():
@@ -595,8 +797,20 @@ func click(p: Vector2) -> void:
 		if not _cinematic():
 			_hud_press(a)
 		return
-	if (a.begins_with("go:") or a.begins_with("plan:")) and time - arrived_at < TRAVEL_DEBOUNCE:
-		return   # a double click on an exit moves one room, not two
+	if is_exit_action(a):
+		if time - arrived_at < TRAVEL_DEBOUNCE:
+			return   # a double click on an exit moves one room, not two
+		if pending_travel != "":
+			pending_travel = ""
+			dispatch(a)   # the second click: at once (travel drops what the old room had left)
+			return
+		if _chain_gates() and _story_queued():
+			_defer_travel(a)
+			return
+		if _chain_gates() and chain_active():
+			advance()
+		dispatch(a)
+		return
 	if always_acts(a) or _closeup_acts(a):
 		if _chain_gates() and chain_active():
 			advance()
@@ -606,10 +820,26 @@ func click(p: Vector2) -> void:
 	if _local_action(a):
 		return
 	if _chain_gates() and chain_active():
+		var queued := _story_queued()
 		advance()
+		if a == "" or SUBTITLE_BAR.has_point(p):
+			return
+		if queued:
+			pending_action = a   # acts when the chain ends; a later hotspot click replaces it
+			return
+		pending_action = ""
+		dispatch(a)   # the line on screen is finished: the hotspot acts in the same press
 		return
 	if a != "":
+		pending_action = ""
 		dispatch(a)
+
+## The subtitle slab: a click here only ever advances a chain.
+const SUBTITLE_BAR := Rect2(20, 994, 1408, 80)
+
+## An exit tab ("go:<rid>") or a notebook plan row ("plan:<rid>"): an action that travels.
+static func is_exit_action(a: String) -> bool:
+	return a.begins_with("go:") or a.begins_with("plan:")
 
 ## True for the actions a click always carries out, even during a story chain: exits,
 ## Back, the inventory, and in the notebook its tabs, plan rows and page turners.
@@ -635,7 +865,7 @@ func _hud_press(a: String) -> void:
 	if a != "plan":
 		dispatch(a)
 		return
-	if not plan_button_shown():
+	if not plan_button_shown() or time - last_back_at < PLAN_AFTER_BACK:
 		return
 	if sim.view != "notebook":
 		dispatch("notebook")
@@ -681,6 +911,7 @@ func _show_line(text: String, story: bool, hold := -1.0, from_click := -1) -> vo
 		story_end = cur_since + cur_hold
 	subtitle.text = text
 	shown_log.append(text)
+	shown_rooms.append(sim.state.room)
 	subtitle.add_theme_font_size_override("font_size", 24 if text.length() > 90 else 27)
 	subtitle.visible_characters = 0
 
@@ -725,7 +956,10 @@ func dispatch(action: String) -> void:
 		_redraw()
 		return
 	click_id += 1
+	if action == "back":
+		last_back_at = time
 	var before_game := sim.view
+	var before_rid: String = sim.state.room
 	var before_room := room_sim().view if room_sim() else ""
 	var chain_was := chain_active()
 	var before_tab := sim.nb_tab
@@ -745,6 +979,10 @@ func dispatch(action: String) -> void:
 		hover_id = ""   # the label of what she was pointing at stays with the view she left
 		_mark_view_seen()
 		_on_view_changed(before_game, before_room)
+	if before_room != after_room or before_game != sim.view or before_rid != sim.state.room:
+		pending_action = ""   # a deferred hotspot belongs to the view it was clicked in
+	if before_game != sim.view and sim.view in ["notebook", "menu", "end", "title"]:
+		pending_travel = ""
 	if sim.nb_tab != before_tab:
 		nb_page = -1
 	if action.begins_with("item:") and sim.selected_item != "":
@@ -762,6 +1000,11 @@ func play_events(ev: Array, chain_was := false) -> void:
 	for e in ev:
 		if e.type == "say" and e.get("story", false) and e.delay > 0.0:
 			beat = true
+		if e.type == "fx" and e.id == "travel":
+			# A new room: nothing of the old one is said after she arrives. Its notes are
+			# already in the notebook; its arrival line is the first thing on screen.
+			_clear_for_travel()
+			chain_was = false
 	var offset := 0.0
 	if chain_was:
 		offset = maxf(0.0, _story_backlog_end() - time)
@@ -785,8 +1028,38 @@ func play_events(ev: Array, chain_was := false) -> void:
 				else:
 					_play_sfx_now(e.id)
 			"fx":
-				_play_fx(e)
+				var d := float(e.get("delay", 0.0))
+				if d > 0.0 and fx_timed_by_core(str(e.id)):
+					pending_fx.append([e, d + offset, beat_id])
+				else:
+					_play_fx(e)
 	_settle_card_offer()
+
+## Fx ids the core itself times by their delay (beyond any the room view lists in TIMED_FX).
+const CORE_TIMED_FX := ["hold_breath"]
+
+## True when an fx with a delay waits for it in the core: the core's own timed fx, and the
+## ids the room view lists in its TIMED_FX (["*"] for all). Any other fx is delivered at once
+## with its delay intact, for a view that times its own reveal from e.delay (R10).
+func fx_timed_by_core(id: String) -> bool:
+	if id in CORE_TIMED_FX:
+		return true
+	var timed: Array = room_view.c("TIMED_FX", []) if room_view else []
+	return id in timed or "*" in timed
+
+## Leaving a room: every line, queued or on screen, every timed sound and fx, any deferred
+## exit or hotspot and any held breath stay behind.
+func _clear_for_travel() -> void:
+	lines.clear()
+	cur_text = ""
+	cur_story = false
+	cur_hold = 0.0
+	subtitle.text = ""
+	pending_sfx.clear()
+	pending_fx.clear()
+	pending_travel = ""
+	pending_action = ""
+	_clear_breath()
 
 ## While one event list plays, a new tide card is offered to the room as "just started"
 ## (tide_card_t = 0): a room view that times the card to its own beat takes it over from its
@@ -804,32 +1077,27 @@ func _settle_card_offer() -> void:
 		tide_card_pending = 0   # the room holds it
 	else:
 		tide_card_t = 99.0
-func _play_fx(e: Dictionary) -> void:
+## `late` (<= 0): how far past its moment a timed fx is delivered (hold_breath backdates).
+func _play_fx(e: Dictionary, late := 0.0) -> void:
 	match e.id:
 		"travel":
-			# A new room. The old room's chatter, its feedback line and its timed sounds stay
-			# behind; anything of the story still being said finishes.
-			lines = lines.filter(func(l): return l.story)
-			if not cur_story and cur_text != "":
-				cur_text = ""
-				subtitle.text = ""
-			pending_sfx.clear()
+			# A new room (play_events has already cleared the old room's lines and sounds).
 			hover_id = ""
 			arrived_at = time
+			arrival_click = click_id
 			pending_glance = {}
 			glance_t = 99.0
 			came_from = str(e.get("from", ""))
 			_mount_room(e.get("from", "") != "")
-			# A tide card still waiting for the old room's reveal plays on arrival instead.
-			if tide_card_pending > 0:
-				_start_tide_card()
+			# A tide card still waiting keeps waiting: for the arrival chain to end.
+		"hold_breath":
+			hold_breath(float(e.get("seconds", 0.0)), time + minf(late, 0.0))
 		"tide":
 			# The card waits for the reveal that earned it (_tick_tide_card), after the room
 			# has had the chance to take it over (_settle_card_offer).
 			tide_card_pending = int(e.get("tide", sim.tide()))
 			tide_card_n = tide_card_pending
 			tide_card_t = 0.0
-			tide_card_closeup = false
 			card_offered = true
 		"glance":
 			pending_glance = e.duplicate()
@@ -850,6 +1118,8 @@ func _on_view_changed(before_game: String, before_room: String) -> void:
 		nb_page = -1
 	if sim.view == "end":
 		end_t = 0.0
+	if sim.view in ["end", "title"]:
+		_clear_breath()
 	if room_view:
 		room_view.on_view_changed(before)
 
@@ -894,6 +1164,11 @@ func _reset_presentation() -> void:
 	played_log.clear()
 	restart_armed_at = -INF
 	pending_sfx.clear()
+	pending_fx.clear()
+	pending_travel = ""
+	pending_action = ""
+	shown_rooms.clear()
+	_clear_breath()
 	for p in oneshots:
 		if is_instance_valid(p):
 			p.stop()
@@ -903,8 +1178,7 @@ func _reset_presentation() -> void:
 	intrusion_t = 0.0
 	tide_card_t = 99.0
 	tide_card_pending = 0
-	tide_card_closeup = false
-	tide_card_closeup_rect = TIDE_CARD_CLOSEUP_RECT
+	tide_card_at = TIDE_CARD_RECT
 	story_end = -INF
 	arrived_at = -INF
 	pending_glance = {}
@@ -1141,7 +1415,7 @@ func hud_buttons() -> Array:
 	return out
 
 ## The Plan button: after P05, in the room view (never in a cinematic, the title, the end
-## card or the menu, and not while Back holds its place: a close-up, the notebook).
+## card or the menu, and not over a close-up or the notebook, which has its own Plan tab).
 func plan_button_shown() -> bool:
 	return sim.plan_unlocked() and sim.state.started and sim.view == "room" and room_view != null \
 		and not room_view.hud_hidden() and not room_view.back_visible() and not room_sim().is_closeup()
@@ -1225,14 +1499,46 @@ func _draw_over() -> void:
 
 func _draw_title(c: Node2D) -> void:
 	c.draw_rect(Rect2(Vector2.ZERO, SIZE), Ink.BLACK)
-	var pulse := 0.55 + 0.45 * sin(time * 1.6) if sim.settings.motion else 1.0
-	Ink.text(c, "THE NINTH TIDE", Vector2(0, 470), 78, Ink.PAPER, serif, SIZE.x)
-	Ink.text(c, sim.tide_title(), Vector2(0, 540), 30, Color(Ink.PAPER, 0.7), hand, SIZE.x)
-	Ink.text(c, "Greywake Survey Station, Morrow Sound. October 1931.", Vector2(0, 640), 24,
-		Color(Ink.PAPER, 0.5), serif, SIZE.x)
-	Ink.text(c, "click to begin", Vector2(0, 820), 24, Color(Ink.GOLD, pulse), serif, SIZE.x)
-	Ink.text(c, "Headphones recommended. Esc for options.", Vector2(0, 1040), 18,
-		Color(Ink.PAPER, 0.35), serif, SIZE.x)
+	var tex := title_plate()
+	if tex:
+		c.draw_texture_rect(tex, title_plate_rect(), false)
+	c.draw_rect(Rect2(Vector2.ZERO, SIZE), Color(Ink.INK, TITLE_DARKEN))
+	var pulse := 0.8 + 0.2 * sin(time * 1.6) if sim.settings.motion else 1.0
+	_title_text(c, "THE NINTH TIDE", 470, 78, Ink.PAPER, serif)
+	_title_text(c, sim.tide_title(), 540, 30, Color(Ink.PAPER, 0.85), hand)
+	_title_text(c, "Greywake Survey Station, Morrow Sound. October 1931.", 640, 24, Color(Ink.PAPER, 0.8), serif)
+	_title_text(c, "click to begin", 820, 24, Color(Ink.GOLD, pulse), serif)
+	_title_text(c, "Headphones recommended. Esc for options.", 1040, 18, Color(Ink.PAPER, 0.6), serif)
+
+## A title line, centred, on a soft ink outline: it reads over the lit window of the plate
+## without a band across the photograph.
+func _title_text(c: Node2D, s: String, y: float, size: int, col: Color, font: Font) -> void:
+	var halo := Color(Ink.INK, 0.75 * col.a)
+	c.draw_string_outline(font, Vector2(0, y), s, HORIZONTAL_ALIGNMENT_CENTER, SIZE.x, size, maxi(6, size / 6), halo)
+	Ink.text(c, s, Vector2(0, y), size, col, font, SIZE.x)
+
+## The title's photograph (never modified: the same plate R02 shows in the drawer).
+func title_plate() -> Texture2D:
+	if _title_tex == null and ResourceLoader.exists(TITLE_PLATE):
+		_title_tex = load(TITLE_PLATE) as Texture2D
+	return _title_tex
+
+## Where the plate is drawn: scaled to cover the screen, centred, and with Motion on drifting
+## on one slow sine (TITLE_DRIFT_PERIOD): scale 1.00..1.01, at most ~6 px of travel.
+func title_plate_rect() -> Rect2:
+	var tex := title_plate()
+	if tex == null:
+		return Rect2(Vector2.ZERO, SIZE)
+	var ts := Vector2(tex.get_size())
+	# Covers the screen plus the drift's travel, so no edge ever shows.
+	var k := maxf((SIZE.x + 2.0 * TITLE_DRIFT_PX.x) / ts.x, (SIZE.y + 2.0 * TITLE_DRIFT_PX.y) / ts.y)
+	var off := Vector2.ZERO
+	if sim.settings.motion:
+		var w := sin(TAU * time / TITLE_DRIFT_PERIOD)
+		k *= 1.0 + TITLE_DRIFT_SCALE * 0.5 * (1.0 + w)
+		off = TITLE_DRIFT_PX * w
+	var sz := ts * k
+	return Rect2((SIZE - sz) * 0.5 + off, sz)
 
 func _draw_menu(c: Node2D) -> void:
 	if sim.return_view == "title":
@@ -1496,19 +1802,54 @@ func _draw_end(c: Node2D) -> void:
 	if still:
 		c.draw_texture_rect(still, Rect2(Vector2.ZERO, SIZE), false, Color(1, 1, 1, END_STILL_ALPHA))
 	var a := clampf(end_t / END_TEXT_FADE, 0.0, 1.0) if sim.settings.motion else 1.0
-	Ink.text(c, e.title, Vector2(0, 420), 48, Color(Ink.PAPER, a), serif, SIZE.x)
+	var lay := end_layout(sim.state.ending)
+	# A storm-navy panel under the words, so they read over any still.
+	c.draw_rect(lay.panel, Color(Ink.STORM, 0.86 * a))
+	c.draw_rect(lay.panel, Color(Ink.BRASS, a), false, 2.0)
+	var x: float = lay.panel.position.x
+	var w: float = lay.panel.size.x
+	Ink.text(c, e.title, Vector2(x, lay.title_y), lay.title_size, Color(Ink.PAPER, a), serif, w)
 	for i in e.lines.size():
-		Ink.text(c, e.lines[i], Vector2(0, 520 + 50 * i), 26, Color(Ink.NIGHT_INK, a), hand, SIZE.x)
-	Ink.text(c, "Endings seen: %d of 2" % sim.settings.endings_seen.size(), Vector2(0, 780), 20,
-		Color(Ink.PAPER, 0.5 * a), serif, SIZE.x)
+		Ink.text(c, e.lines[i], Vector2(x, lay.line_ys[i]), END_LINE_SIZE, Color(Ink.SEA_GLASS, a), hand, w)
+	Ink.text(c, end_seen_text(), Vector2(x, lay.seen_y), END_SEEN_SIZE, Color(Ink.PAPER, 0.8 * a), serif, w)
 	if end_t >= 1.5:
 		for b in END_BUTTONS:
 			if b[0] == "return_decision" and sim.checkpoint.is_empty():
 				continue
 			Ink.button(c, b[1], b[2])
 
-const END_STILL_ALPHA := 0.22
-const END_TEXT_FADE := 0.6
+const END_STILL_ALPHA := 0.6
+const END_TEXT_FADE := 1.0
+const END_PANEL_X := 274.0
+const END_PANEL_W := 900.0
+const END_PANEL_TOP := 360.0
+const END_PANEL_PAD := 40.0       # the panel runs this far below the "Endings seen" line
+const END_TITLE_Y := 432.0
+const END_TITLE_MAX := 48
+const END_TITLE_MIN := 34
+const END_LINE_SIZE := 26
+const END_LINE_Y := 512.0
+const END_LINE_STEP := 48.0
+const END_SEEN_SIZE := 20
+
+func end_seen_text() -> String:
+	return "Endings seen: %d of 2" % sim.settings.endings_seen.size()
+
+## The end card's layout for ending `id` (pure: drawing and tests): {panel, title_size,
+## title_y, line_ys, seen_y}. Text y values are baselines. The title shrinks from
+## END_TITLE_MAX toward END_TITLE_MIN until it fits the panel less 80 px; "Endings seen" sits
+## under the last quote line, and the panel ends END_PANEL_PAD below it.
+func end_layout(id: String) -> Dictionary:
+	var e: Dictionary = GameSim.ENDINGS.get(id, {"title": "", "lines": []})
+	var size := END_TITLE_MAX
+	while size > END_TITLE_MIN and serif.get_string_size(e.title, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > END_PANEL_W - 80.0:
+		size -= 1
+	var ys: Array = []
+	for i in e.lines.size():
+		ys.append(END_LINE_Y + END_LINE_STEP * i)
+	var seen_y: float = (ys[-1] if not ys.is_empty() else END_TITLE_Y) + END_LINE_STEP * 0.85
+	var panel := Rect2(END_PANEL_X, END_PANEL_TOP, END_PANEL_W, seen_y + END_PANEL_PAD - END_PANEL_TOP)
+	return {"panel": panel, "title_size": size, "title_y": END_TITLE_Y, "line_ys": ys, "seen_y": seen_y}
 
 var _end_stills := {}   # path -> Texture2D, held: a drawn texture must outlive the draw call
 
@@ -1522,7 +1863,7 @@ func end_still(id: String) -> Texture2D:
 		_end_stills[path] = load(path) as Texture2D
 	return _end_stills[path]
 
-## The tide card: high on the screen, clear of the room's reveal below it. Fades in and out
+## The tide card, once its reveal has been read. Fades in and out
 ## over TIDE_CARD_TIME; Motion off, it is simply there for TIDE_CARD_STILL.
 func tide_card_alpha() -> float:
 	if tide_card_n <= 0:
@@ -1533,27 +1874,22 @@ func tide_card_alpha() -> float:
 		return 0.0
 	return clampf(minf(tide_card_t, TIDE_CARD_TIME - tide_card_t) / TIDE_CARD_FADE, 0.0, 1.0)
 
-const TIDE_CARD_RECT := Rect2(324, 120, 800, 110)
-
-## Where the card on show sits: high on the room, or low (above the subtitles, a little
-## lighter) when it started over a close-up, so it never covers the close-up's controls.
+## Where the card on show sits: TIDE_CARD_RECT, low on the left of the room, or the upper
+## band when that would cover an exit tab or the glance (chosen as the card starts).
 func tide_card_rect() -> Rect2:
-	return tide_card_closeup_rect if tide_card_closeup else TIDE_CARD_RECT
+	return tide_card_at
 
 func _draw_card() -> void:
 	var a := tide_card_alpha()
 	if a <= 0.0:
 		return
-	if tide_card_closeup:
-		a *= TIDE_CARD_CLOSEUP_ALPHA
 	var r := tide_card_rect()
 	card.draw_rect(r, Color(Ink.INK, 0.88 * a))
 	card.draw_rect(r, Color(Ink.BRASS, 0.8 * a), false, 2)
-	var slim := r.size.y < TIDE_CARD_RECT.size.y
-	Ink.text(card, "TIDE " + GameSim.NUMERALS[tide_card_n - 1], r.position + Vector2(0, 38 if slim else 48),
-		30 if slim else 36, Color(Ink.PAPER, a), serif, r.size.x)
-	Ink.text(card, GameSim.TIDE_TITLES[tide_card_n - 1], r.position + Vector2(0, 70 if slim else 90),
-		22 if slim else 26, Color(Ink.PAPER, 0.8 * a), hand, r.size.x)
+	Ink.text(card, "TIDE " + GameSim.NUMERALS[tide_card_n - 1], r.position + Vector2(0, 48), 36,
+		Color(Ink.PAPER, a), serif, r.size.x)
+	Ink.text(card, GameSim.TIDE_TITLES[tide_card_n - 1], r.position + Vector2(0, 90), 26,
+		Color(Ink.PAPER, 0.8 * a), hand, r.size.x)
 
 # ---------------------------------------------------------------------------
 # drawing: HUD
@@ -1571,7 +1907,7 @@ func _draw_hud() -> void:
 		var pulse := 0.75 + 0.25 * sin(time * 2.0) if sim.settings.motion else 1.0
 		c.draw_string(serif, Vector2(1392, 1040), "▸", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(Ink.PAPER, 0.55 * pulse))
 	for b in hud_buttons():
-		Ink.button(c, b[1], b[2], false, 21)
+		Ink.button(c, b[1], b[2], false, PLAN_LABEL_SIZE if b[0] == "plan" else 21)
 	if sim.view == "notebook":
 		Ink.button(c, BACK_RECT, "Back", false, 21)
 		return

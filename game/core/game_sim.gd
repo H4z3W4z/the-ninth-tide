@@ -562,18 +562,32 @@ func _hint(ev: Array) -> void:
 	if state.hint["for"] != key:
 		state.hint["for"] = key
 		state.hint["level"] = 0
-	var text: String
-	var level: int
+	# The ladder as said, press by press: the room's own tiers (hint_tiers(), 3 or 4) or the
+	# way there and that room's ladder, with a confirmation before the last tier. `level`
+	# indexes this sequence and stops on the last line.
+	var seq: Array = []
 	if away == "":
-		level = mini(int(state.hint["level"]), 2)
-		text = r.hint_line(level)
+		for i in r.hint_tiers():
+			seq.append(r.hint_line(i))
 	else:
-		# Nothing to do here: first where, then that room's own ladder.
-		var ladder := _elsewhere_ladder(away)
-		level = mini(int(state.hint["level"]), ladder.size() - 1)
-		text = ladder[level]
-	ev.append({"type": "say", "text": text, "delay": 0.0, "story": false})
-	state.hint["level"] = mini(level + 1, 3)
+		seq = _elsewhere_ladder(away)
+	seq = with_confirmation(seq)
+	var level := clampi(int(state.hint["level"]), 0, seq.size() - 1)
+	ev.append({"type": "say", "text": seq[level], "delay": 0.0, "story": false})
+	state.hint["level"] = mini(level + 1, seq.size() - 1)
+
+## Said before the last tier of any ladder: only the next Hint gives the answer away.
+const HINT_CONFIRM := "Do you want me to just say it? Hint again."
+## The highest saved step: three tiers, the confirmation and a fourth tier (index 4). A
+## longer ladder (a way-there step before four tiers) stops on its confirmation after a load.
+const HINT_LEVEL_MAX := 4
+
+## `ladder` with HINT_CONFIRM before its last line, when that line says something new.
+static func with_confirmation(ladder: Array) -> Array:
+	var out := ladder.duplicate()
+	if out.size() >= 2 and _hint_key(out[-1]) != _hint_key(out[-2]):
+		out.insert(out.size() - 1, HINT_CONFIRM)
+	return out
 
 ## The Hint's ladder toward room `away`, then that room's own ladder. For a room she hasn't
 ## been in, a where-step first: "The <room> is through the <neighbour>." when a room that
@@ -592,7 +606,7 @@ func _elsewhere_ladder(away: String) -> Array:
 				first = "The %s is through the %s." % [title, str(rooms[rid].c("TITLE", rid)).to_lower()]
 				break
 		steps.append(first)
-	for level in 3:
+	for level in there.hint_tiers():
 		var line := there.hint_line(level)
 		if not (visited and _changed_line(line)):
 			steps.append(line)
@@ -843,7 +857,7 @@ func from_dict(d: Variant) -> bool:
 		if ok:
 			state.p05_trace = d.p05_trace.duplicate()
 	if d.get("hint") is Dictionary and d.hint.get("for") is String and RoomSim._all_whole([d.hint.get("level")]):
-		state.hint = {"for": d.hint["for"], "level": clampi(int(d.hint.level), 0, 3)}
+		state.hint = {"for": d.hint["for"], "level": clampi(int(d.hint.level), 0, HINT_LEVEL_MAX)}
 	for rid in order:
 		var r: RoomSim = rooms[rid]
 		r.load_state(d.rooms.get(rid))
