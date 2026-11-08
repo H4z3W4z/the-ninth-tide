@@ -483,8 +483,9 @@ func play_p15() -> void:
 	check(gallery.rim_shown() == "crack" and not gallery.state.patch_confirmed, "P15: SEA 2's bowl has a crack, no patch")
 	_qd("sel_3")
 	var refused := _qd("record")
-	check(not g.flag("P15") and R09Sim.NO_SUBJECT in says(refused) and not gallery.relation_lit(),
-		"P15: RECORD before the lens prints NO SUBJECT; the mark stays dark")
+	check(not g.flag("P15") and R09Sim.UNCONFIRMED in says(refused) and not gallery.relation_lit()
+		and gallery.state.frame_mounted and g.has_item("inspection_lens"),
+		"P15: RECORD on STATION 3 before the lens prints SUBJECT UNCONFIRMED: INSPECT; nothing consumed; the mark stays dark")
 	_qd("item:inspection_lens")
 	_qd("scope_view")
 	check(gallery.state.patch_confirmed and gallery.rim_shown() == "square" and gallery.relation_lit(),
@@ -493,8 +494,19 @@ func play_p15() -> void:
 	check(g.flag("P15") and g.has_item("nora_spatial_strip") and g.has_item("nora_frame"),
 		"P15: her bearing recorded; the strip printed; her frame back")
 	check(has_ev(ev, "fx", "tide"), "P15: Tide V closes on the bearing")
-	_qd("back")
+	var up := _qd("back")
 	check(gallery.local_view == "room" and gallery.state.reveal_seen, "P15: the sea stood up")
+	var told := []
+	var breath := -1.0
+	for e in up:
+		if e.type == "say" and e.get("story", false):
+			told.append([e.text, e.delay])
+		elif e.type == "fx" and e.id == "hold_breath":
+			breath = float(e.get("delay", -1.0))
+	check(told.size() >= 2 and told[told.size() - 2][0] == "It hasn't closed again."
+		and told[told.size() - 1][0] == "One of the lit windows is this one. Someone in it is standing at the rail."
+		and is_equal_approx(breath, told[told.size() - 1][1]),
+		"P15: the reveal ends on the lit window with someone at its rail, and the breath held on it")
 
 # ---------------------------------------------------------------------------
 # Tide IV: the pressure gate

@@ -13,7 +13,7 @@ extends RoomSim
 ## (LAND 1 a tin bowl wedged on the causeway, SEA 2 one floating in open water, STATION 3 the
 ## mess-table bowl), and only the lens tells them apart: a round patch, a bare crack, the square
 ## riveted patch of P07. The lens on STATION 3 is the deduction; RECORD without it prints NO
-## SUBJECT ON BEARING, wherever it is aimed. After P15 the selector is locked. The frame always
+## SUBJECT ON BEARING on LAND 1 and SEA 2, and SUBJECT UNCONFIRMED: INSPECT on STATION 3. After P15 the selector is locked. The frame always
 ## comes back. The upright-sea reveal plays on leaving the scope (or on the next arrival or return
 ## from the notebook), once.
 ##
@@ -43,7 +43,11 @@ const APERTURES := {1: "LAND 1", 2: "SEA 2", 3: "STATION 3"}
 const DIAGRAM_TEXT := "Bearing follows the recorded subject's location, not the water. Match the relation mark."
 const STRIP_LINES := ["BEARING  STATION 3", "SUBJECT  BELL, N.", "RELATION  CONFIRMED"]
 const NO_SUBJECT := "NO SUBJECT ON BEARING."
-const CONTRACT_RULE := "Do not certify an observation you have not made."
+## RECORD on STATION 3 before the lens: the bowl is there, but which bowl is not yet known.
+const UNCONFIRMED := "SUBJECT UNCONFIRMED: INSPECT"
+const UNCONFIRMED_LINE := "I can't tell from here which bowl it is."
+## When "Recorded." comes up after the RECORD key (s).
+const RECORD_FIRST_SAY := 0.5
 ## The lens on STATION 3: the only line that sets patch_confirmed.
 const PATCH_LINE := "A square patch, riveted. A bowl, at the cross."
 ## The lens on the other two rims ([text, observation]).
@@ -84,13 +88,14 @@ const REVEAL_LINES := [
 	[13.4, "Something passed across the whole of it. Like a lid."],
 	[15.4, "The rain has stopped where it was. It's waiting too."],
 	[18.0, "It hasn't closed again."],
+	[21.0, "One of the lit windows is this one. Someone in it is standing at the rail."],
 ]
 ## The reveal's timed beats (seconds after reveal_upright), carried as fx delays for the view:
 ## the rain stops dead on the first line, the lid crosses on its line, and the core holds its
-## breath on the last.
+## breath on the last (the window with someone at its rail).
 const RAIN_FREEZE_AT := 0.6
 const LID_PASS_AT := 13.4
-const HOLD_BREATH_AT := 18.0
+const HOLD_BREATH_AT := 21.0
 const HOLD_BREATH_SECONDS := 2.5
 ## After the sever ending, these replace the normal lines.
 const SEVER_LINES := {
@@ -103,7 +108,6 @@ const SEVER_LINES := {
 const MISS_LINES := {
 	1: ["A bowl on the causeway. The key won't take it on my word.", "Land. The diagram wants the subject, not the coast."],
 	2: ["A bowl in open water. The diagram says the bearing follows the subject, not the water.", "Sea again. A bowl isn't a subject until I've looked at it."],
-	3: [CONTRACT_RULE, "The mess table. I haven't looked at a single rim."],
 }
 const FRAME_TARGETS := ["lens", "aperture_1", "aperture_2", "aperture_3", "diagram", "glass", "rail", "horizon",
 	"pennant", "ruler", "sel_1", "sel_2", "sel_3", "scope_view", "record"]
@@ -121,9 +125,9 @@ const OBSERVATIONS := {
 	"rim_land": "Under the lens, the tin bowl on the causeway has a round patch soldered over its rim.",
 	"rim_sea": "Under the lens, the bowl floating through SEA 2 has a crack down its rim, and no patch.",
 	"bowl_patch": "Under the lens, the mess-table bowl at the cross of STATION 3 has a square patch riveted over a crack: the same mending as the ninth bowl. There is soup in it, steaming.",
-	"no_subject": "RECORD BEARING prints an empty diagram, NO SUBJECT ON BEARING, until the lens has confirmed what the bearing is on. Every aperture has a bowl in it.",
+	"no_subject": "RECORD BEARING prints an empty diagram, NO SUBJECT ON BEARING (on STATION 3: SUBJECT UNCONFIRMED: INSPECT), until the lens has confirmed what the bearing is on. Every aperture has a bowl in it.",
 	"nora_bearing": "Nora Bell's bearing is not out at sea. It is inside the station: STATION 3, the bowl with the square patch.",
-	"upright": "After the bearing printed, the sea outside the glass stood up: a flat surface on end, carrying the rooms behind me, the office lamp a warm point in it. A slow line passed across the whole of it, like a lid opening. The rain has stopped where it was. It's waiting too. It has not closed.",
+	"upright": "After the bearing printed, the sea outside the glass stood up: a flat surface on end, carrying the rooms behind me, the office lamp a warm point in it. A slow line passed across the whole of it, like a lid opening. The rain has stopped where it was. It's waiting too. It has not closed. One of the lit windows in it is this gallery, and someone is standing at its rail.",
 	"glass": "Rain runs down outside the lantern glass, slower than rain should.",
 	"glass_dead": "The lantern glass doesn't ring when I tap it.",
 	"horizon": "A conventional horizon. For now.",
@@ -560,13 +564,18 @@ func _record(ev: Array) -> void:
 	var a := int(state.aperture)
 	if not (a == 3 and state.patch_confirmed):
 		# Nothing confirmed on the bearing, wherever it points: the diagram prints empty and the
-		# frame's relation mark stays dark.
+		# frame's relation mark stays dark. Nothing is consumed.
 		_sfx(ev, "record_key")
 		_sfx(ev, "nosubject_print", 0.3)
 		_fx(ev, "no_subject")
 		last_record = "nosubject"
-		_say(ev, NO_SUBJECT, 0.5)
-		_say(ev, MISS_LINES[a][int(state.record_miss) % 2], 1.8)
+		if a == 3:
+			# The mess table is in the glass, but nothing says which bowl: inspect it first.
+			_say(ev, UNCONFIRMED, 0.5)
+			_say(ev, UNCONFIRMED_LINE, 1.8)
+		else:
+			_say(ev, NO_SUBJECT, 0.5)
+			_say(ev, MISS_LINES[a][int(state.record_miss) % 2], 1.8)
 		state.record_miss = mini(int(state.record_miss) + 1, 99)
 		_observe("no_subject")
 		return
@@ -578,7 +587,7 @@ func _record(ev: Array) -> void:
 	_sfx(ev, "strip_feed", 0.25)
 	_fx(ev, "strip_feed")
 	game.give("nora_spatial_strip", ev)
-	_say(ev, "Recorded. The strip feeds out: BEARING, STATION 3. SUBJECT, BELL, N.", 0.5, true)
+	_say(ev, "Recorded. The strip feeds out: BEARING, STATION 3. SUBJECT, BELL, N.", RECORD_FIRST_SAY, true)
 	_sfx(ev, "clamp_release", 1.8)
 	_fx(ev, "frame_eject")
 	game.give("nora_frame", ev)

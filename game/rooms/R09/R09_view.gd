@@ -23,18 +23,24 @@ extends RoomView
 ## the rooms behind Ada as filled silhouettes (`<v>_refl_<band>_r2`).
 ##
 ## The P15 beat (fx reveal_upright; the sim's REVEAL_LINES and fx delays set every time here):
-##   0.6  "The horizon's standing up." The stage overlay `assets/stages/R09/p15_surface_on_end`
-##        (b6: `_b6`, the lighthouse hung in it) comes up the glass: one flat storm-navy plane
-##        edge to edge, no sky, no horizon, the station's rooms small warm lit rectangles in it,
-##        the office lamp the brightest point. Motion off: it is simply there. The same fx time
-##        (rain_freeze) stops every rain streak where it is; from P15 on the rain is always drawn
-##        frozen (r.rain_frozen()), in both views and both Motion settings.
-##  13.4  fx lid_pass: an ink-black band LID_H tall sweeps the glass top to bottom in LID_SWEEP
-##        and leaves a 2 px sea-glass line across the glass's middle for the rest of the beat.
-##        Motion off: the band stands still at the middle for LID_SWEEP, then the line.
-##  18.0  fx hold_breath (the core's hook). When the hold ends the room's bed is only
-##        r09_pressure, 6 dB under its level, and r09_glass_air, until she leaves R09.
-## The overlay replaces the old standing plate for the beat and for good after it.
+##   0.6  "The horizon's standing up." The stage plate `assets/stages/R09/p15_plane_r3` (b6:
+##        `_b6`, the lighthouse hung in it) comes up the glass: one flat storm-navy plane edge to
+##        edge, no sky, no horizon; over it the whitecaps on end (vchop_tile_r2 at P15_CHOP_A,
+##        drifting P15_CHOP_DRIFT px/s, still under Motion off) and `p15_rooms_r3` (`_b6`): the
+##        station's rooms as lit windows placed as on R03's general plan, the office the
+##        brightest, and just right of the lens the lantern gallery itself, a navy figure at its
+##        rail facing out. Motion off: it is simply there. The same fx time (rain_freeze) stops
+##        every rain streak where it is; from P15 on the rain is always drawn frozen
+##        (r.rain_frozen()), in both views and both Motion settings. In view A the frozen streaks
+##        over the standing surface then fade out over SURF_RAIN_FADE (Motion off: at once), so
+##        the plane reads as one surface; the bead row over the dry gap stays.
+##  13.4  fx lid_pass: a storm-navy band as tall as the glass sweeps it top to bottom in
+##        LID_SWEEP (Motion off: it covers the glass for LID_SWEEP and goes) and leaves a dark lid
+##        line resting at LID_REST_Y, a hand-width under the glass's middle, for good.
+##  21.0  "One of the lit windows is this one..." and fx hold_breath (the core's hook). When the
+##        hold ends the room's bed is only r09_pressure, 6 dB under its level, and r09_glass_air,
+##        until she leaves R09.
+## The plates replace the old standing plate for the beat and for good after it.
 
 const DIR := "res://assets/rooms/R09/%s.png"
 
@@ -206,17 +212,27 @@ const ZOOM_WORD := ["×1", "×10", "×100", "×1000"]
 
 # --- the reveal (fx reveal_upright) -------------------------------------------------------
 const STAGE_DIR := "res://assets/stages/R09/%s.png"
-const SURFACE_PLATE := "p15_surface_on_end"
+const SURFACE_PLATE := "p15_plane_r3"
+const ROOMS_PLATE := "p15_rooms_r3"
+## The whitecaps on end over the standing plane: opacity and sideways drift (px/s; still with
+## Motion off).
+const P15_CHOP_A := 0.40
+const P15_CHOP_DRIFT := 6.0
+## The frozen streaks over the standing surface fade out over this (s) from the freeze.
+const SURF_RAIN_FADE := 1.0
 ## The overlay comes up the glass over RISE_TIME from the first line (Motion off: at once).
 const RISE_TIME := 1.6
-## The lid: an ink-black band LID_H tall, full width, sweeping the glass top to bottom in
-## LID_SWEEP; it leaves a LINE_W px sea-glass line across the glass's middle that stays until
-## the beat ends (the hold's end), then fades over LINE_FADE.
-const LID_H := 90.0
-const LID_SWEEP := 1.2
-const LID_COL := Ink.INK
-const LINE_COL := Color("a9c8b8")
-const LINE_W := 2.0
+## The lid: a dark storm-navy band as tall as the glass, full width, sweeping it top to bottom
+## in LID_SWEEP. It leaves a LINE_W px lid line (LINE_COL, a LINE_EDGE sea-glass hairline under
+## it) resting at LID_REST_Y, a hand-width under the glass's middle, from then on.
+const LID_H := 466.0
+const LID_SWEEP := 0.6
+const LID_COL := Color("0f1b25")
+const LID_REST_Y := 455.0
+const LINE_COL := Color("0b141b")
+const LINE_EDGE := Color("a9c8b8", 0.55)
+const LINE_W := 5.0
+## The beat runs this long past the hold.
 const LINE_FADE := 1.0
 ## The lens overlay's opacity once the sea has stood up: the plate behind must lead.
 const LENS_AFTER_REVEAL := 0.35
@@ -397,6 +413,32 @@ func standing_plate() -> String:
 			return SURFACE_PLATE + "_b6"
 	return SURFACE_PLATE
 
+## The rooms overlay over the standing plate ("" when there is none).
+func rooms_plate() -> String:
+	var p := standing_plate()
+	return "" if p == "" else p.replace(SURFACE_PLATE, ROOMS_PLATE)
+
+## Where the standing plate's front is (view A y): it has come up from the glass's foot.
+func plate_front() -> float:
+	return lerpf(A_GLASS.end.y, A_GLASS.position.y, plate_k())
+
+## 0..1 opacity of the frozen streaks over the standing surface: full until the freeze, then
+## out over SURF_RAIN_FADE (Motion off: at once); 0 for good after the beat.
+func surface_rain_alpha() -> float:
+	if standing_plate() == "":
+		return 1.0
+	if not reveal_running():
+		return 0.0
+	if reveal_t < freeze_at:
+		return 1.0
+	if not motion:
+		return 0.0
+	return 1.0 - clampf((reveal_t - freeze_at) / SURF_RAIN_FADE, 0.0, 1.0)
+
+## The whitecaps' sideways drift over the standing plane now (px).
+func p15_chop_offset() -> float:
+	return time * P15_CHOP_DRIFT if motion else 0.0
+
 ## 0..1: how far up the glass the overlay has come (1 when settled; 0 before the first line).
 func plate_k() -> float:
 	if standing_plate() == "":
@@ -411,7 +453,7 @@ func plate_k() -> float:
 
 ## Where the lid band's centre is now (view A y), or -1 when no band is drawn. Motion on: it
 ## enters wholly above the glass and leaves wholly below it, top to bottom, in LID_SWEEP. Motion
-## off: it stands at the glass's middle for LID_SWEEP.
+## off: it covers the glass (centred on its middle) for LID_SWEEP, and goes.
 func lid_y() -> float:
 	if r.state.reveal_seen == false or _sever() or not reveal_running() or reveal_t < lid_at \
 			or reveal_t >= lid_at + LID_SWEEP:
@@ -421,21 +463,21 @@ func lid_y() -> float:
 	var k := (reveal_t - lid_at) / LID_SWEEP
 	return lerpf(A_GLASS.position.y - LID_H / 2.0, A_GLASS.end.y + LID_H / 2.0, k)
 
-## 0..1 opacity of the sea-glass line the lid leaves across the glass's middle: on once the
-## band's centre has passed the middle (Motion off: once the still band is gone), held to the
-## end of the hold, then faded.
+## 0..1 opacity of the lid line resting at LID_REST_Y: on once the band's top edge has passed
+## it (Motion off: once the band is gone), and for good after the beat, wherever the standing
+## plate shows.
 func lid_line_k() -> float:
-	if not reveal_running() or reveal_t < lid_at:
+	if standing_plate() == "":
 		return 0.0
-	var mid := A_GLASS.get_center().y
+	if not reveal_running():
+		return 1.0
+	if reveal_t < lid_at:
+		return 0.0
 	var from := lid_at + LID_SWEEP
 	if motion:
-		from = lid_at + LID_SWEEP * inverse_lerp(A_GLASS.position.y - LID_H / 2.0, A_GLASS.end.y + LID_H / 2.0, mid)
-	if reveal_t < from:
-		return 0.0
-	if reveal_t < hush_at:
-		return 1.0
-	return 1.0 - clampf((reveal_t - hush_at) / LINE_FADE, 0.0, 1.0) if motion else 0.0
+		from = lid_at + LID_SWEEP * inverse_lerp(A_GLASS.position.y - LID_H / 2.0, A_GLASS.end.y + LID_H / 2.0,
+			LID_REST_Y + LID_H / 2.0)
+	return 1.0 if reveal_t >= from else 0.0
 
 ## deep_tone's duck (dB) `t` seconds after the lid_pass cue: 0 outside DEEP_DUCK_FROM..TO,
 ## DEEP_DUCK_DB inside, with linear ramps of DEEP_DUCK_RAMP at either end.
@@ -539,7 +581,7 @@ func _on_reveal_end() -> void:
 	beat_origin = -1.0
 
 ## The beat's anchors: [variable, the line it waits for, seconds after that line].
-const BEAT_ANCHORS := [["freeze_at", 0, 0.0], ["lid_at", 3, 0.0], ["hush_at", 5, R09Sim.HOLD_BREATH_SECONDS]]
+const BEAT_ANCHORS := [["freeze_at", 0, 0.0], ["lid_at", 3, 0.0], ["hush_at", 6, R09Sim.HOLD_BREATH_SECONDS]]
 
 ## The core may hold the reveal's lines behind a story still being read, and the player may
 ## bring a line up early: each beat follows its own line's time in the core's queue (the fx
@@ -646,10 +688,57 @@ func play_fx(id: String, e: Dictionary) -> void:
 		"strip_feed":
 			strip_wait = 0.0
 			strip_t = -1.0
+			# strip_feed comes only with the bearing recorded: its lines own the subtitles
+			if game != null:
+				_flush_for_reveal.call_deferred(game.click_id)
 		"frame_eject":
 			eject_wait = 0.0
 			eject_t = -1.0
 	redraw()
+
+## The refusals RECORD BEARING prints before the bearing is confirmed.
+static func refusal_lines() -> Array:
+	var out := [R09Sim.NO_SUBJECT, R09Sim.UNCONFIRMED, R09Sim.UNCONFIRMED_LINE]
+	for a in R09Sim.MISS_LINES:
+		out.append_array(R09Sim.MISS_LINES[a])
+	return out
+
+## The commit can land while an earlier RECORD's refusal is still queued or on screen (a fast
+## hand: RECORD, the lens, RECORD): the bearing owns the subtitles from here, so no refusal
+## follows "Recorded.". Every refusal from an earlier click is dropped, one on screen is
+## released, and if this click's lines were pushed back behind them, they (with this click's
+## timed sounds and fx) come back to the sim's times after whatever story is still queued.
+## (Deferred: it runs once the core has queued the click's events.)
+func _flush_for_reveal(click: int) -> void:
+	if game == null:
+		return
+	var refusals := refusal_lines()
+	game.lines = game.lines.filter(func(l): return int(l.click) == click or not (l.text in refusals))
+	if game.cur_text in refusals and int(game.cur_click) != click:
+		game.cur_hold = minf(game.cur_hold, maxf(0.0, game.time - game.cur_since))
+	var first := INF
+	var backlog: float = game.time
+	if game.cur_story and game.cur_text != "" and int(game.cur_click) != click:
+		backlog = maxf(backlog, game.cur_since + game.cur_hold)
+	for l in game.lines:
+		if int(l.click) == click:
+			first = minf(first, float(l.due))
+		elif l.story:
+			backlog = maxf(backlog, float(l.due)) + float(l.hold)
+	if first == INF:
+		return
+	var late: float = first - (backlog + R09Sim.RECORD_FIRST_SAY)
+	if late <= 0.001:
+		return
+	for l in game.lines:
+		if int(l.click) == click:
+			l.due -= late
+	for p in game.pending_sfx:
+		if int(p[2]) == click:
+			p[1] = maxf(0.0, p[1] - late)
+	for p in game.pending_fx:
+		if int(p[2]) == click:
+			p[1] = maxf(0.0, p[1] - late)
 
 func on_sfx(id: String) -> void:
 	match id:
@@ -971,7 +1060,13 @@ func _draw_room() -> void:
 
 func _draw_view_a(c: CanvasItem) -> void:
 	_draw_sea_a(c)
-	_rain(c, A_RAIN_SEVER if _sever() else A_RAIN)
+	if standing_plate() == "":
+		_rain(c, A_RAIN_SEVER if _sever() else A_RAIN)
+	else:
+		# over the standing surface the frozen streaks fade out; above its front they hang on
+		var fy := clampf(plate_front(), A_RAIN.position.y, A_RAIN.end.y)
+		_rain(c, Rect2(A_RAIN.position.x, A_RAIN.position.y, A_RAIN.size.x, fy - A_RAIN.position.y))
+		_rain(c, Rect2(A_RAIN.position.x, fy, A_RAIN.size.x, A_RAIN.end.y - fy), surface_rain_alpha())
 	_beads(c, A_BEADS)
 	_full(c, "a_rail_wet" if r.rail_wet() else "a_rail")
 	_full(c, "a_room_r2")
@@ -1012,27 +1107,33 @@ func _draw_view_a(c: CanvasItem) -> void:
 func _draw_sea_a(c: CanvasItem) -> void:
 	var plate := standing_plate()
 	var k := plate_k()
-	if plate != "" and k >= 1.0:
-		_full(c, plate)
-	elif plate != "":
-		_full(c, "a_sea_b3")
+	if plate != "":
+		var fy := plate_front()
+		if k < 1.0:
+			_full(c, "a_sea_b3")
 		if k > 0.0:
-			var fy := lerpf(A_GLASS.end.y, A_GLASS.position.y, k)
 			_band_of(c, plate, fy, A_GLASS.end.y)
+			var clip := Rect2(A_GLASS.position.x, fy, A_GLASS.size.x, A_GLASS.end.y - fy)
+			_tile(c, "vchop_tile_r2", clip, Vector2(p15_chop_offset(), 0), P15_CHOP_A)
+			var lk := lid_line_k()
+			if lk > 0.0 and LID_REST_Y >= fy:
+				# the lid rests on the plane, under the rooms it carries
+				c.draw_rect(Rect2(A_GLASS.position.x, LID_REST_Y - LINE_W / 2.0, A_GLASS.size.x, LINE_W),
+					Color(LINE_COL, lk))
+				c.draw_rect(Rect2(A_GLASS.position.x, LID_REST_Y + LINE_W / 2.0, A_GLASS.size.x, 1.0),
+					Color(LINE_EDGE, LINE_EDGE.a * lk))
+			_band_of(c, rooms_plate(), fy, A_GLASS.end.y)
+		if k > 0.0 and k < 1.0:
 			# the front: the horizon, standing up
 			c.draw_line(Vector2(A_GLASS.position.x, fy), Vector2(A_GLASS.end.x, fy), INK, 3.0)
 	else:
 		_draw_sea(c, "a")
-	var lk := lid_line_k()
-	if lk > 0.0:
-		var my := A_GLASS.get_center().y
-		c.draw_rect(Rect2(A_GLASS.position.x, my - LINE_W / 2.0, A_GLASS.size.x, LINE_W), Color(LINE_COL, lk))
 	var ly := lid_y()
 	if ly >= 0.0:
 		_lid_band(c, ly)
 
-## The lid: a flat ink-black band LID_H tall across the whole glass, centred on `y`; clipped to
-## the glass.
+## The lid: a flat storm-navy band LID_H tall across the whole glass, centred on `y`; clipped
+## to the glass.
 func _lid_band(c: CanvasItem, y: float) -> void:
 	var g := A_GLASS
 	var band := Rect2(g.position.x, y - LID_H / 2.0, g.size.x, LID_H).intersection(g)
@@ -1044,10 +1145,12 @@ func _lens_lid(c: CanvasItem) -> void:
 	var ly := lid_y()
 	if ly < 0.0:
 		return
-	var k := clampf((ly - A_GLASS.position.y) / A_GLASS.size.y, 0.0, 1.0)
+	# the band's centre across the glass, -0.5 (wholly above) .. 1.5 (wholly below), mirrored
+	var k := (ly - A_GLASS.position.y) / A_GLASS.size.y
 	var R := 198.0
-	var y := lerpf(LENS_C.y + R + 20.0, LENS_C.y - R - 20.0, k)
-	_chord(c, y - 20.0, y + 20.0, Color(LID_COL, 0.85))
+	var h := R * LID_H / A_GLASS.size.y
+	var y := LENS_C.y + (0.5 - k) * 2.0 * R
+	_chord(c, y - h, y + h, Color(LID_COL, 0.85))
 
 const LENS_C := Vector2(724, 392)
 
@@ -1151,6 +1254,8 @@ func _draw_scope(c: CanvasItem) -> void:
 	_full(c, "c_scope_r2")
 	_sprite(c, SCOPE_SCENES[r.scope_scene()], VIEW_AT)
 	var rim := r.rim_shown()
+	if r.scope_scene() == "station" and rim == "":
+		_draw_far_patch(c)
 	if rim != "":
 		# the lens on the rim at the cross: each bowl's mending, or none
 		_sprite_c(c, "c_loupe_ring", EYE_C, 300.0 / 380.0)
@@ -1170,8 +1275,10 @@ func _draw_scope(c: CanvasItem) -> void:
 	if st.frame_mounted and r.last_record != "nosubject":
 		# her mark in the reticle: dark until the lens confirms a subject on the bearing
 		var mc := mark_col()
-		_rel_mark_halo(c, EYE_C, 26, mc, 3.5)
-		var chip := Rect2(EYE_C + Vector2(26, 8), Vector2(74, 22))
+		# over STATION 3's unlooked-at bowl the mark rides just above it, so the patch shows
+		var at := EYE_C + (FAR_MARK_LIFT if r.scope_scene() == "station" and rim == "" else Vector2.ZERO)
+		_rel_mark_halo(c, at, 26, mc, 3.5)
+		var chip := Rect2(at + Vector2(26, 8), Vector2(74, 22))
 		c.draw_rect(chip, Color(PAPER_HI, 0.88))
 		c.draw_string(narrow, chip.position + Vector2(5, 17), "RELATION", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, mc)
 	_sprite(c, "c_eyepiece_ring", RING_AT)
@@ -1215,6 +1322,26 @@ func _draw_steam(c: CanvasItem) -> void:
 	var k := fmod(time, STEAM_LOOP) / STEAM_LOOP
 	_sprite(c, "c_steam", base - Vector2(0, STEAM_RISE * k), sin(PI * k))
 
+## STATION 3's bowl at the cross, at scope scale: its square riveted patch, a few px, drawn
+## crisp so the eye can guess which bowl it is. Only the lens confirms it.
+const FAR_PATCH_AT := Vector2(944, 464)
+const FAR_PATCH := 15.0
+const FAR_MARK_LIFT := Vector2(0, -60)
+
+func _draw_far_patch(c: CanvasItem) -> void:
+	var sq := Rect2(FAR_PATCH_AT - Vector2(FAR_PATCH, FAR_PATCH) / 2.0, Vector2(FAR_PATCH, FAR_PATCH))
+	c.draw_rect(sq.grow(1.5), Color(PAPER_HI, 0.9))
+	c.draw_rect(sq, Color("8d9a9c"))
+	c.draw_rect(sq, INK, false, 2.0)
+	var q := FAR_PATCH * 0.3
+	for d in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+		c.draw_circle(FAR_PATCH_AT + d * q, 1.5, INK)
+
+## The stamp RECORD prints on an unconfirmed bearing: STATION 3 has a bowl at the cross that
+## nobody has looked at yet; LAND 1 and SEA 2 have no subject at all.
+func no_subject_text() -> String:
+	return R09Sim.UNCONFIRMED if int(r.state.aperture) == 3 else R09Sim.NO_SUBJECT.trim_suffix(".")
+
 ## The land stays in view (a light wash, about 60% through); the mark and arrow ride on halos.
 func _draw_no_subject(c: CanvasItem) -> void:
 	c.draw_circle(EYE_C, EYE_R, Color(PAPER_HI, 0.4))
@@ -1232,12 +1359,14 @@ func _no_subject_marks(c: CanvasItem) -> void:
 	c.draw_rect(Rect2(EYE_C.x - 46, y - 34, 132, 64), PAPER_HI)
 	_ctext(c, "[      ]", EYE_C.x + 20, y + 14, 40, INK)
 	# the ink stamp, struck a little askew over the land
-	var cap := Rect2(-206, -30, 412, 60)
+	var txt := no_subject_text()
+	var hw := 206.0 if txt.length() <= 21 else 236.0
+	var cap := Rect2(-hw, -30, hw * 2.0, 60)
 	c.draw_set_transform(EYE_C + Vector2(0, 92), deg_to_rad(-4.0))
 	c.draw_rect(cap, Color(PAPER_HI, 0.82))
 	c.draw_rect(cap, INK, false, 4.0)
 	c.draw_rect(cap.grow(-7), INK, false, 1.6)
-	_rtext(c, "NO SUBJECT ON BEARING", cap, 30, INK)
+	_rtext(c, txt, cap, 30 if txt.length() <= 21 else 27, INK)
 	c.draw_set_transform(Vector2.ZERO, 0.0)
 
 ## Nora's frame face-on: her breath trace, the name tab, the relation strip and the label.

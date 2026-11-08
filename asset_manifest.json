@@ -8098,6 +8098,42 @@
       "source_svg": null
     },
     {
+      "id": "p15_plane_r3",
+      "path": "assets/stages/R09/p15_plane_r3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "341b32adc629b9e867a6e1f62e1ef21d5f13a2c5268cf9cee78d0099ce03715c",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "p15_plane_r3_b6",
+      "path": "assets/stages/R09/p15_plane_r3_b6.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "31c31726d2c6aa27248f8128e67db4c62444982d4b6c059f14627ce2049ccf18",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "p15_rooms_r3",
+      "path": "assets/stages/R09/p15_rooms_r3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "8f4541d01f0b7d188e3a61679efeb47beeb2533f2e2d309fdd6523e84614be0d",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "p15_rooms_r3_b6",
+      "path": "assets/stages/R09/p15_rooms_r3_b6.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "2af703f1a8bc8e25ad64faa9aabdc12ddf0f6f4088348b768ca09a22ad526b15",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "p15_surface_on_end",
       "path": "assets/stages/R09/p15_surface_on_end.png",
       "width": 1448,

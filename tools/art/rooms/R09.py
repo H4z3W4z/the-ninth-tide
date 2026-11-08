@@ -2841,13 +2841,13 @@ SURF_ROWS = [(214, 14), (262, 18), (318, 16), (380, 20), (444, 14)]
 SURF_SKIP = [(LENS_X[0] - 10, LENS_X[1] + 10), (368, 392), (1056, 1080)]   # lens, mullions
 
 
-def paint_p15_surface_on_end(rng, lighthouse_too=False):
+def paint_p15_surface_on_end(rng, lighthouse_too=False, with_rooms=True):
     p = Pen(W, H, rng)
     x0, y0, x1, y1 = SURF_GLASS
     p.rect(x0, y0, x1, y1, SURF_PLANE, None)
     halos = p.layer()
     rooms = []
-    for ry, rh in SURF_ROWS:
+    for ry, rh in (SURF_ROWS if with_rooms else []):
         x = x0 + rng.uniform(14, 40)
         while x < x1 - 30:
             w = rng.choice([18, 22, 26, 30, 34])
@@ -2873,11 +2873,14 @@ def paint_p15_surface_on_end(rng, lighthouse_too=False):
             p.rect(x, yy, x + w, yy + h, ROOM_DARK, INK, 2.0)
     # the office: one small room, its lamp the single brightest point on the plate
     ox, oy = OFFICE_AT
-    soft_disc(p, ox, oy, 46, AMBER, 0.42, 16)
-    soft_disc(p, ox, oy, 18, mix(AMBER, PAPER_HI, 0.5), 0.6, 6)
-    p.rect(ox - 22, oy - 15, ox + 22, oy + 15, ROOM_LIT, INK, 2.6)
-    p.ell(ox, oy - 2, 6.5, 6.5, OFFICE_POINT, None)
-    p.ell(ox, oy - 2, 3.0, 3.0, (255, 246, 222), None)
+    if not with_rooms:
+        ox = oy = None
+    if ox is not None:
+        soft_disc(p, ox, oy, 46, AMBER, 0.42, 16)
+        soft_disc(p, ox, oy, 18, mix(AMBER, PAPER_HI, 0.5), 0.6, 6)
+        p.rect(ox - 22, oy - 15, ox + 22, oy + 15, ROOM_LIT, INK, 2.6)
+        p.ell(ox, oy - 2, 6.5, 6.5, OFFICE_POINT, None)
+        p.ell(ox, oy - 2, 3.0, 3.0, (255, 246, 222), None)
     if lighthouse_too:
         lighthouse(p, 1000, 240, 2.0, inv=True, white=mix(STORM_HI, PAPER, 0.38), band=STORM_DK,
                    glass=mix(STORM, SEAGLASS, 0.3), ink=INK, lw=4.5)
@@ -2891,9 +2894,102 @@ def paint_p15_surface_on_end(rng, lighthouse_too=False):
     return im
 
 
+# ----------------------------------------------------------------------------- fix p2: the rooms in it
+# assets/stages/R09/p15_plane_r3*.png: the same flat plane as p15_surface_on_end (seed 1509), with no
+# rooms in it (the _b6 one keeps the hung lighthouse). assets/stages/R09/p15_rooms_r3*.png: the
+# station's rooms laid over it as lit windows, placed as on R03's general plan (PLAN_ROOMS in
+# R03_view.gd), the plan's spine (the lantern gallery, the chart room, the chamber) down the lens:
+#   kitchen & mess / bunks far left, the listening room and the intake office left of the lens,
+#   the lantern gallery just right of it (top), the chart room under it, the wet laboratory and the
+#   machine room right, the records vault and the jetty bottom right. The chamber is behind the lens.
+# The intake office is the brightest window (its lamp the brightest point). The lantern gallery is
+# this gallery: a pale window with its rail, and a flat navy figure standing at the rail, its back
+# to us, facing out. _b6 leaves the chart room out: the lighthouse hangs there instead.
+# Window rects: name -> (x0, y0, x1, y1, kind) with kind lit | dim | dark | office | gallery.
+P15_WINDOWS = {
+    "kitchen": (150, 300, 300, 350, "lit"),
+    "bunks": (150, 366, 300, 414, "dark"),
+    "listening": (402, 300, 494, 352, "dim"),
+    "office": (398, 428, 498, 494, "office"),
+    "gallery": (956, 172, 1044, 236, "gallery"),
+    "chart": (964, 248, 1036, 290, "lit"),
+    "wetlab": (1100, 300, 1214, 352, "lit"),
+    "machine": (1100, 366, 1214, 392, "dim"),
+    "vault": (1104, 432, 1236, 490, "dark"),
+    "jetty": (1268, 462, 1380, 478, "lit"),
+}
+# The beads hang at y 504..516 and the outer rail crosses y 556..584: no window reaches them.
+GALLERY_GLOW = (214, 226, 212)               # the gallery window: pale sea-glass paper, cold
+
+
+def p15_window(p, halos, x0, y0, x1, y1, kind, rng):
+    fill = {"lit": mix(ROOM_LIT, ROOM_LIT_LO, rng.random() * 0.4), "dim": ROOM_LIT_LO,
+            "dark": ROOM_DARK, "office": mix(ROOM_LIT, PAPER_HI, 0.35), "gallery": GALLERY_GLOW}[kind]
+    if kind in ("lit", "office", "gallery"):
+        halos.ell((x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) * 0.75, (y1 - y0) * 1.0,
+                  AMBER if kind == "office" else (SEAGLASS_HI if kind == "gallery" else ROOM_LIT), None)
+    p.rect(x0, y0, x1, y1, fill, INK, 2.6)
+    if kind == "gallery":
+        return
+    # glazing bars: a cross, so each reads as a window, not a lit tile
+    mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+    bar = mix(fill, INK, 0.55)
+    if x1 - x0 > 40:
+        p.line([(mx, y0 + 2), (mx, y1 - 2)], bar, 1.8)
+    if y1 - y0 > 24:
+        p.line([(x0 + 2, my), (x1 - 2, my)], bar, 1.8)
+    p.line([(x0 + 3, y1 - 3), (x1 - 3, y1 - 3)], shade(fill, 0.84), 1.6)   # a sill
+
+
+def paint_p15_rooms(rng, lighthouse_too=False):
+    base = Pen(W, H, rng)
+    p = base.layer()
+    halos = base.layer()
+    wins = dict(P15_WINDOWS)
+    if lighthouse_too:
+        wins.pop("chart")
+    for name, (x0, y0, x1, y1, kind) in wins.items():
+        p15_window(p, halos, x0, y0, x1, y1, kind, rng)
+    # the office lamp: the brightest point on the glass
+    ox0, oy0, ox1, oy1, _ = P15_WINDOWS["office"]
+    ox, oy = (ox0 + ox1) / 2 - 18, (oy0 + oy1) / 2 - 6
+    soft_disc(base, ox, oy, 52, AMBER, 0.5, 16)
+    soft_disc(p, ox, oy, 14, mix(AMBER, PAPER_HI, 0.5), 0.7, 5)
+    p.ell(ox, oy, 6.5, 6.5, OFFICE_POINT, None)
+    p.ell(ox, oy, 3.0, 3.0, (255, 246, 222), None)
+    # the lantern gallery: its rail across the window, and someone standing at it, facing out
+    gx0, gy0, gx1, gy1, _ = P15_WINDOWS["gallery"]
+    rail_y = gy1 - 18
+    fig = mix(INK, STORM_DK, 0.25)
+    cx = gx0 + (gx1 - gx0) * 0.46
+    # the back of a head, the shoulders and a long coat, cut square: a flat shape, no face
+    p.ell(cx, gy0 + 17, 7.5, 8.5, fig, None)
+    p.poly([(cx - 5, gy0 + 23), (cx + 5, gy0 + 23), (cx + 6, gy0 + 28), (cx - 6, gy0 + 28)], fig, None)
+    p.poly([(cx - 16, gy0 + 34), (cx - 8, gy0 + 27), (cx + 8, gy0 + 27), (cx + 16, gy0 + 34),
+            (cx + 15, gy1 - 1), (cx - 15, gy1 - 1)], fig, None)
+    # the rail in front of her, and its posts
+    p.line([(gx0 + 2, rail_y), (gx1 - 2, rail_y)], INK, 3.2)
+    p.line([(gx0 + 2, rail_y + 9), (gx1 - 2, rail_y + 9)], INK, 1.8)
+    for x in (gx0 + 12, gx1 - 12):
+        p.line([(x, rail_y), (x, gy1 - 1)], INK, 2.2)
+    p.rect(gx0, gy0, gx1, gy1, None, INK, 2.6)
+    base.put_soft(halos, 9, 0.2)
+    base.put(p)
+    im = base.done()
+    clip = Image.new("L", im.size, 0)
+    ImageDraw.Draw(clip).rectangle((SURF_GLASS[0], SURF_GLASS[1], SURF_GLASS[2] - 1, SURF_GLASS[3] - 1), fill=255)
+    im.putalpha(ImageChops.multiply(im.getchannel("A"), clip))
+    return im
+
+
 ASSETS_P1 = [  # name, seed (random.Random(seed), not SEED + k), painter, opaque, grain; into STAGE_OUT
     ("p15_surface_on_end", 1509, paint_p15_surface_on_end, False, True),
     ("p15_surface_on_end_b6", 1509, lambda r: paint_p15_surface_on_end(r, True), False, True),
+    # fix p2: the plane without its scattered rooms, and the rooms as on the general plan
+    ("p15_plane_r3", 1509, lambda r: paint_p15_surface_on_end(r, False, False), False, True),
+    ("p15_plane_r3_b6", 1509, lambda r: paint_p15_surface_on_end(r, True, False), False, True),
+    ("p15_rooms_r3", 1510, paint_p15_rooms, False, True),
+    ("p15_rooms_r3_b6", 1510, lambda r: paint_p15_rooms(r, True), False, True),
 ]
 
 
