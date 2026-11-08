@@ -45,6 +45,11 @@ two drip runs) and a_window_eye_b7v2 (the band-7 eye made stark: slit pupil, sea
 paper-white sclera with a navy contour, glazing bars in front). Place 9 never had a painted
 square: the old mark was code-drawn, so no erase patch is needed.
 
+Fix pass p1 (new file only, outside the room folder): assets/stages/R05/p09_venn_rubbing.png, a
+204x92 RGBA slip of thin paper pinned beside the c_board placard at (40, 898), left of it under the
+tile rack: a graphite rubbing of Venn's seal, its three incised cuts left pale; the right half of the
+slip is a blank field the view pencils the name into. ASSETS names it "stage:<stem>".
+
 Python 3 + PIL only. Deterministic: each asset has its own random.Random(SEED + k), there is no
 clock and no PIL noise effect, so a rerun is byte-identical.
 
@@ -61,6 +66,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 OUT = os.path.join(ROOT, "assets", "rooms", "R05")
+STAGE_OUT = os.path.join(ROOT, "assets", "stages", "R05")   # ASSETS names "stage:<stem>"
 W, H = 1448, 1086
 SS = 2                      # supersampling for every painted shape
 SEED = 1931_05_00
@@ -275,7 +281,10 @@ def grain(im, rng, amp=5, mottle=5, speck=10):
 
 
 def save(im, name, opaque):
-    os.makedirs(OUT, exist_ok=True)
+    out = OUT
+    if name.startswith("stage:"):
+        out, name = STAGE_OUT, name[len("stage:"):]
+    os.makedirs(out, exist_ok=True)
     if opaque:
         im = im.convert("RGB")
     else:
@@ -283,7 +292,7 @@ def save(im, name, opaque):
         a = im.getchannel("A")
         clear = a.point(lambda v: 255 if v == 0 else 0)
         im.paste((0, 0, 0, 0), mask=clear)
-    path = os.path.join(OUT, name + ".png")
+    path = os.path.join(out, name + ".png")
     im.save(path, optimize=False, compress_level=9)
     print("  wrote", os.path.relpath(path, ROOT), im.size, im.mode)
 
@@ -2555,6 +2564,52 @@ def paint_a_window_eye_b7v2(rng):
     return p
 
 
+def paint_p09_venn_rubbing(rng):
+    """Venn's seal, rubbed in graphite on a thin slip pinned to the board frame: a disc of soft
+    hatching with a darker rim, and three vertical incised cuts that the graphite skips (pale).
+    The slip hangs a degree off square from one brass tack; its lower edge is torn."""
+    w, h = 204, 92
+    p = Pen(w, h, rng)
+    # the slip: torn lower edge, a little shadow on the board behind it
+    torn = [(4, 6), (198, 4)]
+    x = 198.0
+    while x > 4:
+        torn.append((x, 82 + rng.uniform(-3.0, 3.0)))
+        x -= rng.uniform(7, 13)
+    torn.append((4, 83))
+    sh = p.layer()
+    sh.poly([(px + 4, py + 5) for px, py in torn], fill=DARK, ink=None)
+    p.put_soft(sh, 3, opacity=0.45)
+    p.poly(torn, fill=PAPER_HI, ink=INK, w=2.2)
+    # the rubbing: a hatched graphite disc, its density rising toward the rim
+    cx, cy, rad = 50.0, 46.0, 31.0
+    rub = p.layer()
+    for _ in range(260):
+        a = rng.uniform(0, math.tau)
+        rr = rad * math.sqrt(rng.uniform(0.0, 1.0))
+        x0, y0 = cx + rr * math.cos(a), cy + rr * math.sin(a)
+        ln = rng.uniform(4, 9)
+        rub.line([(x0 - ln * 0.7, y0 + ln * 0.7), (x0 + ln * 0.7, y0 - ln * 0.7)],
+                 col=mix(GRAPHITE, INK, rng.uniform(0.1, 0.5)), w=rng.uniform(0.9, 1.6))
+    rub.ell(cx, cy, rad, fill=None, ink=mix(GRAPHITE, INK, 0.55), w=4.0)
+    rub.ell(cx, cy, rad - 6, fill=None, ink=mix(GRAPHITE, INK, 0.25), w=1.3)
+    mask = Image.new("L", (w * SS, h * SS), 0)
+    md = ImageDraw.Draw(mask)
+    md.ellipse(((cx - rad - 3) * SS, (cy - rad - 3) * SS, (cx + rad + 3) * SS, (cy + rad + 3) * SS), fill=255)
+    # the three cuts: the graphite skips the incisions, so they read as pale paper strokes
+    for k in range(3):
+        x = cx - 12 + 12 * k + rng.uniform(-0.8, 0.8)
+        md.rounded_rectangle(((x - 2.6) * SS, (cy - 18) * SS, (x + 2.6) * SS, (cy + 18) * SS), radius=2 * SS, fill=0)
+    p.put(rub, opacity=0.9, mask=mask)
+    for k in range(3):
+        x = cx - 12 + 12 * k
+        p.line([(x - 3.0, cy - 17), (x - 3.0, cy + 17)], col=mix(GRAPHITE, INK, 0.6), w=1.1)
+    # the brass tack
+    p.ell(102, 9, 5.5, fill=BRASS, ink=INK, w=1.8)
+    p.ell(100.5, 7.5, 1.8, fill=BRASS_HI, ink=None)
+    return p
+
+
 ASSETS = [  # name, seed index, painter, opaque, grain
     ("view_a", 0, lambda r: paint_view_a(r, 0), True, True),
     ("view_a_b2", 0, lambda r: paint_view_a(r, 2), True, True),
@@ -2653,6 +2708,8 @@ ASSETS = [  # name, seed index, painter, opaque, grain
     ("a_wet_b6v2", 87, lambda r: paint_a_wet_v2(r, 6), False, False),
     ("a_wet_b7v2", 87, lambda r: paint_a_wet_v2(r, 7), False, False),
     ("a_window_eye_b7v2", 88, paint_a_window_eye_b7v2, False, False),
+    # fix pass p1: Venn's seal rubbing beside the P09 placard (assets/stages/R05/)
+    ("stage:p09_venn_rubbing", 89, paint_p09_venn_rubbing, False, True),
 ]
 
 

@@ -7963,6 +7963,15 @@
       "source_svg": null
     },
     {
+      "id": "p09_venn_rubbing",
+      "path": "assets/stages/R05/p09_venn_rubbing.png",
+      "width": 204,
+      "height": 92,
+      "sha256": "b6ed6f7ce29467c2fc9d9550c44f62ff56e2df6647b70a88a37bc7a450832a89",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "away_coat",
       "path": "assets/stages/away_coat.png",
       "width": 1448,

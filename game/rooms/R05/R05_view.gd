@@ -15,6 +15,8 @@ extends RoomView
 ## initial, numeral, name, page line and label is drawn here so the clues stay exact.
 
 const DIR := "res://assets/rooms/R05/%s.png"
+## Stage art outside the room plates (an id "stage/<stem>"): assets/stages/R05/<stem>.png.
+const STAGE_DIR := "res://assets/stages/R05/%s.png"
 
 const PAPER := Color("ded4ba")
 const PAPER_HI := Color("e8e1cf")
@@ -123,6 +125,7 @@ const BOARD_CONTROLS := [
 	["seal_2", Rect2(1202, 480, 96, 130), "Seal ||"],
 	["seal_3", Rect2(1304, 480, 96, 130), "Seal |||"],
 	["stamp", Rect2(1110, 676, 290, 180), "STAMP"],
+	["look_rubbing", Rect2(36, 896, 214, 94), "Seal rubbing"],
 ]
 ## Only after P09: the second board behind the first.
 const BOARD_CONTROLS_AFTER := [
@@ -218,6 +221,9 @@ const FOG_ROWS := 6
 const FOG_ROW_H := 103.0
 const FOG_ROW_T := 0.8
 const SEAL_X := [1148.0, 1250.0, 1352.0]
+## Venn's seal rubbing (assets/stages/R05/p09_venn_rubbing.png, 204x92), pinned left of the
+## placard under the tile rack; the name is pencilled on the slip's right half.
+const RUBBING_AT := Vector2(40, 898)
 ## The amendment row on the front board, under TULL, and the stamp ink it is struck in.
 const STRIP_RECT := Rect2(336, 570, 420, 36)
 const STAMP_INK := Color("8a3b2a")
@@ -316,7 +322,7 @@ func _ready() -> void:
 
 func _tex(id: String) -> Texture2D:
 	if not textures.has(id):
-		var path := DIR % id
+		var path := STAGE_DIR % id.trim_prefix("stage/") if id.begins_with("stage/") else DIR % id
 		textures[id] = load(path) as Texture2D if ResourceLoader.exists(path) else null
 	return textures[id]
 
@@ -1188,7 +1194,10 @@ func _draw_view_b(c: CanvasItem) -> void:
 	c.draw_set_transform_matrix(Transform2D.IDENTITY)
 
 func _draw_card_trace(c: CanvasItem, o: Vector2) -> void:
-	_ctext(c, "CALIBRATION 18 OCT 1927", o.x + 55, o.y + 23, 8, INK, narrow_plain)
+	# R05Sim.CARD_STAMP, set as two lines on the card: the date, then the specimen number
+	var stamp := R05Sim.CARD_STAMP.split(" · ")
+	_ctext(c, stamp[0], o.x + 55, o.y + 23, 8, INK, narrow_plain)
+	_ctext(c, stamp[1], o.x + 55, o.y + 36, 9, INK, narrow)
 	var pts := PackedVector2Array([Vector2(8, 95), Vector2(12, 95), Vector2(19, 75), Vector2(26, 95),
 		Vector2(28, 95), Vector2(35, 75), Vector2(42, 95), Vector2(62, 95)])
 	for i in 13:
@@ -1498,12 +1507,19 @@ func _draw_board(c: CanvasItem) -> void:
 	_ctext(c, "COUNT", 395, 724, 14, PAPER_HI, narrow)
 	_ctext(c, "NAME", 655, 724, 14, PAPER_HI, narrow)
 	_ctext(c, "STATUS", 945, 724, 14, PAPER_HI, narrow)
-	# the placard
-	var rl := _wrap(R05Sim.RULE_TEXT, serif, 20, 712.0)
-	var ry := 862.0 + 86.0 / 2.0 - (rl.size() * 28.0) / 2.0 + 20.0
-	for line in rl:
-		_ctext(c, line, 680, ry, 20, INK, serif)
-		ry += 28.0
+	# the placard: the rule, then whose correction it is
+	var rl := _wrap(R05Sim.RULE_TEXT, serif, 18, 712.0)
+	rl.append(R05Sim.RULE_OWN_HAND)
+	var ry := 862.0 + 86.0 / 2.0 - (rl.size() * 24.0) / 2.0 + 17.0
+	for i in rl.size():
+		_ctext(c, rl[i], 680, ry, 18, INK, serif)
+		ry += 24.0
+	# beside it, pinned to the board's frame: the rubbing of Venn's seal (three cuts)
+	_tex_at(c, "stage/p09_venn_rubbing", RUBBING_AT)
+	var label := R05Sim.RUBBING_LABEL.split(" · ")
+	for i in label.size():
+		_ctext(c, label[i], RUBBING_AT.x + 146, RUBBING_AT.y + 44 + 20 * i, 17 if i == 0 else 13, INK,
+			hand if i == 0 else narrow_plain)
 	# the token socket
 	if st.fitted.pantry:
 		_tex_at(c, "c_token_pantry", Vector2(1110, 140))
