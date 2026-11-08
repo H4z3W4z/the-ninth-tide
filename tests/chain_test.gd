@@ -517,9 +517,11 @@ func play_p15() -> void:
 	check(has_ev(ev, "fx", "tide"), "P15: Tide V closes on the bearing")
 	var up := _qd("back")
 	check(gallery.local_view == "room" and gallery.state.reveal_seen, "P15: the sea stood up")
+	# the reveal is read from RECORD's and Back's events together: a patient player (a clicker
+	# that lets RECORD's own chain play out) can already have it in RECORD's list
 	var told := []
 	var breath := -1.0
-	for e in up:
+	for e in ev + up:
 		if e.type == "say" and e.get("story", false):
 			told.append([e.text, e.delay])
 		elif e.type == "fx" and e.id == "hold_breath":
