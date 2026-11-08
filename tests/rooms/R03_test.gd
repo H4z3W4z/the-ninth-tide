@@ -38,6 +38,8 @@ func run_tests() -> void:
 	test_objectives()
 	test_debug_jumps()
 	test_round_p1_hints()
+	test_round_p2_lighthouse_out()
+	test_round_p2_plate_words()
 	test_geometry()
 	await view_checks(ROOM)
 	await test_view()
@@ -1049,8 +1051,8 @@ func test_round_p1_hints() -> void:
 		check(R03Sim.HINTS[o].size() == want, "p1: %s has %d tiers" % [o, want])
 	for n in [0, 1, 2, 5, 7]:
 		check(r3(stage(n)).hint_tiers() == 3, "p1: stage %d has three tiers" % n)
-	# Dispatched in play: nudge, relationship, evidence, answer, then the answer again. Asking
-	# changes nothing in the room. (R03's hint_line bridges a core that clamps at level 2.)
+	# Dispatched in play: nudge, relationship, evidence, the core's confirmation, answer, then the answer again. Asking
+	# changes nothing in the room. The core walks all four tiers; hint_line has no bridge.
 	for n in cases:
 		var o: String = cases[n][0]
 		var g := stage(n)
@@ -1058,15 +1060,85 @@ func test_round_p1_hints() -> void:
 		g.view = "room"
 		check(g.work_elsewhere() == "", "p1: %s is work here" % o)
 		var before := JSON.stringify(g.to_dict().rooms.R03)
-		var want: Array = [cards[o][0], cards[o][1], cases[n][1], cards[o][2], cards[o][2]]
+		var want: Array = [cards[o][0], cards[o][1], cases[n][1], GameSim.HINT_CONFIRM, cards[o][2], cards[o][2]]
 		for i in want.size():
 			var got := says(g.dispatch("hint"))
 			check(got == want[i], "p1: %s hint %d dispatched (%s)" % [o, i, got])
 		check(JSON.stringify(g.to_dict().rooms.R03) == before, "p1: %s hints change no room state" % o)
-	# Toward the chart room from elsewhere, the ladder is the core's (three tiers, no bridge).
-	var away := stage(4)
-	away.state.hint = {"for": "R02:->R03", "level": 3}
-	check(r3(away).hint_line(2) == R03Sim.EVIDENCE_RECORD, "p1: the bridge only fires on R03's own ladder")
+	# hint_line is a pure function of level: a stored core level (any room's) never shifts a tier.
+	for n in cases:
+		var o: String = cases[n][0]
+		var g := stage(n)
+		g.state.hint = {"for": "R03:" + o, "level": 3}
+		check(r3(g).hint_line(2) == cases[n][1], "p2: %s tier 3 stays the evidence at a stored level 3" % o)
+		g.state.hint = {"for": "R02:->R03", "level": 3}
+		check(r3(g).hint_line(2) == cases[n][1], "p2: %s tier 3 ignores another room's stored level" % o)
+
+## Round p2: from Tide II the lighthouse is out, one sprite R01 can reuse.
+func test_round_p2_lighthouse_out() -> void:
+	var m: Dictionary = (VIEW_SCRIPT as Script).get_script_constant_map()
+	check(m.LIGHTHOUSE_OUT_FILE == "res://assets/stages/R03/lighthouse_out_r3.png", "p2: the overlay is published")
+	check(m.LIGHTHOUSE_OUT_RECT == Rect2(287, 295, 26, 58) and m.LIGHTHOUSE_OUT_FOOT == Vector2(13, 55),
+		"p2: the overlay rect and foot are published")
+	# Before the threshold nothing is out; after it, every band whose window shows a tower covers it.
+	for b in 8:
+		check(VIEW_SCRIPT.lighthouse_out_placement(b, false).is_empty(), "p2: band %d lit or absent before Tide II" % b)
+		var at: Array = VIEW_SCRIPT.lighthouse_out_placement(b, true)
+		check(at.is_empty() == (not b in [0, 1, 2, 6]), "p2: band %d %s the dead tower" % [b, "draws" if not at.is_empty() else "has no"])
+	for b in [0, 1, 2]:
+		var at: Array = VIEW_SCRIPT.lighthouse_out_placement(b, true)
+		check(at[0] == Vector2(300, 350) and at[1] == 0.0 and at[2] == 1.0 and at[3] >= 0.85,
+			"p2: band %d stands the dead tower on the plate's" % b)
+		check(Rect2(at[0] - m.LIGHTHOUSE_OUT_FOOT, m.LIGHTHOUSE_OUT_RECT.size) == m.LIGHTHOUSE_OUT_RECT,
+			"p2: band %d draws at the published rect" % b)
+	var b6: Array = VIEW_SCRIPT.lighthouse_out_placement(6, true)
+	check(b6[0] == Vector2(196, 250) and b6[1] == 30.0 and is_equal_approx(b6[2], 46.0 / 30.0), "p2: band 6 covers the leaning tower")
+	# The painted sprite: 4x the rect, black lamp room, brass rail, navy tower, no amber, no glow.
+	var img := Image.load_from_file(ProjectSettings.globalize_path(m.LIGHTHOUSE_OUT_FILE))
+	check(img != null and img.get_size() == Vector2i(104, 232), "p2: the sprite is 104x232")
+	if img == null:
+		return
+	var amber := 0
+	var outside := 0
+	for y in img.get_height():
+		for x in img.get_width():
+			var c := img.get_pixel(x, y)
+			if c.a > 0.5 and c.r > 0.6 and c.g > 0.45 and c.b < 0.4 and c.r - c.b > 0.4 and (y > 104 or (y > 40 and y < 70 and x > 32 and x < 72)):
+				amber += 1
+			if c.a > 0.05 and (y < 2 or y > 229 or x < 2 or x > 101):
+				outside += 1
+	check(amber == 0, "p2: no amber in the lamp room or on the tower")
+	check(outside == 0, "p2: no glow bleeds to the sprite's edge")
+	for p in [Vector2i(52, 64), Vector2i(40, 64), Vector2i(64, 64)]:
+		var c := img.get_pixel(p.x, p.y)
+		check(c.a > 0.99 and c.get_luminance() < 0.08, "p2: the lamp room is empty and black at %s" % p)
+	var tower := img.get_pixel(52, 150)
+	check(tower.a > 0.99 and tower.b > tower.r and tower.get_luminance() < 0.2, "p2: the tower is flat storm navy")
+	var rail := 0
+	for x in range(16, 88):
+		var c := img.get_pixel(x, 74)
+		if c.r > c.b + 0.2:
+			rail += 1
+	check(rail > 40, "p2: the gallery rail stays visible in brass")
+
+## Round p2: plate words fit inside their brass plates (10 px floor, then an ellipsis).
+func test_round_p2_plate_words() -> void:
+	var f: Font = VIEW_SCRIPT.narrow()
+	var pad: float = VIEW_SCRIPT.PLATE_WORD_PAD
+	# Wall slots, rack homes, the close-up sprite (130 grown by -14) at their call sizes.
+	for spec in [[70.0, 16], [74.0, 16], [102.0, 20]]:
+		var room: float = spec[0] - 2.0 * pad
+		for word in VIEW_SCRIPT.PLATE_WORDS.values():
+			var fit: Array = VIEW_SCRIPT.fit_plate_word(f, word, spec[1], room)
+			var w := f.get_string_size(fit[0], HORIZONTAL_ALIGNMENT_LEFT, -1, fit[1]).x
+			check(w <= room and fit[1] >= 10, "p2: %s fits a %d px plate (%d px at %d)" % [word, spec[0], w, fit[1]])
+			check(fit[0] == word or (fit[1] == 10 and fit[0].ends_with("…")), "p2: %s shrinks before it ellipsizes" % word)
+	# Too narrow even at 10 px: the word ends in an ellipsis and still fits.
+	var tight: Array = VIEW_SCRIPT.fit_plate_word(f, "OBSERVER", 16, 30.0)
+	check(tight[1] == 10 and tight[0].ends_with("…") and tight[0].begins_with("O"), "p2: tight plate ellipsizes (%s)" % tight[0])
+	check(f.get_string_size(tight[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x <= 30.0, "p2: the ellipsized word fits")
+	# Roomy plates keep the asked size.
+	check(VIEW_SCRIPT.fit_plate_word(f, "OBSERVER", 16, 400.0) == ["OBSERVER", 16], "p2: a roomy plate keeps 16 px")
 
 func test_debug_jumps() -> void:
 	for n in 9:

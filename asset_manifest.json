@@ -8080,6 +8080,15 @@
       "source_svg": null
     },
     {
+      "id": "lighthouse_out_r3",
+      "path": "assets/stages/R03/lighthouse_out_r3.png",
+      "width": 104,
+      "height": 232,
+      "sha256": "799917efbcd5bc2c6aa93a8cea8a9901442fa0ea0ff8520fd560b946d162b7e4",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "p09_venn_rubbing",
       "path": "assets/stages/R05/p09_venn_rubbing.png",
       "width": 204,

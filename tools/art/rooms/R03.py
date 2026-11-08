@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """R03 Chart Room painter (The Ninth Tide).
 
-Writes, and only writes, assets/rooms/R03/*.png:
+Writes, and only writes, assets/rooms/R03/*.png and assets/stages/R03/lighthouse_out_r3.png:
 
   plates      A_base, B_base, C_base                  (1448x1086 RGB, three walls)
   overlays    A_composite, A_compass_bent, A_standing, A_plan_body, A_buckle, A_fog,
@@ -13,6 +13,9 @@ Writes, and only writes, assets/rooms/R03/*.png:
               cu_rec_fog, cu_rec_brown                (RGBA)
   sprites     B_pen 160x200, B_float 40x70, C_line 8x260, sheet_paper 600x560, sheet_tracing 600x560,
               plate_blank 130x130, tile_blank 170x84
+
+  stage       stages/R03/lighthouse_out_r3 104x232 RGBA: the lighthouse with its lamp out (from Tide II),
+              drawn by the view at plate rect (287, 295, 26, 58), tower foot at (300, 350)
 
 Flat front elevation, approved palette, navy ink contours (tapered: heavy on the shadow side)
 over matte two-tone colour, brass with a highlight stripe and a tarnish band, the office's
@@ -1317,6 +1320,57 @@ def window_low():
     return clip_to(img, *GLASS)
 
 
+## From Tide II the lighthouse is out (P2 fix). One sprite, drawn by the R03 view over the window
+## tower and reusable by R01: the tower in flat storm navy, the lamp room empty and black, the
+## gallery rail kept visible in tarnished brass, no glow. 4x detail of the plate tower:
+## plate rect (287, 295, 26, 58), tower foot at (300, 350), height 30 (lighthouse() above).
+STAGE_OUT = os.path.join(ROOT, "assets", "stages", "R03")
+LH_OUT_RECT = (287, 295, 26, 58)
+LH_OUT_K = 4
+
+
+def lighthouse_out():
+    k = LH_OUT_K
+    ox, oy, rw, rh = LH_OUT_RECT
+    cv = Cv(rw * k, rh * k)
+    P = lambda pts: [((x - ox) * k, (y - oy) * k) for x, y in pts]
+    x, base, h = 300, 350, 30
+    # the tower: one flat storm-navy silhouette, a hair wider than the plate's so it covers it
+    cv.poly(P([(x - 9.6, base + 0.5), (x + 9.6, base + 0.5), (x + 6.6, base - h), (x - 6.6, base - h)]),
+            fill=rgba(NAVY, 255), ol=rgba(INK, 255), w=1.6 * k)
+    # a dead door slit at the foot, the only mark on the tower
+    cv.rect((x - 1.6 - ox) * k, (base - 7 - oy) * k, (x + 1.6 - ox) * k, (base - oy) * k,
+            fill=rgba(WETDARK, 255), ol=None)
+    # gallery deck
+    cv.rect((x - 9.5 - ox) * k, (base - h - 3 - oy) * k, (x + 9.5 - ox) * k, (base - h - oy) * k,
+            fill=rgba(INK, 255), ol=None)
+    # the lamp room: empty black glass between two astragals; nothing in it
+    lx0, lx1, ly0, ly1 = x - 5.4, x + 5.4, base - h - 12.4, base - h - 3
+    cv.rect((lx0 - ox) * k, (ly0 - oy) * k, (lx1 - ox) * k, (ly1 - oy) * k, fill=rgba((6, 8, 11), 255),
+            ol=rgba(INK, 255), w=1.2 * k)
+    for ax in (x - 1.8, x + 1.8):
+        cv.line(P([(ax, ly0 + 0.6), (ax, ly1 - 0.6)]), rgba(NAVY2, 255), 0.7 * k, caps=False)
+    # the gallery rail: top rail and five stanchions in tarnished brass, ink-edged, over the glass
+    ry = base - h - 6.2
+    cv.line(P([(x - 9.2, ry), (x + 9.2, ry)]), rgba(INK, 255), 1.9 * k, caps=False)
+    cv.line(P([(x - 9.2, ry), (x + 9.2, ry)]), rgba(BRASS, 255), 0.9 * k, caps=False)
+    for sx in (x - 8.6, x - 4.3, x, x + 4.3, x + 8.6):
+        cv.line(P([(sx, ry), (sx, base - h - 3)]), rgba(INK, 255), 1.5 * k, caps=False)
+        cv.line(P([(sx, ry + 0.4), (sx, base - h - 3.2)]), rgba(BRASS, 255), 0.6 * k, caps=False)
+    # cap and vent
+    cv.poly(P([(x - 7.4, ly0 + 0.2), (x + 7.4, ly0 + 0.2), (x, base - h - 19.4)]), fill=rgba(INK, 255),
+            ol=rgba(INK, 255), w=1.0 * k)
+    cv.ell((x - ox) * k, (base - h - 20.4 - oy) * k, 1.4 * k, 1.4 * k, fill=rgba(INK, 255), ol=None, w=0)
+    return grain(cv.down(), rng_for("lighthouse_out_r3:grain"), 4)
+
+
+def paint_lighthouse_out():
+    os.makedirs(STAGE_OUT, exist_ok=True)
+    img = lighthouse_out().convert("RGBA")
+    img.save(os.path.join(STAGE_OUT, "lighthouse_out_r3.png"), optimize=False, compress_level=9)
+    print("  wrote stages/R03/lighthouse_out_r3", img.size, "RGBA")
+
+
 def rain_frame(tag):
     """Rain on the pane: straight 1 px slant streaks, a few beaded drops (no heads, no tails)."""
     rng = rng_for("B_rain_" + tag)
@@ -2510,7 +2564,7 @@ JOBS = {
     "cu_rec_brown": paint_cu_rec_brown, "cu_plan": paint_cu_plan, "cu_plan_lid": paint_cu_plan_lid,
     "cu_plan_body": paint_cu_plan_body,
     "sheet_paper": paint_sheet_paper, "sheet_tracing": paint_sheet_tracing, "plate_blank": paint_plate_blank,
-    "tile_blank": paint_tile_blank,
+    "tile_blank": paint_tile_blank, "lighthouse_out": paint_lighthouse_out,
 }
 
 

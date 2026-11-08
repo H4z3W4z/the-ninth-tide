@@ -1126,18 +1126,11 @@ func objective() -> String:
 func hint_tiers() -> int:
 	return 4 if HINTS.get(objective(), []).size() >= 4 else 3
 
-## The tier at `level`. Bridge for a core that still clamps the ladder at level 2: when it
-## asks for level 2 again after saying it here (its stored level for this room+objective has
-## reached 3), the fourth tier (the answer) is said. A core that asks for level 3 directly
-## never takes this branch.
+## The tier at `level` (0..hint_tiers()-1); past the end, the last tier (the answer).
 func hint_line(level: int) -> String:
 	var ladder: Array = HINTS.get(objective(), [])
 	if ladder.is_empty():
 		return super.hint_line(level)
-	if level == 2 and ladder.size() >= 4:
-		var h: Dictionary = game.state.get("hint", {})
-		if str(h.get("for", "")) == ID + ":" + objective() and int(h.get("level", 0)) >= 3:
-			level = 3
 	return ladder[mini(level, ladder.size() - 1)]
 
 ## Before the lamp the instrument doors are latched; after it, she's free to come.
