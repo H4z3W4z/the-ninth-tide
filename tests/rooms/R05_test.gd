@@ -15,10 +15,13 @@ const REF_HINTS := {
 		"Two places have no initials. Nora's book says who sits by the door; the bunk room's calendar says who had the watch.",
 		"Nora's margin: 'Whoever has the night watch sits by the door.' The bunk room calendar gives the 18th to Venn. His bowl is the unsigned one with the square patch.",
 		"The eight named bowls set themselves. Put the unsigned patched bowl at the blank place by the door: the night watch sat there, and Venn had the 18th. Tally 9, COMPARE."],
-	"p09": ["The kitchen's shift board wants both halves of the token and a correction.",
+	"p09_socket": ["Both halves are in hand. The socket on the shift board is cut for them.",
+		"Pantry half on the left, bunk half on the right. Then the socket turns.",
+		"Use each half on the shift board, then turn the socket. The stamp comes free."],
+	"p09": ["The stamp is free. The board wants a correction, not a new count.",
 		"The rule says keep the original and add the missing person. Nora's book and Venn's seal say who.",
 		"Nora served nine; eight signed. Her drawer note: 'E.V. ate.' The placard lets the missing person amend in his own hand, and the rubbing beside it is Venn's seal: three cuts.",
-		"Fit both halves. Leave 8 alone. Add +1 / VENN / present. Seal selector to three cuts, then stamp."],
+		"Leave 8 alone. Add +1 / VENN / present. Seal selector to three cuts, then stamp."],
 	"p07_drawer": ["Something let go in the kitchen when the table agreed.",
 		"A brass rod runs from the service drawer back toward the mess table.",
 		"Turn to the kitchen and open the service drawer under the shift board."],
@@ -524,6 +527,13 @@ func test_new_lines() -> void:
 # (p3) the 20 s level-walking beds: the view plays the _r2 files, the originals stay on disk
 # ---------------------------------------------------------------------------------------------
 func test_loop_files() -> void:
+	var vm: Dictionary = load("res://game/rooms/R05/R05_view.gd").get_script_constant_map()
+	# p4: the late beds (bands 6-7) are lifted about +3.2 dB to sit near -10.7 dBFS in game.
+	check(vm.LATE_BED_TRIM >= 1.4 and vm.LATE_BED_TRIM <= 1.6, "late bed trim %.2f" % vm.LATE_BED_TRIM)
+	check("LATE_BED_TRIM" in (load("res://game/rooms/R05/R05_view.gd") as Script).source_code.get_slice("func loop_targets", 1).get_slice("\nfunc ", 0),
+		"loop_targets() applies the late trim")
+	# p4: the empty STATUS well carries a faint stencil of its choices.
+	check(vm.STATUS_TICK == "PRESENT / ABSENT", "STATUS stencil text")
 	var files: Dictionary = load("res://game/rooms/R05/R05_view.gd").LOOP_FILES
 	check(files.size() == 5, "five beds re-rendered")
 	for id in files:
@@ -802,11 +812,18 @@ func test_p09_refusals() -> void:
 	var stamp_line := func() -> String: return says(g.dispatch("stamp"))
 	check(stamp_line.call() == "The amendment isn't finished. It wants a count, a name and a status.", "blank amendment")
 	compose(g, "+1", "VENN", "", 3)
-	check(stamp_line.call() == "The amendment isn't finished. It wants a count, a name and a status.", "blank status")
+	check(stamp_line.call() == "It wants a status.", "blank status")
 	compose(g, "", "VENN", "present", 3)
-	check(stamp_line.call() == "The amendment isn't finished. It wants a count, a name and a status.", "blank count")
+	check(stamp_line.call() == "It wants a count.", "blank count")
 	compose(g, "+1", "", "present", 3)
-	check(stamp_line.call() == "The amendment isn't finished. It wants a count, a name and a status.", "blank name")
+	check(stamp_line.call() == "It wants a name.", "blank name")
+	# Two blanks: the first missing field, in the board's order (count, name, status).
+	compose(g, "", "", "present", 3)
+	check(stamp_line.call() == "It wants a count.", "blank count and name: the count first")
+	compose(g, "+1", "", "", 3)
+	check(stamp_line.call() == "It wants a name.", "blank name and status: the name first")
+	compose(g, "", "VENN", "", 3)
+	check(stamp_line.call() == "It wants a count.", "blank count and status: the count first")
 	compose(g, "+2", "VENN", "present", 3)
 	check(stamp_line.call() == "Nora served nine. Eight signed. That's one more, not two.", "+2")
 	compose(g, "-1", "VENN", "present", 3)
@@ -826,7 +843,7 @@ func test_p09_refusals() -> void:
 		compose(g, "+1", "VENN", "present", s)
 		ev = g.dispatch("stamp")
 		check(says(ev) == WRONG_SEAL and has_ev(ev, "sfx", "stamp_thud"), "seal %d refused" % s)
-	check(int(r.state.stamp_misses) == 4 + 2 + 9 + 2 + 2, "stamp misses counted (%d)" % int(r.state.stamp_misses))
+	check(int(r.state.stamp_misses) == 4 + 3 + 2 + 9 + 2 + 2, "stamp misses counted (%d)" % int(r.state.stamp_misses))
 	check(tokens_recoverable(g) and not g.flag("P09"), "after every refusal: P09 unset, tokens recoverable")
 	g.dispatch("socket_turn")
 	g.dispatch("socket_pantry")
@@ -1189,11 +1206,26 @@ func test_objectives_hints() -> void:
 	g.set_flag("P08")
 	g.give("token_bunk_half")
 	order.append(r.objective())
-	fit_both_turn(g)
+	# P08 set: the ladder never again asks for the halves (the old first rung is gone everywhere).
+	var seen := []
+	for i in 6:
+		seen.append(says(g.dispatch("hint")))
+	seen.append(g.objective_text())
+	fit(g, "token_pantry_half")
+	seen.append(r.hint_line(0))
+	fit(g, "token_bunk_half")
+	g.dispatch("socket_turn")
+	order.append(r.objective())
+	for i in 6:
+		seen.append(says(g.dispatch("hint")))
+	seen.append(g.objective_text())
+	for line in seen:
+		check(not "wants both halves" in str(line), "after P08 no rung asks for the halves (%s)" % line)
+	check(seen[0] == REF_HINTS.p09_socket[0], "P08 re-ladders at once to the socket (%s)" % seen[0])
 	compose(g, "+1", "VENN", "present", 3)
 	g.dispatch("stamp")
 	order.append(r.objective())
-	check(order == ["p07", "p07_drawer", "wait_p08", "p09", "done"], "objective order %s" % [order])
+	check(order == ["p07", "p07_drawer", "wait_p08", "p09_socket", "p09", "done"], "objective order %s" % [order])
 	for k in REF_HINTS:
 		var tiers := 4 if k in EVIDENCE_TIERS else 3
 		check(REF_HINTS[k].size() == tiers, "ladder %s has %d tiers" % [k, tiers])
@@ -1201,6 +1233,8 @@ func test_objectives_hints() -> void:
 			check(REF_HINTS[k][lvl] in R05Sim.HINTS[k], "hint %s %d" % [k, lvl])
 	check(r.hint_tiers() == 3, "the done ladder keeps three tiers")
 	var p09 := ready_p09()
+	check(r5(p09).objective() == "p09_socket" and r5(p09).hint_tiers() == 3, "seating the halves: three tiers")
+	fit_both_turn(p09)
 	check(r5(p09).objective() == "p09" and r5(p09).hint_tiers() == 4, "P09's ladder has four tiers")
 	check(r5(p09).hint_line(2) == REF_HINTS.p09[2] and r5(p09).hint_line(3) == REF_HINTS.p09[3], "P09: evidence, then solution")
 	check(r.objective_text() == "The board is amended. The hatch is open.", "done text")
@@ -1255,7 +1289,7 @@ func test_debug_jumps() -> void:
 				check(g.flag("P07") and not r.state.drawer_open and r.objective() == "p07_drawer", "jump 1: P07, drawer shut")
 			2:
 				check(r.state.drawer_open and g.flag("P08") and g.has_item("token_pantry_half") and g.has_item("token_bunk_half")
-					and r.objective() == "p09", "jump 2: both halves in hand")
+					and r.objective() == "p09_socket", "jump 2: both halves in hand")
 			3:
 				check(r.local_view == "c_service_board" and r.state.socket_turned, "jump 3: ready to stamp")
 				g.dispatch("stamp")

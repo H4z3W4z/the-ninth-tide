@@ -223,7 +223,8 @@ const OBJECTIVES := {
 	"p07": "Set the mess table the way Nora served supper, then COMPARE.",
 	"p07_drawer": "Something unlatched in the kitchen when the table agreed.",
 	"wait_p08": "The token is only half. The other half is with the staff's own things.",
-	"p09": "Correct the shift board: both token halves, an amendment, a seal.",
+	"p09_socket": "Seat both token halves in the shift board's socket and turn it.",
+	"p09": "Correct the shift board: an amendment and a seal.",
 	"done": "The board is amended. The hatch is open.",
 }
 const HINTS := {
@@ -243,11 +244,16 @@ const HINTS := {
 		"The other half belongs to the bunk side of the service.",
 		"The bunk room: put each belonging in its owner's locker.",
 	],
+	"p09_socket": [
+		"Both halves are in hand. The socket on the shift board is cut for them.",
+		"Pantry half on the left, bunk half on the right. Then the socket turns.",
+		"Use each half on the shift board, then turn the socket. The stamp comes free.",
+	],
 	"p09": [
-		"The kitchen's shift board wants both halves of the token and a correction.",
+		"The stamp is free. The board wants a correction, not a new count.",
 		"The rule says keep the original and add the missing person. Nora's book and Venn's seal say who.",
 		"Nora served nine; eight signed. Her drawer note: 'E.V. ate.' The placard lets the missing person amend in his own hand, and the rubbing beside it is Venn's seal: three cuts.",
-		"Fit both halves. Leave 8 alone. Add +1 / VENN / present. Seal selector to three cuts, then stamp.",
+		"Leave 8 alone. Add +1 / VENN / present. Seal selector to three cuts, then stamp.",
 	],
 	"done": [
 		"Nothing in the kitchen is waiting on me.",
@@ -296,6 +302,10 @@ func objective() -> String:
 		return "done"
 	if not game.flag("P08"):
 		return "wait_p08"
+	# P08 puts both halves in hand: the ladder moves straight to seating them, then to the
+	# correction itself. It never again asks for the halves.
+	if not state.socket_turned:
+		return "p09_socket"
 	return "p09"
 
 ## How many rungs the current objective's Hint ladder has: P07 and P09 carry an evidence tier
@@ -1139,8 +1149,14 @@ func _fit_token(item: String, ev: Array) -> void:
 ## The refusal for the composed amendment and seal, or "" when they are right.
 func amendment_refusal() -> String:
 	var a: Dictionary = state.amend
-	if a.count == "" or a.name == "" or a.status == "":
+	if a.count == "" and a.name == "" and a.status == "":
 		return "The amendment isn't finished. It wants a count, a name and a status."
+	if a.count == "":
+		return "It wants a count."
+	if a.name == "":
+		return "It wants a name."
+	if a.status == "":
+		return "It wants a status."
 	if a.count == "+2":
 		return "Nora served nine. Eight signed. That's one more, not two."
 	if a.count == "-1":
