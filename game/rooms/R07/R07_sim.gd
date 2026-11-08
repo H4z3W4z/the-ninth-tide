@@ -15,6 +15,9 @@ const REQUIRES := ["P09"]
 const LOCKED := "The laboratory door is behind the kitchen's service access. It's sealed."
 const RESUME := "Back in the wet laboratory."
 const ARRIVAL := "The wet laboratory. Three sealed jars of seawater on a canted rack, all half full."
+## The first arrival once the weather has reached the lab (band >= 2, which is every real first
+## visit: the hatch opens at P09).
+const ARRIVAL_WET := "The wet laboratory. Three sealed jars of seawater on a canted rack. The water in all three leans toward the stair door."
 ## The way in, for the core's hint toward this room.
 const WAY_IN_HINT := "The hatch in the kitchen floor is open: the laboratory and the machine room."
 ## [to, label, extra flags]: the ways out. The target's REQUIRES also apply.
@@ -51,6 +54,12 @@ const RACK_CANT_DEG := 12.0
 const TIP_DEG := 90.0
 const LEAN_DEG := 34.0
 const PANE_DEG := -58.0
+## Bands 4-6, room view only: every jar and the tank lean this far toward the STAIR door (their
+## surfaces fall toward it, on the left), whatever the rack's cant or a jar's rule. The c_tilt_rack
+## close-up and its test card keep their geometry: P10 is untouched.
+const STAIR_LEAN_DEG := -12.0
+## Appended to the P14 reveal chain (the fogged jar), and kept in the notebook.
+const DOWN_LINE := "All of it leans the same way. Down."
 const REF_CARD := "A valid sample keeps the station's own level: the brass, not the bob, not the glass."
 const TAG_TEXT := "DATUM READING STABLE. STAIR PRESSURE TARGET: 2."
 ## At rest the three look alike: only a tip on the rack tells them apart.
@@ -68,7 +77,13 @@ const TIP_LINES := {
 const UNTESTED := " The socket's tag says UNTESTED. Tip it on the rack first."
 
 # --- P13: the balance ------------------------------------------------------------------------
+## Internal sample ids (saved as state.pan; the controls are smp_n / smp_w / smp_f). Nothing the
+## player sees carries these letters: each sample is shown only by its specimen number.
 const SAMPLES := ["N", "W", "F"]
+## Specimen numbers. Nora's is 27-11; her kitchen work card (R05) carries the same number.
+const SPECIMEN := {"W": "27-03", "N": "27-11", "F": "27-19"}
+## Left to right on the stands and the sample cards: by specimen number.
+const SAMPLE_ORDER := ["W", "N", "F"]
 ## Drams across UNATTENDED / ADDRESSED / RELEASED. N answers only to BELL.
 const READINGS := {"N": [0, 3, 0], "W": [0, 0, 0], "F": [2, 2, 2]}
 const FLAT := [0, 0, 0]
@@ -85,15 +100,15 @@ const REGISTER := {
 }
 const NO_EFFECTS := "No surviving personal effects."
 const STAMP_ALL := "INDEXED 18.X.27"
-const STAMP_N := "SPECIMEN N-27"
+const STAMP_N := "SPECIMEN 27-11"
 const SAMPLE_LINES := {
-	"N": "Sample N. A stoppered tube, stamped SPECIMEN N-27. It looks empty.",
-	"W": "Sample W. Seawater in a vial.",
-	"F": "Sample F. A chip of the foundation stone.",
+	"N": "Specimen 27-11. A stoppered tube. It looks empty.",
+	"W": "Specimen 27-03. Seawater in a vial.",
+	"F": "Specimen 27-19. A chip of the foundation stone.",
 }
-const SAMPLE_CARDS_LINE := "Three sample cards, in drams. N, stamped N-27. W, seawater, W-27. F, foundation stone, F-27. The readings are left for the balance."
-## The stamps on the sample cards (the readings are found only by running the balance).
-const CARD_STAMPS := {"N": "N-27", "W": "W-27", "F": "F-27"}
+const SAMPLE_CARDS_LINE := "Three sample cards, in drams, by specimen number. 27-03, seawater. 27-11, a stoppered tube, contents not given. 27-19, foundation stone. The readings are left for the balance."
+## What each sample card names as its contents ("" = left blank).
+const CARD_CONTENTS := {"W": "SEAWATER", "N": "", "F": "STONE"}
 const RECORDED_LINE := "Recorded. I'll leave it as it is."
 const BEAM_LOCKED := "BEAM LOCKED."
 const NO_CORRESPONDENCE := "NO CORRESPONDENCE"
@@ -175,10 +190,10 @@ const OBSERVATIONS := {
 	"balance": "A balance: a pan for the sample, an empty control tray lined in felt opposite. Keys: ADDRESS, RELEASE, RECORD. A strip printer with three cells: UNATTENDED, ADDRESSED, RELEASED.",
 	"beam_locked": "The balance beam is pinned. The gauge on its foot reads 0. It runs off the stair circuit.",
 	"control_tray": "An empty control tray lined with green felt. Everything on the balance is weighed against it.",
-	"sample_cards": "Three sample cards, in drams, across UNATTENDED / ADDRESSED / RELEASED, the readings left blank for the balance. N is stamped N-27, W (seawater) W-27, F (foundation stone) F-27.",
-	"register": "Specimen register: eight staff cards, BELL, DOANE, HART, IVES, LUSK, PRYCE, ROOK, TULL. Every one is stamped INDEXED 18.X.27 and reads 'No surviving personal effects.' Only Nora Bell's also carries SPECIMEN N-27.",
+	"sample_cards": "Three sample cards, in drams, across UNATTENDED / ADDRESSED / RELEASED, the readings left blank for the balance. Each carries only a specimen number: 27-03 (seawater), 27-11 (a stoppered tube, contents not given), 27-19 (foundation stone).",
+	"register": "Specimen register: eight staff cards, BELL, DOANE, HART, IVES, LUSK, PRYCE, ROOK, TULL. Every one is stamped INDEXED 18.X.27 and reads 'No surviving personal effects.' Only Nora Bell's also carries SPECIMEN 27-11.",
 	"register_bell": "BELL, N. Cook and caretaker. No surviving personal effects.",
-	"nora_mass_trace": "Sample N weighs nothing unattended, three drams when addressed as Nora Bell, nothing when released.",
+	"nora_mass_trace": "Specimen 27-11 weighs nothing unattended, three drams when addressed as Nora Bell, nothing when released.",
 	"thumb": "A thumbprint appeared in the empty control tray, pressed into the felt. The nap hadn't risen back yet.",
 	"thumb_flour": "Under the lens, there's a fleck of flour in the thumbprint.",
 	"frame_stand": "A specimen frame on a stand: three trace slots, a name tab, a clip for a balance strip, a SEAL FRAME key. Three loose trace sections in a glass tray, unlabelled: only their shapes.",
@@ -187,6 +202,7 @@ const OBSERVATIONS := {
 	"inscription": "The sealed jar fogged from the inside, once, in her rhythm: two short, a pause, one long. In the fog, words etched on the inside of the glass: 'Retention is not resuscitation.'",
 	"shells": "Stoppered tubes of shell fragments in the sample rack, sorted by size.",
 	"shells_rings": "The shell fragments in the sample rack have lined up into a curve of rings, one inside the next, like the inside of a throat.",
+	"down": "After the jar fogged: the jars, the tank, the drip and the plumb bob. All of it leans the same way. Down, toward the stair door.",
 }
 const OBJECTIVES := {
 	"p10": "Find the jar whose water follows the station datum, and seat it in the reference socket.",
@@ -195,20 +211,25 @@ const OBJECTIVES := {
 	"p14": "Build Nora's breath into the specimen frame, with her name and her weight.",
 	"done": "Nora's frame is made. The laboratory has nothing more for me.",
 }
+## Each puzzle's ladder has four tiers (hint_tiers()): location, relationship, the evidence to
+## read, the explicit solution.
 const HINTS := {
 	"p10": [
 		"The laboratory's three jars look alike at rest. The tilt rack tests them.",
 		"The card wants the brass: a surface that keeps the datum's level, whatever the jar does. Tip each one.",
+		"The reference card on the rack says which line to trust.",
 		"Test all three. C stays parallel to the datum. Put C in the reference socket.",
 	],
 	"p13": [
 		"The balance in the laboratory compares samples against an empty tray.",
-		"One sample changes only when it is addressed. Its stamp matches one card in the register.",
-		"Put N on the balance, address it as NORA BELL, release, then RECORD 0 / 3 / 0.",
+		"Her work card from the kitchen carries a specimen number.",
+		"The sample cards by the balance give each sample's specimen number. One is hers, and her register card carries it too.",
+		"Put specimen 27-11 on the balance, address it as NORA BELL, release, then RECORD 0 / 3 / 0.",
 	],
 	"p14": [
 		"The specimen frame wants a trace, a name and the measurement.",
 		"Nora's work card shows the shape of her breath. Match the sections to it. The register card gives the name; the balance gave the strip.",
+		"Her work card is in the notebook: read its trace left to right and lay the tray's sections in that order.",
 		"Short rises, pause, long rise. Name tab from her card, clip the 0/3/0 strip, seal the frame.",
 	],
 	"wait_p12": [
@@ -249,6 +270,10 @@ func initial_state() -> Dictionary:
 
 func is_closeup(v := local_view) -> bool:
 	return v in CLOSEUPS
+
+## Hint tiers per puzzle ladder: location, relationship, evidence, solution.
+func hint_tiers() -> int:
+	return 4
 
 func objective() -> String:
 	_sync()
@@ -304,6 +329,11 @@ func anomaly() -> String:
 	if band() >= 5:
 		return "vault"
 	return ""
+
+## Bands 4-6 (not after sever): the room view leans every jar and the tank STAIR_LEAN_DEG toward
+## the STAIR door. Band 5-6's stronger pulls (the jars to the vault, the tank's pane) still win.
+func stair_lean() -> bool:
+	return band() >= 4 and band() <= 6 and not _sever()
 
 ## The tank's surface: "gravity", "pane" or "level".
 func tank_mode() -> String:
@@ -411,7 +441,7 @@ func current_bench_notice() -> String:
 func arrive(ev: Array, first: bool) -> void:
 	_sync()
 	if first:
-		_say(ev, ARRIVAL)
+		_say(ev, ARRIVAL_WET if band() >= 2 else ARRIVAL)
 		_sfx(ev, "slosh_c", 0.4)
 		_say(ev, "The tank isn't level either. Or the room isn't.", 2.6, true)
 		_observe("angles")
@@ -452,6 +482,8 @@ func back(ev: Array) -> void:
 				_say(ev, "Two short, a pause, one long.", 4.6, true)
 				_say(ev, "There are words in the fog: '%s'" % INSCRIPTION, 6.8, true)
 				_observe("inscription")
+				_say(ev, DOWN_LINE, 9.4, true)
+				_observe("down")
 		_:
 			local_view = "room"
 
@@ -509,6 +541,8 @@ func _room(action: String, ev: Array) -> void:
 				_observe("reference_card")
 			elif b >= 5:
 				_say(ev, _line(action, "Even C's water leans to the vault door now. The tag still says 2."))
+			elif stair_lean():
+				_say(ev, _line(action, "Even C's water leans toward the stair door now. The tag still says 2."))
 			else:
 				_say(ev, _line(action, "Jar C, in the socket. The stair circuit reads from it. The tag says 2."))
 		"datum_line":
@@ -1234,7 +1268,7 @@ func reconcile() -> void:
 const P10_SEEN := ["angles", "datum", "rack", "reference_card", "test_a", "test_b", "test_c",
 	"datum_target", "lean"]
 const P13_SEEN := ["balance", "sample_cards", "register", "register_bell", "nora_mass_trace", "thumb"]
-const P14_SEEN := ["frame_stand", "nora_breath_trace", "inscription", "sealed_jar"]
+const P14_SEEN := ["frame_stand", "nora_breath_trace", "inscription", "down", "sealed_jar"]
 
 func _observe_all(ids: Array) -> void:
 	for o in ids:

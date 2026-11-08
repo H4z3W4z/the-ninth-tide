@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """R07 Wet Laboratory painter (The Ninth Tide).
 
-Writes, and only writes, assets/rooms/R07/*.png:
+Writes, and only writes, assets/rooms/R07/*.png and assets/stages/R07/*.png:
 
   view_a, view_a_s3 .. view_a_s7, view_a_sever
                       the tank wall stage plates (1448x1086 opaque): bands <=2, 3, 4, 5, 6, 7, sever
@@ -19,6 +19,8 @@ Writes, and only writes, assets/rooms/R07/*.png:
   jar_*, c_jar_*, c_cradle, plumb, c_plumb, c_tag, c_beam, c_pan, c_tray, c_thumb,
   c_sample_{n,w,f}, c_card, c_pin, c_needle, c_key_down, c_lever_down, c_section,
   c_name_tab, c_strip, c_seal_down, c_frame_glass sprites (RGBA, exact sizes and pivots)
+  b2_tidemark, b2_tidemark_bench, b4_lamp_pool, b4_water_lean
+                      assets/stages/R07: dread while the puzzles are played (see "stage overlays")
 
 The room is square to its brass DATUM: every tile course, shelf and the floor is level in plate
 space. Gravity is the thing that is off (the view rotates the plumb and the water); the plates
@@ -241,8 +243,9 @@ def grain(im, rng, amp=4, mottle=5, speck=9):
     return rgb
 
 
-def save(im, name, opaque):
-    os.makedirs(OUT, exist_ok=True)
+def save(im, name, opaque, out=None):
+    out = out or OUT
+    os.makedirs(out, exist_ok=True)
     if opaque:
         im = im.convert("RGB")
     else:
@@ -250,7 +253,7 @@ def save(im, name, opaque):
         a = im.getchannel("A")
         clear = a.point(lambda v: 255 if v == 0 else 0)
         im.paste((0, 0, 0, 0), mask=clear)
-    path = os.path.join(OUT, name + ".png")
+    path = os.path.join(out, name + ".png")
     im.save(path, optimize=False, compress_level=9)
     print("  wrote", os.path.relpath(path, ROOT), im.size, im.mode)
 
@@ -2686,6 +2689,207 @@ def paint_a_rack_salt_v2(rng):
     return p
 
 
+# ----------------------------------------------------------------------------- stage overlays
+#
+# Dread while the lab's puzzles are played (assets/stages/R07/, full-plate RGBA, registered to
+# the stage plates). The view lays them over the sea tiers; every hotspot and label is drawn by
+# the view above them, so they never hide a clue.
+#
+#   b2_tidemark / b2_tidemark_bench   band >= 2, from the first arrival (P10, P13, P14 are played
+#       under it): a matte storm-navy stain on the walls at jar height, soft-topped, ending
+#       on a hard 3 px navy line exactly where the jars are half full (view A) or half way up the
+#       bench's glass (view B); three flat wavy sea-glass caustic bands across the upper tiles,
+#       as if light came down through water; the floor 8% toward storm.
+#   b4_lamp_pool       band >= 4, view B: the pendant only reaches the bench. The room round it
+#       goes a shade toward navy, a single warm pool lies on the bench top, and the right third
+#       (x > 965) is matte navy, its bell jar, tube rack and drawers left standing as shapes.
+#   b4_water_lean      bands 4-6, view A: every free drop of water runs to the STAIR door. Runs
+#       under the socket and the rack slant toward it, rivulets cross the floor to it, and a
+#       flat pool lies against its sill and goes under the door.
+
+STAGE_OUT = os.path.join(ROOT, "assets", "stages", "R07")
+STAIN_ALPHA = 0.55
+STAIN_LINE = {"a": 668, "b": 524}      # A: the jars' half-full surface; B: half way up the bench glass
+STAIN_SOFT = 64                        # the stain's soft top rises about this far above its line
+CAUSTIC = (169, 200, 184)              # #a9c8b8
+CAUSTIC_ALPHA = 0.35
+CAUSTIC_Y = (60, 260)
+FLOOR_Y = {"a": A_FLOOR, "b": 900}
+FLOOR_TINT = 0.08
+POOL_EDGE_X = 965                      # view B: right of this the lamp no longer reaches
+LAMP_WASH = 0.30
+DARK_ALPHA = 0.80
+DARK_OBJECT_ALPHA = 0.42
+LEAN_SLOPE = math.tan(math.radians(12.0))   # wall runs drift 12 degrees toward the stair
+
+
+def _alpha_layer(col, mask):
+    """A flat `col` layer whose alpha is the L `mask`."""
+    im = Image.new("RGBA", (W, H), tuple(col[:3]) + (0,))
+    im.putalpha(mask)
+    return im
+
+
+def _scale_mask(m, k):
+    return m.point(lambda v: int(round(v * k)))
+
+
+def _stain_mask(side, rng):
+    """L mask: 0 above the soft top, ramping to STAIN_ALPHA, held to the line, 0 below it."""
+    line = STAIN_LINE[side]
+    top = ragged(rng, -20, W + 20, line - STAIN_SOFT + 18, 10, step=24, waves=3)
+    poly = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(poly).polygon(top + [(W + 20, line + 60), (-20, line + 60)], fill=255)
+    soft = poly.filter(ImageFilter.GaussianBlur(14))
+    cut = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(cut).rectangle((0, 0, W, line - 1), fill=255)
+    return _scale_mask(ImageChops.multiply(soft, cut), STAIN_ALPHA)
+
+
+def _caustics(rng):
+    """Three flat wavy bands, thickness breathing along each, across CAUSTIC_Y."""
+    p = Pen(W, H, rng)
+    for cy in (100, 162, 226):
+        amp = rng.uniform(7, 12)
+        wl = rng.uniform(190, 300)
+        ph = rng.uniform(0, 6.283)
+        th0 = rng.uniform(9, 13)
+        tph = rng.uniform(0, 6.283)
+        upper, lower = [], []
+        x = -20.0
+        while x <= W + 20:
+            y = cy + amp * math.sin(x / wl * 6.283 + ph) + 3 * math.sin(x / 77.0 + ph * 2)
+            th = th0 + 4 * math.sin(x / 131.0 + tph)
+            upper.append((x, y - th / 2))
+            lower.append((x, y + th / 2))
+            x += 8
+        p.poly(upper + lower[::-1], CAUSTIC, None)
+    im = p.done()
+    im.putalpha(_scale_mask(im.getchannel("A"), CAUSTIC_ALPHA))
+    band = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(band).rectangle((0, CAUSTIC_Y[0], W, CAUSTIC_Y[1]), fill=255)
+    return im, band
+
+
+def paint_tidemark(side):
+    rng = rng_for(900 if side == "a" else 910)
+    out = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    # the floor, 8% toward storm
+    floor = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(floor).rectangle((0, FLOOR_Y[side], W, H), fill=int(round(FLOOR_TINT * 255)))
+    out.alpha_composite(_alpha_layer(STORM, ImageChops.subtract(floor, _objects_alpha(side))))
+    # the stain and its hard line: in view A across the whole wall, doors, basin and socket
+    # included (the water stood there); in view B on the tiles behind the bench's glassware
+    line = STAIN_LINE[side]
+    tiles = tile_mask(side) if side == "b" else Image.new("L", (W, H), 255)
+    out.alpha_composite(_alpha_layer(STORM, ImageChops.multiply(_stain_mask(side, rng), tiles)))
+    hard = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(hard).rectangle((0, line, W, line + 2), fill=255)
+    out.alpha_composite(_alpha_layer(INK, ImageChops.multiply(hard, tiles)))
+    # caustics over the upper tiles and frieze, off every object and the lamp
+    caus, band = _caustics(rng)
+    keep = ImageChops.subtract(band, _objects_alpha(side))
+    lamp = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(lamp).rectangle(LAMP_A_BOX if side == "a" else PENDANT_B_BOX, fill=255)
+    keep = ImageChops.subtract(keep, lamp.filter(ImageFilter.MaxFilter(9)))
+    out.alpha_composite(_apply_mask(caus, keep))
+    return out
+
+
+def paint_lamp_pool():
+    """View B from band 4: wash, the lit hole round the bench, the dark right third, the pool."""
+    rng = rng_for(920)
+    wash = Image.new("L", (W, H), int(round(LAMP_WASH * 255)))
+    hole = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(hole).ellipse((490 - 330, 470 - 230, 490 + 330, 470 + 230), fill=255)
+    hole = hole.filter(ImageFilter.GaussianBlur(60))
+    lamp = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(lamp).rectangle(PENDANT_B_BOX, fill=255)
+    hole = ImageChops.lighter(hole, lamp.filter(ImageFilter.GaussianBlur(6)))
+    a = ImageChops.multiply(wash, ImageChops.invert(hole))
+    # the right third: flat matte navy, a hard edge; the objects there kept as shapes
+    third = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(third).rectangle((POOL_EDGE_X, 0, W, H), fill=255)
+    obj = _objects_alpha("b")
+    dark = ImageChops.add(_scale_mask(ImageChops.subtract(third, obj), DARK_ALPHA),
+                          _scale_mask(ImageChops.multiply(third, obj), DARK_OBJECT_ALPHA))
+    out = _alpha_layer(STORM, ImageChops.lighter(a, dark))
+    # the edge of the dark: one hard navy hairline, so it reads as meant, not as a shadow
+    edge = Pen(W, H, rng)
+    edge.line([(POOL_EDGE_X, 112), (POOL_EDGE_X, H)], STORM, 2.0)
+    e = edge.done()
+    out.alpha_composite(_apply_mask(e, ImageChops.invert(obj)))
+    # the single warm pool on the bench top, under the shade
+    pool = Pen(W, H, rng)
+    pool.ell(PENDANT_B[0], 612, 250, 18, AMBER, None)
+    pool.ell(PENDANT_B[0], 612, 150, 11, mix(AMBER, PAPER_HI, 0.4), None)
+    pl = pool.done().filter(ImageFilter.GaussianBlur(5))
+    pl.putalpha(_scale_mask(pl.getchannel("A"), 0.42))
+    out.alpha_composite(pl)
+    return out
+
+
+def paint_water_lean():
+    """View A, bands 4-6: everything wet runs to the STAIR door."""
+    rng = rng_for(930)
+    water = mix(WATER_PAINT, STORM, 0.25)
+    p = Pen(W, H, rng)
+    # wall runs from under the socket and the rack shelf, drifting toward the stair
+    runs = Pen(W, H, rng)
+    for x0, y0, y1 in ((742, 684, 832), (776, 684, 832), (812, 684, 832), (1366, 640, 832),
+                       (1396, 610, 832), (1428, 650, 832), (196, 600, 832), (712, 640, 832)):
+        wd = rng.uniform(4.0, 6.5)
+        pts = []
+        n = 16
+        for i in range(n + 1):
+            t = i / n
+            y = lerp(y0, y1, t)
+            pts.append((x0 - (y - y0) * LEAN_SLOPE + math.sin(t * 7 + x0) * 1.2, y))
+        runs.line(pts, water, wd)
+        runs.ell(pts[0][0], pts[0][1], wd * 0.7, wd * 0.9, water, None)
+        runs.line([(x + wd * 0.3, y) for x, y in pts[2:]], SEAGLASS_HI, 1.0)
+    r = runs.done()
+    r.putalpha(_scale_mask(r.getchannel("A"), 0.85))
+    r = _apply_mask(r, tile_mask("a"))
+    # the floor: rivulets from the rack legs, the tank's feet and the basin, all to the stair
+    turn = Image.new("L", (W, H), 255)
+    ImageDraw.Draw(turn).rectangle((596, 846, 852, 918), fill=0)
+    fl = Pen(W, H, rng)
+    sources = ((1188, 858), (1046, 864), (884, 860), (690, 870), (520, 862), (384, 866), (300, 858))
+    for k, (sx, sy) in enumerate(sources):
+        wd = rng.uniform(4.0, 7.0)
+        pts = []
+        x = sx
+        ph = rng.uniform(0, 6.283)
+        while x > 190:
+            t = (sx - x) / max(1.0, sx - 190)
+            y = sy + (880 - sy) * t + 2.2 * math.sin(x / 41.0 + ph)
+            pts.append((x, y))
+            x -= 10
+        pts.append((190, 880))
+        fl.line(pts, INK, wd + 3.0)
+        fl.line(pts, SEAGLASS_HI, wd)
+        fl.line([(x, y - wd * 0.2) for x, y in pts], mix(SEAGLASS_HI, PAPER_HI, 0.5), 1.2)
+    # the pool against the STAIR sill, flat, dark and hard-edged, and its tongue under the door
+    pool = mix(STORM, SEAGLASS, 0.3)
+    fl.poly([(4, 853), (196, 853), (268, 863), (246, 876), (150, 890), (4, 894)], pool, INK, 2.4)
+    fl.line([(8, 857), (200, 857), (256, 864)], SEAGLASS_HI, 2.0)
+    fl.rect(STAIR_LEAF[0] + 4, A_FLOOR - 7, STAIR_LEAF[2] - 4, A_FLOOR, STORM_DK, None)
+    f = fl.done()
+    out = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    out.alpha_composite(r)
+    out.alpha_composite(_apply_mask(f, turn))
+    return out
+
+
+STAGE_ASSETS = [  # name, painter: assets/stages/R07/<name>.png, RGBA, no grain
+    ("b2_tidemark", lambda: paint_tidemark("a")),
+    ("b2_tidemark_bench", lambda: paint_tidemark("b")),
+    ("b4_lamp_pool", paint_lamp_pool),
+    ("b4_water_lean", paint_water_lean),
+]
+
+
 # ----------------------------------------------------------------------------- the list
 
 ASSETS = [  # name, seed index, painter, opaque, grain
@@ -2784,6 +2988,9 @@ def main(argv):
         if gr is not False:
             im = grain(im, rng_for(1000 + (k if gr is True else gr)))
         save(im, name, opaque)
+    for name, fn in STAGE_ASSETS:
+        if any(fnmatch.fnmatch(name, pat) for pat in pats):
+            save(fn(), name, False, STAGE_OUT)
 
 
 if __name__ == "__main__":

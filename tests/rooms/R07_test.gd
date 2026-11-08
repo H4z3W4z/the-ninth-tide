@@ -81,11 +81,15 @@ func run_tests() -> void:
 	test_w2_no_printed_answers()
 	test_w3_visual_results()
 	test_w3_holder_names()
+	test_p1_lines()
+	test_p1_specimens()
+	test_p1_lean_sim()
 	if _view_ready():
 		await view_checks(ROOM)
 		await test_view_scene()
 		await test_w2_view()
 		await test_w3_view()
+		await test_p1_view()
 	else:
 		print("SKIP: R07 view_checks and scene test: the R07 view does not yet declare rects for every sim hotspot (view team)")
 
@@ -529,8 +533,16 @@ func test_p14_fog() -> void:
 	var b := g.dispatch("back")
 	check(r.local_view == "bench" and count_ev(b, "fx", "notice_fog") == 1 and count_ev(b, "sfx", "breath_hiss") == 1,
 		"back plays the fog once")
-	check(ev_delay(b, "sfx", "breath_hiss") == 0.8 and says(b).ends_with("'Retention is not resuscitation.'"), "the fog's lines")
-	check(r.has_seen("inscription") and r.state.fog_seen and r.fog_shown(), "inscription noted")
+	check(ev_delay(b, "sfx", "breath_hiss") == 0.8 and says(b).contains("'Retention is not resuscitation.'"), "the fog's lines")
+	var last: Dictionary = {}
+	for e in b:
+		if e.type == "say":
+			last = e
+	check(last.get("text", "") == "All of it leans the same way. Down." and bool(last.get("story", false)),
+		"the reveal chain ends: all of it leans the same way, down")
+	check(says(b).find("Retention is not resuscitation.") < says(b).find("All of it leans"), "after the inscription")
+	check(r.has_seen("inscription") and r.has_seen("down") and r.state.fog_seen and r.fog_shown(), "inscription and the lean noted")
+	check(R07Sim.OBSERVATIONS.down.contains("All of it leans the same way. Down"), "the notebook keeps the line")
 	check(says(g.dispatch("frame_stand")) == "The stand's empty. Her frame is with me." and r.local_view == "bench", "the stand after")
 	var b2 := g.dispatch("back")
 	check(r.local_view == "room" and not has_ev(b2, "fx", "notice_fog"), "no second fog")
@@ -686,7 +698,8 @@ func test_notices() -> void:
 	var g := with_flags(["P09"], "R05")
 	var ev := g.dispatch("go:R07")
 	var r := r07(g)
-	check(g.state.room == ROOM and says(ev).begins_with(R07Sim.ARRIVAL) and has_ev(ev, "sfx", "slosh_c"), "first arrival")
+	var want_arrival: String = R07Sim.ARRIVAL_WET if r.band() >= 2 else R07Sim.ARRIVAL
+	check(g.state.room == ROOM and says(ev).begins_with(want_arrival) and has_ev(ev, "sfx", "slosh_c"), "first arrival")
 	check(says(ev).ends_with("The tank isn't level either. Or the room isn't.") and r.has_seen("angles")
 		and r.state.notices == ["angles"], "the arrival beat")
 	g = game_at(5, "R05")
@@ -739,14 +752,17 @@ func test_notices() -> void:
 const REF_HINTS := {
 	"p10": ["The laboratory's three jars look alike at rest. The tilt rack tests them.",
 		"The card wants the brass: a surface that keeps the datum's level, whatever the jar does. Tip each one.",
+		"The reference card on the rack says which line to trust.",
 		"Test all three. C stays parallel to the datum. Put C in the reference socket."],
 	"wait_p12": ["The laboratory has given the stair what it needs.", "The stair gate wants the socket's target: 2.",
 		"Take target 2 to the dry stair gate, through the chart room hatch."],
 	"p13": ["The balance in the laboratory compares samples against an empty tray.",
-		"One sample changes only when it is addressed. Its stamp matches one card in the register.",
-		"Put N on the balance, address it as NORA BELL, release, then RECORD 0 / 3 / 0."],
+		"Her work card from the kitchen carries a specimen number.",
+		"The sample cards by the balance give each sample's specimen number. One is hers, and her register card carries it too.",
+		"Put specimen 27-11 on the balance, address it as NORA BELL, release, then RECORD 0 / 3 / 0."],
 	"p14": ["The specimen frame wants a trace, a name and the measurement.",
 		"Nora's work card shows the shape of her breath. Match the sections to it. The register card gives the name; the balance gave the strip.",
+		"Her work card is in the notebook: read its trace left to right and lay the tray's sections in that order.",
 		"Short rises, pause, long rise. Name tab from her card, clip the 0/3/0 strip, seal the frame."],
 	"done": ["The laboratory is finished with me.", "Nora's frame belongs at the lantern.",
 		"Take the frame up the stair to the lantern gallery."],
@@ -768,8 +784,11 @@ func test_objectives_hints() -> void:
 		var o := r.objective()
 		check(o == s[1], "jump %d: objective %s (got %s)" % [s[0], s[1], o])
 		check(r.objective_text() == REF_OBJ[s[1]], "jump %d: objective text" % s[0])
-		for lvl in 3:
-			check(r.hint_line(lvl) == REF_HINTS[s[1]][lvl], "jump %d: hint %d" % [s[0], lvl])
+		var ladder: Array = REF_HINTS[s[1]]
+		for lvl in r.hint_tiers():
+			check(r.hint_line(lvl) == ladder[mini(lvl, ladder.size() - 1)], "jump %d: hint %d" % [s[0], lvl])
+		if s[1] in ["p10", "p13", "p14"]:
+			check(r.hint_tiers() == 4 and R07Sim.HINTS[s[1]].size() == 4, "%s: four tiers, the evidence before the solution" % s[1])
 
 func test_use_item() -> void:
 	var g := game_at(4, ROOM)
@@ -1112,8 +1131,8 @@ func test_w2_no_printed_answers() -> void:
 	for t in [R07Sim.SAMPLE_CARDS_LINE, R07Sim.OBSERVATIONS.sample_cards]:
 		for pat in ["0 → 3", "3 → 0", "nought, three", "2 → 2", "two all"]:
 			check(not t.contains(pat), "sample cards carry no reading: %s" % pat)
-	for s in ["N-27", "W-27", "F-27"]:
-		check(s in R07Sim.CARD_STAMPS.values(), "card stamp %s" % s)
+	check(JSON.stringify(R07Sim.SPECIMEN) == JSON.stringify({"W": "27-03", "N": "27-11", "F": "27-19"}),
+		"the samples carry specimen numbers only")
 	var f := frame_game()
 	for s in ["short", "pause", "long"]:
 		var line := says(f.dispatch("sec_" + s))
@@ -1233,4 +1252,156 @@ func test_w3_view() -> void:
 	scene.sim.finish("sever")
 	await process_frame
 	check(v.deep_layers().is_empty(), "sever drains the room")
+	await free_scene(scene)
+
+# ---------------------------------------------------------------------------------------------
+# round p1: dread during the puzzles, the leaning water, specimen numbers, evidence hints
+# ---------------------------------------------------------------------------------------------
+const ARRIVAL_P1 := "The wet laboratory. Three sealed jars of seawater on a canted rack. The water in all three leans toward the stair door."
+## The hotspot rects as approved (the overlays never move one).
+const REF_ROOM_RECTS := {
+	"jar_a": Rect2(860, 572, 112, 196), "jar_b": Rect2(972, 572, 112, 196), "jar_c": Rect2(1084, 572, 112, 196),
+	"reference_socket": Rect2(716, 318, 130, 362), "datum_line": Rect2(866, 252, 190, 296),
+	"basin": Rect2(198, 520, 152, 260), "tilt_rack": Rect2(848, 552, 352, 244), "tank": Rect2(366, 400, 340, 428),
+	"vault_door": Rect2(1208, 318, 155, 534), "return_door": Rect2(26, 330, 152, 522),
+	"to_bench": Rect2(600, 850, 248, 64),
+}
+const REF_BENCH_RECTS := {
+	"control_tray": Rect2(540, 470, 140, 110), "balance": Rect2(300, 300, 380, 300),
+	"sample_cards": Rect2(60, 160, 220, 200), "register": Rect2(80, 640, 300, 150),
+	"frame_stand": Rect2(720, 330, 250, 270), "sealed_jar": Rect2(974, 396, 204, 204),
+	"sample_rack": Rect2(1190, 360, 220, 240), "to_tank": Rect2(600, 850, 248, 64),
+}
+
+func test_p1_lines() -> void:
+	check(R07Sim.ARRIVAL_WET == ARRIVAL_P1, "the band >= 2 arrival line")
+	check(R07Sim.ARRIVAL == "The wet laboratory. Three sealed jars of seawater on a canted rack, all half full.",
+		"the band < 2 arrival line is kept")
+	# Real play: the hatch opens at P09, the start of tide IV, band 2.
+	var g := game_at(4, "R05")
+	var r := r07(g)
+	r.state.notices = []
+	g.state.visited.erase(ROOM)
+	var ev := g.dispatch("go:R07")
+	check(r.band() == 2 and says(ev).begins_with(ARRIVAL_P1), "band 2: the water leans toward the stair door (got %s)" % says(ev))
+	check(not says(ev).contains("all half full"), "band 2: not the old line")
+	# Below band 2 (a debug fixture) the old line stands.
+	var low := with_flags(["P09"], "R05")
+	if r07(low).band() < 2:
+		check(says(low.dispatch("go:R07")).begins_with(R07Sim.ARRIVAL), "band < 2: the old arrival line")
+	else:
+		print("SKIP: no band < 2 fixture reaches R07")
+	# The socket says what C's water does now.
+	var t6 := game_at(6, ROOM)
+	check(says(t6.dispatch("reference_socket")) == "Even C's water leans toward the stair door now. The tag still says 2.",
+		"band 4: the socket line")
+	var t7 := game_at(7, ROOM)
+	check(says(t7.dispatch("reference_socket")) == "Even C's water leans to the vault door now. The tag still says 2.",
+		"band 5: the vault line is kept")
+	# The P14 line is in the notebook from the debug stages too.
+	var j := GameSim.new()
+	r07(j).debug_jump(8)
+	check(r07(j).has_seen("down"), "jump 8: the lean is in the notebook")
+
+func test_p1_specimens() -> void:
+	var visible := [R07Sim.SAMPLE_CARDS_LINE, R07Sim.OBSERVATIONS.sample_cards, R07Sim.OBSERVATIONS.nora_mass_trace,
+		R07Sim.OBSERVATIONS.register, R07Sim.STAMP_N]
+	for s in R07Sim.SAMPLES:
+		visible.append(R07Sim.SAMPLE_LINES[s])
+		visible.append(R07Sim.SPECIMEN[s])
+		visible.append(R07Sim.CARD_CONTENTS[s])
+	for t in visible:
+		for pat in ["N-27", "W-27", "F-27", "Sample N", "Sample W", "Sample F", "sample N", " N,", " W,", " F,"]:
+			check(not str(t).contains(pat), "no sample letter in '%s' (%s)" % [t, pat])
+	check(R07Sim.STAMP_N == "SPECIMEN 27-11" and R07Sim.SPECIMEN.N == "27-11", "Nora's is 27-11")
+	check(R07Sim.OBSERVATIONS.register.ends_with("Only Nora Bell's also carries SPECIMEN 27-11."), "the register carries it")
+	check(R07Sim.SAMPLE_ORDER == ["W", "N", "F"], "stands and cards in specimen order")
+	for i in R07Sim.SAMPLE_ORDER.size() - 1:
+		check(R07Sim.SPECIMEN[R07Sim.SAMPLE_ORDER[i]] < R07Sim.SPECIMEN[R07Sim.SAMPLE_ORDER[i + 1]], "ascending order")
+	# The solution item and its outcome are unchanged.
+	var g := balance_game()
+	var ev := play(g, ["smp_n"])
+	check(says(ev) == "Specimen 27-11. A stoppered tube. It looks empty.", "27-11 on the pan (got %s)" % says(ev))
+	ev = play(g, ["reg_bell"])
+	check(says(ev).ends_with("and SPECIMEN 27-11."), "her register card carries 27-11 (got %s)" % says(ev))
+	play(g, ["key_address", "key_release", "key_record"])
+	check(g.flag("P13") and g.has_item("nora_register_card") and r07(g).has_seen("nora_mass_trace"), "27-11 + BELL records")
+
+func test_p1_lean_sim() -> void:
+	for t in range(4, 10):
+		var g := game_at(t, ROOM)
+		var r := r07(g)
+		var want: bool = r.band() >= 4 and r.band() <= 6
+		check(r.stair_lean() == want, "tide %d band %d: stair lean %s" % [t, r.band(), want])
+	var g := game_at(9, ROOM)
+	g.finish("sever")
+	check(not r07(g).stair_lean(), "sever: no lean")
+	check(R07Sim.STAIR_LEAN_DEG == -12.0 and R07Sim.RACK_CANT_DEG == 12.0 and R07Sim.GRAVITY_DEG == -8.0
+		and R07Sim.DATUM_DEG == 0.0, "the lean is 12 degrees; the rack, gravity and datum keep theirs")
+
+func test_p1_view() -> void:
+	var scene = new_scene("user://room_test_R07_p1.json")
+	await process_frame
+	scene.room_jump(ROOM, 2)
+	await process_frame
+	var v: RoomView = scene.room_view
+	for id in REF_ROOM_RECTS:
+		check(v.hotspot_rect(id) == REF_ROOM_RECTS[id], "room rect %s unchanged" % id)
+	for h in v.c("BENCH_HOTSPOTS", []):
+		check(REF_BENCH_RECTS.get(h[0]) == h[1], "bench rect %s unchanged" % h[0])
+	var want := {
+		4: [["b2_tidemark"], ["b2_tidemark_bench"]],
+		5: [["b2_tidemark"], ["b2_tidemark_bench"]],
+		6: [["b2_tidemark", "b4_water_lean"], ["b2_tidemark_bench", "b4_lamp_pool"]],
+		7: [["b2_tidemark", "b4_water_lean"], ["b2_tidemark_bench", "b4_lamp_pool"]],
+		8: [["b2_tidemark", "b4_water_lean"], ["b2_tidemark_bench", "b4_lamp_pool"]],
+		9: [["b2_tidemark"], ["b2_tidemark_bench", "b4_lamp_pool"]],
+	}
+	for t in range(4, 10):
+		scene.sim.debug_tide(t, ROOM)
+		await process_frame
+		v = scene.room_view
+		var r := scene.room_sim() as R07Sim
+		r.local_view = "room"
+		var a: Array = v.stage_overlays()
+		r.local_view = "bench"
+		var b: Array = v.stage_overlays()
+		r.local_view = "c_balance"
+		var cb: Array = v.stage_overlays()
+		r.local_view = "room"
+		check(JSON.stringify([a, b]) == JSON.stringify(want[t]), "tide %d band %d: overlays %s (got %s)" % [t, r.band(), want[t], [a, b]])
+		check(cb == b, "the bench overlays stand behind c_balance")
+		for id in a + b:
+			check(v._tex(id) != null, "%s loads" % id)
+			check(ResourceLoader.exists("res://assets/stages/R07/%s.png" % id), "%s is a stage file" % id)
+		check(v.TINT[r.band()] == 1.0, "band %d: ambient held at full" % r.band())
+		# the water: band 4-6 every surface in the room leans 12 degrees toward the stair door
+		var deg := []
+		for j in R07Sim.JARS:
+			var centre: Vector2 = v.JAR_POS[j]
+			if j == "C" and r.state.socket == "C":
+				centre = v.SOCKET_POS
+			deg.append(v.jar_surface_deg(j, centre, r.jar_rest_rot(j)))
+		if r.band() == 4:
+			check(deg == [-12.0, -12.0, -12.0] and r.state.socket == "C", "band 4: A, B and C in the socket lean 12 (got %s)" % [deg])
+		if r.band() <= 3:
+			var c_rest: float = 0.0 if r.state.socket == "C" else -8.0
+			check(deg == [-8.0, -8.0, c_rest], "band %d: the rest angles stand (got %s)" % [r.band(), deg])
+		if r.band() <= 4:
+			# the close-up keeps P10's geometry: the tip still shows each jar's own rule
+			check(v._close_theta("B", 90.0, Vector2(860, 600), 1.0) == 90.0
+				and v._close_theta("C", 90.0, Vector2(860, 600), 1.0) == 0.0, "band %d: c_tilt_rack untouched" % r.band())
+		var tank: float = v.tank_surface_deg()
+		var want_tank: float = {2: -8.0, 3: -8.0, 4: -12.0, 5: -12.0, 6: R07Sim.PANE_DEG}.get(r.band(), tank)
+		check(tank == want_tank, "band %d: tank surface %s (got %s)" % [r.band(), want_tank, tank])
+		for id in REF_ROOM_RECTS:
+			check(v.hotspot_rect(id) == REF_ROOM_RECTS[id], "tide %d: %s keeps its rect" % [t, id])
+	# c_balance: no sample letter in a hover label or on the stands
+	for row in v.closeup_controls("c_balance"):
+		if str(row[0]).begins_with("smp_"):
+			check(str(row[2]).begins_with("Specimen 27-"), "%s is labelled by number (%s)" % [row[0], row[2]])
+	check(v.label_for("smp_n") == "Specimen 27-11", "27-11 is the N sample")
+	scene.sim.finish("sever")
+	await process_frame
+	check(v.stage_overlays().is_empty(), "sever releases the overlays")
 	await free_scene(scene)

@@ -19,6 +19,12 @@ extends RoomView
 ## label, numeral, trace and reading is drawn here, so the clues stay exact and legible.
 
 const DIR := "res://assets/rooms/R07/%s.png"
+## Stage overlays (tools/art/rooms/R07.py "stage overlays"): dread while the puzzles are played.
+const STAGE_DIR := "res://assets/stages/R07/%s.png"
+const STAGE_IDS := ["b2_tidemark", "b2_tidemark_bench", "b4_lamp_pool", "b4_water_lean"]
+## b2_tidemark's caustic bands (y 60-260) drift sideways this far, slowly; Motion off: still.
+const CAUSTIC_ROWS := 300.0
+const CAUSTIC_DRIFT := 5.0
 
 const PAPER := Color("ded4ba")
 const PAPER_HI := Color("e8e1cf")
@@ -75,9 +81,9 @@ const RACK_CONTROLS := [
 	["socket", Rect2(1110, 380, 240, 400), "Reference socket"],
 ]
 const BALANCE_CONTROLS := [
-	["smp_n", Rect2(120, 680, 110, 130), "Sample N"],
-	["smp_w", Rect2(250, 680, 110, 130), "Sample W"],
-	["smp_f", Rect2(380, 680, 110, 130), "Sample F"],
+	["smp_w", Rect2(120, 680, 110, 130), "Specimen 27-03"],
+	["smp_n", Rect2(250, 680, 110, 130), "Specimen 27-11"],
+	["smp_f", Rect2(380, 680, 110, 130), "Specimen 27-19"],
 	["pan", Rect2(304, 470, 200, 140), "Sample pan"],
 	["tray", Rect2(944, 470, 200, 140), "Control tray"],
 	["holder", Rect2(644, 400, 160, 90), "Name holder"],
@@ -195,7 +201,8 @@ const C_PLUMB_PIVOT := Vector2(60, 150)
 const BEAM_PIVOT := Vector2(724, 300)
 const BEAM_ARM := 320.0
 const BEAM_TIME := 0.5
-const STANDS := {"N": 120.0, "W": 250.0, "F": 380.0}
+## The stands, left to right by specimen number (R07Sim.SAMPLE_ORDER): 27-03, 27-11, 27-19.
+const STANDS := {"W": 120.0, "N": 250.0, "F": 380.0}
 const GAUGE_C := Vector2(725, 646)
 const KEY_X := {"key_address": 560.0, "key_release": 720.0, "key_record": 880.0}
 const KEY_WORD := {"key_address": "ADDRESS", "key_release": "RELEASE", "key_record": "RECORD"}
@@ -313,7 +320,7 @@ func _ready() -> void:
 
 func _tex(id: String) -> Texture2D:
 	if not textures.has(id):
-		var path := DIR % id
+		var path := (STAGE_DIR if id in STAGE_IDS else DIR) % id
 		textures[id] = load(path) as Texture2D if ResourceLoader.exists(path) else null
 	return textures[id]
 
@@ -388,6 +395,8 @@ func jar_surface_deg(j: String, centre: Vector2, rot: float) -> float:
 			return _leaning_deg(centre, VAULT_C)
 		"ada":
 			return _facing_deg(centre, ada_point())
+	if r.stair_lean():
+		return R07Sim.STAIR_LEAN_DEG
 	if j == "C" and r.state.socket == "C":
 		return R07Sim.surface_deg(R07Sim.JAR_RULE[j], rot) + lean_deg()
 	return R07Sim.rack_rest_deg(j)
@@ -415,6 +424,8 @@ func tank_surface_deg() -> float:
 			return R07Sim.PANE_DEG
 		"level":
 			return 0.0
+	if r.stair_lean():
+		return R07Sim.STAIR_LEAN_DEG
 	return R07Sim.GRAVITY_DEG
 
 ## C's lean right now (0 when still).
@@ -1041,8 +1052,10 @@ func _draw_view_a(c: CanvasItem) -> void:
 	var p10: bool = r.state.p10_complete
 	_full(c, plate_id())
 	_draw_sea(c, "a")
+	_draw_stage(c, "b2_tidemark")
 	for id in deep_layers():
 		_full(c, id)
+	_draw_stage(c, "b4_water_lean")
 	# the tank: water, the lagging reflection, then the glass and frame over both
 	var tpoly := interior(TANK_C, TANK_IN.size / 2.0, 0.0)
 	var tr := 0.0 if r.tank_mode() == "pane" else _ripple()
@@ -1117,6 +1130,43 @@ func _draw_sea(c: CanvasItem, side: String) -> void:
 	for k in [2, 3, 4, 6, 7]:
 		if t >= k:
 			_full(c, "%s_sea_b%d" % [side, k])
+
+## The stage overlays due now on the side she is looking at (assets/stages/R07): the tide stain,
+## caustics and storm floor from band 2 (so P10, P13 and P14 are played under them), from band 4
+## the bench lamp shrunk to one pool with the right third matte navy (view B), and in bands 4-6
+## every run of water heading for the STAIR door (view A). Sever releases the room.
+func stage_overlays() -> Array:
+	if _sever():
+		return []
+	var b := _band()
+	var out := []
+	if _side() == "a":
+		if b >= 2:
+			out.append("b2_tidemark")
+		if r.stair_lean():
+			out.append("b4_water_lean")
+	else:
+		if b >= 2:
+			out.append("b2_tidemark_bench")
+		if b >= 4:
+			out.append("b4_lamp_pool")
+	return out
+
+func _draw_stage(c: CanvasItem, id: String) -> void:
+	if not id in stage_overlays():
+		return
+	var t := _tex(id)
+	if t == null:
+		return
+	if not id.begins_with("b2_tidemark") or not motion:
+		c.draw_texture_rect(t, Rect2(Vector2.ZERO, SIZE), false)
+		return
+	# the caustic rows drift, the rest holds still
+	var top := Rect2(0, 0, SIZE.x, CAUSTIC_ROWS)
+	var dx := CAUSTIC_DRIFT * sin(time * 0.45)
+	c.draw_texture_rect_region(t, Rect2(top.position + Vector2(dx, 0), top.size), top)
+	var rest := Rect2(0, CAUSTIC_ROWS, SIZE.x, SIZE.y - CAUSTIC_ROWS)
+	c.draw_texture_rect_region(t, rest, rest)
 
 ## The room beneath the water (tools/art/rooms/R07.py), over the sea tiers in view A: the room's
 ## own waterline, flat and square to the DATUM while the plumb's GRAVITY tag hangs eight degrees
@@ -1205,6 +1255,8 @@ func _draw_view_b(c: CanvasItem) -> void:
 	var p14: bool = r.state.p14_complete
 	_full(c, plate_id())
 	_draw_sea(c, "b")
+	_draw_stage(c, "b2_tidemark_bench")
+	_draw_stage(c, "b4_lamp_pool")
 	if sea_tier() >= 6:
 		_full(c, "b_lamp_low")
 	_full(c, "b_stand_empty" if p14 else "b_frame")
@@ -1221,12 +1273,12 @@ func _draw_view_b(c: CanvasItem) -> void:
 		var ia := clampf((fa - 0.66) / 0.34, 0.0, 1.0)
 		if ia > 0.0:
 			_inscription(c, ia)
-	# the sample cards: a letter and its stamp; the readings are found on the balance
+	# the sample cards: a specimen number and its contents; the readings are found on the balance
 	for k in 3:
 		var x0 := 60.0 + k * 76
-		var sm: String = R07Sim.SAMPLES[k]
-		_ctext(c, sm, x0 + 34, 182, 20, INK, Ink.serif())
-		_ctext(c, R07Sim.CARD_STAMPS[sm], x0 + 34, 212, 16, BRUISE, narrow)
+		var sm: String = R07Sim.SAMPLE_ORDER[k]
+		_ctext(c, R07Sim.SPECIMEN[sm], x0 + 34, 183, 16, INK, narrow)
+		_ctext(c, R07Sim.CARD_CONTENTS[sm], x0 + 34, 246, 13, BRUISE, narrow)
 	if not (p13 and not p14):
 		_on_plate(c, Rect2(180, 672, 100, 26), "REGISTER", 16)
 
@@ -1411,9 +1463,9 @@ func _draw_balance(c: CanvasItem) -> void:
 	if not r.beam_unlocked():
 		_sprite(c, "c_pin", Vector2(718, 300))
 	# samples: on their stands, or on the pan
-	for s in R07Sim.SAMPLES:
+	for s in R07Sim.SAMPLE_ORDER:
 		var x0: float = STANDS[s]
-		_ctext(c, s, x0 + 55, 808, 16, INK, narrow)
+		_ctext(c, R07Sim.SPECIMEN[s], x0 + 55, 808, 16, INK, narrow)
 		if st.pan == s:
 			_sample_sprite(c, s, le + Vector2(0, 252))
 		else:
@@ -1442,13 +1494,13 @@ func _draw_sample_cards(c: CanvasItem) -> void:
 	for k in 3:
 		var x0 := 90.0 + k * 96
 		var cx := x0 + 42
-		var sm: String = R07Sim.SAMPLES[k]
-		_ctext(c, sm, cx, 129, 20, INK, Ink.serif())
+		var sm: String = R07Sim.SAMPLE_ORDER[k]
+		_ctext(c, R07Sim.SPECIMEN[sm], cx, 129, 17, INK, narrow)
 		var stamp := Rect2(cx - 37, 133, 74, 42)
 		c.draw_rect(stamp, PAPER_HI)
 		c.draw_rect(stamp, BRUISE, false, 2.0)
-		_ctext(c, "SPECIMEN" if sm == "N" else "SAMPLE", cx, 151, 14, BRUISE, narrow_reg)
-		_ctext(c, R07Sim.CARD_STAMPS[sm], cx, 168, 16, BRUISE, narrow_reg)
+		_ctext(c, "SPECIMEN", cx, 151, 14, BRUISE, narrow_reg)
+		_ctext(c, R07Sim.CARD_CONTENTS[sm], cx, 168, 14, BRUISE, narrow_reg)
 
 func _draw_strip(c: CanvasItem) -> void:
 	var cells := r.strip_cells()
