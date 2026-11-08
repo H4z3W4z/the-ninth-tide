@@ -320,13 +320,18 @@ func play_p05() -> void:
 # ---------------------------------------------------------------------------
 # Tide II
 # ---------------------------------------------------------------------------
-## R01 P06: the boat through the lens, ring the unverified tally, the capsule; then the
-## kitchen key at the office's service door.
+## R01 P06: the boat through the lens, read the placard, set the unverified tally and ring
+## the bell under the broken pennant (the placard names pennants, not numbers); the capsule;
+## then the kitchen key at the office's service door.
 func play_p06() -> void:
-	for a in ["launch", "item:inspection_lens", "launch", "peer", "back", "panel", "tally_unverified"]:
+	check(jetty.drained(), "P06: Tide II, the sea is out from the jetty")
+	for a in ["launch", "item:inspection_lens", "launch", "peer", "back", "panel"]:
 		_qd(a)
+	var placard := says(_qd("placard"))
+	check("broken pennant" in placard and not "bell 2" in placard, "P06: the placard names the pennant (%s)" % placard)
+	_qd("tally_unverified")
 	check(not g.flag("P06"), "P06: not before the bell")
-	var ev := _qd("bell_2")
+	var ev := _qd("bell_%d" % (R01Sim.BELL_PENNANTS.find("broken") + 1))
 	check(g.flag("P06") and has_ev(ev, "fx", "tide"), "P06: the boat withdraws; the Tide III card")
 	for a in ["back", "line", "cap", "key", "note", "back"]:
 		_qd(a)

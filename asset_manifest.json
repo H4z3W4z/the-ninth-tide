@@ -439,6 +439,15 @@
       "source_svg": null
     },
     {
+      "id": "R01/c_panel_pennants",
+      "path": "assets/rooms/R01/c_panel_pennants.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "f1fa0ddc686e86465bfcf8efe83fdf5fa3b6baf84cd1c444f5a7b5daf01069ba",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R01/c_panel_pull_down",
       "path": "assets/rooms/R01/c_panel_pull_down.png",
       "width": 1448,
@@ -8022,6 +8031,15 @@
       "width": 420,
       "height": 140,
       "sha256": "7aa3748be0a4ac34d5aea7dee3f1f70451e6a57c43cf9ed6a416165c5fcffa82",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "jetty_drained_r3",
+      "path": "assets/stages/R01/jetty_drained_r3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "25487678ef99627d9578d9f3d132a29c9867aff56cf341c1c5a61c50866e697d",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },

@@ -33,10 +33,13 @@ func run_tests() -> void:
 	test_round_w1_lines()
 	test_round_w2_lines()
 	test_round_p1_lines()
+	test_round_p2_drained()
+	test_round_p2_pennants()
 	await view_checks(ROOM)
 	await test_view_presentation()
 	await test_view_w2()
 	await test_view_p1()
+	await test_view_p2()
 
 # ---------------------------------------------------------------------------
 # helpers
@@ -439,7 +442,7 @@ func test_service_door() -> void:
 
 ## Round w1: the boat's notice and notebook line, the dusk lighthouse, item names.
 func test_round_w1_lines() -> void:
-	const BOAT := "A boat at the jetty. The water moves. The boat doesn't. It has no reflection."
+	const BOAT := "A boat at the jetty, and no water under it. It sits level on nothing."
 	check(R01Sim.OBSERVATIONS["boat"] == BOAT, "w1: the boat's notebook line")
 	check(R01Sim.NOTICE["boat"] == BOAT, "w1: the boat's notice says the same")
 	var g := boat_game()
@@ -490,7 +493,8 @@ func layer(v, id: String) -> Array:
 func test_view_presentation() -> void:
 	var scene = new_scene("user://room_test_R01_view.json")
 	await process_frame
-	const BACK := {"arrival": "back_b0_dusk", "boat": "back_b0_dusk", "s1": "back_b1_mud", "s2": "back_b2_high",
+	# Tide II until P09 the sea is out: the boat and band 1 stand on the drained plate.
+	const BACK := {"arrival": "back_b0_dusk", "boat": "jetty_drained_r3", "s1": "jetty_drained_r3", "s2": "back_b2_high",
 		"s3": "back_b3", "s4": "back_b4", "s5": "back_b5", "s6": "back_b5", "s7": "back_b7",
 		"A": "back_end_a"}
 	for s in STATES:
@@ -503,7 +507,8 @@ func test_view_presentation() -> void:
 		check(ids[0] == BACK[s], "V: %s backdrop is %s" % [s, BACK[s]])
 		check(ids.has("fg_jetty") and ids.has("line"), "V: %s draws the jetty and the line" % s)
 		check(ids.has("stump") == (n >= 3), "V: %s stump only from s3" % s)
-		check(ids.has("bell_calm") == (s != "s7" and s != "A"), "V: %s bell calm rim (not s7, not the ending)" % s)
+		check(ids.has("bell_calm") == not (s in ["s7", "A", "boat", "s1"]),
+			"V: %s bell calm rim (not s7, not the ending, not while the sea is out)" % s)
 		check(ids.has("lighthouse_roof") == (s == "s6"), "V: %s roof lighthouse only at s6" % s)
 		check(ids.has("surface_drift") == (s == "s7") and ids.has("station_window_figure") == (s == "s7"),
 			"V: %s surface and office figure only at s7" % s)
@@ -528,8 +533,8 @@ func test_view_presentation() -> void:
 		for l in v.layer_stack():
 			if str(l[0]).begins_with("waves_"):
 				w = l
-		if s == "s1":
-			check(w.is_empty(), "V: s1 no waves: the sea's out")
+		if s == "s1" or s == "boat":
+			check(w.is_empty(), "V: %s no waves: the sea's out" % s)
 		elif n <= 6 and s != "A":
 			var a: float = w[2].a if not w.is_empty() else -1.0
 			var wa := 1.0 if n <= 2 else (0.8 if n <= 4 else 0.5)
@@ -539,7 +544,8 @@ func test_view_presentation() -> void:
 		# The mix follows the state; a close-up keeps it at 0.7x.
 		v.tick(0.016)
 		var tg: Dictionary = v.mixer.last_targets
-		check(tg == v.MIX[s], "V: %s loop targets" % s)
+		check(tg == v.mix_for_state() and tg == (v.MIX_DRAINED if s == "boat" else v.MIX[s]),
+			"V: %s loop targets" % s)
 	# Labels per state.
 	scene_in(scene, "boat")
 	var v = scene.room_view
@@ -654,7 +660,7 @@ func test_view_presentation() -> void:
 		and scene.action_at(Vector2(700, 600)) == "placard" and scene.action_at(Vector2(644, 800)) == "bell_2",
 		"V: panel controls")
 	v.tick(0.016)
-	check(is_equal_approx(v.mixer.last_targets.get("sea_jetty", 0.0), 0.7), "V: close-ups keep the mix at 0.7x")
+	check(is_equal_approx(v.mixer.last_targets.get("wind_jetty", 0.0), 0.42), "V: close-ups keep the mix at 0.7x")
 	scene.room_jump(ROOM, 3)
 	scene.dispatch("line")
 	scene.dispatch("cap")
@@ -675,7 +681,7 @@ func test_view_presentation() -> void:
 ## Round w1 presentation: the dusk first visit, the band-4 tilt, hanging rain, the s7 mix,
 ## the chart room in the boat's window.
 func test_view_w1(scene) -> void:
-	for s in ["arrival", "boat"]:
+	for s in ["arrival"]:
 		scene_in(scene, s)
 		var v = scene.room_view
 		var ids := layer_ids(v)
@@ -698,7 +704,10 @@ func test_view_w1(scene) -> void:
 	scene_in(scene, "boat")
 	var vb = scene.room_view
 	var ids_b := layer_ids(vb)
-	check(ids_b.find("boat") > ids_b.find("reflections_dusk"), "W1: the boat lies over the reflections, with none of its own")
+	check(ids_b[0] == "jetty_drained_r3" and ids_b.find("boat") > ids_b.find("fg_jetty"), "W1: the boat lies over the drained flats")
+	check(not ids_b.has("reflections_dusk") and not ids_b.any(func(i): return str(i).begins_with("waves_")),
+		"W1: the boat has no water under it: no reflections, no waves")
+	check(ids_b.has("dusk_lamps"), "W1: boat, the lamps stay lit over the jetty")
 	check(ResourceLoader.exists("res://assets/rooms/R01/back_b0.png"), "W1: back_b0 is kept")
 	# band 4: the waves turn about the jetty's end; the calm and causeway lie level over them
 	scene_in(scene, "s4")
@@ -769,7 +778,10 @@ func test_round_w2_lines() -> void:
 		var r := r01(g)
 		check(g.tide_done(1), "w2: %s is after Tide I" % s)
 		ev = g.dispatch("pilings")
-		check(says(ev) == R01Sim.PILINGS_TEN and r.has_seen("pilings_ten"), "w2: %s ten pilings (%s)" % [s, says(ev)])
+		var want_p := R01Sim.PILINGS_DRAINED if r.drained() else R01Sim.PILINGS_TEN
+		check(r.drained() == (s != "s2"), "w2: %s the sea is out only before P09" % s)
+		check(says(ev) == want_p and r.has_seen("pilings_ten"), "w2: %s ten pilings (%s)" % [s, says(ev)])
+		check(r.has_seen("drips") == r.drained(), "w2: %s the drips noted only while the sea is out" % s)
 		check(R01Sim.PILINGS_TEN == "Ten pilings now. I counted eight from the launch.", "w2: the line, exactly")
 		ev = g.dispatch("stump")
 		check("holds nothing up" in says(ev) and r.has_seen("tenth_piling"), "w2: %s the tenth piling (%s)" % [s, says(ev)])
@@ -820,7 +832,7 @@ func test_view_w2() -> void:
 			"W2: %s none of the bright band plates" % s)
 		check(ids.has("tenth_piling") and ids.find("tenth_piling") > ids.find("fg_jetty"), "W2: %s the tenth piling shows" % s)
 		check(ids.has("high_water") == (s == "s2"), "W2: %s high water only at band 2" % s)
-		check(ids.has("bell_calm"), "W2: %s the bell keeps its water" % s)
+		check(ids.has("bell_calm") == (s == "s2"), "W2: %s the bell keeps its water (s1: the plate's cylinder)" % s)
 	scene_in(scene, "s2")
 	var ids2 := layer_ids(scene.room_view)
 	check(ids2.find("high_water") < ids2.find("line") and ids2.find("high_water") < ids2.find("capsule_open"),
@@ -836,32 +848,23 @@ func test_view_w2() -> void:
 		scene_in(scene, s)
 		var ids := layer_ids(scene.room_view)
 		check(not ids.has("tenth_piling") and ids.has("stump"), "W2: %s the stump, not the whole piling" % s)
-	# The drain: the sea is in through the withdrawal, then goes out under the card.
+	# The withdrawal (p2): the sea is already out, so the boat goes stern first over the flats
+	# and the ground never changes under it, in both motion modes.
 	scene.room_jump(ROOM, 2)
 	scene.dispatch("panel")
 	scene.dispatch("bell_2")
 	var v = scene.room_view
 	check(scene.sim.room(ROOM).jetty_state() == "s1" and v.withdrawing(), "W2: withdrawing at s1")
-	for t in [0.0, 11.5, 14.5, 15.9]:
-		v.withdraw_t = t
-		var ids := layer_ids(v)
-		check(ids[0] == "back_b1_sea" and layer(v, "back_b1_mud")[2].a == 0.0, "W2: %.1f s the sea is still in" % t)
-		check(ids.any(func(i): return str(i).begins_with("waves_dusk_")), "W2: %.1f s waves on it" % t)
-	v.withdraw_t = 18.0
-	var mid: float = layer(v, "back_b1_mud")[2].a
-	check(mid > 0.0 and mid < 1.0, "W2: 18 s the mud is coming up (%.2f)" % mid)
-	v.withdraw_t = 20.5
-	check(layer_ids(v)[0] == "back_b1_mud" and not layer_ids(v).any(func(i): return str(i).begins_with("waves_")),
-		"W2: 20.5 s the sea is out")
-	scene.sim.settings.motion = false
-	v.withdraw_t = 15.9
-	check(v.drain_k() == 0.0, "W2: motion off, the sea is in before the cut")
-	v.withdraw_t = 16.0
-	check(v.drain_k() == 1.0, "W2: motion off, a cut at DRAIN_AT")
+	for motion in [true, false]:
+		scene.sim.settings.motion = motion
+		for t in [0.0, 5.5, 11.5, 15.9, 20.5]:
+			v.withdraw_t = t
+			var ids := layer_ids(v)
+			check(ids[0] == "jetty_drained_r3" and not ids.has("back_b1_sea") and not ids.has("back_b1_mud")
+				and not ids.any(func(i): return str(i).begins_with("waves_")), "W2: %.1f s the flats (motion %s)" % [t, motion])
 	scene.sim.settings.motion = true
 	v.apply_instantly()
-	check(v.drain_k() == 1.0 and layer_ids(v)[0] == "back_b1_mud", "W2: a revisit is mud at once")
-	check(v.TIDE_CARD_AT < v.DRAIN_AT, "W2: the drain starts after the card is up")
+	check(layer_ids(v)[0] == "jetty_drained_r3", "W2: a revisit is the flats at once")
 	# Capsule close-up: with the cap off, the note wins over the cap's old rect.
 	scene.room_jump(ROOM, 3)
 	scene.dispatch("line")
@@ -900,11 +903,12 @@ func test_round_p1_lines() -> void:
 	var rs := r01(games.signal)
 	check(ri.hint_line(2) == R01Sim.EVIDENCE_INSPECT and rs.hint_line(2) == R01Sim.EVIDENCE_SIGNAL,
 		"p1: the evidence tier sits before the answer")
-	check(ri.hint_line(3).contains("UNVERIFIED RETURN") and rs.hint_line(3).contains("bell 2"),
+	check(ri.hint_line(3).contains("UNVERIFIED RETURN") and rs.hint_line(3).contains("broken pennant"),
 		"p1: the last tier is still the answer")
 	for e in [R01Sim.EVIDENCE_INSPECT, R01Sim.EVIDENCE_SIGNAL]:
 		check(e.contains("two stripes") or e.contains("has two"), "p1: the evidence names the contract's two stripes")
-		check(not e.contains("UNVERIFIED") and not e.contains("bell 2"), "p1: the evidence tier doesn't give the answer")
+		check(not e.contains("UNVERIFIED") and not e.contains("bell 2") and not e.contains("broken"),
+			"p1: the evidence tier doesn't give the answer")
 	# The hint is said without changing the room, and the first three tiers dispatch as before.
 	var g: GameSim = lensed_game()
 	var before := JSON.stringify(g.to_dict().rooms.R01)
@@ -912,15 +916,15 @@ func test_round_p1_lines() -> void:
 		for i in 3:
 			check(says(g.dispatch("hint")) == R01Sim.HINTS.signal[i], "p1: signal hint %d dispatched" % i)
 	check(JSON.stringify(g.to_dict().rooms.R01) == before, "p1: hints change no room state")
-	# The bell's s1 line raises the flats once; the notebook keeps sea_out.
+	# The bell's s1 line notes the standing water; the flats are already the ground (p2), so
+	# no fx raises them.
 	var s1 := game_at(3, ROOM)
-	check(r01(s1).jetty_state() == "s1" and not r01(s1).has_seen("sea_out"), "p1: s1, the flats not yet seen")
+	check(r01(s1).jetty_state() == "s1" and r01(s1).drained(), "p1: s1, the sea out")
 	var ev := s1.dispatch("bell")
-	check(has_ev(ev, "fx", "flats") and says(ev).begins_with("The sea's gone out to the horizon."),
-		"p1: the bell's line raises the flats")
+	check(not has_ev(ev, "fx", "flats") and says(ev) == R01Sim.SEA_OUT_BELL, "p1: the bell's line (%s)" % says(ev))
 	check(r01(s1).has_seen("sea_out"), "p1: sea_out in the notebook")
 	ev = s1.dispatch("bell")
-	check(not has_ev(ev, "fx", "flats") and says(ev).begins_with("The sea's gone out"), "p1: once only")
+	check(not has_ev(ev, "fx", "flats") and says(ev).begins_with("The sea's gone out"), "p1: the same line again")
 	var d := s1.to_dict()
 	var s1b := GameSim.new()
 	s1b.from_dict(d)
@@ -930,39 +934,20 @@ func test_round_p1_lines() -> void:
 func test_view_p1() -> void:
 	var scene = new_scene("user://room_test_R01_p1.json")
 	await process_frame
-	# The flats: a new stage plate, up on the bell's line for the rest of band 1.
+	# p2: the drained plate is band 1's ground from the start; p06_flats is never laid.
 	scene_in(scene, "s1")
 	var v = scene.room_view
-	check(v._tex("p06_flats") != null, "P1: assets/stages/R01/p06_flats.png loads")
-	check(not layer_ids(v).has("p06_flats") and not v.flats_shown(), "P1: s1 before the line, the mud")
+	check(v._tex("jetty_drained_r3") != null, "P1: assets/stages/R01/jetty_drained_r3.png loads")
 	scene.dispatch("bell")
-	check(v.flats_shown() and v.flats_t < 0.1, "P1: the line starts the flats")
-	v.tick(0.6)
-	var mid: Array = layer(v, "p06_flats")
-	check(not mid.is_empty() and mid[2].a > 0.0 and mid[2].a < 1.0 and layer_ids(v)[0] == "back_b1_mud",
-		"P1: they come up over the mud")
-	v.tick(0.8)
 	var ids := layer_ids(v)
-	check(ids[0] == "p06_flats" and not ids.has("back_b1_mud") and not ids.has("back_b1_sea")
-		and not ids.any(func(i): return str(i).begins_with("waves_")), "P1: then they are the ground (%s)" % [ids.slice(0, 3)])
-	check(ids.has("bell_calm") and ids.has("line") and ids.has("fg_jetty"), "P1: the bell's water, line and jetty stay")
-	scene.sim.settings.motion = false
-	v.play_fx("flats", {})
-	check(layer_ids(v)[0] == "p06_flats", "P1: motion off, a cut")
-	scene.sim.settings.motion = true
-	v.apply_instantly()
-	check(layer_ids(v)[0] == "p06_flats", "P1: a revisit shows them at once")
+	check(ids[0] == "jetty_drained_r3" and not ids.has("p06_flats") and not ids.has("back_b1_mud")
+		and not ids.any(func(i): return str(i).begins_with("waves_")), "P1: s1 is the flats (%s)" % [ids.slice(0, 3)])
+	check(not ids.has("bell_calm") and ids.has("line") and ids.has("fg_jetty"), "P1: the line and jetty stay over the flats")
 	for h in v.HOTSPOTS:
 		check(scene.action_at(h[1].get_center()) == h[0], "P1: flats, %s answers" % h[0])
-	# Mid-drain: the flats lay over the sea and the mud, and the sea's waves go with them.
-	v.withdraw_t = 17.0
-	v.flats_t = 0.6
-	var fl: Array = layer(v, "p06_flats")
-	check(layer_ids(v)[0] == "back_b1_sea" and fl[2].a > 0.0 and fl[2].a < 1.0, "P1: over a sea still going out")
-	v.apply_instantly()
 	# The rest of that tide only: band 2 is the high sea again.
 	scene_in(scene, "s2")
-	check(not layer_ids(scene.room_view).has("p06_flats"), "P1: band 2, the sea's back")
+	check(layer_ids(scene.room_view)[0] == "back_b2_high", "P1: band 2, the sea's back")
 	# The mix: rain on the planks you can hear at 5 and 6, the wind at 5.
 	var mx: Dictionary = v.MIX
 	check(mx.s5 == {"sea_thin": 0.5, "rain_planks": 0.55, "wind_jetty": 0.35}, "P1: s5 mix")
@@ -1025,4 +1010,147 @@ func test_view_p1_exits() -> void:
 	check(not v.withdrawing() and not scene.chain_active(), "P1x: the reveal over")
 	scene.click(v.live_exit_rects()["R02"].get_center())
 	check(scene.sim.state.room == "R02", "P1x: one click travels after the full reveal")
+	await free_scene(scene)
+
+# ---------------------------------------------------------------------------
+# round p2: the drained jetty (Tide II/III), the pennants over the bells
+# ---------------------------------------------------------------------------
+## A game standing on the jetty at the start of Tide II, before P04 and P05 (no boat yet).
+func tide2_arrival() -> GameSim:
+	return with_flags(["P01", "P02", "P03", "closure_report_filed", "t1x_threshold_crossed"], ROOM)
+
+func test_round_p2_drained() -> void:
+	# The window: tide >= 2 and not P09, from progress only.
+	var g1 := game_at(1, ROOM)
+	check(not r01(g1).drained(), "p2: Tide I, the sea is in")
+	var g2 := tide2_arrival()
+	check(g2.tide() == 2 and r01(g2).jetty_state() == "arrival" and r01(g2).drained(), "p2: Tide II arrival, the sea is out")
+	check(r01(boat_game()).drained(), "p2: the boat, the sea is out")
+	check(r01(game_at(3, ROOM)).drained(), "p2: Tide III (s1), the sea is out")
+	for t in range(4, 10):
+		check(not r01(game_at(t, ROOM)).drained(), "p2: tide %d (after P09), the sea is back" % t)
+	var ga := GameSim.new()
+	r01(ga).debug_jump(9)
+	check(not r01(ga).drained(), "p2: ending A, grey water")
+	# P09 alone ends it; nothing timed.
+	var gp := game_at(3, ROOM)
+	gp.set_flag("P09")
+	check(not r01(gp).drained(), "p2: P09 brings the sea back")
+	# The first Tide II arrival notices it once and notes sea_out; the bell is the standing water.
+	var g := GameSim.new()
+	g.dispatch("begin")
+	g.dispatch("go:R01")
+	var r := r01(g)
+	for f in ["P01", "P02", "P03", "closure_report_filed", "t1x_threshold_crossed"]:
+		g.set_flag(f)
+	g.room("R02").state.p01_complete = true
+	g.dispatch("go:R02")
+	var ev := g.dispatch("go:R01")
+	check(says(ev) == R01Sim.NOTICE["drained"] and has_ev(ev, "fx", "notice"), "p2: Tide II arrival notice (%s)" % says(ev))
+	check(r.has_seen("sea_out") and "drained" in r.state.noticed, "p2: sea_out noted")
+	g.dispatch("go:R02")
+	check(says(g.dispatch("go:R01")) == "", "p2: noticed once")
+	check(says(g.dispatch("launch")) == "Mud to the horizon. Nothing's moored here.", "p2: no open water")
+	check("lip" in says(g.dispatch("bell")) and r.has_seen("bell"), "p2: the bell, its water noticed already")
+	ev = g.dispatch("line")
+	check("into the mud" in says(ev) and r.has_seen("line_mud"), "p2: the line into the mud")
+	ev = g.dispatch("pilings")
+	check(says(ev) == R01Sim.PILINGS_DRAINED and r.has_seen("drips"), "p2: the drips")
+	check("bare mud" in says(g.dispatch("causeway")), "p2: the causeway on the mud")
+	# A fresh Tide II arrival that looks at the bell first notes the standing water there.
+	var gb := tide2_arrival()
+	r01(gb).state.noticed = ["arrival", "drained"]
+	check(says(gb.dispatch("bell")) == R01Sim.SEA_OUT_BELL and r01(gb).has_seen("sea_out"), "p2: the bell's column")
+	# The boat's notice says it once (no second drained notice), and its lines have no water.
+	var gn := with_flags(["P01", "P02", "P03", "closure_report_filed", "t1x_threshold_crossed", "P04", "P05"], "R02")
+	gn.room("R01").state.noticed = ["arrival"]
+	ev = gn.dispatch("go:R01")
+	check(says(ev).ends_with(R01Sim.NOTICE["boat"]) and not R01Sim.NOTICE["drained"] in says(ev)
+		and "drained" in r01(gn).state.noticed, "p2: the boat's notice only (%s)" % says(ev))
+	check(r01(gn).has_seen("boat") and r01(gn).has_seen("sea_out"), "p2: the boat's notice notes both")
+	var gl := boat_game()
+	var l0 := says(gl.dispatch("launch"))
+	var l1 := says(gl.dispatch("launch"))
+	check(not "water moves" in l0 and "Nothing under it" in l1, "p2: the boat's lines (%s / %s)" % [l0, l1])
+	for k in ["boat", "sea_out"]:
+		check(not "water moves" in R01Sim.OBSERVATIONS[k], "p2: %s says no moving water" % k)
+	# Survives a save: the notice stays spent.
+	var d := g.to_dict()
+	var gs := GameSim.new()
+	gs.from_dict(d)
+	check("drained" in r01(gs).state.noticed and r01(gs).has_seen("sea_out"), "p2: the drained notice survives a save")
+
+func test_round_p2_pennants() -> void:
+	# The placard names pennants, never bell numbers.
+	var text := " ".join(R01Sim.PLACARD_LINES)
+	var re := RegEx.new()
+	re.compile("(?i)bells? +[0-9]")
+	check(re.search(text) == null, "p2: no bell numbers on the placard")
+	check(R01Sim.PLACARD_LINES[2] == "2. Matching: set VERIFIED, ring the bell under the matching pennant, board.",
+		"p2: the matching rule")
+	check(R01Sim.PLACARD_LINES[3] == "3. Mismatched: set UNVERIFIED RETURN, ring the bell under the broken pennant, do not board.",
+		"p2: the mismatched rule")
+	check(re.search(R01Sim.OBSERVATIONS["panel"]) == null and "broken pennant" in R01Sim.OBSERVATIONS["panel"],
+		"p2: the notebook's placard has no numbers")
+	check(R01Sim.BELL_PENNANTS == ["matching", "broken", "wave", "cross"], "p2: the pennant over each bell")
+	for o in ["inspect", "signal"]:
+		check(re.search(R01Sim.HINTS[o][3]) == null and "broken pennant" in R01Sim.HINTS[o][3], "p2: %s answer by pennant" % o)
+	check(re.search(R01Sim.BELL_MISS) == null and "broken pennant" in R01Sim.BELL_MISS, "p2: the wrong bell by pennant")
+	var g := lensed_game()
+	g.dispatch("panel")
+	check("broken pennant" in says(g.dispatch("placard")), "p2: reading the placard")
+	# The solution is unchanged: the bell under the broken pennant is bell 2.
+	var n := R01Sim.BELL_PENNANTS.find("broken") + 1
+	check(n == 2, "p2: the broken pennant hangs over the second bell")
+	for k in range(1, 5):
+		var gk := lensed_game()
+		var ev := ring(gk, "unverified", k)
+		check(gk.flag("P06") == (k == n), "p2: unverified + the %s pennant's bell" % R01Sim.BELL_PENNANTS[k - 1])
+		if k == n:
+			check(says(ev).begins_with("The broken pennant's bell."), "p2: the commit names the pennant (%s)" % says(ev))
+		else:
+			check(says(ev) == R01Sim.BELL_MISS, "p2: %s bell refused" % R01Sim.BELL_PENNANTS[k - 1])
+
+func test_view_p2() -> void:
+	var scene = new_scene("user://room_test_R01_p2.json")
+	await process_frame
+	# The drained plate: a new file, laid from Tide II until P09.
+	check(FileAccess.file_exists("res://assets/stages/R01/jetty_drained_r3.png"), "P2: the plate is a new stage file")
+	scene.tide_jump(2, ROOM)
+	var v = scene.room_view
+	var r: R01Sim = scene.sim.room(ROOM)
+	check(r.jetty_state() == "arrival" and r.drained(), "P2: Tide II arrival")
+	var ids := layer_ids(v)
+	check(ids[0] == "jetty_drained_r3" and not ids.has("bell_calm") and not ids.has("reflections_dusk")
+		and not ids.any(func(i): return str(i).begins_with("waves_")), "P2: Tide II, the flats (%s)" % [ids.slice(0, 3)])
+	check(v.label_for("launch") == "Mud flats", "P2: no open water to label")
+	v.tick(0.016)
+	check(v.mixer.last_targets == v.MIX_DRAINED, "P2: only the far sea and the wind")
+	for h in v.HOTSPOTS:
+		check(scene.action_at(h[1].get_center()) == h[0], "P2: Tide II, %s answers" % h[0])
+	for s in ["boat", "s1"]:
+		scene_in(scene, s)
+		for h in scene.room_view.HOTSPOTS:
+			check(scene.action_at(h[1].get_center()) == h[0], "P2: %s, %s answers" % [s, h[0]])
+	scene_in(scene, "arrival")
+	check(layer_ids(scene.room_view)[0] == "back_b0_dusk", "P2: Tide I arrival, the sea is in")
+	# The panel: each bell under its pennant card, the controls where they were.
+	scene.room_jump(ROOM, 2)
+	scene.dispatch("panel")
+	v = scene.room_view
+	check(v._tex("c_panel_pennants") != null, "P2: the pennant cards load")
+	for k in range(1, 5):
+		check(scene.action_at(Vector2(444 + 200 * (k - 1), 800)) == "bell_%d" % k, "P2: bell %d where it was" % k)
+	check(scene.action_at(Vector2(644, 757)) == "bell_2", "P2: the broken pennant's card rings its bell")
+	# The placard never clips a rule: a long one wraps under its own text, and every word stays.
+	var rows: Array = v.placard_rows()
+	var font := Ink.serif()
+	var joined := []
+	for row in rows:
+		var w := font.get_string_size(row[0], HORIZONTAL_ALIGNMENT_LEFT, -1, v.PLACARD_SIZE).x
+		check(w + row[1] <= v.PLACARD_RECT.size.x, "P2: '%s' fits the placard (%.0f px)" % [row[0], w + row[1]])
+		joined.append(row[0])
+	check(" ".join(joined) == " ".join(R01Sim.PLACARD_LINES), "P2: every word of the placard is set")
+	check(rows.size() <= 7 and v.PLACARD_RECT.position.y + v.PLACARD_TOP + (rows.size() - 1) * v.PLACARD_LEADING < v.PENCIL_AT.y,
+		"P2: the printed rows end above Venn's pencil")
 	await free_scene(scene)
