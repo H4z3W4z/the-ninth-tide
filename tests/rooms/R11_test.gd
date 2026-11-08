@@ -87,6 +87,7 @@ func run_tests() -> void:
 		await test_view_name_shutter()
 		await test_view_esc_in_cut()
 		await test_view_late_wash()
+		await test_view_waterline()
 	else:
 		print("SKIP: R11 view_checks: the R11 view does not yet declare rects for every sim hotspot (view team)")
 
@@ -1849,4 +1850,60 @@ func test_view_late_wash() -> void:
 		v = scene.room_view
 		check(scene.sim.weather_band() == t, "wash: tide %d is band %d" % [t + 2, t])
 		check(v.wash_shown() == (t >= v.WASH_BAND), "wash: band %d %s" % [t, "washed" if t >= 6 else "dry"])
+	await free_scene(scene)
+
+## Band 2+: the waterline at 0.55 of the plate on both landings, drawn by state alone. Below
+## it the wall is multiplied toward storm navy and a hard navy line marks it; above it, and on
+## every object below it, the overlay is clear or the plate's own pixel. The hotspots never move.
+func test_view_waterline() -> void:
+	var scene = await view_scene(1)
+	var v = scene.room_view
+	var wl := int(v.WATERLINE_Y)
+	check(wl == roundi(0.55 * 1086), "waterline: at 0.55 of the plate (y %d)" % wl)
+	# [overlay, its plate, a wall point under the line, a point above it, an object face under it]
+	var cases := [
+		["wl_L1", "L1_base", Vector2i(1300, 760), Vector2i(1300, 500), Vector2i(300, 620)],
+		["wl_L2", "L2_base", Vector2i(450, 760), Vector2i(450, 500), Vector2i(150, 700)],
+		["wl_L2_wash", "L2_base", Vector2i(450, 760), Vector2i(450, 500), Vector2i(150, 700)],
+	]
+	for c in cases:
+		check(FileAccess.file_exists("res://assets/stages/R11/%s.png" % c[0]), "waterline: %s is on disk" % c[0])
+		var tex: Texture2D = v.textures.get(c[0])
+		var base: Texture2D = v.textures.get(c[1])
+		check(tex != null, "waterline: %s loads" % c[0])
+		if tex == null or base == null:
+			continue
+		check(tex.get_size() == Vector2(1448, 1086), "waterline: %s is a full plate" % c[0])
+		var img := tex.get_image()
+		var bimg := base.get_image()
+		var w := img.get_pixelv(c[2])
+		var b := bimg.get_pixelv(c[2])
+		check(w.a == 1.0 and w.get_luminance() < b.get_luminance() * 0.5,
+			"waterline: %s sinks the wall (%.2f vs %.2f)" % [c[0], w.get_luminance(), b.get_luminance()])
+		check(w.b >= w.r, "waterline: %s toward storm navy" % c[0])
+		check(img.get_pixelv(c[3]).a == 0.0, "waterline: %s leaves the art above the line" % c[0])
+		var o := img.get_pixelv(c[4])
+		check(o.a == 0.0 or absf(o.get_luminance() - bimg.get_pixelv(c[4]).get_luminance()) < 0.02,
+			"waterline: %s leaves an object under the line as painted" % c[0])
+		var line := img.get_pixel(c[2].x, wl)
+		check(line.a == 1.0 and line.get_luminance() < 0.2, "waterline: %s draws a hard navy line" % c[0])
+		check(img.get_pixel(c[2].x, wl + 3).get_luminance() > img.get_pixel(c[2].x, wl + 8).get_luminance() + 0.3,
+			"waterline: %s has a pale skin under the line" % c[0])
+	var rects_before := {1: v.HOTSPOTS.duplicate(true), 2: v.L2_HOTSPOTS.duplicate(true)}
+	for t in [3, 4, 5, 6, 7, 8, 9]:
+		scene.tide_jump(t, ROOM)   # tide t starts at band t - 2 (R11 is first reached at tide III)
+		await process_frame
+		v = scene.room_view
+		var band: int = scene.sim.weather_band()
+		check(band == t - 2, "waterline: tide %d is band %d" % [t, t - 2])
+		check(v.waterline_shown() == (band >= 2), "waterline: band %d %s" % [band, "flooded" if band >= 2 else "dry"])
+		if band == 2:
+			check(not scene.sim.flag("P12"), "waterline: band 2 is before P12")
+		var r: R11Sim = v.r11
+		r.landing = 1
+		check(v.waterline_plate() == "wl_L1", "waterline: the gate landing's overlay")
+		r.landing = 2
+		check(v.waterline_plate() == ("wl_L2_wash" if v.wash_shown() else "wl_L2"),
+			"waterline: band %d lower landing uses %s" % [band, v.waterline_plate()])
+	check(v.HOTSPOTS == rects_before[1] and v.L2_HOTSPOTS == rects_before[2], "waterline: hotspot rects unchanged")
 	await free_scene(scene)

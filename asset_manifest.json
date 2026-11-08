@@ -8782,6 +8782,33 @@
       "source_svg": null
     },
     {
+      "id": "wl_L1",
+      "path": "assets/stages/R11/wl_L1.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "3c49333f2e252b86667ec18ad1392d3f8c7a9f1ff76c3939e949acca627b57f6",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "wl_L2",
+      "path": "assets/stages/R11/wl_L2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "d7e8d2328bfec66c687f763399542d8d008bb3324bdcba424841099b30b2fa4c",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "wl_L2_wash",
+      "path": "assets/stages/R11/wl_L2_wash.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "03b229b39515e21ab4ae5089843d6fdc3c0090a15308e154fa319c247f9a4d3e",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "continue_morning",
       "path": "assets/stages/R12/continue_morning.png",
       "width": 1448,
