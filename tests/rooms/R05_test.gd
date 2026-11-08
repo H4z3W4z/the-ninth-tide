@@ -63,6 +63,8 @@ func run_tests() -> void:
 	test_silent_notices()
 	test_new_lines()
 	test_tally()
+	test_p07_by_hand()
+	test_loop_files()
 	test_independent_compare()
 	test_conservation()
 	test_locked_after_p07()
@@ -330,10 +332,10 @@ func test_auto_home() -> void:
 		for e in ev:
 			if e.type == "sfx" and e.id == "bowl_set":
 				delays.append(e.delay)
-		var stagger_ok := true
-		for i in range(1, delays.size()):
-			stagger_ok = stagger_ok and is_equal_approx(delays[i] - delays[i - 1], 0.15)
-		check(stagger_ok, "%s: staggered 0.15 s (%s)" % [opener, delays])
+		var stagger_ok := delays.size() == 8
+		for i in delays.size():
+			stagger_ok = stagger_ok and is_equal_approx(delays[i], 0.5 * i)
+		check(stagger_ok, "%s: one landing every 0.5 s, 0.0 .. 3.5 (%s)" % [opener, delays])
 		check(has_ev(ev, "fx", "bowls_home") and HOME_LINE in says(ev), "%s: the homing fx and Ada's line" % opener)
 		var fx: Array = ev.filter(func(e): return e.type == "fx" and e.id == "bowls_home")
 		check(fx[0].bowls == NAMED, "%s: the fx lists the bowls in order" % opener)
@@ -519,6 +521,40 @@ func test_new_lines() -> void:
 	v.free()
 
 # ---------------------------------------------------------------------------------------------
+# (p3) the 20 s level-walking beds: the view plays the _r2 files, the originals stay on disk
+# ---------------------------------------------------------------------------------------------
+func test_loop_files() -> void:
+	var files: Dictionary = load("res://game/rooms/R05/R05_view.gd").LOOP_FILES
+	check(files.size() == 5, "five beds re-rendered")
+	for id in files:
+		var f: String = files[id]
+		check(f == id + "_r2", "%s plays %s" % [id, f])
+		check(ResourceLoader.exists("res://assets/audio/R05/%s.wav" % f), "%s.wav imported" % f)
+		check(ResourceLoader.exists("res://assets/audio/R05/%s.wav" % id), "the original %s.wav kept" % id)
+		var st := load("res://assets/audio/R05/%s.wav" % f) as AudioStreamWAV
+		check(st != null and is_equal_approx(st.get_length(), 20.0), "%s is 20 s" % f)
+
+# ---------------------------------------------------------------------------------------------
+# (3d) the player's whole share of P07: the patched bowl by the door, the wheel to nine
+# ---------------------------------------------------------------------------------------------
+func test_p07_by_hand() -> void:
+	var g := fresh()
+	var r := r5(g)
+	var clicks := ["bowl_stack", "slot_%d" % HOME.find("b_sq"), "place_%d" % R05Sim.DOOR_PLACE,
+		"tally_down", "tally_down", "tally_down", "tally_down", "compare"]
+	var ev: Array = []
+	for a in clicks:
+		ev = g.dispatch(a)
+	check(r.state.places == SOL and int(r.state.tally) == 9, "one bowl and four turns set the table for nine")
+	check(g.flag("P07") and g.has_item("token_pantry_half") == false and r.has_seen("headcount_nine"),
+		"P07 in %d clicks (the token waits in the drawer)" % clicks.size())
+	# The rack slot of a bowl that set itself is not the player's to move.
+	var h := fresh()
+	h.dispatch("bowl_stack")
+	var said := says(h.dispatch("slot_%d" % HOME.find("b_sr")))
+	check(said == "That one's at the table." and r5(h).held == "", "a homed bowl stays put (%s)" % said)
+
+# ---------------------------------------------------------------------------------------------
 # (4) the tally
 # ---------------------------------------------------------------------------------------------
 func test_tally() -> void:
@@ -544,11 +580,21 @@ func test_tally() -> void:
 	var c := fresh()
 	var r := r5(c)
 	open_table(c)
+	# A numbered wheel from 0: it turns round both ways, every step one click.
+	check(int(r.state.tally) == 0, "the wheel starts at 0")
 	var ev := c.dispatch("tally_down")
-	check(int(r.state.tally) == 0 and has_ev(ev, "sfx", "tally_click"), "the tally clamps at 0")
-	for i in 15:
+	check(int(r.state.tally) == 12 and has_ev(ev, "sfx", "tally_click"), "the wheel turns back from 0 to 12")
+	ev = c.dispatch("tally_up")
+	check(int(r.state.tally) == 0 and has_ev(ev, "sfx", "tally_click"), "and on from 12 to 0")
+	var seen := []
+	for i in 13:
+		seen.append(int(r.state.tally))
 		c.dispatch("tally_up")
-	check(int(r.state.tally) == 12, "the tally clamps at 12")
+	check(seen == range(13) and int(r.state.tally) == 0, "up: every numeral 0..12 once, then 0 again (%s)" % [seen])
+	for i in 4:
+		c.dispatch("tally_down")
+	check(int(r.state.tally) == 9, "four turns back from 0 is nine")
+	check(R05Sim.tally_step(99, 1) == 0 and R05Sim.tally_step(-5, -1) == 12, "tally_step clamps a stray value first")
 	check(says(c.dispatch("look_register")).begins_with("REGISTER: 8. Rook's number."), "the register plate")
 
 # ---------------------------------------------------------------------------------------------
@@ -1278,7 +1324,9 @@ func test_ledger() -> void:
 	g.dispatch("page_prev")
 	g.dispatch("page_prev")
 	var lp := says(g.dispatch("left_page"))
-	check("Portions served: 9" in lp, "the left page reads aloud")
+	check("Portions served: every chair, and the one by the door." in lp, "the left page reads aloud")
+	check(not "Portions served: 9" in lp and not "Portions served: 9" in R05Sim.OBSERVATIONS.nora_ledger, "she never writes the number")
+	check(R05Sim.PORTIONS_LINE in R05Sim.OBSERVATIONS.nora_ledger, "the portions line noted in nora_ledger")
 	check("Whoever has the night watch sits by the door, so he can leave first." in lp, "the night-watch margin line")
 	check("Whoever has the night watch sits by the door, so he can leave first." in R05Sim.OBSERVATIONS.nora_ledger, "noted in nora_ledger")
 	check("Cup, mine, mended 3 Feb." in says(g.dispatch("right_page")), "the right page reads aloud")

@@ -62,7 +62,8 @@ const DOOR_NAME := "the blank place by the door"
 const RACK_NAME := "the place by the rack"
 const WRONG_BLANK := "Nora seated people by habit. Whose habit puts him here?"
 const HOME_LINE := "Eight of them know where they go."
-const HOME_STAGGER := 0.15
+## The eight slide home one by one: bowl n lands (its bowl_set) at HOME_STAGGER * n s.
+const HOME_STAGGER := 0.5
 const BOWL_INITIALS := {"b_sr": "S.R.", "b_at": "A.T.", "b_sh": "S.H.", "b_ml": "M.L.",
 	"b_cd": "C.D.", "b_ti": "T.I.", "b_op": "O.P.", "b_nb": "N.B.", "b_sq": ""}
 ## The rack's home slots, slot_0 .. slot_8 (deliberately not in place order).
@@ -74,11 +75,13 @@ const REGISTER := 8
 const SET_LINE := "It's set for nine. I'll leave it set."
 
 # --- c_ledger: Nora's provisioning book ---------------------------------------------------------
+## She did not write the number: the count is every chair, plus the blank place by the door.
+const PORTIONS_LINE := "Portions served: every chair, and the one by the door."
 const NIGHT_WATCH := "Whoever has the night watch sits by the door, so he can leave first."
 const LEDGER := [
 	{
 		"left": ["18 Oct 1927. Supper.", "Mutton and barley. Bread. Stewed pears.", "Signed chits: 8",
-			"Portions served: 9", "Left over: none."],
+			PORTIONS_LINE, "Left over: none."],
 		"margin": "Nine portions. Eight signatures. I feed the people who sit down.",
 		"note": NIGHT_WATCH,
 		"right": ["Mendings.", "Bowl, unsigned. Square patch, 9 Mar. He won't sign for a new one.",
@@ -185,7 +188,7 @@ const OBSERVATIONS := {
 	"unsigned_bowl": "The unsigned bowl: a square patch riveted over a crack, a spoon lying in it. The only bowl with a mark instead of a name.",
 	"tally": "A brass serving tally on the end of the table, a wheel from 0 to 12. Beside it a COMPARE lever and a register plate stamped 8.",
 	"towel": "Nora's towel, folded in thirds, beside a dry ring where a cup stood. The cup isn't in the kitchen.",
-	"nora_ledger": "Nora Bell's provisioning book, 18 Oct 1927, supper: 'Signed chits: 8. Portions served: 9. Left over: none.' Margin: 'Nine portions. Eight signatures. I feed the people who sit down.' Under it: 'Whoever has the night watch sits by the door, so he can leave first.' Facing page, her mendings, sketched: a bowl with a square patch, 'unsigned, 9 Mar. He won't sign for a new one'; and a cup with a brass staple through the handle, 'Cup, mine, mended 3 Feb.'",
+	"nora_ledger": "Nora Bell's provisioning book, 18 Oct 1927, supper: 'Signed chits: 8. Portions served: every chair, and the one by the door. Left over: none.' Margin: 'Nine portions. Eight signatures. I feed the people who sit down.' Under it: 'Whoever has the night watch sits by the door, so he can leave first.' Facing page, her mendings, sketched: a bowl with a square patch, 'unsigned, 9 Mar. He won't sign for a new one'; and a cup with a brass staple through the handle, 'Cup, mine, mended 3 Feb.'",
 	"rook_ration": "Nora's book, week of 10 Oct 1927: nine portions every day. Rook's correction, 'issue for 8', and under it in her hand: 'Rook has discovered a ninth appetite. It belongs to Rook.'",
 	"ledger_stores": "Nora's stores page: 'Tea, 2 lb. Sugar: none for me.'",
 	"headcount_nine": "Nine at supper on 18 Oct 1927. Eight signed. The ninth bowl had no name; Nora mended it with a square patch. Her note: the ninth was Venn. He is not on Rook's register.",
@@ -816,8 +819,9 @@ func _table(action: String, ev: Array) -> void:
 	if action.begins_with("slot_"):
 		_slot(int(action.substr(5)), ev)
 	elif action == "tally_down" or action == "tally_up":
+		# A numbered wheel: it turns round, 12 on to 0 and 0 back to 12.
 		var d := -1 if action == "tally_down" else 1
-		state.tally = clampi(int(state.tally) + d, TALLY_MIN, TALLY_MAX)
+		state.tally = tally_step(int(state.tally), d)
 		last_compare = {"places": "", "portions": ""}
 		_sfx(ev, "tally_click")
 
@@ -873,6 +877,11 @@ static func _mark_name(i: int) -> String:
 		return "The place by the rack"
 	return "%s's place" % PLACE_MARKS[i]
 
+## The tally wheel `n` turned one notch (`d` = +1 or -1), wrapping within TALLY_MIN..TALLY_MAX.
+static func tally_step(n: int, d: int) -> int:
+	var span := TALLY_MAX - TALLY_MIN + 1
+	return TALLY_MIN + posmod(clampi(n, TALLY_MIN, TALLY_MAX) - TALLY_MIN + d, span)
+
 static func _blank_name(i: int) -> String:
 	return DOOR_NAME if i == DOOR_PLACE - 1 else RACK_NAME
 
@@ -897,9 +906,9 @@ func _home_bowls(ev: Array) -> void:
 	if moved.is_empty():
 		return
 	for n in moved.size():
-		_sfx(ev, "bowl_set", 0.3 + HOME_STAGGER * n)
+		_sfx(ev, "bowl_set", HOME_STAGGER * n)
 	ev.append({"type": "fx", "id": "bowls_home", "bowls": moved.duplicate()})
-	_say(ev, HOME_LINE, 0.4 + HOME_STAGGER * moved.size(), true)
+	_say(ev, HOME_LINE, HOME_STAGGER * moved.size(), true)
 
 ## The first disagreement between the table and Nora's supper, in Ada's words, or "".
 static func places_line(places: Array) -> String:
