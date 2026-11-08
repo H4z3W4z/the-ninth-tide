@@ -845,13 +845,22 @@ func play_p20() -> void:
 	_qd("back")
 	_qd("turn")
 
-## R03 P21: the station plan, four tiles placed, FIX.
+## R03 P21: his composite (P03) laid over the station plan, turned to the plan's north,
+## pinned lighthouse on lighthouse and clipped; then the WITNESS pin in the centre chamber.
 func play_p21() -> void:
 	_qd("plan_wall")
-	for t in R03Sim.TILES:
-		_qd("plan_tile_" + t)
-		_qd("plan_zone_" + R03Sim.PLAN_ANSWER[t])
-	var ev := _qd("plan_fix")
+	_qd("plan_lay")
+	var ev := _qd("plan_clip")
+	check(says(ev) == R03Sim.PLAN_WRONG and not chart.state.plan_registered, "P21: north up is a wrong registration")
+	_qd("plan_rotate_cw")
+	_qd("plan_snap_lighthouse")
+	ev = _qd("plan_clip")
+	check(chart.state.plan_registered and has_ev(ev, "fx", "plan_register") and not g.flag("P21"),
+		"P21: registered, the outline fills; Tide VII waits for the pin")
+	_qd("plan_pin")
+	ev = _qd("plan_zone_lab")
+	check(not g.flag("P21") and says(ev) == R03Sim.PIN_REFUSE.lab, "P21: the pin refuses the body")
+	ev = _qd("plan_zone_centre")
 	check(g.flag("P21") and has_ev(ev, "fx", "tide"), "P21: the plan resolves; the Tide VIII card")
 	check("ADA MERCER" in says(ev), "P21: her name in the witness frame")
 	_qd("back")

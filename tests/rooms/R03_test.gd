@@ -40,6 +40,8 @@ func run_tests() -> void:
 	test_round_p1_hints()
 	test_round_p2_lighthouse_out()
 	test_round_p2_plate_words()
+	test_round_p3_hints()
+	test_round_p3_overlay()
 	test_geometry()
 	await view_checks(ROOM)
 	await test_view()
@@ -171,12 +173,12 @@ func test_hotspots_everywhere() -> void:
 				g.dispatch(cu)
 				check(r.is_closeup(), "stage %d: %s opens a close-up" % [n, cu])
 				r.held_plate = "observer"
-				r.held_tile = "body"
+				r.held_pin = true
 				var ev := g.dispatch(h)
 				check(says(ev) != "", "stage %d: %s answers from inside %s" % [n, h, cu])
 				check(r.wall == R03Sim.WALL_OF[h], "stage %d: %s from %s faces its wall" % [n, h, cu])
 				if not h in ["sheet_table", "recorder", "plan_wall", "seal", "plate_rack"]:
-					check(r.local_view == "room" and r.held_plate == "" and r.held_tile == "",
+					check(r.local_view == "room" and r.held_plate == "" and not r.held_pin,
 						"stage %d: %s from %s leaves the close-up, hand empty" % [n, h, cu])
 
 # ---------------------------------------------------------------------------
@@ -580,34 +582,60 @@ func test_p05_shutter() -> void:
 # P21
 # ---------------------------------------------------------------------------
 func test_p21_matrix() -> void:
-	var g := stage(6)
-	var r := r3(g)
+	# Every registration: rotation x pin. Only north with the plan's north (one quarter clockwise)
+	# and his lighthouse on the plan's registers; everything else says the one line and keeps all.
+	for rot in 4:
+		for snap in ["", "lighthouse", "buoy", "datum"]:
+			var g := stage(6)
+			var r := r3(g)
+			g.dispatch("plan_wall")
+			g.dispatch("plan_lay")
+			while int(r.state.plan_rot) != rot:
+				g.dispatch("plan_rotate_cw")
+			if snap != "":
+				g.dispatch("plan_snap_" + snap)
+			var items_before: Array = g.state.inventory.duplicate()
+			var notes_before := r.seen().size()
+			var ev := g.dispatch("plan_clip")
+			var tag := "plan %d/%s" % [rot, snap]
+			if rot == R03Sim.PLAN_ROT and snap == "lighthouse":
+				check(r.state.plan_registered and not g.flag("P21") and r.has_seen("plan_registered"),
+					"%s registers (P21 waits for the pin)" % tag)
+				check(has_ev(ev, "fx", "plan_register") and has_ev(ev, "sfx", "clip_snap"), "%s: the outline fills" % tag)
+			else:
+				check(not r.state.plan_registered and says(ev) == R03Sim.PLAN_WRONG, "%s refuses (got '%s')" % [tag, says(ev)])
+				check(has_ev(ev, "sfx", "clip_refuse") and not has_ev(ev, "fx", "plan_register"), "%s: clip_refuse" % tag)
+				check(r.state.plan_laid and r.state.plan_rot == rot and r.state.plan_snap == snap, "%s: the arrangement stays" % tag)
+				check(g.state.inventory == items_before and r.seen().size() == notes_before and not g.flag("P21"),
+					"%s: a wrong registration consumes nothing" % tag)
+	# The pin: every zone and margin, only the centre chamber completes.
+	for z in R03Sim.ZONES + R03Sim.MARGINS:
+		var g := stage(6)
+		var r := r3(g)
+		register_plan(g)
+		g.dispatch("plan_pin")
+		check(r.held_pin, "%s: the pin is in the hand" % z)
+		var ev := g.dispatch(z if z.begins_with("plan_margin") else "plan_zone_" + z)
+		if z == "centre":
+			check(g.flag("P21") and not r.held_pin, "the pin in the centre chamber solves P21")
+		else:
+			check(not g.flag("P21") and r.held_pin, "%s: refused, the pin stays in the hand" % z)
+			var want: String = R03Sim.PIN_PEOPLE if z.begins_with("plan_margin") else R03Sim.PIN_REFUSE[z]
+			check(says(ev) == want, "%s: '%s' (got '%s')" % [z, want, says(ev)])
+
+## Lays, turns, pins and clips his composite on the plan (a stage-6 game).
+func register_plan(g: GameSim) -> Array:
 	g.dispatch("plan_wall")
-	var opts := ["", "lab", "chart", "office", "centre"]
-	var solved := 0
-	for a in 5:
-		for b in 5:
-			for c in 5:
-				for d in 5:
-					var t := {"body": opts[a], "place": opts[b], "name": opts[c], "witness": opts[d]}
-					if t == R03Sim.PLAN_ANSWER:
-						continue
-					r.state.plan_tiles = t.duplicate()
-					var ev := g.dispatch("plan_fix")
-					check(not g.flag("P21"), "%s does not solve" % [t])
-					if "" in t.values():
-						check(says(ev) == "Four tiles, four places. Not yet.", "%s: not all placed" % [t])
-					else:
-						var wrong := []
-						for k in R03Sim.TILES:
-							if t[k] != R03Sim.PLAN_ANSWER[k]: wrong.append(k)
-						check(r.state.plan_misplaced == wrong, "%s: misplaced %s" % [t, wrong])
-						var k0: String = wrong[0]
-						check(says(ev) == "%s: %s. This zone holds %s." % [k0.to_upper(), R03Sim.TILE_REFS[k0], R03Sim.ZONE_HOLDS[t[k0]]],
-							"%s: names the first misplaced tile" % [t])
-	r.state.plan_tiles = R03Sim.PLAN_ANSWER.duplicate()
-	g.dispatch("plan_fix")
-	check(g.flag("P21") and r.state.plan_misplaced == [], "only the canonical layout solves")
+	g.dispatch("plan_lay")
+	while int(r3(g).state.plan_rot) != R03Sim.PLAN_ROT:
+		g.dispatch("plan_rotate_cw")
+	g.dispatch("plan_snap_lighthouse")
+	return g.dispatch("plan_clip")
+
+func solve_p21(g: GameSim) -> Array:
+	register_plan(g)
+	g.dispatch("plan_pin")
+	return g.dispatch("plan_zone_centre")
 
 func test_p21_actions() -> void:
 	var g := stage(6)
@@ -617,49 +645,54 @@ func test_p21_actions() -> void:
 	g.dispatch("back")
 	ev = g.dispatch("plan_wall")
 	check(not "screws" in says(ev), "the lid line once")
-	g.dispatch("plan_tile_place")
-	check(r.held_tile == "place", "pick up a tile")
-	for m in R03Sim.MARGINS:
-		ev = g.dispatch(m)
-		check(says(ev) == "Those are the people, not the instrument." and r.held_tile == "place", "%s refuses the tile" % m)
-	g.dispatch("plan_zone_lab")
-	check(r.state.plan_tiles.place == "lab" and r.held_tile == "", "PLACE on lab")
-	for t in ["body", "name", "witness"]:
-		g.dispatch("plan_tile_" + t)
-		g.dispatch("plan_zone_" + R03Sim.PLAN_ANSWER[t])
-	check(r.state.plan_tiles.place == "" and r.state.plan_tiles.body == "lab" and "place" in r.tray_tiles(),
-		"BODY onto lab bumps PLACE back to the tray")
-	# Rebuild deliberately: PLACE on lab, the rest right except BODY on chart.
-	r.state.plan_tiles = {"body": "chart", "place": "lab", "name": "office", "witness": "centre"}
-	ev = g.dispatch("plan_fix")
-	check(says(ev) == "BODY: listening and breathing traces. This zone holds the charts and the lantern's bearings.", "first misplaced is BODY")
-	check(r.state.plan_misplaced == ["body", "place"], "misplaced in order")
-	check(r.misplaced_line("place") == "PLACE: bearings, charts. This zone holds the balance and the funnels.",
-		"the exact PLACE-on-lab line")
-	r.state.plan_tiles = {"body": "lab", "place": "", "name": "office", "witness": "centre"}
-	g.dispatch("plan_tile_place")
-	g.dispatch("plan_zone_lab")   # onto BODY's zone: BODY goes back to the tray
-	check(r.state.plan_tiles.place == "lab" and r.state.plan_tiles.body == "" and "body" in r.tray_tiles(), "a placed tile bumps the old one")
-	ev = g.dispatch("plan_fix")
-	check(says(ev) == "Four tiles, four places. Not yet.", "three placed: not yet")
-	g.dispatch("plan_zone_lab")
-	check(r.held_tile == "place" and r.state.plan_tiles.place == "", "an occupied zone hands its tile back")
-	g.dispatch("plan_tile_place")
-	check(r.held_tile == "" and "place" in r.tray_tiles(), "put the held tile back")
-	ev = g.dispatch("plan_zone_lab")
-	check(says(ev) == R03Sim.ZONE_DESC.lab, "an empty zone describes itself")
+	for a in ["plan_rotate_cw", "plan_snap_lighthouse", "plan_clip"]:
+		ev = g.dispatch(a)
+		check(says(ev) == R03Sim.PLAN_NOT_LAID and not r.state.plan_laid, "%s before laying: nothing laid" % a)
+	ev = g.dispatch("plan_pin")
+	check(says(ev) == R03Sim.PIN_NOT_YET and not r.held_pin, "the pin before registration: not yet")
+	ev = g.dispatch("plan_zone_centre")
+	check(says(ev) == R03Sim.ZONE_DESC.centre, "an empty hand on a zone describes it")
 	ev = g.dispatch("plan_margin_kitchen")
-	check(says(ev).begins_with("PERSONAL EVIDENCE"), "the margin without a tile")
-	g.dispatch("plan_tile_witness")
-	check(r.state.plan_tiles.witness == "" and r.held_tile == "witness", "lifting a placed tile empties its zone")
+	check(says(ev).begins_with("PERSONAL EVIDENCE"), "the margin without the pin")
+	ev = g.dispatch("plan_lay")
+	check(r.state.plan_laid and r.state.plan_rot == R03Sim.PLAN_ROT_START and r.state.plan_snap == "", "his composite laid, north up")
+	check(has_ev(ev, "sfx", "sheet_slide") and "North up" in says(ev), "laid with a slide")
+	g.dispatch("plan_rotate_ccw")
+	check(r.state.plan_rot == 3, "turn left from north up")
+	g.dispatch("plan_rotate")
+	g.dispatch("plan_rotate")
+	check(r.state.plan_rot == 1, "plan_rotate turns right")
+	g.dispatch("plan_snap_buoy")
+	check(r.state.plan_snap == "buoy", "pinned by his buoy")
+	ev = g.dispatch("plan_clip")
+	check(says(ev) == "The line runs through walls. Not like that.", "the wrong registration line")
+	g.dispatch("plan_lift")
+	check(not r.state.plan_laid and r.state.plan_snap == "", "lifted: the pin comes out")
+	g.dispatch("plan_lay")
+	check(r.state.plan_rot == R03Sim.PLAN_ROT_START, "laid again: north up again")
+	g.dispatch("plan_rotate_cw")
+	g.dispatch("plan_snap_lighthouse")
+	check(r.plan_in_register(), "in register")
+	# Her own clips, from the inventory, do what the plan's clip does.
+	g.dispatch("item:chart_clips")
+	ev = g.dispatch("plan_clip")
+	check(r.state.plan_registered and g.has_item("chart_clips"), "her clips clip it; she keeps them")
+	var lines := says(ev)
+	for w in ["lantern gallery", "chart room", "listening room", "laboratory", "office and the vault", "chamber"]:
+		check(w in lines, "the registration names '%s'" % w)
+	for a in ["plan_rotate_cw", "plan_snap_buoy", "plan_clip", "plan_lift"]:
+		ev = g.dispatch(a)
+		check(says(ev) == R03Sim.PLAN_CLIPPED and r.plan_in_register(), "%s after the clip: it stays" % a)
+	g.dispatch("plan_pin")
+	g.dispatch("plan_pin")
+	check(not r.held_pin, "the pin goes back to its slot")
+	g.dispatch("plan_pin")
 	g.dispatch("back")
-	check(r.held_tile == "" and "witness" in r.tray_tiles(), "Back returns the tile to the tray")
+	check(not r.held_pin and r.state.plan_registered, "Back returns the pin; the registration stays")
 	g.dispatch("plan_wall")
-	for t in R03Sim.TILES:
-		g.dispatch("plan_tile_" + t)
-		g.dispatch("plan_zone_" + R03Sim.PLAN_ANSWER[t])
-	ev = g.dispatch("plan_fix")
-	check(g.flag("P21"), "the canonical layout by hand solves")
+	g.dispatch("plan_pin")
+	ev = g.dispatch("plan_zone_centre")
+	check(g.flag("P21"), "the pin in the chamber by hand solves")
 
 func test_p21_gates_and_outputs() -> void:
 	for flags in [[], ["P19"], ["P20"]]:
@@ -669,26 +702,39 @@ func test_p21_gates_and_outputs() -> void:
 		g.set_flag("P20", "P20" in flags)
 		var ev := g.dispatch("plan_wall")
 		check(not "screws" in says(ev), "%s: no lid line" % [flags])
-		for a in ["plan_tile_body", "plan_fix"]:
+		for a in ["plan_lay", "plan_rotate_cw", "plan_snap_lighthouse", "plan_clip", "plan_pin"]:
 			ev = g.dispatch(a)
-			check(says(ev) == R03Sim.PLAN_LID and r.held_tile == "", "%s %s: screwed down" % [flags, a])
+			check(says(ev) == R03Sim.PLAN_LID and not r.state.plan_laid and not r.held_pin, "%s %s: screwed down" % [flags, a])
 		ev = g.dispatch("plan_zone_centre")
 		check(says(ev) == R03Sim.ZONE_DESC.centre, "%s: zones still describe" % [flags])
-		r.state.plan_tiles = R03Sim.PLAN_ANSWER.duplicate()
-		g.dispatch("plan_fix")
 		check(not g.flag("P21"), "%s: refused before P19 and P20" % [flags])
+	# P19 and P20, but no composite in the notebook: nothing of his to lay.
+	var g0 := stage(6)
+	var r0 := r3(g0)
+	g0.state.notebook.erase("R03.composite_chart")
+	check(not r0.has_composite(), "the composite is out of the notebook")
+	g0.dispatch("plan_wall")
+	var ev0 := g0.dispatch("plan_lay")
+	check(says(ev0) == R03Sim.PLAN_NO_COMPOSITE and not r0.state.plan_laid, "no composite: nothing to lay")
 	var g := stage(6)
 	var r := r3(g)
 	check(g.tide() == 7 and g.weather_band() == 5, "stage 6 is tide VII, band 5")
-	g.dispatch("plan_wall")
-	r.state.plan_tiles = R03Sim.PLAN_ANSWER.duplicate()
-	var ev := g.dispatch("plan_fix")
+	var ev := register_plan(g)
+	check(not g.flag("P21") and tide_fx(ev) == 0, "registration alone doesn't close Tide VII")
+	g.dispatch("plan_pin")
+	ev = g.dispatch("plan_zone_centre")
 	check(g.flag("P21") and r.state.p21_complete, "P21 solves")
 	check(r.has_seen("station_outline") and r.has_seen("plan_name") and "n_b6" in r.state.notices, "outputs, n_b6 seen")
+	check(r.observation_text("station_outline") == R03Sim.OBSERVATIONS.station_outline
+		and "Body: lab and listening. Place: chart and lantern. Name: office and vault." in r.observation_text("station_outline"),
+		"station_outline reads as P22-P24 expect")
 	check(has_ev(ev, "fx", "plan_resolve") and tide_fx(ev) == 1 and g.tide() == 8 and g.weather_band() == 6, "the tide fx, band 6")
 	check("ADA MERCER" in says(ev), "her name in the witness frame")
-	ev = g.dispatch("plan_fix")
-	check(says(ev) == R03Sim.PLAN_FIXED and tide_fx(ev) == 0, "a repeat FIX doesn't re-solve")
+	for a in ["plan_clip", "plan_pin", "plan_lay"]:
+		ev = g.dispatch(a)
+		check(says(ev) == R03Sim.PLAN_FIXED and tide_fx(ev) == 0, "%s after P21: fixed, no re-solve" % a)
+	ev = g.dispatch("plan_zone_centre")
+	check(says(ev) == R03Sim.ZONE_DESC.centre and tide_fx(ev) == 0, "a zone after P21 describes")
 	g.dispatch("back")
 	ev = g.dispatch("plan_wall")
 	check(says(ev) == "It's a body, sitting. My name where its heart would be.", "the plan after P21")
@@ -738,10 +784,24 @@ func test_save_load() -> void:
 	g = stage(6)
 	r = r3(g)
 	g.dispatch("plan_wall")
-	g.dispatch("plan_tile_body"); g.dispatch("plan_zone_chart")
-	g.dispatch("plan_tile_name")
+	g.dispatch("plan_wall")
+	g.dispatch("plan_lay")
+	g.dispatch("plan_rotate_ccw")
+	g.dispatch("plan_snap_datum")
 	g.from_dict(g.to_dict())
-	check(r.state.plan_tiles == {"body": "chart", "place": "", "name": "", "witness": ""} and r.held_tile == "", "tiles kept, hand cleared")
+	check(r.state.plan_laid and r.state.plan_rot == 3 and r.state.plan_snap == "datum" and not r.state.plan_registered,
+		"his composite on the plan survives a load")
+	g = stage(6)
+	r = r3(g)
+	register_plan(g)
+	g.dispatch("plan_pin")
+	g.from_dict(g.to_dict())
+	check(r.state.plan_registered and r.plan_in_register() and not r.held_pin and not g.flag("P21"),
+		"registered survives, the pin is back in its slot")
+	g.state.notebook.erase("R03.composite_chart")
+	g.from_dict(g.to_dict())
+	check(not r.state.plan_laid and not r.state.plan_registered and r.state.plan_snap == "",
+		"laid without the composite in the notebook (impossible) is lifted")
 	# Malformed, field by field.
 	g = stage(0)
 	var d := g.to_dict()
@@ -749,8 +809,8 @@ func test_save_load() -> void:
 		"clips_taken": "yes", "reg_laid": 1, "reg_base": "15", "reg_rot": 2.5, "reg_snap": "moon",
 		"zero": 12, "interval": -1, "gauges": ["ok", "bad"], "pull_misses": 1.5, "clip_misses": -2,
 		"record_misses": 3, "slots": ["boundary", "boundary", "x"], "record_refusal": "NO",
-		"plan_tiles": {"body": "lab", "place": "lab", "name": "moon", "witness": ""},
-		"plan_misplaced": ["witness", "foo", "body"], "notices": ["n_b3", "zzz"], "prophecy_seen": true,
+		"plan_laid": "yes", "plan_rot": 7, "plan_snap": "moon", "plan_registered": 1,
+		"notices": ["n_b3", "zzz"], "prophecy_seen": true,
 	}
 	b = GameSim.new()
 	b.from_dict(d)
@@ -759,16 +819,21 @@ func test_save_load() -> void:
 	check(s.zero == 7 and s.interval == 2 and s.gauges == ["ok", ""] and s.pull_misses == 0 and s.clip_misses == 0, "bad P04 fields rejected")
 	check(s.record_misses == 3 and s.prophecy_seen, "good fields kept")
 	check(s.slots == ["boundary", "", ""] and s.record_refusal == "", "duplicate and unknown plates dropped")
-	check(s.plan_tiles == {"body": "lab", "place": "", "name": "", "witness": ""}, "a doubled zone and an unknown zone dropped")
-	check(s.plan_misplaced == ["body", "witness"] and s.notices == ["n_b3"], "lists filtered to known ids")
-	d.rooms.R03 = {"plan_tiles": {"body": "lab", "place": "chart", "name": "office", "witness": "centre", "x": "lab"}, "reg_snap": "buoy"}
+	check(not s.plan_laid and s.plan_rot == R03Sim.PLAN_ROT_START and s.plan_snap == "" and not s.plan_registered,
+		"bad P21 fields rejected")
+	check(s.notices == ["n_b3"], "lists filtered to known ids")
+	d.rooms.R03 = {"plan_snap": "buoy", "plan_rot": 2, "reg_snap": "buoy"}
 	b.from_dict(d)
-	check(r3(b).state.plan_tiles.body == "" and r3(b).state.reg_snap == "", "extra tile keys reject the dict; no pin without a laid sheet")
+	check(r3(b).state.plan_snap == "" and r3(b).state.plan_rot == 2 and r3(b).state.reg_snap == "",
+		"no pin without a laid sheet, on the table or the plan")
+	d.rooms.R03 = {"plan_tiles": {"body": "lab", "place": "chart", "name": "office", "witness": "centre"}}
+	b.from_dict(d)
+	check(not r3(b).state.has("plan_tiles") and not r3(b).state.p21_complete, "an old tile layout is ignored")
 	d.rooms.R03 = "junk"
 	check(b.from_dict(d) and r3(b).state == r3(b).initial_state(), "a non-dict room state is fresh")
 	# Derived fixes.
 	d.rooms.R03 = {"p03_complete": true, "p04_complete": true, "p05_complete": true, "p21_complete": true,
-		"reg_base": "14", "zero": 1, "slots": ["", "", ""], "plan_misplaced": ["body"]}
+		"reg_base": "14", "zero": 1, "slots": ["", "", ""], "plan_rot": 3}
 	b.from_dict(d)
 	check(not r3(b).state.p03_complete and not b.flag("P03") and not r3(b).state.p21_complete,
 		"a completion the save's flags don't carry is not restored")
@@ -778,7 +843,8 @@ func test_save_load() -> void:
 	s = r3(b).state
 	check(s.clips_taken and s.reg_base == "17" and s.reg_laid and s.reg_rot == 0 and s.reg_snap == "lighthouse", "p03 derives the composite")
 	check(s.zero == 4 and s.interval == 3 and s.gauges == ["ok", "ok"], "p04 derives the calibration")
-	check(s.slots == R03Sim.PLATES and s.plan_tiles == R03Sim.PLAN_ANSWER and s.plan_misplaced == [], "p05 / p21 derive")
+	check(s.slots == R03Sim.PLATES and s.plan_registered and s.plan_laid and s.plan_rot == R03Sim.PLAN_ROT
+		and s.plan_snap == R03Sim.PLAN_SNAP, "p05 / p21 derive")
 	check(b.flag("P03") and b.flag("P04") and b.flag("P05") and b.flag("P21"), "and set their flags")
 	check(b.value("p05_trace").size() <= 3, "a trace is frozen for a loaded P05")
 
@@ -787,9 +853,7 @@ func test_notice_order_survives() -> void:
 	var g := stage(6)
 	check(g.flag("P19"), "stage 6 is after P19")
 	var r := r3(g)
-	g.dispatch("plan_wall")
-	r.state.plan_tiles = R03Sim.PLAN_ANSWER.duplicate()
-	g.dispatch("plan_fix")
+	solve_p21(g)
 	g.dispatch("back")
 	check(g.flag("P21") and "n_b6" in r.state.notices, "P21 solved, n_b6 met")
 	var b := roundtrip(g)
@@ -995,7 +1059,7 @@ func test_objectives() -> void:
 	for n in expect:
 		var g := stage(n)
 		check(r3(g).objective() == expect[n], "stage %d objective %s (got %s)" % [n, expect[n], r3(g).objective()])
-		var tiers := 4 if expect[n] in ["calibrate", "record", "plan"] else 3
+		var tiers := 4 if expect[n] in ["register", "calibrate", "record", "plan"] else 3
 		check(r3(g).objective_text() != "" and R03Sim.HINTS[expect[n]].size() == tiers and r3(g).hint_tiers() == tiers,
 			"stage %d: text and %d hints" % [n, tiers])
 	var g := with_flags(["P01", "P03"], ROOM)
@@ -1007,7 +1071,8 @@ func test_objectives() -> void:
 		check(R03Sim.OBJECTIVES.has(k), "objective %s has text" % k)
 	check(R03Sim.HINTS.sheet_missing[2].begins_with("Drawer: 1-8-5-2."), "the P03 card ladder")
 
-## Round p1: P04, P05 and P21 gain an evidence tier between the relationship and the answer.
+## Round p1: P04, P05 and P21 gain an evidence tier between the relationship and the answer
+## (round p3 rewrote P21's ladder for the composite overlay and gave P03's register one too).
 func test_round_p1_hints() -> void:
 	var cases := {3: ["calibrate", R03Sim.EVIDENCE_CALIBRATE], 4: ["record", R03Sim.EVIDENCE_RECORD],
 		6: ["plan", R03Sim.EVIDENCE_PLAN]}
@@ -1018,9 +1083,9 @@ func test_round_p1_hints() -> void:
 		"record": ["The recorder's other panel takes three plates.",
 			"The hatch frame is carved. Read it the way you'd meet it going down.",
 			"Slots left to right: BOUNDARY, RELATION, OBSERVER. Press RECORD."],
-		"plan": ["The chart room's station plan can be reclassified.",
-			"Every instrument has been labelled body, place or name already. Group the rooms by what they measured.",
-			"BODY on laboratory and listening, PLACE on chart and lantern, NAME on office and vault, WITNESS in the centre. FIX."],
+		"plan": ["The station plan on the chart wall. Its lid is open now.",
+			"His chart and the plan share a cross.",
+			R03Sim.PLAN_ANSWER_HINT],
 	}
 	for n in cases:
 		var o: String = cases[n][0]
@@ -1043,13 +1108,14 @@ func test_round_p1_hints() -> void:
 	for w in ["BOUNDARY", "RELATION", "OBSERVER", "RECORD."]:
 		check(not w in R03Sim.EVIDENCE_RECORD, "p1: record evidence doesn't say %s" % w)
 	check("bracket" in R03Sim.EVIDENCE_RECORD and "circle" in R03Sim.EVIDENCE_RECORD, "p1: record evidence reads the hatch marks")
-	for w in ["BODY", "PLACE", "NAME", "WITNESS", "FIX", "laboratory", "lantern", "vault"]:
-		check(not w in R03Sim.EVIDENCE_PLAN, "p1: plan evidence doesn't say %s" % w)
+	for w in ["WITNESS", "lantern", "chamber", "centre", "clip", "turn", "right", "pin"]:
+		check(not w in R03Sim.EVIDENCE_PLAN, "p3: plan evidence doesn't say %s" % w)
+	check("composite chart" in R03Sim.EVIDENCE_PLAN and "notebook" in R03Sim.EVIDENCE_PLAN, "p3: plan evidence is the composite in the notebook")
 	# Every other ladder keeps three tiers.
 	for o in R03Sim.HINTS:
-		var want := 4 if o in ["calibrate", "record", "plan"] else 3
+		var want := 4 if o in ["register", "calibrate", "record", "plan"] else 3
 		check(R03Sim.HINTS[o].size() == want, "p1: %s has %d tiers" % [o, want])
-	for n in [0, 1, 2, 5, 7]:
+	for n in [0, 2, 5, 7]:
 		check(r3(stage(n)).hint_tiers() == 3, "p1: stage %d has three tiers" % n)
 	# Dispatched in play: nudge, relationship, evidence, the core's confirmation, answer, then the answer again. Asking
 	# changes nothing in the room. The core walks all four tiers; hint_line has no bridge.
@@ -1073,6 +1139,81 @@ func test_round_p1_hints() -> void:
 		check(r3(g).hint_line(2) == cases[n][1], "p2: %s tier 3 stays the evidence at a stored level 3" % o)
 		g.state.hint = {"for": "R02:->R03", "level": 3}
 		check(r3(g).hint_line(2) == cases[n][1], "p2: %s tier 3 ignores another room's stored level" % o)
+
+## Round p3: P03's register ladder gains an evidence tier (index 2) before the solution; P21's
+## ladder is location, the shared cross, the composite in the notebook, the solution.
+func test_round_p3_hints() -> void:
+	var r := r3(stage(1))
+	check(r.objective() == "register" and r.hint_tiers() == 4, "p3: register has four tiers")
+	check(r.hint_line(2) == "The table has two sheets for the 17th. His sheet's north arrow is pointing somewhere else.",
+		"p3: P03 tier 2 is the evidence line")
+	check(r.hint_line(3).begins_with("Choose the 17 Oct table sheet") and r.hint_line(9) == r.hint_line(3),
+		"p3: P03 tier 3 is still the solution")
+	check(r.hint_line(2) != r.hint_line(3) and r.hint_line(2) != r.hint_line(1), "p3: P03 tier 2 differs from tiers 1 and 3")
+	var keys := {}
+	for i in 4:
+		keys[GameSim._hint_key(r.hint_line(i))] = true
+	check(keys.size() == 4, "p3: P03's four tiers are different lines")
+	check(R03Sim.HINTS.sheet_missing.size() == 3, "p3: the missing-sheet ladder keeps three tiers")
+	var g := stage(1)
+	g.state.room = ROOM
+	g.view = "room"
+	var want: Array = [R03Sim.HINTS.register[0], R03Sim.HINTS.register[1], R03Sim.EVIDENCE_REGISTER,
+		GameSim.HINT_CONFIRM, R03Sim.HINTS.register[3]]
+	for i in want.size():
+		var got := says(g.dispatch("hint"))
+		check(got == want[i], "p3: register hint %d dispatched (%s)" % [i, got])
+	var p := r3(stage(6))
+	check(p.objective() == "plan" and p.hint_tiers() == 4, "p3: plan has four tiers")
+	check("station plan" in p.hint_line(0), "p3: plan tier 0 is the location")
+	check(p.hint_line(1) == "His chart and the plan share a cross.", "p3: plan tier 1")
+	check(p.hint_line(2) == R03Sim.EVIDENCE_PLAN, "p3: plan tier 2 is the evidence")
+	for w in ["composite", "north", "lighthouse cross", "lantern gallery", "clip", "WITNESS", "centre chamber"]:
+		check(w in p.hint_line(3), "p3: the plan solution says '%s'" % w)
+	for w in ["BODY", "PLACE", "NAME", "FIX", "tile"]:
+		for i in 4:
+			check(not w in p.hint_line(i), "p3: plan tier %d no longer says %s" % [i, w])
+
+## Round p3: the overlay is painted where the registered line crosses (sampled from the PNG).
+func test_round_p3_overlay() -> void:
+	var m: Dictionary = (VIEW_SCRIPT as Script).get_script_constant_map()
+	check(m.PLAN_BODY_FILE == "res://assets/stages/R03/p21_body_overlay.png", "p3: the outline is a stage overlay")
+	var img := Image.new()
+	var err := img.load(ProjectSettings.globalize_path(m.PLAN_BODY_FILE))
+	check(err == OK and img.get_width() == 1448 and img.get_height() == 1086, "p3: the overlay is a native 1448x1086 PNG")
+	if err != OK:
+		return
+	var rooms := {}
+	for rm in m.PLAN_ROOMS:
+		rooms[rm[0]] = rm[1]
+	for n in m.PLAN_CROSSED:
+		var c: Vector2 = rooms[n].get_center()
+		check(img.get_pixelv(Vector2i(c)).a > 0.5, "p3: %s fills with the outline" % n)
+	for n in m.PLAN_OUTSIDE:
+		var r: Rect2 = rooms[n]
+		for p in [r.get_center(), r.position + Vector2(8, 8), r.end - Vector2(8, 8)]:
+			check(img.get_pixelv(Vector2i(p)).a < 0.02, "p3: %s lies outside the outline at %s" % [n, p])
+	check(img.get_pixelv(Vector2i(m.PLAN_CHAMBER.get_center())).a < 0.05, "p3: the witness chamber stays hollow")
+	for n in ["KITCHEN & MESS", "BUNK ROOM", "JETTY", "MACHINE ROOM"]:
+		check(img.get_pixelv(Vector2i(rooms[n].get_center())).a < 0.02, "p3: %s is not part of the outline" % n)
+	# Contour: navy ink somewhere round the head (a ring of opaque dark pixels above the lantern).
+	var top := img.get_pixel(790, 153)
+	check(top.a > 0.8 and top.r < 0.25 and top.b < 0.3, "p3: the outline has a flat navy contour (%s)" % [top])
+	var fill := img.get_pixel(880, 560)
+	check(fill.a > 0.4 and fill.g > fill.r, "p3: the fill is matte sea-glass (%s)" % [fill])
+
+## The PLAN_ROOMS names the composite's curve passes through where it lies now (2 px samples).
+func _curve_rooms(v) -> Array:
+	var pts: PackedVector2Array = v.plan_curve_points()
+	var out := []
+	for i in pts.size() - 1:
+		var n := int(ceil(pts[i].distance_to(pts[i + 1]) / 2.0))
+		for k in n + 1:
+			var p := pts[i].lerp(pts[i + 1], float(k) / maxf(1.0, n))
+			for rm in v.PLAN_ROOMS:
+				if rm[1].has_point(p) and not rm[0] in out:
+					out.append(rm[0])
+	return out
 
 ## Round p2: from Tide II the lighthouse is out, one sprite R01 can reuse.
 func test_round_p2_lighthouse_out() -> void:
@@ -1158,7 +1299,7 @@ func test_debug_jumps() -> void:
 			4: check(g.flag("P04") and not g.flag("P05") and g.exit_open(ROOM, "R11"), "stage 4: P05 ready")
 			5: check(g.tide() == 3 and g.flag("P05") and g.value("p05_trace").size() == 3, "stage 5: tide III with a trace")
 			6: check(g.tide() == 7 and r.plan_unlocked() and not g.flag("P21"), "stage 6: P21 ready")
-			7: check(g.tide() == 8 and g.flag("P21") and r.state.plan_tiles == R03Sim.PLAN_ANSWER, "stage 7: tide VIII")
+			7: check(g.tide() == 8 and g.flag("P21") and r.state.plan_registered and r.plan_in_register(), "stage 7: tide VIII")
 			8: check(g.tide() == 9 and g.weather_band() == 7, "stage 8: tide IX")
 		var pending := 0
 		for w in R03Sim.WALLS:
@@ -1376,12 +1517,55 @@ func test_view() -> void:
 		"after P04 the record panel is open")
 	check(v.action_at(Vector2(989, 745)) == "rec_plate_observer", "the rack's first home holds OBSERVER")
 	r.local_view = "c_plan"
-	check(v.action_at(Vector2(1335, 242)) == "plan_tile_body" and v.action_at(Vector2(720, 625)) == "plan_zone_centre",
-		"tray tiles and zones answer")
-	r.state.plan_tiles.body = "centre"
-	check(v.action_at(Vector2(720, 625)) == "plan_tile_body", "a placed tile is hit before its zone")
-	check(v.action_at(Vector2(1335, 242)) == "", "an empty home answers nothing")
-	r.state.plan_tiles.body = ""
+	for c0 in v.PLAN_CONTROLS:
+		check(v.action_at(c0[1].get_center()) == c0[0], "c_plan: %s answers" % c0[0])
+		check(c0[1].size.x >= 44 and c0[1].size.y >= 44 and not c0[1].intersects(v.PLAN_PAPER), "c_plan: %s is a fair target off the plan" % c0[0])
+	check(v.action_at(v.PLAN_CHAMBER.get_center()) == "plan_zone_centre", "the chamber is the centre zone")
+	r.state.plan_laid = true
+	r.state.plan_rot = 0
+	r.state.plan_snap = ""
+	check(v.action_at(v.PLAN_CONTROLS[0][1].get_center()) == "plan_lift", "laid: the chart slot lifts")
+	var hc: Vector2 = v.plan_xform() * v.CROSSES.datum
+	check(v.action_at(hc) == "plan_snap_datum", "clicking his visible cross on the plan pins by it")
+	r.state.plan_rot = R03Sim.PLAN_ROT
+	r.state.plan_snap = "lighthouse"
+	r.state.plan_registered = true
+	check(v.action_at(v.PLAN_CONTROLS[0][1].get_center()) == "plan_lay", "registered: the slot no longer lifts")
+	check(v.action_at(v.plan_xform() * v.CROSSES.datum) != "plan_snap_datum", "registered: his crosses no longer pin")
+	r.state.plan_laid = false
+	r.state.plan_snap = ""
+	r.state.plan_registered = false
+	r.state.plan_rot = R03Sim.PLAN_ROT_START
+	# Geometry: in register, his lighthouse sits on the plan's, and the curve runs through the
+	# lantern gallery, the chart room, the listening room and the laboratory, never through the
+	# office or the vault; his hollow circle falls in the witness chamber. Any other pin or turn
+	# moves the line off that path.
+	r.state.plan_laid = true
+	r.state.plan_rot = R03Sim.PLAN_ROT
+	r.state.plan_snap = "lighthouse"
+	check((v.plan_xform() * v.CROSSES.lighthouse).distance_to(v.PLAN_LH) < 0.01, "p3: his lighthouse on the plan's")
+	var north: Vector2 = v.plan_xform().basis_xform(Vector2(0, -1))
+	check(north.distance_to(Vector2(1, 0)) < 0.01, "p3: in register his north points the plan's way (right)")
+	var hit := _curve_rooms(v)
+	for n in v.PLAN_CROSSED:
+		check(n in hit, "p3: the registered line runs through %s (%s)" % [n, hit])
+	for n in v.PLAN_OUTSIDE + ["KITCHEN & MESS", "BUNK ROOM", "MACHINE ROOM", "JETTY"]:
+		check(not n in hit, "p3: the registered line stays out of %s" % n)
+	check(v.PLAN_CHAMBER.has_point(v.plan_xform() * v.VENN_LOOP_C), "p3: his hollow circle is in the chamber")
+	check(v.PLAN_PAPER.encloses(Rect2(v.plan_xform() * Vector2.ZERO, Vector2.ZERO).expand(v.plan_xform() * Vector2(600, 560))),
+		"p3: the registered composite lies on the plan paper")
+	for rot in 4:
+		for snap in ["lighthouse", "buoy", "datum"]:
+			if rot == R03Sim.PLAN_ROT and snap == "lighthouse":
+				continue
+			r.state.plan_rot = rot
+			r.state.plan_snap = snap
+			check(not v.PLAN_CHAMBER.has_point(v.plan_xform() * v.VENN_LOOP_C) or not "LANTERN GALLERY" in _curve_rooms(v),
+				"p3: %d/%s does not draw the body" % [rot, snap])
+	check(v._tex("p21_body_overlay") != null, "p3: the outline overlay is loaded")
+	r.state.plan_laid = false
+	r.state.plan_snap = ""
+	r.state.plan_rot = R03Sim.PLAN_ROT_START
 	r.local_view = "room"
 	# Presentation only: the view's hooks leave the story alone.
 	var before: Dictionary = scene.sim.to_dict()

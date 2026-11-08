@@ -8152,6 +8152,15 @@
       "source_svg": null
     },
     {
+      "id": "p21_body_overlay",
+      "path": "assets/stages/R03/p21_body_overlay.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "2f8d7dd9ac65cb62776746a910e5f7fa6f84aaea21cfcfb4470be50075eee56b",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "p09_venn_rubbing",
       "path": "assets/stages/R05/p09_venn_rubbing.png",
       "width": 204,

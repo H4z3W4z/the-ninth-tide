@@ -101,25 +101,37 @@ const LINE4_TURNED := "Observer has looked behind her once."
 const LINE4_STILL := "Observer has not yet looked behind her."
 
 # --- P21: the station's real plan ---------------------------------------------
-const TILES := ["body", "place", "name", "witness"]
+## P03's mechanic again, on the plan: his composite chart is laid over the station plan,
+## turned until its north arrow agrees with the plan's (the plan is drawn with north to the
+## right: one quarter turn clockwise), pinned by his lighthouse cross on the plan's own
+## lighthouse cross beside the lantern gallery, and clipped. Then the WITNESS pin goes where
+## his three marks end: the centre chamber.
+const PLAN_ROT := 1
+## The composite comes off the chart table as it was clipped there: north up.
+const PLAN_ROT_START := 0
+const PLAN_SNAP := "lighthouse"
+## The zones the WITNESS pin can be offered to (the view's PLAN_ZONES).
 const ZONES := ["lab", "chart", "office", "centre"]
-const PLAN_ANSWER := {"body": "lab", "place": "chart", "name": "office", "witness": "centre"}
-const TILE_REFS := {
-	"body": "listening and breathing traces", "place": "bearings, charts",
-	"name": "registers, folders", "witness": "the one who observes",
-}
-const ZONE_HOLDS := {
-	"lab": "the balance and the funnels", "chart": "the charts and the lantern's bearings",
-	"office": "the contract and the folders", "centre": "the chamber marked WITNESS",
-}
 const ZONE_DESC := {
 	"lab": "The laboratory and the listening room, drawn as a pair.",
 	"chart": "The chart room and the lantern gallery, one above the other.",
 	"office": "The office and the records vault, side by side.",
 	"centre": "The observation chamber, outlined, marked WITNESS.",
 }
-const PLAN_LID := "Four label tiles under a glass lid, screwed down."
+const PLAN_LID := "The plan's under a glass lid, screwed down. Nothing goes on it yet."
+const PLAN_NO_COMPOSITE := "There's nothing of his to lay on it. His chart table has two sheets that should be one."
+const PLAN_NOT_LAID := "Nothing laid over the plan."
+const PLAN_WRONG := "The line runs through walls. Not like that."
+const PLAN_CLIPPED := "It's clipped. The line stays where it is."
 const PLAN_FIXED := "It's pinned. The plan stays as it is."
+const PIN_NOT_YET := "A brass pin, stamped WITNESS. I don't know where it goes. Not yet."
+## The WITNESS pin offered to a zone that isn't the chamber.
+const PIN_REFUSE := {
+	"lab": "Not there. That's the body.",
+	"chart": "Not there. That's where it's looking from.",
+	"office": "That's the name, underneath it. Not the witness.",
+}
+const PIN_PEOPLE := "Those are the people, not the instrument."
 const MARGINS := ["plan_margin_kitchen", "plan_margin_bunks"]
 
 ## Presentation milestones: [id, wall, trigger, evidence, line]. Per wall only the newest met
@@ -144,7 +156,8 @@ const LAMP_OUT_LINE :="The lighthouse is out. The sea hasn't come back from wher
 ## The flags this room owns, and the state key that mirrors each.
 const OWNED := [["P03", "p03_complete"], ["P04", "p04_complete"], ["P05", "p05_complete"], ["P21", "p21_complete"]]
 const SAVED_BOOLS := ["clips_taken", "reg_laid", "p03_complete", "prophecy_seen", "p04_complete",
-	"stair_looked", "p05_complete", "looked_behind", "plan_lid_seen", "p21_complete", "lamp_out_said"]
+	"stair_looked", "p05_complete", "looked_behind", "plan_lid_seen", "plan_laid", "plan_registered",
+	"p21_complete", "lamp_out_said"]
 const SAVED_COUNTS := ["clip_misses", "pull_misses", "record_misses"]
 
 const OBSERVATIONS := {
@@ -155,10 +168,11 @@ const OBSERVATIONS := {
 	"venn_sheet": "Venn's 17 Oct sheet is tracing paper, folded so its north arrow points down. The same three crosses.",
 	"calibration_interval": "Registered, the charts draw a line neither sheet has. It runs through one of his numbered interval bands, and it has the shape of the marks scratched on the hatch. The composite is clipped on the chart table.",
 	"composite_chart": "Composite chart, 17 Oct: Venn's sheet over the table sheet, north up, lighthouse cross on lighthouse cross. The line crosses one of his numbered bands; it is on neither sheet alone.",
-	"plan": "The station plan, 1889, revised E.V. 1927. The landward edge is marked with a bracket and the word BOUNDARY. Down the dry stair, landings in bracket pairs: '[ 1' above '] 1'. A '[ 2' with nothing under it.",
+	"plan": "The station plan, 1889, revised E.V. 1927. The landward edge is marked with a bracket and the word BOUNDARY. Down the dry stair, landings in bracket pairs: '[ 1' above '] 1'. A '[ 2' with nothing under it. North is drawn pointing right, and a registration cross marked LIGHTHOUSE is printed beside the lantern gallery.",
 	"compass": "A brass compass rose on the wall. North is where north should be.",
 	"compass_bent": "The compass lines on the chart sheet bend toward the place in front of the table where I stand.",
 	"standing": "Two wet footprints on the floor in front of the chart table, where I stand to read it. Bare, narrow. None lead there.",
+	"plan_registered": "His composite laid over the station plan, north with the plan's north, lighthouse cross on the plan's lighthouse cross: the curve runs down through the lantern gallery, the chart room, the listening room and the laboratory, and those rooms fill in as one shape, sitting. The office and the vault lie outside it, underneath. His three marks end in the chamber in the middle.",
 	"station_outline": "The station is a diagram of a seated person. Body: lab and listening. Place: chart and lantern. Name: office and vault. The chamber in the middle is the witness. A procedure in the margin: three frames, one witness, the copy port left bare.",
 	"plan_name": "The witness frame at the centre of the plan printed a name in the recorder's type: ADA MERCER.",
 	"recorder": "The tide recorder: copper float, bone-paper drum, a polished CALIBRATE lever. The pen moves. The drum does not.",
@@ -191,14 +205,18 @@ const OBJECTIVES := {
 	"record": "Make the departure observation on the recorder.",
 	"jetty": "The collection answers. Attend the jetty.",
 	"away": "Nothing here needs me yet.",
-	"plan": "Reclassify the station plan.",
+	"plan": "Lay his composite chart over the station plan.",
 	"done": "The plan is fixed. My name is in the middle of it.",
 }
 ## Evidence tiers (hint_tiers()): what the room, the recorder and the notebook already show,
-## said before the answer and short of it. P04, P05 and P21 have one; the rest have three tiers.
+## said before the answer and short of it. P03 (register), P04, P05 and P21 have one; the rest
+## have three tiers.
 const EVIDENCE_CALIBRATE := "Venn's recording says the zero out loud. The registered curve runs through one of his numbered bands. The plate's seven and two are only its example."
 const EVIDENCE_RECORD := "The recorder printed what you actually did. The hatch frame is carved top to bottom: a bracket, two linked strokes, a circle. The plates carry the same marks."
-const EVIDENCE_PLAN := "The tiles say what they stand for: listening and breathing, bearings and charts, registers and folders. The plan draws the rooms in pairs, and one chamber on its own."
+const EVIDENCE_PLAN := "The composite chart is in the notebook: his lighthouse cross, his north arrow, and the line his two sheets draw together. The station plan prints a lighthouse cross of its own, and its own north arrow."
+## P03's evidence tier (the register ladder): what the table and his sheet already show.
+const EVIDENCE_REGISTER := "The table has two sheets for the 17th. His sheet's north arrow is pointing somewhere else."
+const PLAN_ANSWER_HINT := "Lay his composite on the plan and turn it once to the right, so its north points the way the plan's does. Pin his lighthouse cross on the plan's, beside the lantern gallery, and clip. Then the WITNESS pin in the centre chamber."
 const HINTS := {
 	"sheet_missing": [
 		"The chart room has one sheet of the pair. The other is with E.V. His desk drawer wants the hour she mended the lamp.",
@@ -208,6 +226,7 @@ const HINTS := {
 	"register": [
 		"Venn's sheet goes on the chart table. The clip tin is on the ledge below it.",
 		"The two 17 Oct sheets go together at the lighthouse cross, with north the same way.",
+		EVIDENCE_REGISTER,
 		"Choose the 17 Oct table sheet, lay Venn's sheet, turn it north up, pin his lighthouse cross, then clip. The curve crosses band 3.",
 	],
 	"zero": [
@@ -243,10 +262,10 @@ const HINTS := {
 		"Follow the current tide in the other rooms.",
 	],
 	"plan": [
-		"The chart room's station plan can be reclassified.",
-		"Every instrument has been labelled body, place or name already. Group the rooms by what they measured.",
+		"The station plan on the chart wall. Its lid is open now.",
+		"His chart and the plan share a cross.",
 		EVIDENCE_PLAN,
-		"BODY on laboratory and listening, PLACE on chart and lantern, NAME on office and vault, WITNESS in the centre. FIX.",
+		PLAN_ANSWER_HINT,
 	],
 	"done": [
 		"The margin has a procedure: three frames, one witness.",
@@ -263,7 +282,8 @@ const ITEMS := {
 var wall := "A"
 ## The hand inside a close-up. Never saved; an object in the hand is back on its rack/tray.
 var held_plate := ""
-var held_tile := ""
+## The WITNESS pin in the hand (c_plan). Never saved: a load finds it back in its slot.
+var held_pin := false
 
 func initial_state() -> Dictionary:
 	return {
@@ -273,8 +293,8 @@ func initial_state() -> Dictionary:
 		"stair_looked": false,
 		"slots": ["", "", ""], "record_refusal": "", "record_misses": 0, "p05_complete": false,
 		"looked_behind": false,
-		"plan_tiles": {"body": "", "place": "", "name": "", "witness": ""}, "plan_misplaced": [],
-		"plan_lid_seen": false, "p21_complete": false,
+		"plan_lid_seen": false, "plan_laid": false, "plan_rot": PLAN_ROT_START, "plan_snap": "",
+		"plan_registered": false, "p21_complete": false,
 		"notices": [], "lamp_out_said": false,
 	}
 
@@ -326,23 +346,12 @@ func load_state(d: Variant) -> void:
 	var refusal = d.get("record_refusal")
 	if refusal is String and refusal in RECORD_REFUSALS:
 		state.record_refusal = refusal
-	var tiles = d.get("plan_tiles")
-	if tiles is Dictionary and tiles.size() == TILES.size():
-		var keys_ok := true
-		for t in TILES:
-			keys_ok = keys_ok and tiles.has(t)
-		if keys_ok:
-			var used := []
-			for t in TILES:
-				var z = tiles[t]
-				if z is String and z in ZONES and not z in used:
-					state.plan_tiles[t] = z
-					used.append(z)
-	var mis = d.get("plan_misplaced")
-	if mis is Array:
-		for t in TILES:
-			if t in mis:
-				state.plan_misplaced.append(t)
+	var prot = d.get("plan_rot")
+	if _whole(prot) and float(prot) >= 0.0 and float(prot) <= 3.0:
+		state.plan_rot = int(prot)
+	var psnap = d.get("plan_snap")
+	if psnap is String and psnap in REG_SNAPS:
+		state.plan_snap = psnap
 	var notes = d.get("notices")
 	if notes is Array:
 		# Saved order is kept: it records which change she met first.
@@ -370,10 +379,15 @@ func _derive() -> void:
 		state.slots = PLATES.duplicate()
 		state.record_refusal = ""
 	if state.p21_complete:
-		state.plan_tiles = PLAN_ANSWER.duplicate()
-		state.plan_misplaced = []
+		state.plan_registered = true
+	if state.plan_registered:
+		state.plan_laid = true
+		state.plan_rot = PLAN_ROT
+		state.plan_snap = PLAN_SNAP
 	if not state.reg_laid:
 		state.reg_snap = ""
+	if not state.plan_laid:
+		state.plan_snap = ""
 
 func reconcile() -> void:
 	for pair in OWNED:
@@ -384,6 +398,10 @@ func reconcile() -> void:
 	if state.reg_laid and not state.p03_complete and not game.has_item("venn_tide_sheet"):
 		state.reg_laid = false
 		state.reg_snap = ""
+	if state.plan_laid and not state.p21_complete and not has_seen("composite_chart"):
+		state.plan_laid = false
+		state.plan_registered = false
+		state.plan_snap = ""
 	if state.p05_complete and game.value("p05_trace").is_empty():
 		game.freeze_p05_trace()
 
@@ -429,7 +447,7 @@ func _leave_closeup() -> void:
 
 func _drop_hand() -> void:
 	held_plate = ""
-	held_tile = ""
+	held_pin = false
 
 # ---------------------------------------------------------------------------
 # notices
@@ -927,8 +945,13 @@ func _trace_text(trace: Array) -> String:
 	return " ".join(texts)
 
 # --- P21: the plan ------------------------------------------------------------------
+## The lid comes off after P19 and P20 (the GDD's gate).
 func plan_unlocked() -> bool:
 	return game.flag("P19") and game.flag("P20")
+
+## His composite (P03) is the thing laid on the plan; it lives in the notebook.
+func has_composite() -> bool:
+	return has_seen("composite_chart")
 
 func _open_plan(ev: Array) -> void:
 	wall = "A"
@@ -947,89 +970,98 @@ func _open_plan(ev: Array) -> void:
 
 func _act_plan(action: String, ev: Array) -> void:
 	if action in MARGINS:
-		_say(ev, "Those are the people, not the instrument." if held_tile != "" \
-			else "PERSONAL EVIDENCE: the kitchen and the bunks, printed in the margin.")
-	elif action.begins_with("plan_tile_"):
-		var t := action.substr(10)
-		if not t in TILES:
-			return
-		if not plan_unlocked():
-			_say(ev, PLAN_LID)
-		elif state.p21_complete:
-			_say(ev, PLAN_FIXED)
-		else:
-			if held_tile == t:
-				held_tile = ""
-			else:
-				state.plan_tiles[t] = ""   # lifting it empties its zone
-				held_tile = t
-			_sfx(ev, "tile")
-	elif action.begins_with("plan_zone_"):
+		_say(ev, PIN_PEOPLE if held_pin else "PERSONAL EVIDENCE: the kitchen and the bunks, printed in the margin.")
+		return
+	if action.begins_with("plan_zone_"):
 		var z := action.substr(10)
 		if z in ZONES:
 			_plan_zone(z, ev)
-	elif action == "plan_fix":
-		_plan_fix(ev)
-
-func _tile_on(z: String) -> String:
-	for t in TILES:
-		if state.plan_tiles[t] == z:
-			return t
-	return ""
-
-func _plan_zone(z: String, ev: Array) -> void:
-	var there := _tile_on(z)
-	var live: bool = plan_unlocked() and not state.p21_complete
-	if live and held_tile != "":
-		if there != "":
-			state.plan_tiles[there] = ""
-		state.plan_tiles[held_tile] = z
-		held_tile = ""
-		_sfx(ev, "tile")
-	elif live and there != "":
-		state.plan_tiles[there] = ""
-		held_tile = there
-		_sfx(ev, "tile")
-	else:
-		_say(ev, ZONE_DESC[z])
-
-## Tiles on the wrong zone, in BODY, PLACE, NAME, WITNESS order.
-func plan_wrong() -> Array:
-	var out := []
-	for t in TILES:
-		if state.plan_tiles[t] != "" and state.plan_tiles[t] != PLAN_ANSWER[t]:
-			out.append(t)
-	return out
-
-## What a misplaced tile shows beside the zone it's on ("" when it isn't placed).
-func misplaced_line(t: String) -> String:
-	var z: String = state.plan_tiles.get(t, "")
-	if z == "":
-		return ""
-	return "%s: %s. This zone holds %s." % [t.to_upper(), TILE_REFS[t], ZONE_HOLDS[z]]
-
-func _plan_fix(ev: Array) -> void:
+		return
+	if not action in ["plan_lay", "plan_lift", "plan_rotate", "plan_rotate_cw", "plan_rotate_ccw", "plan_clip",
+			"plan_pin", "plan_snap_lighthouse", "plan_snap_buoy", "plan_snap_datum"]:
+		return
 	if not plan_unlocked():
 		_say(ev, PLAN_LID)
 		return
 	if state.p21_complete:
 		_say(ev, PLAN_FIXED)
 		return
-	var placed := 0
-	for t in TILES:
-		if state.plan_tiles[t] != "":
-			placed += 1
-	if placed < TILES.size():
-		_say(ev, "Four tiles, four places. Not yet.")
+	if action == "plan_pin":
+		_plan_pick_pin(ev)
 		return
-	var wrong := plan_wrong()
-	if not wrong.is_empty():
-		state.plan_misplaced = wrong
-		_sfx(ev, "tile")
-		_say(ev, misplaced_line(wrong[0]))
+	if state.plan_registered:
+		_say(ev, PLAN_CLIPPED)
 		return
+	match action:
+		"plan_lay":
+			if not has_composite():
+				_say(ev, PLAN_NO_COMPOSITE)
+			elif not state.plan_laid:
+				state.plan_laid = true
+				state.plan_rot = PLAN_ROT_START
+				state.plan_snap = ""
+				_sfx(ev, "sheet_slide")
+				_say(ev, "His composite, unclipped from the table and laid over the plan. North up, as it was.")
+		"plan_lift":
+			state.plan_laid = false
+			state.plan_snap = ""
+			_sfx(ev, "sheet_slide")
+		"plan_rotate", "plan_rotate_cw", "plan_rotate_ccw":
+			if not state.plan_laid:
+				_say(ev, PLAN_NOT_LAID)
+				return
+			state.plan_rot = posmod(int(state.plan_rot) + (-1 if action == "plan_rotate_ccw" else 1), 4)
+			_sfx(ev, "sheet_rotate")
+		"plan_snap_lighthouse", "plan_snap_buoy", "plan_snap_datum":
+			if not state.plan_laid:
+				_say(ev, PLAN_NOT_LAID)
+				return
+			state.plan_snap = action.substr(10)
+			_sfx(ev, "cross_snap")
+		"plan_clip":
+			_plan_clip(ev)
+
+## True when his composite lies on the plan in register: north with the plan's north, his
+## lighthouse cross on the plan's.
+func plan_in_register() -> bool:
+	return state.plan_laid and int(state.plan_rot) == PLAN_ROT and state.plan_snap == PLAN_SNAP
+
+func _plan_clip(ev: Array) -> void:
+	if not state.plan_laid:
+		_say(ev, PLAN_NOT_LAID if has_composite() else PLAN_NO_COMPOSITE)
+		return
+	if not plan_in_register():
+		# Nothing is consumed: the composite stays where she left it.
+		_sfx(ev, "clip_refuse")
+		_say(ev, PLAN_WRONG)
+		return
+	state.plan_registered = true
+	_observe("plan_registered")
+	_sfx(ev, "clip_snap", 0.0)
+	_sfx(ev, "plan_resolve", 1.0)
+	_fx(ev, "plan_register")
+	_say(ev, "Clipped. The line runs down through the lantern gallery, the chart room, the listening room, the laboratory.", 0.3, true)
+	_say(ev, "The rooms it touches fill in, all one colour. A head. Shoulders. Something sitting.", 3.2, true)
+	_say(ev, "The office and the vault lie outside it, underneath. Where a name would go.", 6.4, true)
+	_say(ev, "His three marks end in the chamber in the middle.", 9.2, true)
+
+func _plan_pick_pin(ev: Array) -> void:
+	if not state.plan_registered:
+		_say(ev, PIN_NOT_YET)
+		return
+	held_pin = not held_pin
+	_sfx(ev, "tile")
+
+func _plan_zone(z: String, ev: Array) -> void:
+	if not held_pin or state.p21_complete:
+		_say(ev, ZONE_DESC[z])
+		return
+	if z != "centre":
+		# The pin stays in the hand; nothing is used up.
+		_say(ev, PIN_REFUSE[z])
+		return
+	held_pin = false
 	state.p21_complete = true
-	state.plan_misplaced = []
 	game.solve("P21", ev)
 	_observe("station_outline")
 	_observe("plan_name")
@@ -1038,11 +1070,10 @@ func _plan_fix(ev: Array) -> void:
 		state.notices.append("n_b6")
 	_fx(ev, "plan_resolve")
 	_sfx(ev, "fix_pin", 0.0)
-	_sfx(ev, "plan_resolve", 1.2)
-	_sfx(ev, "name_print", 5.0)
-	_say(ev, "The pin goes in.", 0.2, true)
+	_sfx(ev, "name_print", 4.2)
+	_say(ev, "The pin goes in, where his marks end.", 0.2, true)
 	_say(ev, "The rooms aren't where the walls are. They're where a body would be. Sitting.", 1.8, true)
-	_say(ev, "In the witness frame, in the recorder's type: ADA MERCER.", 5.6, true)
+	_say(ev, "In the witness frame, in the recorder's type: ADA MERCER.", 4.8, true)
 
 # ---------------------------------------------------------------------------
 # items
@@ -1064,6 +1095,11 @@ func use_item(item: String, target: String, ev: Array) -> bool:
 					_say(ev, REG_CLIPPED)
 				else:
 					_reg_clip(ev)
+				_settle_notices()
+				return true
+			if target == "plan_clip" and local_view == "c_plan":
+				# Her clips do what the plan's own clip does.
+				_act_plan("plan_clip", ev)
 				_settle_notices()
 				return true
 			if target == "sheet_table" or target == "reg_table":
@@ -1122,7 +1158,7 @@ func objective() -> String:
 		return "plan"
 	return "done"
 
-## P04, P05 and P21 have four tiers (nudge, relationship, evidence, answer); the rest three.
+## P03 (register), P04, P05 and P21 have four tiers (nudge, relationship, evidence, answer); the rest three.
 func hint_tiers() -> int:
 	return 4 if HINTS.get(objective(), []).size() >= 4 else 3
 
@@ -1165,6 +1201,7 @@ func debug_prepare(t: int) -> void:
 		state.p21_complete = true
 		state.plan_lid_seen = true
 		_observe("plan")
+		_observe("plan_registered")
 		_observe("station_outline")
 		_observe("plan_name")
 	_derive()
@@ -1272,18 +1309,10 @@ func rack_plates() -> Array:
 		out.append("" if p in state.slots or p == held_plate else p)
 	return out
 
-## Tiles in the tray (not placed, not held), in BODY, PLACE, NAME, WITNESS order.
-func tray_tiles() -> Array:
-	var out := []
-	for t in TILES:
-		if state.plan_tiles[t] == "" and t != held_tile:
-			out.append(t)
-	return out
-
 func plan_state() -> Dictionary:
-	return {"tiles": state.plan_tiles.duplicate(), "held": held_tile, "tray": tray_tiles(),
-		"misplaced": state.plan_misplaced.duplicate(), "unlocked": plan_unlocked(),
-		"lid_seen": state.plan_lid_seen, "complete": state.p21_complete}
+	return {"laid": state.plan_laid, "rot": int(state.plan_rot), "snap": state.plan_snap,
+		"registered": state.plan_registered, "held_pin": held_pin, "unlocked": plan_unlocked(),
+		"lid_seen": state.plan_lid_seen, "complete": state.p21_complete, "composite": has_composite()}
 
 static func _whole(v: Variant) -> bool:
 	return (v is int or v is float) and float(v) == floorf(float(v))
