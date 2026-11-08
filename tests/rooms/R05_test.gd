@@ -1404,7 +1404,8 @@ func test_work_card_closeup() -> void:
 	check(R05Sim.CARD_SPECIMEN == "SPECIMEN 27-11", "the specimen stamp, verbatim")
 	check(R05Sim.CARD_SPECIMEN in R05Sim.CARD_STAMP, "the card's stamp carries it")
 	check(R05Sim.CARD_SPECIMEN in R05Sim.OBSERVATIONS.nora_work_card, "nora_work_card records SPECIMEN 27-11 verbatim")
-	check(R07Sim.STAMP_N == R05Sim.CARD_SPECIMEN, "P13's stamp is the card's")
+	# R07 p2: the work card is P13's only number-to-name link; the sample's number is the card's.
+	check("SPECIMEN " + str(R07Sim.SPECIMEN["N"]) == R05Sim.CARD_SPECIMEN, "P13's sample number is the card's")
 	var g := fresh()
 	var r := r5(g)
 	g.dispatch("to_kitchen")

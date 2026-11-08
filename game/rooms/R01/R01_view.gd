@@ -46,9 +46,11 @@ const MIX := {
 	## The sea is out past the causeway: only its thin far edge, and the wind.
 	"s1": {"sea_thin": 0.6, "wind_jetty": 0.7, "wind_whistle": 0.5},
 	"s2": {"sea_jetty": 0.9, "wind_jetty": 0.7, "wind_whistle": 0.5, "rain_planks": 0.8},
-	"s3": {"sea_slap": 0.9, "wind_jetty": 0.6, "wind_whistle": 0.4, "rain_planks": 0.8},
+	"s3": {"sea_slap": 1.0, "wind_jetty": 0.7, "wind_whistle": 0.45, "rain_planks": 0.92},
 	"s4": {"sea_thin": 0.7, "wind_jetty": 0.5, "wind_whistle": 0.3, "rain_planks": 0.7},
-	"s5": {"sea_thin": 0.5, "rain_planks": 0.55, "wind_jetty": 0.35},
+	## s5 (Tide VII) thins out by instrument, not by level: from Tide IV no bed sits more than
+	## 3 dB under the opening rooms' (core_test test_bed_loudness).
+	"s5": {"sea_thin": 1.0, "rain_planks": 1.1, "wind_whistle": 0.5, "wind_jetty": 0.4},
 	"s6": {"sea_thin": 0.4, "rain_planks": 0.4},
 	## The hum alone is all sub-bass: laptop speakers would play nothing. A thin sea under it.
 	"s7": {"pressure_hum": 0.35, "sea_thin": 0.2},

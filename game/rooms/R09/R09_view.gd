@@ -119,7 +119,7 @@ const LOOP_DB := {
 ## A whole-bed trim (dB) per stage, on top of LOOP_DB, so the gallery's bed at bands 5-7 sits
 ## within 3 dB of the dry stair's (R11) at the same band (file RMS plus mixer target, summed by
 ## power), the mix inside it unchanged.
-const BED_TRIM := {"b5": 2.5, "b6": 3.0, "b7": 3.0}
+const BED_TRIM := {"b5": 4.0, "b6": 3.0, "b7": 3.0}
 ## The deep sounds the loops duck under (6 dB).
 const DUCK_IDS := ["deep_tone", "lid_pass", "glass_hum"]
 const LOOP_RATE := 0.11        # linear units / s: about a 1.5 s fade at these levels

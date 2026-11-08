@@ -217,10 +217,10 @@ const HINTS := {
 		"Amended card to NAME, bridge to WITNESS, COPY empty, OPEN ACCESS.",
 	],
 	"done": [
-		"The chamber's below. The lower door is open.",
-		"The chamber's below. The lower door is open.",
-		"The chamber's below. The lower door is open.",
-		"The chamber's below. The lower door is open.",
+		"The lower door is open. Nothing here needs me now.",
+		"Her record stays open in the door. That is what let it go.",
+		"The chamber is below this room, through the lower door.",
+		"Go through the lower door, down to the chamber.",
 	],
 }
 const HINT_TIERS := 4

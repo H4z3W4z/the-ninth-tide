@@ -1304,22 +1304,26 @@ func time_to_show(scene: Node, text: String, limit: float, dt := 0.05) -> float:
 func test_scheduler() -> void:
 	var scene = new_scene("user://office_sched_test.json")
 	await process_frame
-	# (a) A fast clicker: every click during the prints' chain brings its next line up at
-	# once, and the click after it is a click again. The drawer's reveal then starts at once.
+	# (a) A fast clicker. Core p2: a hotspot clicked mid-chain rushes the rest of the chain
+	# where it was said (nothing dropped), shows pressed, and acts when the chain ends; a
+	# second click on it acts at once.
 	scene.room_jump("R02", 2)
 	scene.room_sim().state.prints_seen = false
 	scene.click(Vector2(1117, 915))
 	check(scene.subtitle.text.begins_with("Bare feet"), "the prints' first line at once")
 	advance(scene, 0.5)
 	scene.click(Vector2(908, 865))
-	check(scene.subtitle.text == "They don't come back." and scene.room_sim().view == "room",
-		"a click during the chain advances it and does not open the drawer")
-	advance(scene, 0.5)
-	scene.click(Vector2(908, 865))
-	# Core p1 (pending_action): with only the last line up, the click finishes it and acts in
-	# the same press.
-	check(scene.room_sim().view == "drawer" and not scene.chain_active(),
-		"the next click releases the last line and opens the drawer in the same press")
+	check(scene.subtitle.text.begins_with("Bare feet") and scene.room_sim().view == "room"
+		and scene.pending_action == "drawer",
+		"a click during the chain rushes it and holds the drawer (%s)" % scene.pending_action)
+	var back_seen := false
+	for i in 200:
+		scene._process(0.05)
+		back_seen = back_seen or scene.cur_text == "They don't come back."
+		if scene.room_sim().view == "drawer":
+			break
+	check(back_seen and scene.room_sim().view == "drawer" and not scene.chain_active(),
+		"the rushed chain plays out whole, then the drawer opens")
 	for i in 4:
 		for n in [1, 8, 5, 2][i]:
 			scene.dispatch("dial_%d" % i)
@@ -1973,7 +1977,12 @@ func test_chain_gate_chair() -> void:
 	step(scene, 0.5)
 	scene.click(hs(scene, "window"))
 	check(scene.room_sim().view == "room" and scene.room_sim().state.seat_wet and not scene.room_sim().has_seen("horizon")
-		and not "The horizon isn't level. The house is." in scene.shown_log, "a window click 0.5 s in only advances the chain")
+		and not "The horizon isn't level. The house is." in scene.shown_log, "a window click 0.5 s in waits for the chain")
+	# Core p2: the rest of the chain is rushed, its timed sounds moving with their lines.
+	for i in 200:
+		if "Three taps on the glass." in scene.shown_log:
+			break
+		step(scene, 0.05)
 	var taps: int = scene.shown_log.find("Three taps on the glass.")
 	var knock_at := -1
 	for p in scene.played_log:
@@ -2019,13 +2028,15 @@ func test_hint_after_chain() -> void:
 	await process_frame
 	scene.click(hs(scene, "chair"))
 	step(scene, 0.4)
+	var on_screen: String = scene.cur_text
 	scene.click(scene.HUD_BUTTONS[1][1].get_center())
 	var hint: String = R02Sim.HINTS["report"][0]
-	check(scene.room_sim().game.state.hint.level == 1 and not hint in scene.shown_log, "the hint dispatches but waits")
+	# Core p2: the Hint answers at once on its card under the button; the chain is untouched.
+	check(scene.room_sim().game.state.hint.level == 1 and scene.hint_card_text() == hint
+		and scene.cur_text == on_screen, "the hint answers on its card at once, the chain untouched")
 	step(scene, 15.0)
 	var last: int = scene.shown_log.find("Low down. Below the sill. Where the wall goes straight down into the water.")
-	var h: int = scene.shown_log.find(hint)
-	check(last >= 0 and h > last, "a hint during a chain shows after its last line (%d, %d)" % [last, h])
+	check(last >= 0 and not hint in scene.shown_log, "the chain plays out whole; the hint never enters the subtitles (%d)" % last)
 	GameView.remove_saves(scene.save_path)
 	scene.queue_free()
 	await process_frame

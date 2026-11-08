@@ -744,7 +744,7 @@ func test_view_w1(scene) -> void:
 		v.rain_hang.clear()
 		check(d1 == v.rain_hang_dashes(n) and d1.size() > 600, "W1: %s dashes are deterministic" % s)
 		# Round p1 (lead's mix table): the planks are heard under the hanging rain at 5 and 6.
-		check(v.MIX[s].get("rain_planks", 0.0) == (0.55 if s == "s5" else 0.4), "W1: %s rain on the planks (p1 mix)" % s)
+		check(v.MIX[s].get("rain_planks", 0.0) == (1.1 if s == "s5" else 0.4), "W1: %s rain on the planks (p1 mix)" % s)
 	check(scene.room_view.rain_hang_dashes(5) != scene.room_view.rain_hang_dashes(6), "W1: seeded per band")
 	# band 7: something under the hum that small speakers can play
 	scene_in(scene, "s7")
@@ -950,7 +950,9 @@ func test_view_p1() -> void:
 	check(layer_ids(scene.room_view)[0] == "back_b2_high", "P1: band 2, the sea's back")
 	# The mix: rain on the planks you can hear at 5 and 6, the wind at 5.
 	var mx: Dictionary = v.MIX
-	check(mx.s5 == {"sea_thin": 0.5, "rain_planks": 0.55, "wind_jetty": 0.35}, "P1: s5 mix")
+	# Fix p2: s5 (Tide VII) raised to the core loudness ladder (no bed under the opening rooms
+	# less 3 dB from Tide IV on); rain and wind still carry it.
+	check(mx.s5 == {"sea_thin": 1.0, "rain_planks": 1.1, "wind_whistle": 0.5, "wind_jetty": 0.4}, "P1: s5 mix")
 	check(mx.s6 == {"sea_thin": 0.4, "rain_planks": 0.4}, "P1: s6 mix")
 	await free_scene(scene)
 	await test_view_p1_exits()
