@@ -229,7 +229,7 @@ The quality template. View A is the approved plate (desk, window, map, stove, ho
 | --- | --- | --- | --- | --- |
 | Arrival | `p09_complete` (band 2) | Jars hold seawater at three different angles. Shells in the sample rack. | Drip, tank hum. | Water at different angles. |
 | P10 done | `p10_complete` | Jar C installed; its water leans toward Ada's standing position when she lets go (one pose). | | The water leans to her. |
-| 3 | band 3 | Tank reflection lags the room by one pose. | | |
+| 3 | band 3 | Tank reflection lags the room by one pose. View A: a hard, flat water surface across the whole room at the DATUM; below it everything is washed sea-glass and laid 6 px to the side, the jars, tank, doors and other hotspot art registered and crisp on top (`datum_water_r3`). View B (bands 3-4): the tide mark on the bench is a clear sea-glass water line. | | "The water's at the datum line. It stays there when I move. It isn't in the room. The room is in it." (once) |
 | P13 done | `p13_complete` | Thumb impression in the empty control tray. | | A thumb in an empty tray. |
 | P14 done | `p14_complete` | Sealed jar fogs on its inner surface; inscription legible: "Retention is not resuscitation." | Breath-like hiss, once (`sudden`). | |
 | 4 | band 4 | The shells in the rack have aligned into a curve like a throat's rings. Vault door ajar. | | The shells line up. |

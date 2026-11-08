@@ -19,8 +19,11 @@ Writes, and only writes, assets/rooms/R07/*.png and assets/stages/R07/*.png:
   jar_*, c_jar_*, c_cradle, plumb, c_plumb, c_tag, c_beam, c_pan, c_tray, c_thumb,
   c_sample_{n,w,f}, c_card, c_pin, c_needle, c_key_down, c_lever_down, c_section,
   c_name_tab, c_strip, c_seal_down, c_frame_glass sprites (RGBA, exact sizes and pivots)
-  b2_tidemark, b2_tidemark_bench, b4_lamp_pool, b4_water_lean
+  b2_tidemark, b2_tidemark_bench, b4_lamp_pool, b4_water_lean, datum_water_r3
                       assets/stages/R07: dread while the puzzles are played (see "stage overlays")
+  view_b_s3_v2, view_b_s4_v2   the bench plates at bands 3 and 4 with the cabinet tide mark
+                      painted as clear water, not a salt strip (replace view_b_s3 / view_b_s4)
+  c_sample_tube       the one opaque stoppered tube every P13 stand holds (replaces c_sample_*)
 
 The room is square to its brass DATUM: every tile course, shelf and the floor is level in plate
 space. Gravity is the thing that is off (the view rotates the plumb and the water); the plates
@@ -1292,13 +1295,18 @@ B_STREAK_AVOID = ((60, 290),)
 B_CABINET_TIDE = ((24, 482), (618, 716), (984, 1424))
 
 
-def paint_view_b(rng, stage, lamp=True, objects=True):
-    """The bench plate; `lamp` and `objects` as paint_view_a."""
+def paint_view_b(rng, stage, lamp=True, objects=True, clear_tide=False):
+    """The bench plate; `lamp` and `objects` as paint_view_a. `clear_tide`: where the tide mark
+    stands behind or across the bench (bands 3, 4), it is a clear sea-glass water line, not the
+    off-white salt strip."""
     p = Pen(W, H, rng, PAPER)
     shell(p, stage)
     wet_zone(p, stage)
     streaks(p, stage, avoid=B_STREAK_AVOID)
-    tide_band(p, rng_for(591), stage)
+    water = clear_tide and stage in TIDE_Y and TIDE_Y[stage] > 624
+    # with `water` the salt strip goes to a discarded layer: it still draws its stroke widths
+    # from the plate's generator, so every other stroke stays exactly as approved
+    tide_band(p.layer() if water else p, rng_for(591), stage)
     if stage in (7, "sever"):
         op = 0.35 if stage == "sever" else 1.0
         brng = rng_for(596)
@@ -1310,14 +1318,21 @@ def paint_view_b(rng, stage, lamp=True, objects=True):
         lamp_pool(p, 724, 300, 700, 280, 0.18)
     if not objects:
         return p.done()
-    view_b_objects(p, stage, lamp)
+    view_b_objects(p, stage, lamp, water)
     return grade(p.done(), stage)
+
+
+def water_line(p, y, x0=-4, x1=W + 4):
+    """Clear painted water where a salt tide mark would stand: one flat sea-glass line at 60%."""
+    lay = p.layer()
+    lay.rect(x0, y + TIDE_H / 2 - 2, x1, y + TIDE_H / 2 + 2, SEAGLASS, None)
+    p.put(lay, 0.6)
 
 
 PENDANT_B = (490, 120)
 
 
-def view_b_objects(p, stage, lamp=True):
+def view_b_objects(p, stage, lamp=True, water=False):
     if lamp:
         pendant(p, PENDANT_B[0], PENDANT_B[1], stage != "sever")
     sample_cards(p)
@@ -1325,7 +1340,9 @@ def view_b_objects(p, stage, lamp=True):
     if stage in TIDE_Y and TIDE_Y[stage] > 624:
         trng = rng_for(592)
         for x0, x1 in B_CABINET_TIDE:
-            tide_band(p, trng, stage, x0, x1)
+            tide_band(p.layer() if water else p, trng, stage, x0, x1)
+    if water:
+        water_line(p, TIDE_Y[stage])
     register(p)
     easel(p)
     frame_tray(p)
@@ -2081,6 +2098,22 @@ def paint_c_sample(rng, kind):
     p.rect(x0 - 3, 4, x1 + 3, 22, TIMBER_HI, INK, 2.2, r=3)
     if kind == "n":
         stamp_box(p, x0 - 6, 60, x1 + 6, 88, step=6)
+    return p
+
+
+def paint_c_sample_tube(rng):
+    """The P13 sample: an opaque stoppered tube in brown stoneware glaze (it reads on the navy
+    stands and the brass pan), a navy stopper, a brass collar and a blank paper tag. All three
+    stands hold this one sprite: nothing on it says what it holds."""
+    p = Pen(90, 120, rng)
+    x0, x1 = 28, 62
+    p.rect(x0, 16, x1, 114, TIMBER, INK, 2.4, r=12)
+    p.line([(x0 + 6, 30), (x0 + 6, 102)], mix(TIMBER, PAPER, 0.4), 3)
+    p.line([(x1 - 6, 30), (x1 - 6, 104)], TIMBER_DK, 2)
+    p.rect(x0 - 1, 20, x1 + 1, 28, BRASS, INK, 1.8)
+    p.rect(x0 - 3, 4, x1 + 3, 22, STORM, INK, 2.2, r=3)
+    p.line([(x0 + 1, 10), (x1 - 1, 10)], STORM_HI, 1.4)
+    stamp_box(p, x0 - 4, 60, x1 + 4, 86, step=6)
     return p
 
 
@@ -2882,11 +2915,55 @@ def paint_water_lean():
     return out
 
 
+# datum_water_r3   band >= 3, view A: the sea stands flat at the DATUM. A hard surface line
+#     across the whole room flush under the brass rail (y 304-313: sea-glass, a paper sheen on
+#     top, a navy contour under), and below it a flat #5f8f86 wash at 45% over everything except
+#     the hotspot art (doors, basin, tank, socket, rack, plates, the turn plate), which the wash
+#     leaves out so it stays crisp and registered. The view lays the room under the wash again
+#     6 px to the right (R07_view DATUM_SHIFT) wherever this layer's alpha is not 0.
+DATUM_SURF = (304, 313)
+DATUM_WASH = (95, 143, 134)            # #5f8f86
+DATUM_WASH_ALPHA = 0.45
+
+
+def _hotspot_art_alpha():
+    """L mask (1x) of view A's hotspot art, painted alone: no conduit, lamp or floor rings."""
+    def run():
+        p = Pen(W, H, rng_for(0))
+        plate(p, 878, 270, 974, 296)
+        plumb_bracket(p, PLUMB_A[0], PLUMB_A[1])
+        return_door(p)
+        bolt_closed(p)
+        basin(p)
+        tank(p)
+        socket(p)
+        rack(p)
+        vault_door(p)
+        turn_plate(p)
+        return p.done().getchannel("A").point(lambda v: 255 if v > 128 else 0)
+    return _cached(("hotspot_art", "a"), run)
+
+
+def paint_datum_water():
+    below = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(below).rectangle((0, DATUM_SURF[1], W, H), fill=255)
+    below = ImageChops.subtract(below, _hotspot_art_alpha())
+    out = _alpha_layer(DATUM_WASH, _scale_mask(below, DATUM_WASH_ALPHA))
+    p = Pen(W, H, rng_for(930))
+    y0, y1 = DATUM_SURF
+    p.rect(-4, y0, W + 4, y1, SEA_LINE, None)
+    p.line([(-4, y0 + 1.2), (W + 4, y0 + 1.2)], PAPER_HI, 2.4)
+    p.line([(-4, y1 - 0.4), (W + 4, y1 - 0.4)], INK, 2.6)
+    out.alpha_composite(p.done())
+    return out
+
+
 STAGE_ASSETS = [  # name, painter: assets/stages/R07/<name>.png, RGBA, no grain
     ("b2_tidemark", lambda: paint_tidemark("a")),
     ("b2_tidemark_bench", lambda: paint_tidemark("b")),
     ("b4_lamp_pool", paint_lamp_pool),
     ("b4_water_lean", paint_water_lean),
+    ("datum_water_r3", paint_datum_water),
 ]
 
 
@@ -2907,6 +2984,8 @@ ASSETS = [  # name, seed index, painter, opaque, grain
     ("view_b_s6", 10, lambda r: paint_view_b(r, 6), True, True),
     ("view_b_s7", 10, lambda r: paint_view_b(r, 7), True, True),
     ("view_b_sever", 10, lambda r: paint_view_b(r, "sever"), True, True),
+    ("view_b_s3_v2", 10, lambda r: paint_view_b(r, 3, clear_tide=True), True, True),
+    ("view_b_s4_v2", 10, lambda r: paint_view_b(r, 4, clear_tide=True), True, True),
     ("a_tank_glass", 20, paint_a_tank_glass, False, False),
     ("a_reflect_three", 21, lambda r: paint_a_reflect(r, 3), False, False),
     ("a_reflect_two", 21, lambda r: paint_a_reflect(r, 2), False, False),
@@ -2964,6 +3043,7 @@ ASSETS = [  # name, seed index, painter, opaque, grain
     ("c_sample_n", 62, lambda r: paint_c_sample(r, "n"), False, False),
     ("c_sample_w", 63, lambda r: paint_c_sample(r, "w"), False, False),
     ("c_sample_f", 64, lambda r: paint_c_sample(r, "f"), False, False),
+    ("c_sample_tube", 75, paint_c_sample_tube, False, False),
     ("c_card", 65, paint_c_card, False, False),
     ("c_pin", 66, paint_c_pin, False, False),
     ("c_needle", 67, paint_c_needle, False, False),

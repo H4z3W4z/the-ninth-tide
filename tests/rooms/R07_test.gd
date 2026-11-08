@@ -20,7 +20,8 @@ const REF_TIP := {
 }
 ## A jar tipped to 90 degrees: where its surface lies against the room.
 const REF_DEG := {"A": -8.0, "B": 90.0, "C": 0.0}
-const REF_READ := {"N": [0, 3, 0], "W": [0, 0, 0], "F": [2, 2, 2]}
+## Only 27-11 (N) addressed to BELL reads anything; every other sample x name pair is flat.
+const REF_READ := {"N": [0, 3, 0], "W": [0, 0, 0], "F": [0, 0, 0]}
 const REF_SOLUTION := ["short", "pause", "long"]
 const REF_NAMES := ["BELL", "DOANE", "HART", "IVES", "LUSK", "PRYCE", "ROOK", "TULL"]
 const UNTESTED := " The socket's tag says UNTESTED. Tip it on the rack first."
@@ -28,7 +29,8 @@ const TAKEN := "The socket's taken. Jar C stays."
 const TAG := "A tag drops out of the slot: DATUM READING STABLE. STAIR PRESSURE TARGET: 2."
 const BEAM := "The beam's pinned. It needs stair pressure."
 const INCOMPLETE := "RECORD INCOMPLETE. Address it, release it, then record."
-const ENV := "Environmental. It doesn't answer to a name."
+const ADDRESSED := "Three drams. Unattended, it weighed nothing."
+const NO_CORR := "Nothing. NO CORRESPONDENCE."
 const FLAT_TRACE := "A flat trace. That name doesn't answer to it."
 const RECORDED := "Recorded. I'll leave it as it is."
 const KITCHEN := "I need her trace to compare. It's on the nail by the range."
@@ -84,6 +86,8 @@ func run_tests() -> void:
 	test_p1_lines()
 	test_p1_specimens()
 	test_p1_lean_sim()
+	test_p2_one_link()
+	test_p2_datum_water()
 	if _view_ready():
 		await view_checks(ROOM)
 		await test_view_scene()
@@ -339,10 +343,7 @@ func test_p13_exhaustive() -> void:
 				if step < 2:
 					want_line = INCOMPLETE
 					want_note = "RECORD INCOMPLETE."
-				elif s != "N":
-					want_line = ENV
-					want_note = "CONSTANT"
-				elif name != "BELL":
+				elif s != "N" or name != "BELL":
 					want_line = FLAT_TRACE
 					want_note = "NO CORRESPONDENCE"
 				if win:
@@ -351,7 +352,7 @@ func test_p13_exhaustive() -> void:
 				else:
 					check(says(ev) == want_line and r.balance_note == want_note, "%s: %s / %s (got %s / %s)" % [tag, want_line, want_note, says(ev), r.balance_note])
 					var cells := r.strip_cells()
-					var rd: Array = REF_READ[s] if (s != "N" or name == "BELL") else [0, 0, 0]
+					var rd: Array = REF_READ[s] if name == "BELL" else [0, 0, 0]
 					for k in 3:
 						var want := ("%d dr" % rd[k]) if k <= step else ""
 						check(cells[k] == want, "%s: cell %d %s (got %s)" % [tag, k, want, cells[k]])
@@ -359,12 +360,10 @@ func test_p13_exhaustive() -> void:
 					var want_addr := ""
 					if name == "":
 						want_addr = "ADDRESS wants a name in the holder. The register's along the bottom."
-					elif s != "N":
-						want_addr = ENV
-					elif name == "BELL":
-						want_addr = "Three drams. On an empty tube."
+					elif s == "N" and name == "BELL":
+						want_addr = ADDRESSED
 					else:
-						want_addr = "Nothing. NO CORRESPONDENCE."
+						want_addr = NO_CORR
 					check(addr_line == want_addr, "%s: address line %s (got %s)" % [tag, want_addr, addr_line])
 				if win:
 					for i in 2:
@@ -752,13 +751,13 @@ func test_notices() -> void:
 const REF_HINTS := {
 	"p10": ["The laboratory's three jars look alike at rest. The tilt rack tests them.",
 		"The card wants the brass: a surface that keeps the datum's level, whatever the jar does. Tip each one.",
-		"The reference card on the rack says which line to trust.",
+		"The TEST card draws three lines: gravity, jar, datum. Tip each jar and watch which line its water keeps.",
 		"Test all three. C stays parallel to the datum. Put C in the reference socket."],
 	"wait_p12": ["The laboratory has given the stair what it needs.", "The stair gate wants the socket's target: 2.",
 		"Take target 2 to the dry stair gate, through the chart room hatch."],
 	"p13": ["The balance in the laboratory compares samples against an empty tray.",
 		"Her work card from the kitchen carries a specimen number.",
-		"The sample cards by the balance give each sample's specimen number. One is hers, and her register card carries it too.",
+		"Nora's kitchen work card, by the range, is stamped with a specimen number. One tube carries it.",
 		"Put specimen 27-11 on the balance, address it as NORA BELL, release, then RECORD 0 / 3 / 0."],
 	"p14": ["The specimen frame wants a trace, a name and the measurement.",
 		"Nora's work card shows the shape of her breath. Match the sections to it. The register card gives the name; the balance gave the strip.",
@@ -898,7 +897,7 @@ func test_debug_jumps() -> void:
 		r.last_test = "A"
 		r.held = "short"
 		r.frame_miss = [1]
-		r.balance_note = "CONSTANT"
+		r.balance_note = "NO CORRESPONDENCE"
 		r.debug_jump(n)
 		var got := [g.tide(), g.flag("P10"), g.flag("P13"), g.flag("P14")]
 		check(JSON.stringify(got) == JSON.stringify(want[n]), "jump %d: %s (got %s)" % [n, want[n], got])
@@ -1305,27 +1304,134 @@ func test_p1_lines() -> void:
 
 func test_p1_specimens() -> void:
 	var visible := [R07Sim.SAMPLE_CARDS_LINE, R07Sim.OBSERVATIONS.sample_cards, R07Sim.OBSERVATIONS.nora_mass_trace,
-		R07Sim.OBSERVATIONS.register, R07Sim.STAMP_N]
+		R07Sim.OBSERVATIONS.register]
 	for s in R07Sim.SAMPLES:
 		visible.append(R07Sim.SAMPLE_LINES[s])
 		visible.append(R07Sim.SPECIMEN[s])
-		visible.append(R07Sim.CARD_CONTENTS[s])
 	for t in visible:
 		for pat in ["N-27", "W-27", "F-27", "Sample N", "Sample W", "Sample F", "sample N", " N,", " W,", " F,"]:
 			check(not str(t).contains(pat), "no sample letter in '%s' (%s)" % [t, pat])
-	check(R07Sim.STAMP_N == "SPECIMEN 27-11" and R07Sim.SPECIMEN.N == "27-11", "Nora's is 27-11")
-	check(R07Sim.OBSERVATIONS.register.ends_with("Only Nora Bell's also carries SPECIMEN 27-11."), "the register carries it")
+	check(R07Sim.SPECIMEN.N == "27-11", "Nora's is 27-11")
 	check(R07Sim.SAMPLE_ORDER == ["W", "N", "F"], "stands and cards in specimen order")
 	for i in R07Sim.SAMPLE_ORDER.size() - 1:
 		check(R07Sim.SPECIMEN[R07Sim.SAMPLE_ORDER[i]] < R07Sim.SPECIMEN[R07Sim.SAMPLE_ORDER[i + 1]], "ascending order")
 	# The solution item and its outcome are unchanged.
 	var g := balance_game()
 	var ev := play(g, ["smp_n"])
-	check(says(ev) == "Specimen 27-11. A stoppered tube. It looks empty.", "27-11 on the pan (got %s)" % says(ev))
+	check(says(ev) == "Specimen 27-11. A stoppered tube, opaque. Like the other two.", "27-11 on the pan (got %s)" % says(ev))
 	ev = play(g, ["reg_bell"])
-	check(says(ev).ends_with("and SPECIMEN 27-11."), "her register card carries 27-11 (got %s)" % says(ev))
+	check(says(ev) == "BELL, N. Cook and caretaker. No surviving personal effects. Stamped INDEXED 18.X.27.",
+		"her register card links her to no number (got %s)" % says(ev))
 	play(g, ["key_address", "key_release", "key_record"])
 	check(g.flag("P13") and g.has_item("nora_register_card") and r07(g).has_seen("nora_mass_trace"), "27-11 + BELL records")
+
+## P13 has one number-to-name link: Nora's kitchen work card (R05), stamped SPECIMEN 27-11.
+## The register cards all read alike, the three tubes are identical and opaque, and nothing in the
+## laboratory names a tube's contents.
+func test_p2_one_link() -> void:
+	var line := "INDEXED 18.X.27. No surviving personal effects."
+	check(R07Sim.OBSERVATIONS.register.ends_with("Every one is stamped INDEXED 18.X.27 and reads 'No surviving personal effects.'"),
+		"the register note ends on the shared stamp (got %s)" % R07Sim.OBSERVATIONS.register)
+	var texts := [R07Sim.OBSERVATIONS.register, R07Sim.OBSERVATIONS.register_bell, R07Sim.SAMPLE_CARDS_LINE,
+		R07Sim.OBSERVATIONS.sample_cards]
+	for s in R07Sim.SAMPLES:
+		texts.append(R07Sim.SAMPLE_LINES[s])
+	for n in R07Sim.NAMES:
+		var g := balance_game()
+		var said := says(g.dispatch("reg_" + n.to_lower()))
+		check(said == R07Sim.REGISTER[n] + " No surviving personal effects. Stamped INDEXED 18.X.27.",
+			"%s's card reads only %s (got %s)" % [n, line, said])
+		texts.append(said)
+	for t in texts:
+		check(not str(t).contains("SPECIMEN 27-") and not str(t).contains("Only Nora"),
+			"no number-to-name link in the lab: %s" % t)
+		for w in ["seawater", "SEAWATER", "stone", "STONE", "looks empty", "vial", "chip"]:
+			check(not str(t).contains(w), "no contents word '%s' in: %s" % [w, t])
+	# the three tubes are said alike, but for their numbers
+	var shapes := {}
+	for s in R07Sim.SAMPLES:
+		shapes[R07Sim.SAMPLE_LINES[s].replace(R07Sim.SPECIMEN[s], "#")] = true
+	check(shapes.size() == 1, "the three tubes are described identically (got %s)" % [shapes.keys()])
+	# R05's work card is the link
+	check(R05Sim.CARD_STAMP.ends_with("SPECIMEN " + R07Sim.SPECIMEN.N), "the kitchen work card carries 27-11")
+	# every sample x name pair except 27-11 + BELL is flat 0 / 0 / 0, at every step
+	for s in R07Sim.SAMPLES:
+		for n in R07Sim.NAMES:
+			var want: Array = [0, 3, 0] if (s == "N" and n == "BELL") else [0, 0, 0]
+			check(R07Sim.reading(s, n) == want, "%s x %s reads %s (got %s)" % [R07Sim.SPECIMEN[s], n, want, R07Sim.reading(s, n)])
+			var g := balance_game()
+			var ev := play(g, ["smp_" + s.to_lower(), "reg_" + n.to_lower(), "key_address", "key_release"])
+			var r := r07(g)
+			var cells: Array = r.strip_cells()
+			check(cells == ["%d dr" % want[0], "%d dr" % want[1], "%d dr" % want[2]],
+				"%s x %s prints %s (got %s)" % [R07Sim.SPECIMEN[s], n, want, cells])
+			if want == [0, 0, 0]:
+				check(r.balance_note == "NO CORRESPONDENCE", "%s x %s: NO CORRESPONDENCE" % [R07Sim.SPECIMEN[s], n])
+	# the hint ladder: before her work card is seen it starts at the kitchen (R05)
+	var h := balance_game()
+	var hr := r07(h)
+	check(hr.objective() == "p13", "the balance game is on P13")
+	h.state.notebook.erase("R05.nora_work_card")
+	check(not h.has_seen("R05", "nora_work_card"), "the fixture has not seen the work card")
+	if true:
+		check(hr.hint_line(0) == R07Sim.P13_UNSEEN_HINT, "unseen: tier 1 points at the kitchen (got %s)" % hr.hint_line(0))
+		for lvl in 3:
+			var l := hr.hint_line(lvl)
+			check(l.contains("kitchen"), "unseen: tier %d points at R05 (%s)" % [lvl + 1, l])
+		check(hr.hint_line(2) == "Nora's kitchen work card, by the range, is stamped with a specimen number. One tube carries it.",
+			"tier 3: the work card's stamp")
+		h.observe("R05", "nora_work_card")
+		check(h.has_seen("R05", "nora_work_card") and hr.hint_line(0) == R07Sim.HINTS.p13[0],
+			"seen: the ladder starts at the balance")
+
+## Band >= 3: the sea at the datum line; said once, on the first arrival at band 3 or above.
+func test_p2_datum_water() -> void:
+	for t in range(4, 10):
+		var g := game_at(t, ROOM)
+		var r := r07(g)
+		check(r.datum_flooded() == (r.band() >= 3), "tide %d band %d: datum water %s" % [t, r.band(), r.band() >= 3])
+	var s := game_at(9, ROOM)
+	s.finish("sever")
+	check(not r07(s).datum_flooded(), "sever drains the datum water")
+	check(R07Sim.DATUM_WATER_LINE == "The water's at the datum line. It stays there when I move. It isn't in the room. The room is in it.",
+		"the datum line")
+	# a later arrival at band 3: once, as a story line, after the notice
+	var g := game_at(5, "R05")
+	var r := r07(g)
+	var ev := g.dispatch("go:R07")
+	var k := -1
+	for i in ev.size():
+		if ev[i].type == "say" and ev[i].text == R07Sim.DATUM_WATER_LINE:
+			k = i
+	check(k >= 0 and bool(ev[k].get("story", false)) and r.has_seen("datum_water") and r.state.datum_water_said,
+		"band 3 arrival: the datum line (got %s)" % says(ev))
+	var nk := -1
+	for i in ev.size():
+		if ev[i].type == "say" and ev[i].text == R07Sim.NOTICE_LINES.tank_lag:
+			nk = i
+	check(k >= 0 and nk >= 0 and float(ev[k].delay) > float(ev[nk].delay), "after the tank notice")
+	g.dispatch("go:R05")
+	check(not says(g.dispatch("go:R07")).contains("datum line"), "said once")
+	g.dispatch("go:R05")
+	g.set_flag("P13")
+	g.set_flag("P14")
+	g.set_flag("P15")
+	check(not says(g.dispatch("go:R07")).contains("datum line"), "not again at a new band")
+	# a first visit at band 3 (debug fixture): after the arrival beat
+	var f := game_at(5, "R05")
+	f.state.visited.erase(ROOM)
+	ev = f.dispatch("go:R07")
+	check(says(ev).ends_with(R07Sim.DATUM_WATER_LINE), "first visit at band 3: the datum line closes the beat (got %s)" % says(ev))
+	# band 2: nothing
+	var b2 := game_at(4, "R05")
+	check(not says(b2.dispatch("go:R07")).contains("datum line") and not r07(b2).state.datum_water_said, "band 2: no datum line")
+	# saved and loaded
+	var lr := load_with({"datum_water_said": true})
+	check(lr.state.datum_water_said, "datum_water_said loads")
+	# the datum itself, flooded
+	var d := game_at(5, ROOM)
+	check(says(d.dispatch("datum_line")) == "The brass datum. The water's surface lies along it exactly, and doesn't move when I do.",
+		"the flooded datum line")
 
 func test_p1_lean_sim() -> void:
 	for t in range(4, 10):
@@ -1375,6 +1481,15 @@ func test_p1_view() -> void:
 			check(v._tex(id) != null, "%s loads" % id)
 			check(ResourceLoader.exists("res://assets/stages/R07/%s.png" % id), "%s is a stage file" % id)
 		check(v.TINT[r.band()] == 1.0, "band %d: ambient held at full" % r.band())
+		# P2: the datum water (band >= 3) and the bench plates without the salt strip (bands 3, 4)
+		check(v.datum_water_on() == (r.band() >= 3), "band %d: datum water %s" % [r.band(), r.band() >= 3])
+		check(v._tex("datum_water_r3") != null and ResourceLoader.exists("res://assets/stages/R07/datum_water_r3.png"),
+			"datum_water_r3 is a stage file")
+		r.local_view = "bench"
+		var want_plate: String = {3: "view_b_s3_v2", 4: "view_b_s4_v2"}.get(r.band(), "view_b" + v.stage_suffix())
+		check(v.plate_id() == want_plate and v._tex(want_plate) != null, "band %d: bench plate %s (got %s)" % [r.band(), want_plate, v.plate_id()])
+		r.local_view = "room"
+		check(v.plate_id() == "view_a" + v.stage_suffix(), "band %d: view A keeps its plate" % r.band())
 		# the water: band 4-6 every surface in the room leans 12 degrees toward the stair door
 		var deg := []
 		for j in R07Sim.JARS:
@@ -1401,6 +1516,7 @@ func test_p1_view() -> void:
 		if str(row[0]).begins_with("smp_"):
 			check(str(row[2]).begins_with("Specimen 27-"), "%s is labelled by number (%s)" % [row[0], row[2]])
 	check(v.label_for("smp_n") == "Specimen 27-11", "27-11 is the N sample")
+	check(v._tex("c_sample_tube") != null, "the one tube sprite loads")
 	scene.sim.finish("sever")
 	await process_frame
 	check(v.stage_overlays().is_empty(), "sever releases the overlays")

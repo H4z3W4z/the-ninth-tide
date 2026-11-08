@@ -432,12 +432,19 @@ func play_p11() -> void:
 	check(g.flag("P11"), "P11: the gate loop runs")
 	_qd("back")
 
-## R07 P13: the N sample addressed to BELL, released, recorded; her register card.
+## R07 P13: the tube whose number is on her kitchen work card (R05, the only number-to-name
+## link), addressed to BELL, released, recorded; her register card.
 func play_p13() -> void:
 	_qd("to_bench")
 	var ev := _qd("balance")
 	check(lab.beam_unlocked(), "P13: P12's stair pressure frees the beam")
-	for a in ["smp_n", "reg_bell", "key_address", "key_release", "key_record"]:
+	check(kitchen.has_seen("nora_work_card"), "P13: her work card was read in the kitchen")
+	var tube := ""
+	for s in R07Sim.SAMPLES:
+		if R05Sim.CARD_STAMP.ends_with("SPECIMEN " + R07Sim.SPECIMEN[s]):
+			tube = s
+	check(tube == "N", "P13: the work card's stamp names one tube, 27-11")
+	for a in ["smp_" + tube.to_lower(), "reg_bell", "key_address", "key_release", "key_record"]:
 		ev = _qd(a)
 	check(g.flag("P13") and g.has_item("nora_register_card"), "P13: her mass recorded; her card")
 	check(lab.has_seen("thumb"), "P13: the thumb in the felt")

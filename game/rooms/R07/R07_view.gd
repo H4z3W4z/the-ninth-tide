@@ -21,7 +21,16 @@ extends RoomView
 const DIR := "res://assets/rooms/R07/%s.png"
 ## Stage overlays (tools/art/rooms/R07.py "stage overlays"): dread while the puzzles are played.
 const STAGE_DIR := "res://assets/stages/R07/%s.png"
-const STAGE_IDS := ["b2_tidemark", "b2_tidemark_bench", "b4_lamp_pool", "b4_water_lean"]
+const STAGE_IDS := ["b2_tidemark", "b2_tidemark_bench", "b4_lamp_pool", "b4_water_lean", "datum_water_r3"]
+## Band >= 3, view A (R07Sim.datum_flooded()): the sea stands flat at the DATUM. Below the
+## surface (y >= DATUM_SURFACE_Y) the room is laid again DATUM_SHIFT px to the right and washed
+## sea-glass by datum_water_r3; where that PNG leaves the wash out (doors, tank, basin, socket,
+## rack, plates) the room's own pixels are put back, registered, and every hotspot drawn by the
+## view lies on top.
+const DATUM_SURFACE_Y := 304
+const DATUM_SHIFT := 6
+## View B plates whose cabinet tide mark is painted as clear water (tools/art/rooms/R07.py).
+const B_WATER_PLATES := {3: "view_b_s3_v2", 4: "view_b_s4_v2"}
 ## b2_tidemark's caustic bands (y 60-260) drift sideways this far, slowly; Motion off: still.
 const CAUSTIC_ROWS := 300.0
 const CAUSTIC_DRIFT := 5.0
@@ -369,6 +378,8 @@ func stage_suffix() -> String:
 	return "" if b <= 2 else "_s%d" % b
 
 func plate_id() -> String:
+	if _side() == "b" and not _sever() and B_WATER_PLATES.has(_band()):
+		return B_WATER_PLATES[_band()]
 	return ("view_b" if _side() == "b" else "view_a") + stage_suffix()
 
 func _p(key: String) -> bool:
@@ -1056,6 +1067,7 @@ func _draw_view_a(c: CanvasItem) -> void:
 	for id in deep_layers():
 		_full(c, id)
 	_draw_stage(c, "b4_water_lean")
+	_draw_datum_water(c)
 	# the tank: water, the lagging reflection, then the glass and frame over both
 	var tpoly := interior(TANK_C, TANK_IN.size / 2.0, 0.0)
 	var tr := 0.0 if r.tank_mode() == "pane" else _ripple()
@@ -1107,6 +1119,87 @@ func _draw_view_a(c: CanvasItem) -> void:
 	_on_plate(c, STAIR_TAG, "STAIR", 20)
 	_on_plate(c, RECORDS_TAG, "RECORDS", 20)
 	_draw_basin_water(c)
+
+## True while view A shows the sea standing at the datum (band >= 3, not after sever).
+func datum_water_on() -> bool:
+	return r.datum_flooded()
+
+## The view-A layers under the datum water, bottom to top, in _draw_view_a's order (all of
+## them still below y 300: only b2_tidemark's caustic rows above it move).
+func _datum_layers() -> Array:
+	var ids := [plate_id()]
+	var t := sea_tier()
+	if t >= 6:
+		ids.append("a_lamp_patch_s%d" % mini(_band(), 7))
+	for k in [2, 3, 4, 6, 7]:
+		if t >= k:
+			ids.append("a_sea_b%d" % k)
+	var stages := stage_overlays()
+	if "b2_tidemark" in stages:
+		ids.append("b2_tidemark")
+	ids.append_array(deep_layers())
+	if "b4_water_lean" in stages:
+		ids.append("b4_water_lean")
+	return ids
+
+var _datum_key := ""
+var _datum_tex: Texture2D = null
+
+func _draw_datum_water(c: CanvasItem) -> void:
+	if not datum_water_on():
+		return
+	var ids := _datum_layers()
+	var key := ",".join(ids)
+	if key != _datum_key:
+		_datum_key = key
+		_datum_tex = _compose_datum_water(ids)
+	if _datum_tex:
+		c.draw_texture(_datum_tex, Vector2(0, DATUM_SURFACE_Y))
+	else:
+		# no image access (headless): the wash and the surface alone, unshifted
+		_full(c, "datum_water_r3")
+
+## Below the surface: the layers flattened, shifted DATUM_SHIFT px where the wash falls, then
+## washed; the unwashed pixels (the hotspot art) stay as they are. Built once per stage.
+func _compose_datum_water(ids: Array) -> Texture2D:
+	var wt := _tex("datum_water_r3")
+	if wt == null:
+		return null
+	var area := Rect2i(0, DATUM_SURFACE_Y, int(SIZE.x), int(SIZE.y) - DATUM_SURFACE_Y)
+	var whole := Rect2i(Vector2i.ZERO, area.size)
+	var wash := _region(wt, area)
+	if wash == null:
+		return null
+	var below: Image = null
+	for id in ids:
+		var t := _tex(id)
+		if t == null:
+			continue
+		var im := _region(t, area)
+		if im == null:
+			return null
+		if below == null:
+			below = im
+		else:
+			below.blend_rect(im, whole, Vector2i.ZERO)
+	if below == null:
+		return null
+	var shifted := below.duplicate() as Image
+	shifted.blit_rect(below, Rect2i(0, 0, area.size.x - DATUM_SHIFT, area.size.y), Vector2i(DATUM_SHIFT, 0))
+	var out := below.duplicate() as Image
+	out.blit_rect_mask(shifted, wash, whole, Vector2i.ZERO)
+	out.blend_rect(wash, whole, Vector2i.ZERO)
+	return ImageTexture.create_from_image(out)
+
+## `area` of a texture as an RGBA8 image, or null when the texture has no readable image.
+static func _region(t: Texture2D, area: Rect2i) -> Image:
+	var im := t.get_image()
+	if im == null or im.is_empty():
+		return null
+	if im.is_compressed():
+		im.decompress()
+	im.convert(Image.FORMAT_RGBA8)
+	return im.get_region(area)
 
 ## The lab takes on water (tools/art/rooms/R07.py "the sea comes in"): the highest overlay tier
 ## due now, 0 for none. Bands are game.weather_band(); R07 opens at band 2. Sever releases it.
@@ -1273,12 +1366,11 @@ func _draw_view_b(c: CanvasItem) -> void:
 		var ia := clampf((fa - 0.66) / 0.34, 0.0, 1.0)
 		if ia > 0.0:
 			_inscription(c, ia)
-	# the sample cards: a specimen number and its contents; the readings are found on the balance
+	# the sample cards: a specimen number only; the readings are found on the balance
 	for k in 3:
 		var x0 := 60.0 + k * 76
 		var sm: String = R07Sim.SAMPLE_ORDER[k]
 		_ctext(c, R07Sim.SPECIMEN[sm], x0 + 34, 183, 16, INK, narrow)
-		_ctext(c, R07Sim.CARD_CONTENTS[sm], x0 + 34, 246, 13, BRUISE, narrow)
 	if not (p13 and not p14):
 		_on_plate(c, Rect2(180, 672, 100, 26), "REGISTER", 16)
 
@@ -1439,8 +1531,9 @@ func test_surface_deg(j: String) -> float:
 func _beam_end(sign_: float) -> Vector2:
 	return BEAM_PIVOT + Vector2(sign_ * BEAM_ARM, 0).rotated(deg_to_rad(beam_deg))
 
-func _sample_sprite(c: CanvasItem, s: String, bottom_centre: Vector2) -> void:
-	_sprite(c, "c_sample_" + s.to_lower(), bottom_centre - Vector2(45, 116))
+## Every sample is the same opaque stoppered tube: only its stand's number tells them apart.
+func _sample_sprite(c: CanvasItem, _s: String, bottom_centre: Vector2) -> void:
+	_sprite(c, "c_sample_tube", bottom_centre - Vector2(45, 116))
 
 func _draw_balance(c: CanvasItem) -> void:
 	var st: Dictionary = r.state
@@ -1499,8 +1592,7 @@ func _draw_sample_cards(c: CanvasItem) -> void:
 		var stamp := Rect2(cx - 37, 133, 74, 42)
 		c.draw_rect(stamp, PAPER_HI)
 		c.draw_rect(stamp, BRUISE, false, 2.0)
-		_ctext(c, "SPECIMEN", cx, 151, 14, BRUISE, narrow_reg)
-		_ctext(c, R07Sim.CARD_CONTENTS[sm], cx, 168, 14, BRUISE, narrow_reg)
+		_ctext(c, "SPECIMEN", cx, 159, 14, BRUISE, narrow_reg)
 
 func _draw_strip(c: CanvasItem) -> void:
 	var cells := r.strip_cells()
@@ -1539,9 +1631,6 @@ func _draw_register(c: CanvasItem) -> void:
 	y = _para(c, R07Sim.NO_EFFECTS, Vector2(slip.position.x + 14, y), 18, INK, slip.size.x - 28)
 	c.draw_string(narrow, Vector2(slip.position.x + 14, y + 2), R07Sim.STAMP_ALL, HORIZONTAL_ALIGNMENT_LEFT, -1, 16,
 		BRUISE)
-	if h == "BELL":
-		c.draw_string(narrow, Vector2(slip.position.x + 14, y + 22), R07Sim.STAMP_N, HORIZONTAL_ALIGNMENT_LEFT, -1, 16,
-			BRUISE)
 
 # --- c_frame ------------------------------------------------------------------------------
 func _trace_pts(shape: String, x0: float, x1: float, y_base: float, y_top: float) -> PackedVector2Array:
