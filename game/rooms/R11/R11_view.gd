@@ -183,6 +183,18 @@ const GLINT_PERIOD := 9.0
 const BELL_GLANCE_SETTLE := 0.5
 const BELL_GLANCE_TIME := 2.5
 const FINGER_FADE := 2.0
+## P12's standing water as a slab (assets/stages/R11/p12_water_slab.png): in the cut it is there
+## from the line "The water's standing up in the gateway" (2.2 s), behind the rising grille.
+const SLAB_AT := 2.2
+const SLAB_FADE := 0.6
+const WATER_SLAB := Rect2(556, 252, 338, 628)
+## Motion only: one pale band sliding down the slab's face, once per SHIMMER_PERIOD.
+const SHIMMER_PERIOD := 8.0
+## P24: the iron shutter over the NAME frame's glass (c_name_shutter, 300x220), dropping in
+## SHUTTER_DROP s and wound up in SHUTTER_LIFT s (Motion off: at once).
+const NAME_GLASS := Rect2(120, 670, 300, 220)
+const SHUTTER_DROP := 0.22
+const SHUTTER_LIFT := 0.45
 
 ## Late wrongness on the landings.
 const SPILL_BAND := 5        # gate landing: sea-glass light up out of the water onto the floor
@@ -204,9 +216,10 @@ const SFX_DB := {
 	"r11_salt_tick": -16.0, "r11_shelf_hush": -14.0, "r11_shoe_set": -9.0,
 	"r11_frame_mount": -10.0, "r11_frame_unmount": -11.0, "r11_bridge_seat": -9.0, "r11_copy_snap": -7.0,
 	"r11_preview_print": -10.0, "r11_access_lever": -8.0, "r11_door_bolts": -5.0, "r11_bridge_eject": -9.0,
-	"r11_door_swing": -7.0,
+	"r11_door_swing": -7.0, "r11_shutter_drop": -6.0, "r11_shutter_lift": -11.0, "r11_copy_out": -9.0,
 }
-const SFX_SOFT := ["r11_bolts_draw", "r11_bell_up", "r11_shoe_set", "r11_copy_snap", "r11_door_bolts"]
+const SFX_SOFT := ["r11_bolts_draw", "r11_bell_up", "r11_shoe_set", "r11_copy_snap", "r11_door_bolts",
+	"r11_shutter_drop"]
 
 const PALE := Color(0.93, 0.95, 0.97)
 const ENAMEL := Color8(226, 218, 196)
@@ -246,6 +259,7 @@ var bell_glance_t := 99.0
 var bell_glance_rect := Rect2()
 var finger_k := 1.0
 var finger_fading := false
+var shutter_k := 0.0       # how far the NAME shutter is down, 0..1
 
 func _ready() -> void:
 	_load_textures()
@@ -266,7 +280,8 @@ func _load_textures() -> void:
 		"cut_hand_a", "cut_hand_b", "c_gate", "c_wheel", "c_lever_up", "c_lever_down", "c_port_shutter",
 		"c_door", "c_access_up", "c_access_down", "c_copy_shut", "rec_frame", "rec_strip", "rec_card",
 		"rec_card_amended", "rec_bridge", "L1_glass_tilt", "L1_spill", "c_copy_smear",
-		"pane_slab", "pane_files", "bell_frozen", "stairwell_fill", "c_gauge_face", "L1_gauge_face"]
+		"pane_slab", "pane_files", "bell_frozen", "stairwell_fill", "c_gauge_face", "L1_gauge_face",
+		"c_name_shutter"]
 	for k in range(1, 6):
 		names.append("L1_tide_%d" % k)
 	for n in names:
@@ -275,6 +290,9 @@ func _load_textures() -> void:
 			var t := load(path) as Texture2D
 			if t:
 				textures[n] = t
+	var slab := load("res://assets/stages/R11/p12_water_slab.png") as Texture2D
+	if slab:
+		textures["p12_water_slab"] = slab
 
 func _tex(id: String) -> Texture2D:
 	return textures.get(id)
@@ -342,6 +360,7 @@ func tick(dt: float) -> void:
 	if finger_fading:
 		finger_k = minf(1.0, finger_k + dt / FINGER_FADE)
 		finger_fading = finger_k < 1.0
+	_tick_shutter(dt)
 	_tick_bell(dt)
 	_tick_audio(dt)
 	_apply_close_alpha()
@@ -405,6 +424,16 @@ func _tick_hold(dt: float) -> void:
 	if hold_t >= HOLD_TIME:
 		hold_id = ""
 		hold_t = -1.0
+
+## The NAME shutter follows the sim's name_shut(): a quick drop, a slower wind up; still at once.
+func _tick_shutter(dt: float) -> void:
+	var want := 1.0 if r11.name_shut() else 0.0
+	if not motion:
+		shutter_k = want
+	elif want > shutter_k:
+		shutter_k = minf(want, shutter_k + dt / SHUTTER_DROP)
+	else:
+		shutter_k = maxf(want, shutter_k - dt / SHUTTER_LIFT)
 
 func holding() -> bool:
 	return hold_id != ""
@@ -493,6 +522,7 @@ func apply_instantly() -> void:
 	bell_glance_t = 99.0
 	finger_k = 1.0
 	finger_fading = false
+	shutter_k = 1.0 if r11.name_shut() else 0.0
 	shade.color = _shade_color()
 	mixer.snap(audio_targets())
 	queue_redraw()
@@ -514,6 +544,7 @@ func reset_presentation() -> void:
 	bell_glance_t = 99.0
 	finger_k = 1.0
 	finger_fading = false
+	shutter_k = 1.0 if r11 and r11.name_shut() else 0.0
 
 func play_fx(id: String, e: Dictionary) -> void:
 	match id:
@@ -742,6 +773,8 @@ func _draw_l1() -> void:
 	if gm != "":
 		_plate(glass_plate(gm))
 		_draw_caustics()
+	if r11.water_slab():
+		_draw_water_slab(self)
 	# The shelves go over the glass: the pane is opaque inside the opening and would hide them.
 	if r11.shelves_shown():
 		_plate("L1_shelves")
@@ -771,6 +804,27 @@ func _draw_pane(open: bool) -> void:
 		_plate("pane_files")
 	else:
 		draw_texture(t, Vector2.ZERO)
+
+## The water standing up in the gateway as one slab, under the horizontal pane and the raised
+## grille. Static; with Motion on, one pale band slides slowly down its face.
+func _draw_water_slab(cv: CanvasItem, alpha := 1.0) -> void:
+	var t := _tex("p12_water_slab")
+	if t == null:
+		return
+	cv.draw_texture(t, Vector2.ZERO, Color(1, 1, 1, alpha))
+	var k := shimmer_k()
+	if k < 0.0:
+		return
+	var r := WATER_SLAB.grow(-6.0)
+	var y := r.position.y + 12.0 + (r.size.y - 40.0) * k
+	cv.draw_rect(Rect2(r.position.x, y, r.size.x, 22.0), Color(PALE, 0.10 * alpha))
+	cv.draw_rect(Rect2(r.position.x, y + 8.0, r.size.x, 4.0), Color(PALE, 0.16 * alpha))
+
+## Where the shimmer band is down the slab, 0..1, or -1 with Motion off (no shimmer).
+func shimmer_k() -> float:
+	if not motion:
+		return -1.0
+	return fmod(time, SHIMMER_PERIOD) / SHIMMER_PERIOD
 
 ## The standing water's plate: shallow, deep (band 4+), or deep with its plane tilted (band 7).
 func glass_plate(gm: String) -> String:
@@ -1392,8 +1446,16 @@ func _draw_grille_beat(cv: CanvasItem) -> void:
 	var n := r11.tide_lines()
 	if n > 0 and _tex("L1_tide_%d" % n):
 		cv.draw_texture(_tex("L1_tide_%d" % n), Vector2.ZERO)
-	if _tex("pane_slab"):
-		cv.draw_texture(_tex("pane_slab"), Vector2.ZERO)
+	var pane := _tex("pane_slab")
+	if pane:
+		cv.draw_texture(pane, Vector2.ZERO)
+	# From its line on, the water stands up behind the rising grille; the flat pane still
+	# crosses it (Motion: eased in over SLAB_FADE; still: there at once).
+	if cut_t >= SLAB_AT:
+		var a := clampf((cut_t - SLAB_AT) / SLAB_FADE, 0.0, 1.0) if motion else 1.0
+		_draw_water_slab(cv, a)
+		if pane:
+			cv.draw_texture_rect_region(pane, SLAB_BAND, SLAB_BAND)
 	var g := _tex("L1_grille")
 	var k := grille_rise()
 	if g and k < 1.0:
@@ -1427,6 +1489,8 @@ func _draw_door(cv: CanvasItem, in_cut: bool) -> void:
 		var it := r11.frame_item(f)
 		if it != "":
 			_rec(cv, it, Rect2(r.position.x + 10, r.position.y + 14, 300, 220), true)
+		if f == "NAME" and not in_cut:
+			_draw_name_shutter(cv)
 		# The frame's enamel label, over whatever is clipped in it.
 		var lab := Rect2(205, r.position.y + 2, 130, 24)
 		cv.draw_rect(lab, ENAMEL)
@@ -1469,18 +1533,46 @@ func _draw_door(cv: CanvasItem, in_cut: bool) -> void:
 	var pv := r11.door_preview()
 	if pv != "":
 		Ink.wrapped(cv, pv, PREVIEW_IN.position + Vector2(10, 36), 26, Ink.INK, PREVIEW_IN.size.x - 20, true, nf)
-	var dp := DOOR_PLATE_IN
-	_centered(cv, "INDEX ACCESS", Rect2(dp.position.x, dp.position.y, dp.size.x, 34), 30, Ink.INK)
-	cv.draw_line(Vector2(dp.position.x + 8, dp.position.y + 44), Vector2(dp.end.x - 8, dp.position.y + 44), Ink.STORM, 2.0)
-	var y := Ink.wrapped(cv, "A record is admitted when its frames agree.", dp.position + Vector2(0, 84), 21, Ink.INK, dp.size.x, true, nf)
-	y = Ink.wrapped(cv, "WITNESS: a person present.", Vector2(dp.position.x, y + 18), 21, Ink.INK, dp.size.x, true, nf)
-	Ink.wrapped(cv, "COPY: automatic acknowledgement.", Vector2(dp.position.x, y + 18), 21, Ink.INK, dp.size.x, true, nf)
+	_draw_door_plate(cv)
 	# The OPEN ACCESS lever.
 	var down := in_cut or access_t > 0.0 or r11.door_open()
 	var lt := _tex("c_access_down" if down else "c_access_up")
 	if lt:
 		cv.draw_texture(lt, ACCESS_AT)
 	_centered(cv, "OPEN ACCESS", Rect2(1196, 868, 170, 30), 22, Ink.PAPER)
+
+## The INDEX ACCESS plate: its title and the two ports' labels, nothing more. The door does not
+## explain what a witness or a copy does; the plan's procedure and the witness test do.
+func _draw_door_plate(cv: CanvasItem) -> void:
+	var dp := DOOR_PLATE_IN
+	_centered(cv, "INDEX ACCESS", Rect2(dp.position.x, dp.position.y, dp.size.x, 34), 30, Ink.INK)
+	cv.draw_line(Vector2(dp.position.x + 8, dp.position.y + 44), Vector2(dp.end.x - 8, dp.position.y + 44), Ink.STORM, 2.0)
+	var cx := dp.get_center().x
+	# WITNESS, under its hollow circle (the socket's own mark).
+	cv.draw_arc(Vector2(cx, dp.position.y + 120), 16.0, 0, TAU, 32, Ink.INK, 3.0)
+	_centered(cv, "WITNESS", Rect2(dp.position.x, dp.position.y + 146, dp.size.x, 34), 28, Ink.INK)
+	cv.draw_line(Vector2(dp.position.x + 40, dp.position.y + 214), Vector2(dp.end.x - 40, dp.position.y + 214), Color(Ink.STORM, 0.6), 1.5)
+	_centered(cv, "COPY", Rect2(dp.position.x, dp.position.y + 244, dp.size.x, 34), 28, Ink.INK)
+
+## The iron shutter over the NAME frame's glass, coming down from its top edge as shutter_k
+## rises: its lower part shows first. Fully down it carries a stencilled CLOSED.
+func _draw_name_shutter(cv: CanvasItem) -> void:
+	if shutter_k <= 0.0:
+		return
+	var g := NAME_GLASS
+	var h := g.size.y * shutter_k
+	var t := _tex("c_name_shutter")
+	if t:
+		cv.draw_texture_rect_region(t, Rect2(g.position, Vector2(g.size.x, h)),
+			Rect2(0, g.size.y - h, g.size.x, h))
+	else:
+		cv.draw_rect(Rect2(g.position, Vector2(g.size.x, h)), Ink.STORM)
+		cv.draw_rect(Rect2(g.position, Vector2(g.size.x, h)), Ink.INK, false, 3.0)
+	if shutter_k >= 1.0:
+		var plate := Rect2(g.position.x + 70, g.position.y + 84, 160, 44)
+		cv.draw_rect(plate, ENAMEL)
+		cv.draw_rect(plate, Ink.INK, false, 2.0)
+		_centered(cv, "CLOSED", plate, 30, Ink.INK)
 
 func _highlight(cv: CanvasItem, r: Rect2) -> void:
 	var pulse := 0.75 + 0.25 * sin(time * 3.0) if motion else 1.0

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """R11 Dry Stair painter (The Ninth Tide).
 
-Writes, and only writes, assets/rooms/R11/*.png:
+Writes, and only writes, assets/rooms/R11/*.png (and the one stage overlay named below):
 
   L1_base                         gate landing plate (1448x1086 opaque): sage plaster over a navy
                                   dado, an amber bulkhead lamp, the iron
@@ -26,6 +26,12 @@ Writes, and only writes, assets/rooms/R11/*.png:
   c_gate (+ c_wheel, c_lever_up/down, c_port_shutter, plate_blank)
   c_door (+ c_access_up/down, c_copy_shut, c_copy_smear)
   rec_frame, rec_strip, rec_card, rec_card_amended, rec_bridge   record sprites
+  c_name_shutter                  P24: the iron shutter that drops over the NAME frame's glass
+                                  when the door refuses a finished record (300x220)
+
+and, as a stage overlay, assets/stages/R11/p12_water_slab.png (OUT_DIRS): after P12, the water
+standing up in the gateway as one vertical slab, flat sea-glass over storm navy inside a hard
+navy contour, its flat top standing clear of the lintel.
 
 Flat front elevation, approved palette, navy ink contours, matte colour, a low seeded paper
 grain. No text, numerals, symbols or diagrams: every placard, plate, flag window, gauge face
@@ -48,6 +54,8 @@ from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageOp
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 OUT = os.path.join(ROOT, "assets", "rooms", "R11")
+## Assets written somewhere other than OUT: {name: directory}.
+OUT_DIRS = {"p12_water_slab": os.path.join(ROOT, "assets", "stages", "R11")}
 W, H = 1448, 1086
 SS = 2                      # supersampling for every painted shape
 SEED = 1931_11_00
@@ -299,14 +307,15 @@ def grain(im, rng, amp=5, mottle=5, speck=10):
 
 
 def save(im, name, opaque):
-    os.makedirs(OUT, exist_ok=True)
+    out = OUT_DIRS.get(name, OUT)
+    os.makedirs(out, exist_ok=True)
     if opaque:
         im = im.convert("RGB")
     else:
         im = im.convert("RGBA")
         a = im.getchannel("A")
         im.paste((0, 0, 0, 0), mask=a.point(lambda v: 255 if v == 0 else 0))
-    path = os.path.join(OUT, name + ".png")
+    path = os.path.join(out, name + ".png")
     im.save(path, optimize=False, compress_level=9)
     print("  wrote", os.path.relpath(path, ROOT), im.size, im.mode)
 
@@ -2445,6 +2454,66 @@ def paint_L1_gauge_face(rng):
     return _gauge_face(200, 86, 64, 80, 3.4, 72, 1.4, (63, 132, 137, 158), 3.4)
 
 
+# ----------------------------------------------------------------------------- p1 overlays
+WATER_SLAB = (556, 252, 894, 880)   # the slab standing in OPEN: its top stands clear of the lintel
+
+
+def paint_water_slab(rng):
+    """After P12: the water in the gateway is standing up. One vertical slab, flat to the floor,
+    its top a ruled flat line in mid-air well under the lintel. Matte sea-glass above, storm navy
+    below (two flat zones and one hard step, no gradient), translucent enough that the stair
+    reads faintly through it, inside a hard navy contour. A pale meniscus line under the top
+    contour, two ruled light streaks, a few specks held perfectly still."""
+    p = Pen(W, H, rng)
+    x0, y0, x1, y1 = WATER_SLAB
+    step = 600
+    body = p.layer()
+    body.rect(x0, y0, x1, step, SEA_SAT, None)
+    body.rect(x0, step, x1, y1, mix(STORM, SEA_DEEP, 0.25), None)
+    # the step between the zones: a thin darker band, ruled, as if the slab had strata
+    body.rect(x0, step - 6, x1, step, mix(SEA_DEEP, STORM, 0.5), None)
+    p.put(body, 0.8)
+    # the stair behind, faintly, as ruled navy edges through the body
+    st = p.layer()
+    y = y0 + 34.0
+    while y < y1 - 20:
+        st.line([(x0 + 8, y), (x1 - 8, y)], mix(STORM_DK, INK, 0.4), 2.0)
+        y += 45.0
+    p.put(st, 0.28)
+    # light in the glass: two ruled vertical streaks and a side sheen
+    lt = p.layer()
+    lt.rect(x0 + 62, y0 + 18, x0 + 70, y1 - 30, mix(SEAGLASS_HI, COLD, 0.55), None)
+    lt.rect(x0 + 92, y0 + 40, x0 + 95, step - 30, mix(SEAGLASS_HI, COLD, 0.4), None)
+    lt.rect(x1 - 40, y0 + 12, x1 - 34, y1 - 12, mix(SEAGLASS_HI, SEA_SAT, 0.4), None)
+    p.put(lt, 0.7)
+    motes(p, rng_for(330), (x0 + 20, y0 + 60, x1 - 20, y1 - 40), 6)
+    # the flat top: a hard bright meniscus line in mid-air, under the contour
+    p.rect(x0 + 2, y0 + 2, x1 - 2, y0 + 8, (244, 250, 247), None)
+    p.line([(x0 + 2, y0 + 9.5), (x1 - 2, y0 + 9.5)], mix(SEA_DEEP, INK, 0.5), 1.4)
+    # the contour: hard navy all the way round, heavier than any other line in the gateway
+    p.rect(x0, y0, x1, y1, None, INK, 5.0)
+    return p
+
+
+def paint_name_shutter(rng):
+    """The iron shutter over the NAME frame's glass: flat storm-navy slats in a riveted plate,
+    a brass bottom lip. The view stencils its word."""
+    w, h = 300, 220
+    p = Pen(w, h, rng)
+    p.rect(1, 1, w - 1, h - 1, STORM, INK, 3.4)
+    y = 14.0
+    while y < h - 30:
+        p.rect(8, y, w - 8, y + 20, mix(STORM, STORM_HI, 0.35), INK, 1.6)
+        p.line([(12, y + 3), (w - 12, y + 3)], STORM_HI, 1.2)
+        y += 26.0
+    p.rect(1, h - 24, w - 1, h - 1, BRASS, INK, 3.0)
+    p.line([(6, h - 20), (w - 6, h - 20)], BRASS_HI, 1.6)
+    for x in (14, w - 14):
+        for yy in (10, h - 34):
+            p.ell(x, yy, 3.4, 3.4, IRON_HI, INK, 1.3)
+    return p
+
+
 # ----------------------------------------------------------------------------- registry
 
 ASSETS = [  # name, seed index, painter, opaque, grain
@@ -2497,6 +2566,9 @@ ASSETS = [  # name, seed index, painter, opaque, grain
     ("bell_frozen", 28, paint_bell_frozen, False, False),
     ("stairwell_fill", 29, paint_stairwell_fill, False, False),
     ("c_gauge_face", 55, paint_c_gauge_face, False, False),
+    # p1 overlays (new files)
+    ("p12_water_slab", 16, paint_water_slab, False, False),
+    ("c_name_shutter", 65, paint_name_shutter, False, False),
 ]
 
 

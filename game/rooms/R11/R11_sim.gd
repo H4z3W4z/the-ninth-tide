@@ -93,6 +93,16 @@ const WANT_LINES := {
 	"NAME": "The NAME frame wants her name.",
 }
 const NOTE_OPEN := "RECORD VALID. RECORD OPEN."
+## Her register card as first printed, in NAME: the door reads a finished record and drops a
+## shutter over the frame. Taking the card out lifts it again; nothing is lost.
+const NOTE_CLOSED := "RECORD CLOSED. ACCESS REFUSED."
+const CLOSED_LINE := "RECORD CLOSED. ACCESS REFUSED. A shutter drops over her name."
+## The door's labels, and nothing else: it does not explain itself.
+const DOOR_PLATE_LINE := "INDEX ACCESS. Two ports, labelled: WITNESS. COPY."
+## When the door first stands ready and she has no unamended card (R06's P22 turns hers into the
+## amended one), the COPY port puts one out: a finished copy, which the door will refuse.
+const COPY_OUT_LINES := ["Something slides out of the COPY port. A register card.",
+	"Hers. As it was printed: 'No surviving personal effects.' Nobody asked it to make one."]
 const GLANCE_DOOR := [320, 450, 280, 430]
 
 # --- escalation ------------------------------------------------------------------------------
@@ -151,6 +161,8 @@ const OBSERVATIONS := {
 	"lower_door": "The lower door: three glazed frames BODY, PLACE and NAME, a socket under a hollow circle marked WITNESS, a port stamped COPY: AUTOMATIC, and a lever, OPEN ACCESS.",
 	"copy_port": "The COPY port is sprung open. It is the only thing on the door that seems to want something.",
 	"copy_refusal": "With anything in COPY the door prints WOULD FINALIZE SUBJECT and the lever locks.",
+	"copy_card": "The COPY port put out her register card as it was first printed: 'No surviving personal effects.' A finished copy. Nobody asked for it.",
+	"record_closed": "Her unamended card in NAME: RECORD CLOSED. ACCESS REFUSED. A shutter dropped over the frame, and lifted when I took the card out.",
 	"chamber_open": "The chamber door opened for a record that is valid but not finished.",
 	"finger_marks": "The far side of the lower door, the side no one could reach: worn finger marks, many hands, at the height of someone seated, reaching up.",
 }
@@ -162,42 +174,52 @@ const OBJECTIVES := {
 	"p24": "Open the lower door with a record that can't close.",
 	"done": "The lower door is open. The chamber is below.",
 }
+## Four tiers each (hint_tiers()): where to look, what relates to what, the evidence to read
+## again, and the explicit solution.
 const HINTS := {
 	"explore": [
 		"The gate landing: the steps, the water, the gate and its plates.",
 		"The gate's gauge is dead. Something elsewhere in the station has to feed this line.",
+		"The gauge has four ticks and no numbers. Whatever this gate wants is written somewhere else.",
 		"Nothing opens here yet. Look at the gate, then go where the station's power is.",
 	],
 	"wait_power": [
 		"The stair gate is waiting on the station.",
 		"It needs pressure from the machine room and a reference from the laboratory.",
+		"The gauge's needle is dead, and the face has no target of its own.",
 		"Route the pump to the gate in the machine room, and seat the right jar in the laboratory.",
 	],
 	"p12": [
 		"The gate on the dry stair needs pressure and a landing.",
 		"The laboratory gave a pressure target. The plan marks real landings with a matching pair of brackets.",
+		"My notebook has the laboratory's datum target, and the plan's landing marks: one bracket above, its match below.",
 		"Pressure 2. Bracket-1 plate in UPPER, its closing bracket in LOWER. Pull OPEN.",
 	],
 	"wait_door": [
 		"The lower door wants records.",
 		"Three frames and a witness. The chart room plan shows the procedure.",
+		"Her records are in my notebook: body, place, name. The name isn't ready yet.",
 		"Nothing to mount yet. Her records aren't ready.",
 	],
 	"p24": [
 		"The lower door has three frames and a socket.",
 		"Mount Nora's three records, the amended card among them, and use the witness bridge. Leave the automatic port alone.",
+		"One of her NAME cards is finished. One isn't.",
 		"Frame to BODY, strip to PLACE, amended card to NAME, bridge to WITNESS, COPY empty, OPEN ACCESS.",
 	],
 	"done": [
 		"The chamber's below. The lower door is open.",
 		"The chamber's below. The lower door is open.",
 		"The chamber's below. The lower door is open.",
+		"The chamber's below. The lower door is open.",
 	],
 }
+const HINT_TIERS := 4
 ## R11 hands out no items of its own.
 const ITEMS := {}
 
-const SAVED_BOOLS := ["p12_complete", "false_seen", "dead_wheel_said", "p24_complete", "plane_touched"]
+const SAVED_BOOLS := ["p12_complete", "false_seen", "dead_wheel_said", "p24_complete", "plane_touched",
+	"original_kept"]
 
 ## Transient, never saved: which landing is on show, and what the view highlights after the
 ## last action. _clear_transient() resets all but `landing`.
@@ -208,6 +230,9 @@ var door_note := ""
 ## The preview strip has printed since the close-up opened: from then on it stays live.
 var preview_live := false
 var frame_results := {"BODY": "", "PLACE": "", "NAME": ""}
+## Where the unamended card sat in the loaded inventory (load_state), so reconcile() can put it
+## back in its place after R06's reconcile files it under the amended one. -1: not held.
+var _original_at := -1
 
 func initial_state() -> Dictionary:
 	return {
@@ -215,10 +240,31 @@ func initial_state() -> Dictionary:
 		"dead_wheel_said": false, "p24_complete": false,
 		"frames": {"BODY": "", "PLACE": "", "NAME": ""}, "witness": "", "copy": "",
 		"plane_touched": false, "notices": [],
+		# She has been offered the unamended card at the live door (kept from then on).
+		"original_kept": false,
 	}
 
 func is_closeup(v := local_view) -> bool:
 	return v in CLOSEUPS
+
+## The hint ladder's depth: four tiers per objective (HINTS).
+func hint_tiers() -> int:
+	return HINT_TIERS
+
+func hint_line(level: int) -> String:
+	var ladder: Array = HINTS.get(objective(), [])
+	if ladder.is_empty():
+		return super(level)
+	return ladder[clampi(_hint_tier(level), 0, ladder.size() - 1)]
+
+## The tier to say for `level`. A core that clamps every ladder at three tiers asks for level 2
+## again on the fourth ask, with its saved level already at 3: read that, so the fourth tier
+## (the solution) is still reached. A core that honours hint_tiers() passes the saved level.
+func _hint_tier(level: int) -> int:
+	var h = game.state.get("hint", {})
+	if game.state.get("room", "") == ID and h is Dictionary and str(h.get("for", "")) == ID + ":" + objective():
+		return maxi(level, int(h.get("level", 0)))
+	return level
 
 func objective() -> String:
 	_sync()
@@ -329,6 +375,15 @@ func port_view() -> String:
 	if gate_note.l == "none":
 		return "false"
 	return ""
+
+## The shutter over the NAME frame: down while the door has refused the unamended card in it.
+func name_shut() -> bool:
+	return not state.p24_complete and door_note == NOTE_CLOSED
+
+## The standing water in the gateway reads as a slab (assets/stages/R11/p12_water_slab.png): from
+## P12 on, on the gate landing.
+func water_slab() -> bool:
+	return state.p12_complete
 
 func door_preview() -> String:
 	if door_note != "":
@@ -606,6 +661,7 @@ func _l2(action: String, ev: Array) -> void:
 					_say(ev, "Three frames and a witness. The plan's procedure, in iron.")
 				else:
 					_say(ev, "Her three records. The bridge. And the port I leave alone.")
+					_offer_original(ev)
 			_observe("lower_door")
 			_observe("copy_port")
 
@@ -763,9 +819,41 @@ func _open_gate(ev: Array) -> void:
 # ---------------------------------------------------------------------------------------------
 func _door(action: String, ev: Array) -> void:
 	var before := _mount_key()
+	var shut := name_shut()
 	_door_action(action, ev)
 	if _mount_key() != before:
 		_refresh_preview()
+	_shutter_moved(shut, ev)
+
+## The NAME shutter drops when the door refuses a finished record, and lifts when the record is
+## no longer what it would read: a sound and an fx for the view's own timing.
+func _shutter_moved(was: bool, ev: Array) -> void:
+	var now := name_shut()
+	if now == was:
+		return
+	_sfx(ev, "r11_shutter_drop" if now else "r11_shutter_lift", 0.25 if now else 0.0)
+	_fx(ev, "name_shutter", {"down": now})
+	if now:
+		_observe("record_closed")
+
+## The live door, the first time she stands at it: if she has no unamended card of her own,
+## the COPY port puts one out. Once only; she keeps it (reconcile and _sync see to that).
+func _offer_original(ev: Array) -> void:
+	if state.original_kept or state.p24_complete or not door_live():
+		return
+	state.original_kept = true
+	if _original_held():
+		return
+	game.give(COMPLETE_CARD, ev)
+	_sfx(ev, "r11_copy_out", 0.6)
+	_say(ev, COPY_OUT_LINES[0], 0.8, true)
+	_say(ev, COPY_OUT_LINES[1], 3.0, true)
+	_observe("copy_card")
+
+## The unamended card is hers somewhere: in hand, on the door, or filed.
+func _original_held() -> bool:
+	return game.has_item(COMPLETE_CARD) or COMPLETE_CARD in _mounted_items() \
+		or COMPLETE_CARD in game.state.get("retired", [])
 
 ## The door's mounts, as one comparable value.
 func _mount_key() -> String:
@@ -799,7 +887,7 @@ func _door_action(action: String, ev: Array) -> void:
 			_refresh_preview()
 			_say(ev, door_note if door_note != "" else "Blank.")
 		"door_plate":
-			_say(ev, "INDEX ACCESS. A record is admitted when its frames agree. Witness: a person present. Copy: automatic acknowledgement.")
+			_say(ev, DOOR_PLATE_LINE)
 		"lever_access":
 			_access(ev)
 
@@ -839,6 +927,8 @@ func door_frame_results() -> Dictionary:
 		var it: String = state.frames[f]
 		if it == "":
 			out[f] = "EMPTY"
+		elif it == COMPLETE_CARD and f == "NAME":
+			out[f] = "RECORD CLOSED"
 		elif RECORD_CATEGORY.get(it, "") == f:
 			out[f] = "ACCEPTED"
 		else:
@@ -854,6 +944,8 @@ func door_verdict() -> Array:
 	for f in FRAMES:
 		if state.frames[f] == "":
 			empty.append(f)
+	if state.frames.NAME == COMPLETE_CARD:
+		return [NOTE_CLOSED, CLOSED_LINE]
 	if not empty.is_empty():
 		return ["RECORD INCOMPLETE: " + ", ".join(empty), "Incomplete. Every frame wants a record."]
 	for f in FRAMES:
@@ -861,9 +953,6 @@ func door_verdict() -> Array:
 			return ["%s FRAME: NOT A %s RECORD" % [f, f], WANT_LINES[f]]
 	if state.witness == "":
 		return ["NO WITNESS. RECORD WILL CLOSE.", "Nothing in the witness socket. It would close on its own."]
-	if state.frames.NAME == COMPLETE_CARD:
-		return ["RECORD COMPLETE. ACCESS DENIED TO COMPLETE RECORDS.",
-			"RECORD COMPLETE. ACCESS DENIED TO COMPLETE RECORDS. It won't open for a finished record."]
 	return []
 
 ## The preview strip stays live: once it has printed, every change to the door's mounts
@@ -947,9 +1036,11 @@ func use_item(item: String, target: String, ev: Array) -> bool:
 
 func _door_item(item: String, target: String, ev: Array) -> bool:
 	var before := _mount_key()
+	var shut := name_shut()
 	var used := _door_item_use(item, target, ev)
 	if _mount_key() != before:
 		_refresh_preview()
+	_shutter_moved(shut, ev)
 	return used
 
 func _door_item_use(item: String, target: String, ev: Array) -> bool:
@@ -973,6 +1064,7 @@ func _door_item_use(item: String, target: String, ev: Array) -> bool:
 		local_view = "c_chamber_door"
 		landing = 2
 		_say(ev, "It goes in a frame, or the socket.")
+		_offer_original(ev)
 		return true
 	if FRAME_ACTIONS.has(target):
 		var f: String = FRAME_ACTIONS[target]
@@ -1030,6 +1122,17 @@ func _sync() -> void:
 		_clear_transient()
 	if game.flag("P24") and not state.p24_complete:
 		_set_p24_done()
+	_keep_original()
+
+## Once the door has offered it, the unamended card stays hers: R06 files the original under the
+## amended card whenever it reconciles, so put it back, where it sat in a loaded inventory.
+func _keep_original() -> void:
+	if not state.original_kept or _original_held():
+		return
+	if _original_at >= 0 and _original_at <= game.state.inventory.size():
+		game.state.inventory.insert(_original_at, COMPLETE_CARD)
+	else:
+		game.give(COMPLETE_CARD)
 
 func _clear_transient() -> void:
 	held_plate = ""
@@ -1041,6 +1144,8 @@ func _clear_transient() -> void:
 func load_state(d: Variant) -> void:
 	state = initial_state()
 	_clear_transient()
+	# The core restores the inventory before the rooms load: note the card's place in it.
+	_original_at = game.state.inventory.find(COMPLETE_CARD) if game != null else -1
 	if d is Dictionary:
 		for key in SAVED_BOOLS:
 			if d.get(key) is bool:
@@ -1101,6 +1206,7 @@ func _load_mounts(d: Dictionary) -> void:
 
 func reconcile() -> void:
 	_sync()
+	_original_at = -1
 	game.set_flag("P12", state.p12_complete)
 	game.set_flag("P24", state.p24_complete)
 	# An item on the door is not also in her hand. (R06's reconcile re-gives the amended card
@@ -1138,6 +1244,8 @@ func debug_prepare(t: int) -> void:
 		_mark_notice("n_bell")
 	if t >= 9:
 		_set_p24_done()
+		# The COPY port's card is not handed out here: the debug tides keep R06's and R07's
+		# "only the amended card" inventory at tide IX (their tests hold it).
 		_observe_all(["lower_door", "copy_port", "chamber_open", "finger_marks"])
 		_mark_notice("n_finger")
 		if not game.has_item(BRIDGE):
@@ -1188,6 +1296,7 @@ func debug_jump(n: int) -> void:
 			game.take(BRIDGE)
 			state.witness = BRIDGE
 			state.copy = ""
+			state.original_kept = true   # she has stood at the live door; reconcile hands the card
 			landing = 2
 		9:
 			game.debug_tide(9, ID)

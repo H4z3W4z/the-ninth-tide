@@ -770,6 +770,40 @@ def r11_door_swing() -> list[float]:
     return lowpass(out, 2600)
 
 
+def r11_shutter_drop() -> list[float]:
+    """P24, the unamended card refused: an iron shutter drops down its runners over the NAME
+    frame and lands. Sudden: the landing's attack is 8 ms."""
+    rnd = seed(45)
+    out = silence(0.9)
+    mix(out, swish(rnd, 0.2, 500, 2600, (0.8, 0.6)), 0.0, 0.35)          # down the runners
+    mix(out, thock(rnd, 0.6, 74, 0.11, SUDDEN_ATTACK, 450, body=0.8), 0.19, 1.0)
+    mix(out, click(rnd, 0.5, SUDDEN_ATTACK, [(612, 0.5, 0.12), (1390, 0.3, 0.06), (2870, 0.12, 0.02)],
+                   noise=0.3, noise_lp=4000), 0.19, 0.7)
+    return lowpass(out, 4200)
+
+
+def r11_shutter_lift() -> list[float]:
+    """The record taken out of NAME: the shutter is wound back up, a few pawl ticks and a slide."""
+    rnd = seed(46)
+    out = silence(0.8)
+    mix(out, swish(rnd, 0.45, 400, 2200, (0.4, 0.6)), 0.0, 0.3)
+    for k, at in enumerate((0.05, 0.16, 0.27, 0.38)):
+        mix(out, click(rnd, 0.06, 0.0015, [(2100 + 120 * k, 0.5, 0.008), (840, 0.3, 0.015)], noise=0.25), at, 0.35)
+    mix(out, brass_stop(rnd, 120, 900, 0.6), 0.5, 0.45)
+    return out
+
+
+def r11_copy_out() -> list[float]:
+    """The COPY port puts out a card nobody asked for: a dry paper slide over brass, a tick."""
+    rnd = seed(47)
+    out = silence(1.0)
+    mix(out, click(rnd, 0.08, 0.0015, [(2900, 0.5, 0.01), (4700, 0.2, 0.005)], noise=0.3), 0.0, 0.4)
+    mix(out, swish(rnd, 0.6, 2200, 7000, (0.35, 0.7)), 0.05, 0.55)
+    mix(out, swish(rnd, 0.3, 300, 1200, (0.5, 0.5)), 0.12, 0.15)
+    mix(out, click(rnd, 0.1, 0.002, [(1900, 0.4, 0.012)], noise=0.2), 0.66, 0.3)   # it stops at the lip
+    return out
+
+
 # ---------------------------------------------------------------- build
 
 def write_loop(name: str, xs: list[float], rms_db: float = LOOP_RMS_DB, fade: float = 1.0,
@@ -807,9 +841,12 @@ SHOTS = [
     ("r11_copy_snap", r11_copy_snap), ("r11_preview_print", r11_preview_print),
     ("r11_access_lever", r11_access_lever), ("r11_door_bolts", r11_door_bolts),
     ("r11_bridge_eject", r11_bridge_eject), ("r11_door_swing", r11_door_swing),
+    ("r11_shutter_drop", r11_shutter_drop), ("r11_shutter_lift", r11_shutter_lift),
+    ("r11_copy_out", r11_copy_out),
 ]
 
-SUDDEN = {"r11_bolts_draw", "r11_bell_up", "r11_shoe_set", "r11_copy_snap", "r11_door_bolts"}
+SUDDEN = {"r11_bolts_draw", "r11_bell_up", "r11_shoe_set", "r11_copy_snap", "r11_door_bolts",
+          "r11_shutter_drop"}
 SWELLS = {"r11_bell_up", "r11_glass_flex", "r11_glass_pass", "r11_false_water", "r11_shelf_hush",
           "r11_door_swing"}
 
