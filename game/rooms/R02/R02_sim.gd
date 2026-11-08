@@ -72,6 +72,12 @@ const REPORT_TIME_MISSES := {
 	"1933": "One minute out. He never was.",
 	"1935": "One minute out. He never was.",
 }
+## With the time right and one row wrong, she names the row (pilings, observers, height).
+const REPORT_ROW_MISSES := [
+	"The pilings line. Out there it's changed again.",
+	"The observers line. I didn't count myself.",
+	"The height line. The water wasn't that.",
+]
 ## The miss rows the log writes for her, in order.
 const MISS_IDS := ["miss0", "miss1", "miss2"]
 
@@ -163,6 +169,7 @@ const HINTS := {
 	"reread": [
 		"Something in the office has changed.",
 		"The duty card said reconcile the records. The log is a record, and it isn't finished.",
+		"His log ended with my name on the 18th. A record is only finished when nobody is still writing in it.",
 		"Go back to the Intake Office and open the tide log.",
 	],
 	"chair": [
@@ -183,7 +190,7 @@ const HINTS := {
 	],
 	"board": [
 		"Venn's letters belong on the comparison board in the office.",
-		"Follow the name on the contract to the inquiry clipping, and the sentence his letter quotes.",
+		"Turn round. The board is on the entry wall.",
 		"Three papers on the board share one name and one sentence: the contract, the inquiry clipping, his letter.",
 		"Thread contract addressee to dissent signatory to the quoted sentence, then stamp REQUESTED BY VENN.",
 	],
@@ -345,6 +352,17 @@ const THRESHOLD_LINES := [
 	[7.6, "It breathes out. Every piling in the Sound goes under at once."],
 ]
 ## Spoken when she has held still long enough (or at the fallback); only then can she go on.
+## The office window's sea while a threshold line plays (the view's inset): 0 as it was,
+## 1 drained (from the line that breathes in: bare mud and pilings), 2 flooded (from the line
+## that breathes out: every piling under). line_index is the latest line that has started,
+## -1 before the first. It changes with the line, in one step.
+static func threshold_sea(line_index: int) -> int:
+	if line_index >= 2:
+		return 2
+	if line_index == 1:
+		return 1
+	return 0
+
 const THRESHOLD_STILL_LINE := "I hold my breath. So does the sea."
 const THRESHOLD_STILL_AFTER := 8.0
 const THRESHOLD_FALLBACK := 18.0
@@ -1476,20 +1494,33 @@ func _report(action: String, ev: Array) -> void:
 				_say(ev, "The two is in my hand. I wrote it without counting.", 2.2, true)
 				_sfx(ev, "motif_short", 2.6)
 			else:
-				# Never say which line is wrong: the notebook holds every witness. The log,
+				# One wrong row (with the time right) is named; more than one is not. The log,
 				# though, writes the mistake down, in her hand, the first three times.
 				var n := report_misses()
 				if n < MISS_IDS.size():
 					state.history.append(MISS_IDS[n])
 				_sfx(ev, "page")
-				_say(ev, report_time_miss(state.report_time))
+				_say(ev, report_miss(state.report_fields, state.report_time))
 				if n == 0:
 					_fx(ev, "log_write")
 					_say(ev, "Somewhere on the desk, a pen is moving.", 1.6, true)
 				elif n == MISS_IDS.size() - 1:
 					_say(ev, "It is writing down my mistakes. It wants the right numbers more than I do.", 2.0, true)
 
-## The answer a wrong filing gets: a near-miss time has its own, everything else doesn't reconcile.
+## The answer a wrong filing gets. A wrong time answers for itself (report_time_miss); with
+## the time right and exactly one row wrong, she names that row; two or more don't reconcile.
+static func report_miss(fields: Array, t: Array) -> String:
+	if t != REPORT_TIME_ANSWER:
+		return report_time_miss(t)
+	var wrong := []
+	for i in REPORT_ANSWER.size():
+		if i >= fields.size() or int(fields[i]) != REPORT_ANSWER[i]:
+			wrong.append(i)
+	if wrong.size() == 1:
+		return REPORT_ROW_MISSES[wrong[0]]
+	return "Something here doesn't reconcile."
+
+## A near-miss time has its own answer; every other time doesn't reconcile.
 static func report_time_miss(t: Array) -> String:
 	var key := ""
 	for d in t:
