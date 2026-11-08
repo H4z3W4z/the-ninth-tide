@@ -3,7 +3,7 @@ extends RoomSim
 ## R07, the Wet Laboratory. Owns P10 (the jar that follows the datum), P13 (the mass that
 ## answers to a name) and P14 (Nora's breath in the specimen frame): docs/design/puzzle-cards/
 ## P10.md, P13.md, P14.md and rooms.md R07. Node-free and deterministic; the view reads the
-## helpers below and the transient vars (last_test, balance_note, held, frame_miss) and plays
+## helpers below and the transient vars (last_test, balance_note, held, frame_miss, frame_print) and plays
 ## the events.
 ##
 ## Two base views: "room" (A, the tank wall) and "bench" (B, the specimen bench; not a
@@ -18,6 +18,13 @@ const ARRIVAL := "The wet laboratory. Three sealed jars of seawater on a canted 
 ## The first arrival once the weather has reached the lab (band >= 2, which is every real first
 ## visit: the hatch opens at P09).
 const ARRIVAL_WET := "The wet laboratory. Three sealed jars of seawater on a canted rack. The water in all three leans toward the stair door."
+## Band >= 3: view A is the room under a surface (r07_submerged_b3/b5), one leaning waterline
+## through everything. Replaces ARRIVAL_WET there.
+const ARRIVAL_SUBMERGED := "The rack is canted, the way it always was. The water isn't. It leans the same way in everything, as if the room were tipped and only the water noticed."
+## Band >= 5, view A only (not after sever): the underside of the surface across the top of the
+## room is a look hotspot of its own, behind every other one.
+const SURFACE_HOTSPOT := "surface_band"
+const SURFACE_LINE := "Above the tiles there's a surface. I'm on the wrong side of it, and I'm dry."
 ## The way in, for the core's hint toward this room.
 const WAY_IN_HINT := "The hatch in the kitchen floor is open: the laboratory and the machine room."
 ## [to, label, extra flags]: the ways out. The target's REQUIRES also apply.
@@ -127,6 +134,8 @@ const INSCRIPTION := "Retention is not resuscitation."
 const KITCHEN_CARD := "Her work card isn't here. It hangs in the kitchen, by the range."
 ## SEAL before her work card has been seen.
 const SEEN_GATE := "I need her trace to compare. It's on the nail by the range."
+## A full SEAL in the wrong order: the plate prints the composite, nothing is consumed.
+const WRONG_BREATH := "That isn't how she breathed."
 const SECTION_LINE := "A trace section."
 const P14_TAIL := "CATEGORY: BODY. Printed, not written. The frame was waiting to be filled."
 
@@ -233,7 +242,7 @@ const HINTS := {
 	"p14": [
 		"The specimen frame wants a trace, a name and the measurement.",
 		"Nora's work card shows the shape of her breath. Match the sections to it. The register card gives the name; the balance gave the strip.",
-		"Her work card is in the notebook: read its trace left to right and lay the tray's sections in that order.",
+		"Her trace is on her work card, on the nail by the kitchen range, and its copy is in the notebook. Nothing in the laboratory shows it: the frame's plate prints only what you build.",
 		"Short rises, pause, long rise. Name tab from her card, clip the 0/3/0 strip, seal the frame.",
 	],
 	"wait_p12": [
@@ -260,7 +269,8 @@ const SAVED_BOOLS := ["p10_complete", "lean_seen", "tap_on", "p13_complete", "th
 var last_test := ""      # the jar just tipped
 var balance_note := ""   # "" | BEAM_LOCKED | NO_CORRESPONDENCE | RECORD_INCOMPLETE
 var held := ""           # the section picked up in c_frame
-var frame_miss := []     # slot indices outlined after a failed SEAL
+var frame_miss := []     # slot indices outlined after a SEAL with empty slots
+var frame_print := []    # the slots' order as the frame printed it on its plate at the last full SEAL
 
 func initial_state() -> Dictionary:
 	return {
@@ -460,7 +470,7 @@ func current_bench_notice() -> String:
 func arrive(ev: Array, first: bool) -> void:
 	_sync()
 	if first:
-		_say(ev, ARRIVAL_WET if band() >= 2 else ARRIVAL)
+		_say(ev, arrival_line())
 		_sfx(ev, "slosh_c", 0.4)
 		_say(ev, "The tank isn't level either. Or the room isn't.", 2.6, true)
 		_observe("angles")
@@ -517,6 +527,17 @@ func back(ev: Array) -> void:
 		_:
 			local_view = "room"
 
+## The first-arrival line by band.
+func arrival_line() -> String:
+	var b := band()
+	if b >= 3:
+		return ARRIVAL_SUBMERGED
+	return ARRIVAL_WET if b >= 2 else ARRIVAL
+
+## True while view A carries the surface_band look hotspot.
+func surface_shown() -> bool:
+	return band() >= 5 and not _sever()
+
 func act(action: String, ev: Array) -> void:
 	_sync()
 	match local_view:
@@ -535,6 +556,9 @@ func act(action: String, ev: Array) -> void:
 	if action in HOTSPOTS:
 		local_view = "room"
 		_room(action, ev)
+	elif action == SURFACE_HOTSPOT:
+		if local_view == "room" and surface_shown():
+			_say(ev, SURFACE_LINE)
 	elif action in BENCH_HOTSPOTS:
 		local_view = "bench"
 		_bench(action, ev)
@@ -688,9 +712,9 @@ func _bench(action: String, ev: Array) -> void:
 				if not state.frame_opened:
 					state.frame_opened = true
 					if reference_seen():
-						_say(ev, "Her work card's in my notebook. I'll keep it open beside the frame.")
+						_say(ev, "The frame's plate is blank but for its category. Her trace is on her work card, in my notebook.")
 					else:
-						_say(ev, "There's a space for a reference trace. Nora's work card. It hangs in the kitchen, by the range.")
+						_say(ev, "The frame's plate is blank but for its category. Her trace is on her work card. It hangs in the kitchen, by the range.")
 				_observe("frame_stand")
 		"sealed_jar":
 			if _sever():
@@ -997,8 +1021,10 @@ func _frame(action: String, ev: Array) -> void:
 			else:
 				_say(ev, "Clipped.")
 		"ref_card":
-			if reference_seen():
-				_say(ev, "Her work card's trace, copied beside the frame. The sections have to match it.")
+			if frame_print.size() == 3:
+				_say(ev, "What the frame printed from the sections. Her work card is in my notebook to hold it against.")
+			elif reference_seen():
+				_say(ev, "A blank plate. CATEGORY: BODY. It prints what I build. Her trace is on her work card, in my notebook.")
 			else:
 				_say(ev, KITCHEN_CARD)
 		"seal":
@@ -1014,10 +1040,12 @@ func _slot(k: int, ev: Array) -> void:
 		slots[k] = held
 		held = ""
 		frame_miss = []
+		frame_print = []
 		_sfx(ev, "section_slide")
 	elif slots[k] != "":
 		slots[k] = ""
 		frame_miss = []
+		frame_print = []
 		_sfx(ev, "section_slide")
 	else:
 		_say(ev, "An empty slot.")
@@ -1031,23 +1059,20 @@ func _seal(ev: Array) -> void:
 			empty.append(k)
 	if not empty.is_empty():
 		frame_miss = empty
+		frame_print = []
 		_sfx(ev, "key_refuse")
 		_say(ev, "There are three slots. All three want a section.")
 		return
 	if slots != SOLUTION_SLOTS:
 		_sfx(ev, "key_refuse")
+		frame_miss = []
 		if not reference_seen():
-			frame_miss = []
+			frame_print = []
 			_say(ev, SEEN_GATE)
 			return
-		frame_miss = []
-		for k in 3:
-			if slots[k] != SOLUTION_SLOTS[k]:
-				frame_miss.append(k)
-		if slots[0] != "short":
-			_say(ev, "Her breath starts with the short rises.")
-		else:
-			_say(ev, "The pause comes after the short rises.")
+		# the plate prints the composite as built; it is not hers, and nothing is used
+		frame_print = slots.duplicate()
+		_say(ev, WRONG_BREATH)
 		return
 	if not state.name_tab:
 		frame_miss = []
@@ -1060,6 +1085,7 @@ func _seal(ev: Array) -> void:
 		_say(ev, "The clip's empty. The balance strip goes there.")
 		return
 	frame_miss = []
+	frame_print = slots.duplicate()
 	state.p14_complete = true
 	state.frame_opened = true
 	game.solve("P14", ev)
@@ -1207,6 +1233,7 @@ func _clear_transient() -> void:
 	balance_note = ""
 	held = ""
 	frame_miss = []
+	frame_print = []
 
 func load_state(d: Variant) -> void:
 	state = initial_state()

@@ -34,8 +34,8 @@ const NO_CORR := "Nothing. NO CORRESPONDENCE."
 const FLAT_TRACE := "A flat trace. That name doesn't answer to it."
 const RECORDED := "Recorded. I'll leave it as it is."
 const KITCHEN := "I need her trace to compare. It's on the nail by the range."
-const STARTS := "Her breath starts with the short rises."
-const PAUSE_AFTER := "The pause comes after the short rises."
+## P3: a wrong order (her card seen) prints a non-matching composite and says only this.
+const WRONG_BREATH := "That isn't how she breathed."
 const SEQS := [["record"], ["address", "record"], ["release", "record"], ["address", "release", "record"],
 	["release", "address", "record"], ["address", "address", "release", "record"],
 	["address", "release", "release", "record"], ["address", "record", "release", "record"]]
@@ -88,12 +88,14 @@ func run_tests() -> void:
 	test_p1_lean_sim()
 	test_p2_one_link()
 	test_p2_datum_water()
+	test_p3_sim()
 	if _view_ready():
 		await view_checks(ROOM)
 		await test_view_scene()
 		await test_w2_view()
 		await test_w3_view()
 		await test_p1_view()
+		await test_p3_view()
 	else:
 		print("SKIP: R07 view_checks and scene test: the R07 view does not yet declare rects for every sim hotspot (view team)")
 
@@ -451,15 +453,14 @@ func test_p14_orders() -> void:
 			check(says(ev).begins_with("Sealed. Her breath, her name, her weight, in one frame."), "%s: sealed" % [order])
 			check(r.has_seen("nora_breath_trace"), "nora_breath_trace noted")
 			continue
-		var miss := []
-		for k in 3:
-			if order[k] != REF_SOLUTION[k]:
-				miss.append(k)
-		var want := STARTS if order[0] != "short" else PAUSE_AFTER
-		check(says(ev) == want and has_ev(ev, "sfx", "key_refuse"), "%s: %s (got %s)" % [order, want, says(ev)])
-		check(r.frame_miss == miss, "%s: frame_miss %s (got %s)" % [order, miss, r.frame_miss])
-		if order == ["short", "long", "pause"]:
-			check(r.frame_miss == [1, 2], "short/long/pause misses [1, 2]")
+		check(says(ev) == WRONG_BREATH and has_ev(ev, "sfx", "key_refuse"), "%s: %s (got %s)" % [order, WRONG_BREATH, says(ev)])
+		check(not _any_story(ev), "%s: the wrong breath tells no story" % [order])
+		check(r.frame_print == order and r.frame_miss == [], "%s: the plate prints the order as built, no slot outlined (got %s)" % [order, r.frame_print])
+		check(r.state.slots == order and g.has_item("nora_register_card") and r.state.name_tab and r.state.strip_clipped,
+			"%s: nothing consumed, nothing moved" % [order])
+		# the slots move: the print is cleared
+		g.dispatch("slot_0")
+		check(r.frame_print == [], "%s: a move clears the print" % [order])
 
 func test_p14_unseen_reference() -> void:
 	for order in SEC_ORDERS:
@@ -475,8 +476,32 @@ func test_p14_unseen_reference() -> void:
 	var g := frame_game(false)
 	check(says(g.dispatch("ref_card")) == "Her work card isn't here. It hangs in the kitchen, by the range.", "ref_card unseen")
 	var s := frame_game(true)
-	check(says(s.dispatch("ref_card")) == "Her work card's trace, copied beside the frame. The sections have to match it.",
-		"ref_card seen")
+	check(says(s.dispatch("ref_card")) == "A blank plate. CATEGORY: BODY. It prints what I build. Her trace is on her work card, in my notebook.",
+		"ref_card seen: the plate is blank, the trace is on her card")
+	place(s, ["pause", "short", "long"])
+	complete_frame(s)
+	s.dispatch("seal")
+	check(says(s.dispatch("ref_card")) == "What the frame printed from the sections. Her work card is in my notebook to hold it against.",
+		"ref_card after a wrong print")
+	# the first open names where her card is, never the order
+	for seen in [true, false]:
+		var o := GameSim.new()
+		r07(o).debug_jump(6)
+		o.state.notebook.erase("R05.nora_work_card")
+		if seen:
+			o.observe("R05", "nora_work_card")
+		o.dispatch("to_bench")
+		var line := says(o.dispatch("frame_stand"))
+		check(line.begins_with("The frame's plate is blank but for its category.")
+			and line.contains("my notebook" if seen else "by the range") and not line.contains("short")
+			and not line.contains("beside the frame"), "first open (card seen %s): %s" % [seen, line])
+
+## True when any line in `ev` is a story line.
+func _any_story(ev: Array) -> bool:
+	for e in ev:
+		if e.type == "say" and bool(e.get("story", false)):
+			return true
+	return false
 
 func test_p14_refusals() -> void:
 	var g := frame_game()
@@ -761,7 +786,7 @@ const REF_HINTS := {
 		"Put specimen 27-11 on the balance, address it as NORA BELL, release, then RECORD 0 / 3 / 0."],
 	"p14": ["The specimen frame wants a trace, a name and the measurement.",
 		"Nora's work card shows the shape of her breath. Match the sections to it. The register card gives the name; the balance gave the strip.",
-		"Her work card is in the notebook: read its trace left to right and lay the tray's sections in that order.",
+		"Her trace is on her work card, on the nail by the kitchen range, and its copy is in the notebook. Nothing in the laboratory shows it: the frame's plate prints only what you build.",
 		"Short rises, pause, long rise. Name tab from her card, clip the 0/3/0 strip, seal the frame."],
 	"done": ["The laboratory is finished with me.", "Nora's frame belongs at the lantern.",
 		"Take the frame up the stair to the lantern gallery."],
@@ -1458,10 +1483,10 @@ func test_p1_view() -> void:
 	var want := {
 		4: [["b2_tidemark"], ["b2_tidemark_bench"]],
 		5: [["b2_tidemark"], ["b2_tidemark_bench"]],
-		6: [["b2_tidemark", "b4_water_lean"], ["b2_tidemark_bench", "b4_lamp_pool"]],
-		7: [["b2_tidemark", "b4_water_lean"], ["b2_tidemark_bench", "b4_lamp_pool"]],
-		8: [["b2_tidemark", "b4_water_lean"], ["b2_tidemark_bench", "b4_lamp_pool"]],
-		9: [["b2_tidemark"], ["b2_tidemark_bench", "b4_lamp_pool"]],
+		6: [["b2_tidemark", "b4_water_lean"], ["b2_tidemark_bench", "b4_lamp_pool_cold"]],
+		7: [["b2_tidemark", "b4_water_lean"], ["b2_tidemark_bench", "b4_lamp_pool_cold"]],
+		8: [["b2_tidemark", "b4_water_lean"], ["b2_tidemark_bench", "b4_lamp_pool_cold"]],
+		9: [["b2_tidemark"], ["b2_tidemark_bench", "b4_lamp_pool_cold"]],
 	}
 	for t in range(4, 10):
 		scene.sim.debug_tide(t, ROOM)
@@ -1489,7 +1514,10 @@ func test_p1_view() -> void:
 		var want_plate: String = {3: "view_b_s3_v2", 4: "view_b_s4_v2"}.get(r.band(), "view_b" + v.stage_suffix())
 		check(v.plate_id() == want_plate and v._tex(want_plate) != null, "band %d: bench plate %s (got %s)" % [r.band(), want_plate, v.plate_id()])
 		r.local_view = "room"
-		check(v.plate_id() == "view_a" + v.stage_suffix(), "band %d: view A keeps its plate" % r.band())
+		var want_a: String = "view_a" + v.stage_suffix()
+		if r.band() >= 3:
+			want_a = "r07_submerged_b5" if r.band() >= 5 else "r07_submerged_b3"
+		check(v.plate_id() == want_a and v._tex(want_a) != null, "band %d: view A plate %s (got %s)" % [r.band(), want_a, v.plate_id()])
 		# the water: band 4-6 every surface in the room leans 12 degrees toward the stair door
 		var deg := []
 		for j in R07Sim.JARS:
@@ -1520,4 +1548,119 @@ func test_p1_view() -> void:
 	scene.sim.finish("sever")
 	await process_frame
 	check(v.stage_overlays().is_empty(), "sever releases the overlays")
+	await free_scene(scene)
+
+# ---------------------------------------------------------------------------------------------
+# P3: the frame's blank plate; the room under a surface
+# ---------------------------------------------------------------------------------------------
+const ARRIVAL_P3 := "The rack is canted, the way it always was. The water isn't. It leans the same way in everything, as if the room were tipped and only the water noticed."
+const SURFACE_P3 := "Above the tiles there's a surface. I'm on the wrong side of it, and I'm dry."
+
+func test_p3_sim() -> void:
+	# arrival by band: ARRIVAL_WET at band 2, the submerged line from band 3
+	for t in range(4, 10):
+		var g := game_at(t, "R05")
+		var r := r07(g)
+		if not g.exit_open("R05", ROOM):
+			continue
+		r.state.notices = []
+		g.state.visited.erase(ROOM)
+		var ev := g.dispatch("go:R07")
+		var want: String = ARRIVAL_P3 if r.band() >= 3 else ARRIVAL_P1
+		check(says(ev).begins_with(want), "tide %d band %d: arrival %s (got %s)" % [t, r.band(), want, says(ev)])
+		check(r.arrival_line() == want, "tide %d: arrival_line" % t)
+		# the surface: a look at band 5 and over, nothing below
+		var sev := g.dispatch("surface_band")
+		if r.band() >= 5:
+			check(says(sev) == SURFACE_P3 and r.surface_shown(), "band %d: the surface answers" % r.band())
+		else:
+			check(sev.is_empty() and not r.surface_shown(), "band %d: no surface yet" % r.band())
+		check(not "surface_band" in R07Sim.HOTSPOTS, "the surface is not a listed hotspot (it depends on the band)")
+	var s := game_at(9, ROOM)
+	s.finish("sever")
+	check(not r07(s).surface_shown() and s.dispatch("surface_band").is_empty(), "sever: no surface")
+	# the P14 evidence tier names the card and the notebook, never the order
+	var tier: String = R07Sim.HINTS.p14[2]
+	check(tier.contains("work card") and tier.contains("range") and tier.contains("notebook"), "P14 evidence tier points to the card")
+	for word in ["short", "pause", "long", "left to right", "order"]:
+		check(not tier.to_lower().contains(word), "P14 evidence tier does not give the order (%s)" % word)
+
+func test_p3_view() -> void:
+	var scene = new_scene("user://room_test_R07_p3.json")
+	await process_frame
+	scene.room_jump(ROOM, 6)
+	await process_frame
+	var v: RoomView = scene.room_view
+	var r := scene.room_sim() as R07Sim
+	var m: Dictionary = v.get_script().get_script_constant_map()
+	check(not m.has("REF_HEADING") and not m.has("REF_UNSEEN") and not m.has("SHAPES"),
+		"c_frame carries no reference heading or drawn trace")
+	# the plate prints nothing until a full SEAL; a wrong order prints a composite that is not hers
+	scene.sim.dispatch("to_bench")
+	scene.sim.dispatch("frame_stand")
+	await process_frame
+	check(r.local_view == "c_frame" and v.plate_print().is_empty(), "the frame's plate is blank")
+	for k in 3:
+		scene.sim.dispatch("sec_" + ["long", "pause", "short"][k])
+		scene.sim.dispatch("slot_%d" % k)
+	scene.sim.dispatch("item:nora_register_card")
+	scene.sim.dispatch("name_tab")
+	scene.sim.dispatch("strip_clip")
+	if r.reference_seen():
+		scene.sim.dispatch("seal")
+		await process_frame
+		check(v.plate_print() == ["long", "pause", "short"], "the plate prints the built order")
+		check(v.print_pts(v.plate_print()) != v.print_pts(R07Sim.SOLUTION_SLOTS), "a non-matching composite")
+		check(not scene.sim.flag("P14"), "nothing sealed")
+	else:
+		print("SKIP: P3 view print: her card is not seen in the room fixture")
+	# every print stays on the frame's board, under the CATEGORY plate
+	for order in SEC_ORDERS:
+		for q in v.print_pts(order):
+			check(Rect2(160, 184, 1130, 120).has_point(q), "%s: the print stays on the plate (%s)" % [order, q])
+	# the plate by band, the surface hotspot only at band 5 and over, every rect unchanged
+	for t in range(4, 10):
+		scene.sim.debug_tide(t, ROOM)
+		await process_frame
+		v = scene.room_view
+		r = scene.room_sim() as R07Sim
+		r.local_view = "room"
+		var b := r.band()
+		var want: String = "view_a" + v.stage_suffix()
+		if b >= 5:
+			want = "r07_submerged_b5"
+		elif b >= 3:
+			want = "r07_submerged_b3"
+		check(v.plate_id() == want and v._tex(want) != null, "band %d: plate %s (got %s)" % [b, want, v.plate_id()])
+		check(ResourceLoader.exists("res://assets/stages/R07/%s.png" % want) or b < 3, "band %d: %s is a stage file" % [b, want])
+		var ids := []
+		for h in v._controls():
+			ids.append(h[0])
+		check(("surface_band" in ids) == (b >= 5), "band %d: surface_band %s (got %s)" % [b, b >= 5, ids])
+		if b >= 5:
+			check(ids[-1] == "surface_band" and v.hotspot_rect("surface_band") == Rect2(0, 0, 1448, 140),
+				"band %d: the surface is last in hit order, Rect2(0, 0, 1448, 140)" % b)
+			check(v.action_at(Vector2(700, 110)) == "surface_band" and v.label_for("surface_band") == "The surface",
+				"band %d: the surface answers a click under the HUD" % b)
+			check(v.action_at(Vector2(700, 40)) == "" and v.action_at(GameView.PLAN_BUTTON[1].get_center()) == "",
+				"band %d: the HUD strip and Plan keep their clicks" % b)
+			for h in v.control_rows():
+				check(not h[1].intersects(GameView.PLAN_BUTTON[1]) and not h[1].intersects(Rect2(0, 0, 1448, 80)),
+					"band %d: %s clears the HUD and Plan" % [b, h[0]])
+			var ev: Array = scene.sim.dispatch("surface_band")
+			check(says(ev) == SURFACE_P3, "band %d: the surface line" % b)
+		for id in REF_ROOM_RECTS:
+			check(v.hotspot_rect(id) == REF_ROOM_RECTS[id], "band %d: %s keeps its rect" % [b, id])
+			check(v.action_at(REF_ROOM_RECTS[id].get_center()) != "surface_band", "band %d: %s is above the surface" % [b, id])
+		check(v.datum_wash_id() == ("datum_water_sub" if b >= 3 else "datum_water_r3") and v._tex(v.datum_wash_id()) != null,
+			"band %d: the datum water's wash matches the plate" % b)
+		# the view-A lamp patch never goes under the lamp on a submerged plate
+		check(not v._datum_layers().any(func(x): return str(x).begins_with("a_lamp_patch")) or not v.submerged(),
+			"band %d: no lamp patch under the water" % b)
+		r.local_view = "bench"
+		check(not v.submerged() and not "surface_band" in v._controls().map(func(h): return h[0]), "band %d: the bench is not under the surface" % b)
+		r.local_view = "room"
+	scene.sim.finish("sever")
+	await process_frame
+	check(not v.submerged() and v.plate_id() == "view_a_sever", "sever drains the plate")
 	await free_scene(scene)

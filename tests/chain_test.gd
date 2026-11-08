@@ -471,8 +471,26 @@ func play_p13() -> void:
 
 ## R07 P14: short, pause, long (her work card); her name tab; the strip; SEAL.
 func play_p14() -> void:
+	# a reloaded save may stand her at the tank wall: the frame is on the bench
+	if lab.local_view != "bench":
+		_qd("to_bench")
 	_qd("frame_stand")
 	check(lab.local_view == "c_frame", "P14: P13 opens the frame")
+	# a wrong order first: the frame prints a composite that is not hers, and nothing is used
+	var wrong := ["long", "short", "pause"]
+	for k in 3:
+		_qd("sec_" + wrong[k])
+		_qd("slot_%d" % k)
+	var inv := JSON.stringify(g.state.inventory)
+	var miss := _qd("seal")
+	if lab.reference_seen():
+		check(says(miss) == R07Sim.WRONG_BREATH and lab.frame_print == wrong,
+			"P14: a wrong order prints a non-matching composite (got %s)" % says(miss))
+	check(not g.flag("P14") and JSON.stringify(g.state.inventory) == inv and not _story(miss),
+		"P14: a wrong order consumes nothing and tells no story")
+	for k in 3:
+		_qd("slot_%d" % k)
+	check(lab.state.slots == ["", "", ""] and lab.frame_print == [], "P14: the sections back in the tray")
 	for k in 3:
 		_qd("sec_" + R07Sim.SOLUTION_SLOTS[k])
 		_qd("slot_%d" % k)
@@ -923,6 +941,13 @@ func _endings() -> void:
 	var seen: Array = g.value("endings_seen")
 	check(g.value("ending_choice") == "continue" and "sever" in seen and "continue" in seen,
 		"ending: continue; both endings seen (%s)" % [seen])
+
+## True when any line in `ev` is a story line.
+func _story(ev: Array) -> bool:
+	for e in ev:
+		if e.type == "say" and bool(e.get("story", false)):
+			return true
+	return false
 
 ## One action: a real click when a clicker drives the scene, else straight to the sim.
 func _qd(action: String) -> Array:
