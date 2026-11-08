@@ -10,7 +10,8 @@ extends RoomView
 ##          and `light_add` (additive), stretched from the painted 362x272 maps.
 ##   CanvasLayer 5 `close`: the close-ups c_valves and c_tags (always fully lit).
 ##
-## Painted plates: assets/rooms/R08/*.png (tools/art/rooms/R08.py). Every word, the drawing's
+## Painted plates: assets/rooms/R08/*.png, and the later-stage r08_* art in assets/stages/R08/
+## (tools/art/rooms/R08.py). Every word, the drawing's
 ## circuit, the fault window, the toggles' OPEN/SHUT and the tag writing are drawn here, so the
 ## clues stay exact and legible.
 ##
@@ -19,6 +20,8 @@ extends RoomView
 ## below are the audio contract's (tools/audio/rooms/R08.py), with the same cosine easing.
 
 const DIR := "res://assets/rooms/R08/%s.png"
+## Later-stage art (ids r08_*): assets/stages/R08/<id>.png (tools/art/rooms/R08.py STAGE_ASSETS).
+const STAGE_DIR := "res://assets/stages/R08/%s.png"
 
 const PAPER := Color("ded4ba")
 const PAPER_HI := Color("e8e1cf")
@@ -141,6 +144,13 @@ const HORIZON_LAG := 0.6
 const HORIZON_SWAY := 7.0
 const NAMEPLATE := Rect2(554, 514, 132, 90)
 const LAMP_AT := Vector2(440, 140)
+## The boss's two-frame breath: it sinks BOSS_SINK px into the skin (r08_boss_sunk) as the
+## membrane draws in and comes back as it lets go; the swap runs across BOSS_SWAP of the inhale.
+## With Motion off it holds drawn in.
+const BOSS_SINK := 12.0
+const BOSS_SWAP := Vector2(0.4, 0.6)
+## Band 4+ after P11: the bulge overlay (480x480) sits this far up-left of the membrane's origin.
+const BULGE_PAD := Vector2(40, 40)
 ## The breath, seen: the sheen's travel (px) and where the rim gap starts to open.
 const SHEEN_TRAVEL := 28.0
 const GAP_FROM := 0.78
@@ -280,7 +290,8 @@ var trace_t := -1.0            # seconds into the trace draw
 var preview_t := 0.0           # seconds left of the pressed PREVIEW key
 var pump_fail_t := 0.0         # seconds left of a refused PUMP stroke
 var pump_fail_k := 1.0         # how far the refused stroke travels (0.4 against the pawl)
-var reveal_t := -1.0           # seconds into p11_reveal, -1 = none
+var reveal_t := -1.0           # seconds into p11_reveal, -1 = none (RoomView.time - reveal_t0)
+var reveal_t0 := 0.0           # RoomView.time the reveal started at
 var tag_shown := -1
 var tag_t := 99.0              # seconds since the tag turned
 var hold_t := 0.0
@@ -322,7 +333,7 @@ func _ready() -> void:
 
 func _tex(id: String) -> Texture2D:
 	if not textures.has(id):
-		var path := DIR % id
+		var path := (STAGE_DIR if id.begins_with("r08_") else DIR) % id
 		textures[id] = load(path) as Texture2D if ResourceLoader.exists(path) else null
 	return textures[id]
 
@@ -476,8 +487,10 @@ func _ease_out(k: float) -> float:
 # frame
 # ---------------------------------------------------------------------------
 func tick(dt: float) -> void:
+	# The reveal runs on RoomView.time (the core's story clock), so it holds under the menu and
+	# the notebook with the lines it is timed against, however the frames' dt run.
 	if _revealing():
-		reveal_t += dt
+		reveal_t = maxf(0.0, time - reveal_t0)
 		if reveal_t >= RV_END:
 			reveal_t = -1.0
 	if trace_t >= 0.0:
@@ -720,6 +733,7 @@ func play_fx(id: String, e: Dictionary) -> void:
 		return
 	match id:
 		"p11_reveal":
+			reveal_t0 = time
 			reveal_t = 0.0
 			trace_t = TRACE_TIME
 			reveal_click = int(game.click_id) if game != null else -1
@@ -1028,6 +1042,11 @@ func _draw_membrane(c: CanvasItem, sever: bool) -> void:
 	_full_at(c, "diaphragm", MEM_ORIGIN)
 	_full_at(c, "diaphragm_out", MEM_ORIGIN, 1.0 - smoothstep(0.1, 0.55, v))
 	_full_at(c, "diaphragm_in", MEM_ORIGIN, smoothstep(0.25, 0.85, v))
+	if r.bulging():
+		_full_at(c, "r08_diaphragm_bulge", MEM_ORIGIN - BULGE_PAD)
+	# the boss: two frames, at rest and sunk into the skin
+	_full_at(c, "r08_boss_rest", MEM_ORIGIN)
+	_full_at(c, "r08_boss_sunk", MEM_ORIGIN, boss_sink())
 	var hollow := _tex("diaphragm_hollow")
 	if hollow:
 		var s := 0.35 + 0.65 * v
@@ -1049,6 +1068,12 @@ func _draw_membrane(c: CanvasItem, sever: bool) -> void:
 			_full_at(c, "a_surface_horizon_b6", MEM_ORIGIN + Vector2(0, dy))
 		"now":
 			_full_at(c, "diaphragm_reflect_now", MEM_ORIGIN, 0.5)
+
+## How far the boss's sunk frame is up, 0..1: with the breath, or held drawn in with Motion off.
+func boss_sink() -> float:
+	if not motion:
+		return 1.0
+	return smoothstep(BOSS_SWAP.x, BOSS_SWAP.y, v)
 
 func _full_at(c: CanvasItem, id: String, at: Vector2, alpha := 1.0) -> void:
 	var t := _tex(id)

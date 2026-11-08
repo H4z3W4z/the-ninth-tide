@@ -60,6 +60,8 @@ const REF_TAG_LINES := [
 	"No. 31: RETURN line flushed, 9 Sep 1927. E.V.",
 	"No. 44: INDEX resealed. Wire cut again. Do not open. E.V.",
 ]
+const EXHALE := "It's breathing out. It never used to."
+const BULGE := "r08_room_s4_bulge"
 ## The P11 reveal chain, [text, delay], in order.
 const REF_CHAIN := [
 	["It takes. The gate line's holding pressure.", 0.6],
@@ -89,6 +91,7 @@ func run_tests() -> void:
 	test_hints_objective()
 	test_use_item()
 	test_room_lines()
+	test_exhale()
 	test_debug()
 	test_p01_untouched()
 	test_valve_tags()
@@ -98,6 +101,8 @@ func run_tests() -> void:
 		await view_checks(ROOM)
 		await test_view_live()
 		await test_view_hold_breath()
+		await test_view_reveal_clock()
+		await test_view_breathing_boss()
 	else:
 		print("SKIP: R08 view_checks: the R08 view does not yet declare rects for every sim hotspot (view team)")
 
@@ -543,12 +548,12 @@ func test_escalation() -> void:
 		["pre", game_at(4, ROOM), [true, true, true], "cycle", "even", false, "", "room", "cycle_pause"],
 		["p11", solved, [true, false, true], "alone", "streaks", false, "", "room", "breathes_alone"],
 		["b3", game_at(5, ROOM), [true, false, true], "alone", "lines", false, "", "room_s3", "dust_lines"],
-		["b4", game_at(6, ROOM), [true, false, true], "alone", "lines", true, "", "room_s4", "bolts_out"],
-		["b5", game_at(7, ROOM), [true, false, true], "nora", "raked", true, "", "room_s4", "breath_nora"],
-		["b6", game_at(8, ROOM), [false, false, false], "nora", "raked", true, "late", "room_s4", "late_reflection"],
-		["b7", game_at(9, ROOM), [false, false, false], "nora", "raked", true, "late", "room_s4", "far_horizon"],
+		["b4", game_at(6, ROOM), [true, false, true], "alone", "lines", true, "", BULGE, "bolts_out"],
+		["b5", game_at(7, ROOM), [true, false, true], "nora", "raked", true, "", BULGE, "breath_nora"],
+		["b6", game_at(8, ROOM), [false, false, false], "nora", "raked", true, "late", BULGE, "late_reflection"],
+		["b7", game_at(9, ROOM), [false, false, false], "nora", "raked", true, "late", BULGE, "far_horizon"],
 		["sever", ending_game("sever"), [false, false, false], "still", "flat", false, "", "room_sever", "end_sever"],
-		["continue", ending_game("continue"), [false, false, false], "even", "raked", true, "now", "room_s4", "end_continue"],
+		["continue", ending_game("continue"), [false, false, false], "even", "raked", true, "now", BULGE, "end_continue"],
 	]
 	for c in cases:
 		var r := r08(c[1])
@@ -558,6 +563,7 @@ func test_escalation() -> void:
 		check(r.bolts_out_shown() == c[5], "%s bolts_out %s" % [c[0], c[5]])
 		check(r.reflection_mode() == c[6], "%s reflection '%s' (got '%s')" % [c[0], c[6], r.reflection_mode()])
 		check(r.stage_plate() == c[7], "%s plate %s (got %s)" % [c[0], c[7], r.stage_plate()])
+		check(r.bulging() == (c[7] == BULGE), "%s bulging only with the bulge plate" % c[0])
 		check(r.current_notice() == c[8], "%s notice %s (got %s)" % [c[0], c[8], r.current_notice()])
 		check(r.nameplate_shown() == (c[0] != "pre") and r.gauge_powered() == (c[0] != "pre"), "%s nameplate/gauge" % c[0])
 		check(r.pump_on() == (c[0] in ["p11", "b3", "b4", "b5"]), "%s pump_on" % c[0])
@@ -718,6 +724,7 @@ func test_room_lines() -> void:
 	for h in ["belt", "flywheel", "bolts", "dust", "diaphragm"]:
 		check(r08(g).has_seen(h), "%s observed" % h)
 	solve_p11(g)
+	check(says(g.dispatch("diaphragm")) == "Nothing drives it now. It breathes anyway. | " + EXHALE, "diaphragm after P11, first look")
 	check(says(g.dispatch("diaphragm")) == "Nothing drives it now. It breathes anyway.", "diaphragm after P11")
 	check(says(g.dispatch("belt")) == "The middle belt's stopped. Slipped off its drum and hanging.", "belt after P11")
 	check(says(g.dispatch("flywheel")) == "Still turning. It drives the pump now.", "flywheel after P11")
@@ -734,7 +741,8 @@ func test_room_lines() -> void:
 	for t in lines:
 		var s := game_at(t, ROOM)
 		for h in lines[t]:
-			check(says(s.dispatch(h)) == lines[t][h], "tide %d %s" % [t, h])
+			var want: String = lines[t][h] + (" | " + EXHALE if h == "diaphragm" else "")
+			check(says(s.dispatch(h)) == want, "tide %d %s" % [t, h])
 	var b6 := game_at(8, ROOM)
 	b6.dispatch("diaphragm")
 	b6.dispatch("belt")
@@ -755,6 +763,50 @@ func test_room_lines() -> void:
 	for s in [g, sv, cn]:
 		for o in r08(s).seen():
 			check(R08Sim.OBSERVATIONS.has(o), "observation %s is declared" % o)
+
+## The first diaphragm look after P11 says, verbatim, that it breathes out; once, saved, never
+## before P11 and never at an ending.
+func test_exhale() -> void:
+	check(R08Sim.EXHALE_LINE == EXHALE, "the exhale line is verbatim")
+	var g := game_at(4, ROOM)
+	check(not says(g.dispatch("diaphragm")).contains(EXHALE), "no exhale before P11")
+	g.dispatch("valve_board")
+	g.dispatch("tog_supply")
+	check(not says(g.dispatch("diaphragm")).contains(EXHALE), "no exhale while it is held")
+	check(not r08(g).state.exhale_said, "the flag waits for P11")
+	g.dispatch("tog_supply")
+	solve_p11(g)
+	var ev := g.dispatch("diaphragm")
+	var e := say_ev(ev, EXHALE)
+	check(not e.is_empty() and e.story and float(e.delay) == R08Sim.EXHALE_DELAY, "first look after P11: the exhale, a story line after the stage line")
+	check(say_ev(ev, "Nothing drives it now. It breathes anyway.").get("story", false), "the stage line is part of the same story chain")
+	check(r08(g).state.exhale_said, "exhale_said set")
+	check(not says(g.dispatch("diaphragm")).contains(EXHALE), "said once")
+	# saved: a reload never says it again
+	var g2 := GameSim.new()
+	check(g2.from_dict(JSON.parse_string(JSON.stringify(g.to_dict()))), "save loads")
+	check(r08(g2).state.exhale_said, "exhale_said survives a save")
+	check(not says(g2.dispatch("diaphragm")).contains(EXHALE), "not after a reload")
+	var bad := g.to_dict()
+	bad.rooms[ROOM].exhale_said = "yes"
+	var g3 := GameSim.new()
+	g3.from_dict(bad)
+	check(r08(g3).state.exhale_said == false, "a malformed exhale_said loads false")
+	# a later first look (band 4, the bulge): the band line, then the exhale
+	var b4 := game_at(6, ROOM)
+	check(says(b4.dispatch("diaphragm")) == "A finger's width further out than it was. I can see the bolts' threads. | " + EXHALE,
+		"band 4 first look: bolts line, then the exhale")
+	check(r08(b4).has_seen("bolts_out"), "band 4 first look still notes bolts_out")
+	# not at the endings
+	for which in ["sever", "continue"]:
+		var en := ending_game(which)
+		check(not says(en.dispatch("diaphragm")).contains(EXHALE), "%s: no exhale" % which)
+		check(not r08(en).state.exhale_said, "%s: flag untouched" % which)
+	# the bulge plate is new stage art and loads
+	check(ResourceLoader.exists("res://assets/stages/R08/%s.png" % BULGE), "the bulge plate exists")
+	for id in ["r08_boss_rest", "r08_boss_sunk", "r08_diaphragm_bulge"]:
+		check(ResourceLoader.exists("res://assets/stages/R08/%s.png" % id), "%s exists" % id)
+	check(not r08(game_at(5, ROOM)).bulging(), "band 3: not yet bulging")
 
 # ---------------------------------------------------------------------------------------------
 # (17) debug
@@ -1219,3 +1271,69 @@ func test_view_live() -> void:
 		check((v.r.reflection_mode() == "late") == (n >= 6), "stage %d: the horizon only from band 6" % n)
 		check(v._tex("a_surface_horizon_b6") != null, "the horizon plate loads")
 		await free_scene(scene)
+
+## The P11 reveal is timed on RoomView.time (the core's story clock), never on frame dt or
+## game.time: a tick whose clock does not move leaves it where it is.
+func test_view_reveal_clock() -> void:
+	var src: String = (VIEW as Script).source_code
+	check(not src.contains("reveal_t +="), "reveal_t is not summed from dt")
+	check(not src.contains("reveal_t0 = game.time") and src.contains("reveal_t0 = time"), "the reveal starts on RoomView.time")
+	var scene = await _scene_at(0)
+	var v = scene.room_view
+	v.play_fx("p11_reveal", {})
+	var t0: float = v.time
+	check(v.reveal_t == 0.0 and v.reveal_t0 == t0, "the reveal starts at RoomView.time")
+	# frames with no clock: however large dt is, the reveal holds
+	for i in 5:
+		v.tick(2.0)
+	check(v.reveal_t == 0.0, "ticks without RoomView.time moving hold the reveal (%f)" % v.reveal_t)
+	check(v.belts() == [true, true, true] and not v.exits_active(), "still before the drop")
+	# the clock moves: the reveal follows it exactly
+	for i in 8:
+		scene._process(0.25)
+	check(v.time > t0 and absf(v.reveal_t - (v.time - t0)) < 0.0001,
+		"reveal_t reads RoomView.time (%f vs %f)" % [v.reveal_t, v.time - t0])
+	var at: float = v.reveal_t
+	v.tick(5.0)
+	check(is_equal_approx(v.reveal_t, at), "a stray dt after the clock moved changes nothing")
+	# and ends on it
+	while v.time - t0 < VIEW.RV_END + 0.1:
+		scene._process(0.5)
+	check(v.reveal_t < 0.0, "the reveal ends at RV_END on RoomView.time")
+	await free_scene(scene)
+
+## The boss's two-frame breath and the band 4+ bulge, in the view.
+func test_view_breathing_boss() -> void:
+	var scene = await _scene_at(2)
+	var v = scene.room_view
+	var was: bool = scene.sim.settings.motion
+	check(v._tex("r08_boss_rest") != null and v._tex("r08_boss_sunk") != null, "the boss frames load from assets/stages/R08")
+	check(v._tex("r08_boss_sunk").get_size() == Vector2(400, 400), "the boss frames register on the membrane sprite")
+	scene.sim.settings.motion = true
+	v.v = 0.0
+	check(v.boss_sink() == 0.0, "breathed out: the boss at rest")
+	v.v = 1.0
+	check(v.boss_sink() == 1.0, "drawn in: the boss sunk")
+	v.v = 0.5
+	var mid: float = v.boss_sink()
+	check(mid > 0.0 and mid < 1.0, "the swap crosses with the breath")
+	scene.sim.settings.motion = false
+	check(not v.motion, "Motion & flicker off")
+	for x in [0.0, 0.3, 1.0]:
+		v.v = x
+		check(v.boss_sink() == 1.0, "Motion off holds the boss drawn in (v %f)" % x)
+	scene.sim.settings.motion = was
+	check(not v.r.bulging() and v.r.stage_plate() == "room", "P11 at band 2: no bulge yet")
+	await free_scene(scene)
+	for n in [4, 7, 9]:
+		scene = await _scene_at(n)
+		v = scene.room_view
+		check(v.r.bulging() and v.r.stage_plate() == BULGE, "stage %d bulges" % n)
+		var plate = v._tex(v.r.stage_plate())
+		check(plate != null and plate.get_size() == Vector2(1448, 1086), "stage %d: the bulge plate loads at native size" % n)
+		check(v._tex("r08_diaphragm_bulge") != null, "the bulge overlay loads")
+		check(v.dev_rects().size() == VIEW.HOTSPOTS.size(), "stage %d: every hotspot stays live" % n)
+		await free_scene(scene)
+	scene = await _scene_at(8)
+	check(not scene.room_view.r.bulging() and scene.room_view.r.stage_plate() == "room_sever", "sever: slack, no bulge")
+	await free_scene(scene)

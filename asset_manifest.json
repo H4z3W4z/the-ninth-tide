@@ -8449,6 +8449,42 @@
       "source_svg": null
     },
     {
+      "id": "r08_boss_rest",
+      "path": "assets/stages/R08/r08_boss_rest.png",
+      "width": 400,
+      "height": 400,
+      "sha256": "1aed02852ac0586b408334e53bbb568901cc87545cab939ee68d1545c21fe29d",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r08_boss_sunk",
+      "path": "assets/stages/R08/r08_boss_sunk.png",
+      "width": 400,
+      "height": 400,
+      "sha256": "ad84658e0c696cd10583fbb360cbc117b3789d04640d62dcb7f7e5ddba71a1bc",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r08_diaphragm_bulge",
+      "path": "assets/stages/R08/r08_diaphragm_bulge.png",
+      "width": 480,
+      "height": 480,
+      "sha256": "dda74e273ac6d0932b610411a9bd2095a3dda49b931090180946e2e173895fa5",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r08_room_s4_bulge",
+      "path": "assets/stages/R08/r08_room_s4_bulge.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "037084dfec982f8dad69565a0fc3940a29764f8130fcac561a0ee697a17f97cb",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "p15_fig_out_r5",
       "path": "assets/stages/R09/p15_fig_out_r5.png",
       "width": 1448,
