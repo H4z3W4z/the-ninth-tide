@@ -20,6 +20,9 @@ const BLUE_INK := Color("1f3f8a")
 ## Her ink as it reads on black (the end card): BLUE_INK fails contrast on the dark.
 const NIGHT_INK := Color("8fa6e0")
 const BRASS := Color("b08a4a")
+## The desk lamp's lit tint: never warmer or brighter than tarnished brass (AMBER, c39959),
+## and its glow at most this opaque, so the brass reads as brass and not orange.
+const LAMP_GLOW_ALPHA_MAX := 0.6
 
 ## Ambient modulate per phase (see _phase()): the Tide I stages, then the weather bands,
 ## then the endings. Floors, not targets: late stages are lit so the painted wrongness reads
@@ -131,7 +134,18 @@ const HOTSPOTS := [
 	["door", Rect2(1188, 128, 255, 780), "Corridor door"],
 ]
 
-const END_BUTTON := Rect2(574, 880, 300, 70)
+const END_BUTTON := Rect2(574, 968, 300, 66)
+## The Tide I card's print: about 670 px tall, centred on x = 724 like the card's words; its
+## caption sits 40 px under it on the same axis, outside the print (never on it as well).
+const END_PHOTO_CX := 724.0
+const END_PHOTO_TOP := 22.0
+const END_PHOTO_H := 670.0
+const END_PHOTO_BORDER := 22.0
+const END_CAPTION := "Greywake. 18 Oct."
+const END_CAPTION_GAP := 40.0
+## Baselines under the print: the two log rows, then the closing lines.
+const END_ROW_Y := [792.0, 838.0]
+const END_LINE_Y := {R02Sim.END_ON_STATION: 892.0, R02Sim.END_ALL_SEEN: 928.0}
 ## Exit tabs along the floor line, clear of the drawer and the puddle. The core draws them.
 const EXIT_RECTS := {
 	"R01": Rect2(20, 922, 200, 64),
@@ -268,6 +282,13 @@ const WATCH_R := 120.0
 const PHOTO_RECT := Rect2(770, 430, 300, 380)
 
 const REVEAL_CPS := 14.0      # characters per second the log writes itself
+const REVEAL_GAP := 0.5       # the pause between one written row and the next
+## A row the log is writing is finished this long before the subtitle that reads it out.
+const REVEAL_LEAD := 0.25
+## Subtitles that read a log row out without quoting it: fragment -> the row's note.
+## Any subtitle that quotes a row's note word for word reads that row too.
+const LOG_CUES := {"that's my handwriting": "Observer: A. Mercer",
+	"HW nine point nine": "Observer located."}
 ## Forward slant for her hand. In Godot's Transform2D a positive skew leans glyph tops
 ## to the right; -0.18 visibly cancelled the italic and read as a back-hand.
 const HAND_SKEW := 0.18
@@ -348,7 +369,8 @@ var shadow_creep := 0          # 0..4: the shadow leans further each time she lo
 var tilt_k := 0.0              # 0..1 progress of the horizon tilt
 var eye_x := 640.0
 var log_shown_hand := 0        # in-hand log rows already written
-var reveal_t := 0.0            # seconds into the row being written
+var reveal_t := 0.0            # seconds into the row being written (or its pause)
+var reveal_n := 0.0            # characters of that row written so far
 var breath_hold := 0.0         # seconds the room holds its breath after the prints
 var threshold_t := 0.0
 var end_t := 0.0
@@ -414,6 +436,10 @@ func _tex(id: String) -> Texture2D:
 
 
 
+## The lamp's light colour: tarnished brass, its alpha capped at LAMP_GLOW_ALPHA_MAX.
+static func lamp_glow_color() -> Color:
+	return Color(AMBER, LAMP_GLOW_ALPHA_MAX)
+
 func _radial(size: int, soft: float) -> GradientTexture2D:
 	var g := Gradient.new()
 	g.set_color(0, Color(1, 1, 1, 1))
@@ -441,7 +467,7 @@ func _build_nodes() -> void:
 	lamp_glow = PointLight2D.new()
 	lamp_glow.texture = _radial(512, 0.35)
 	lamp_glow.texture_scale = LAMP_SCALE[0]
-	lamp_glow.color = AMBER.lightened(0.15)
+	lamp_glow.color = lamp_glow_color()
 	lamp_glow.energy = 0.0
 	lamp_glow.position = Vector2(338, 545)
 	add_child(lamp_glow)
@@ -469,7 +495,7 @@ func _build_nodes() -> void:
 		back_lamp.texture = _radial(512, 0.4)
 		back_lamp.texture_scale = 3.0
 		back_lamp.position = BACK_LAMP_POS
-	back_lamp.color = AMBER.lightened(0.05)
+	back_lamp.color = lamp_glow_color()
 	back_lamp.energy = 0.0
 	add_child(back_lamp)
 
@@ -1125,6 +1151,7 @@ func on_view_changed(before: String) -> void:
 		# Leaving mid-reveal: the lines are simply there next time.
 		log_shown_hand = _in_hand_count()
 		reveal_t = 0.0
+		reveal_n = 0.0
 	if office.view == "end":
 		end_t = 0.0
 
@@ -1140,6 +1167,7 @@ func reset_presentation() -> void:
 		lamp_tween.kill()
 		lamp_tween = null
 	lamp_glow.energy = 0.0
+	reveal_n = 0.0
 	log_shown_hand = 0
 	reveal_t = 0.0
 	shadow_creep = 0
@@ -1326,6 +1354,45 @@ func _reveal_active() -> bool:
 	return office.view == "logbook" and office.state.p01_complete and motion \
 		and log_shown_hand < _in_hand_count()
 
+## Which in-hand row (index into `rows`) a subtitle reads out, or -1: a row whose note it
+## quotes word for word, or one named in LOG_CUES.
+static func log_cue_row(text: String, rows: Array) -> int:
+	for i in rows.size():
+		var note: String = rows[i][3]
+		if note in text:
+			return i
+		for frag in LOG_CUES:
+			if LOG_CUES[frag] == note and frag in text:
+				return i
+	return -1
+
+## Characters per second the row being written needs so that it, and every row after it that
+## a queued subtitle reads out, is written REVEAL_LEAD before that subtitle is due.
+## `cues` is [[in-hand row, seconds until due], ...]. Never slower than REVEAL_CPS.
+static func reveal_rate(rows: Array, shown: int, written: float, cues: Array) -> float:
+	var rate := REVEAL_CPS
+	for cue in cues:
+		var j: int = cue[0]
+		if j < shown or j >= rows.size():
+			continue
+		var chars := float((rows[shown][3] as String).length()) - written
+		for k in range(shown + 1, j + 1):
+			chars += float((rows[k][3] as String).length())
+		var room := float(cue[1]) - REVEAL_LEAD - REVEAL_GAP * float(j - shown)
+		rate = maxf(rate, chars / maxf(0.05, room))
+	return rate
+
+## The queued subtitles that read out an in-hand row: [[row, seconds until due], ...].
+func _reveal_cues(rows: Array) -> Array:
+	var out := []
+	if game == null:
+		return out
+	for l in game.lines:
+		var j := log_cue_row(l.text, rows)
+		if j >= 0:
+			out.append([j, float(l.due) - time])
+	return out
+
 func _tick_reveal(dt: float) -> void:
 	if office.view != "logbook" or not office.state.p01_complete:
 		return
@@ -1335,12 +1402,34 @@ func _tick_reveal(dt: float) -> void:
 	if not motion:
 		log_shown_hand = rows.size()
 		reveal_t = 0.0
+		reveal_n = 0.0
 		return
-	reveal_t += dt
+	# A subtitle that reads a row out never shows before that row is written: if it is up
+	# (the player brought it forward), the row and every row before it are finished now.
+	if game and game.cur_text != "":
+		var j := log_cue_row(game.cur_text, rows)
+		if j >= log_shown_hand:
+			log_shown_hand = j + 1
+			reveal_t = 0.0
+			reveal_n = 0.0
+			if log_shown_hand >= rows.size():
+				return
 	var text: String = rows[log_shown_hand][3]
-	if reveal_t >= text.length() / REVEAL_CPS + 0.5:
+	if reveal_n < float(text.length()):
+		reveal_n = minf(float(text.length()),
+			reveal_n + dt * reveal_rate(rows, log_shown_hand, reveal_n, _reveal_cues(rows)))
+		reveal_t = 0.0
+		return
+	# Written: a short pause, shortened when a later row is due to be read out soon.
+	reveal_t += dt
+	var gap := REVEAL_GAP
+	if log_shown_hand + 1 < rows.size() \
+			and reveal_rate(rows, log_shown_hand + 1, 0.0, _reveal_cues(rows)) > REVEAL_CPS:
+		gap = 0.0
+	if reveal_t >= gap:
 		log_shown_hand += 1
 		reveal_t = 0.0
+		reveal_n = 0.0
 
 # ---------------------------------------------------------------------------
 # input
@@ -2764,10 +2853,73 @@ func _draw_photo_close(c: Node2D) -> void:
 func _draw_end(c: Node2D) -> void:
 	c.draw_rect(Rect2(Vector2.ZERO, SIZE), Color("070b0f"))
 	var t := end_t if motion else 1.0e6
-	var sch := _end_schedule()
 	var photo_a := clampf(t / 4.0, 0.0, 1.0)
 	if photo_a > 0.0:
-		_draw_photo(c, Rect2(574, 110, 300, 380), "turned" if office.state.turned else "after", photo_a)
+		_draw_end_print(c, "turned" if office.state.turned else "after", photo_a)
+	# Built fresh every frame: only what is due at `t`, so no row's time stamp outlives its
+	# row or lands on the caption's line.
+	for e in end_card_texts(t):
+		match e.kind:
+			"caption":
+				_text(c, e.text, e.pos, 24, Color(PAPER, 0.8 * e.a), hand, e.width)
+			"row_her":
+				_draw_handwriting(c, e.text, e.n, e.pos, 30, e.seed, e.n < e.text.length(), NIGHT_INK)
+			"row_venn":
+				_draw_handwriting(c, e.text, e.n, e.pos, 26, e.seed, e.n < e.text.length(),
+					Color(0.66, 0.68, 0.70), serif, 0.0)
+			"line_station":
+				_text(c, e.text, e.pos, 24, Color(NIGHT_INK, e.a), hand, SIZE.x)
+			"line_seen":
+				_text(c, e.text, e.pos, 22, Color(PAPER, 0.6 * e.a), serif, SIZE.x)
+	if _end_button_ready():
+		_button(c, END_BUTTON, "Go on")
+
+## The print on the Tide I card, in plate space: END_PHOTO_H tall, centred on END_PHOTO_CX.
+func end_photo_rect() -> Rect2:
+	var tex := _end_print_tex("turned" if office.state.turned else "after")
+	var aspect := 528.0 / 620.0
+	if tex:
+		aspect = float(tex.get_width()) / float(tex.get_height())
+	var img_h := END_PHOTO_H - 2.0 * END_PHOTO_BORDER
+	var w := img_h * aspect + 2.0 * END_PHOTO_BORDER
+	return Rect2(END_PHOTO_CX - w / 2.0, END_PHOTO_TOP, w, END_PHOTO_H)
+
+## The painted print for the card: the re-inked T1X print when there is one.
+func _end_print_tex(variant: String) -> Texture2D:
+	if variant == "after" and _tex("R02/photo_t1x_after"):
+		return _tex("R02/photo_t1x_after")
+	return _photo_tex(variant)
+
+func _draw_end_print(c: Node2D, variant: String, alpha: float) -> void:
+	var rect := end_photo_rect()
+	c.draw_rect(rect, Color("d8d0bc"))
+	var img := rect.grow(-END_PHOTO_BORDER)
+	var painted := _end_print_tex(variant)
+	if painted:
+		c.draw_texture_rect(painted, img, false)
+	else:
+		c.draw_set_transform(img.get_center())
+		_draw_photo_drawn(c, Rect2(-img.size / 2.0, img.size), variant)
+		c.draw_set_transform(Vector2.ZERO)
+	c.draw_rect(img, Color(0.45, 0.35, 0.2, 0.12))
+	c.draw_rect(rect, Color("8f7a55", 0.6), false, 2.0)
+	if alpha < 1.0:
+		c.draw_rect(rect.grow(3), Color("070b0f", 1.0 - alpha))
+
+## Every string the Tide I card draws at `t` seconds, in draw order, as
+## {kind, text, pos, width, a, n, seed}: the caption once, under the print; each log row only
+## from its start, with how much of it is written; each closing line once it is fading in.
+func end_card_texts(t: float) -> Array:
+	var out := []
+	var sch := _end_schedule()
+	var photo_a := clampf(t / 4.0, 0.0, 1.0)
+	var rect := end_photo_rect()
+	if photo_a > 0.0:
+		# Centred END_CAPTION_GAP under the print, on its axis (baseline a third of the size
+		# below the centre line).
+		var cw := rect.size.x
+		out.append({"kind": "caption", "text": END_CAPTION, "a": photo_a, "width": cw,
+			"pos": Vector2(END_PHOTO_CX - cw / 2.0, rect.end.y + END_CAPTION_GAP + 8.0)})
 	# The log's next two rows write themselves. Hers in her ink; his, if it is his, in a
 	# plainer, upright, grey hand: someone else is keeping the log now.
 	var rows := office.end_rows()
@@ -2777,29 +2929,20 @@ func _draw_end(c: Node2D) -> void:
 			continue
 		var text: String = rows[i][0]
 		var n := mini(int((t - starts[i]) * REVEAL_CPS), text.length())
-		var y := 600.0 + 50.0 * i
-		if rows[i][1] == "venn":
-			var w := serif.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 26).x
-			_draw_handwriting(c, text, n, Vector2((SIZE.x - w) / 2.0, y), 26, 78 + i, n < text.length(),
-				Color(0.66, 0.68, 0.70), serif, 0.0)
-		else:
-			var w := hand.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
-			_draw_handwriting(c, text, n, Vector2((SIZE.x - w) / 2.0, y), 30, 77 + i, n < text.length(), NIGHT_INK)
+		var venn: bool = rows[i][1] == "venn"
+		var font: Font = serif if venn else hand
+		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 26 if venn else 30).x
+		out.append({"kind": "row_venn" if venn else "row_her", "text": text, "n": n, "seed": (78 if venn else 77) + i,
+			"pos": Vector2(END_PHOTO_CX - w / 2.0, END_ROW_Y[i]), "a": 1.0, "width": w})
 	var lines_at: Array = sch.lines
 	var end_text := office.end_lines()
 	for i in end_text.size():
 		var a := clampf((t - float(lines_at[i])) / 1.0, 0.0, 1.0)
 		if a <= 0.0:
 			continue
-		match end_text[i]:
-			R02Sim.END_ON_STATION:
-				_text(c, end_text[i], Vector2(0, 730), 24, Color(NIGHT_INK, a), hand, SIZE.x)
-			R02Sim.END_ALL_SEEN:
-				_text(c, end_text[i], Vector2(0, 770), 22, Color(PAPER, 0.6 * a), serif, SIZE.x)
-			_:
-				_text(c, end_text[i], Vector2(0, 830), 26, Color(PAPER, 0.75 * a), serif, SIZE.x)
-	if _end_button_ready():
-		_button(c, END_BUTTON, "Go on")
+		out.append({"kind": "line_station" if end_text[i] == R02Sim.END_ON_STATION else "line_seen",
+			"text": end_text[i], "a": a, "width": SIZE.x, "pos": Vector2(0, END_LINE_Y.get(end_text[i], 952.0))})
+	return out
 
 ## When each part of the end card appears, in seconds after the end card opens:
 ## the two rows (start, done), each closing line's fade-in, and when the last is in.
@@ -2929,7 +3072,7 @@ func _draw_logbook(c: Node2D) -> void:
 			var n: int = e[3].length()
 			var writing := idx == log_shown_hand
 			if writing:
-				n = mini(int(floor(reveal_t * REVEAL_CPS)), n)
+				n = mini(int(floor(reveal_n)), n)
 			_draw_handwriting(c, e[3], n, note_pos, size, r, writing)
 		else:
 			_text(c, e[3], note_pos, size, col, hand, 500, HORIZONTAL_ALIGNMENT_LEFT)
