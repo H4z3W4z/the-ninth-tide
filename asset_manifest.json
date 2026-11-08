@@ -7963,6 +7963,42 @@
       "source_svg": null
     },
     {
+      "id": "b2_tidemark",
+      "path": "assets/stages/R07/b2_tidemark.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "627ad877d38e673bc481290deb7013ff72bf3c832d8592ee1077cd4fb26fa30d",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "b2_tidemark_bench",
+      "path": "assets/stages/R07/b2_tidemark_bench.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "a7d0293811159972d10f1e1e3dccd0357fa33164b8964f3102a54dd24c97092f",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "b4_lamp_pool",
+      "path": "assets/stages/R07/b4_lamp_pool.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "fb7ce1771e14393a4d328a87aa381667ba9a7ad1648b296d311f86f4397e722c",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "b4_water_lean",
+      "path": "assets/stages/R07/b4_water_lean.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "e0dc248d861d7bb9b6a80c9e83d3a93a3b4b731f63b929a979a38ef66d3cd10f",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "away_coat",
       "path": "assets/stages/away_coat.png",
       "width": 1448,
