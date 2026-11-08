@@ -93,6 +93,18 @@ const BOARD_ANSWER := ["m_addressee", "m_mercer", "m_sentence"]
 const BOARD_STAMP := "stamp_venn"
 const BOARD_SLOTS := 3
 const BOARD_DONE := "It's done. The thread runs from my name to my name to my sentence."
+## What she calls each mark as the thread runs through it ("Thread: contract addressee → ...").
+const MARK_NAMES := {
+	"m_addressee": "contract addressee",
+	"m_countersign": "Venn's countersignature",
+	"m_callis": "Callis",
+	"m_orme": "Orme",
+	"m_mercer": "dissent signatory",
+	"m_sentence": "quoted sentence",
+}
+const THREAD_UNFINISHED := "The thread isn't finished."
+## The drawer's photograph: the title's payoff, said between her coat and the window.
+const PHOTO_BEFORE_LINE := "I've seen this picture before. Before I came."
 
 const OBJECTIVES := {
 	"lamp": "Get the desk lamp working.",
@@ -121,26 +133,31 @@ const HINTS := {
 	"lamp": [
 		"The desk lamp is dead. The tray beside it holds spares.",
 		"The plate inside the lamp says what kind of contact it takes, and what to do before fitting one.",
+		"His log says the bridge was failing, and that he left a spare B in the tray for her.",
 		"Open the lamp. Switch the supply OFF, select straight bridge B, tap the terminals, then switch ON.",
 	],
 	"log": [
 		"With the lamp on, the desk is readable.",
 		"Venn's tide log is the dark book on the desk.",
+		"The duty card says reconcile the records. His log is the record.",
 		"Open the tide log on the desk.",
 	],
 	"changed": [
 		"Listen to the room. Then look at the floor.",
 		"The coat has been dripping. Look beneath it.",
+		"The sea went quiet while I read. Something came in out of it.",
 		"Inspect the puddle under the coat.",
 	],
 	"drawer": [
 		"The prints stop at the desk. So does something else.",
 		"The time she mends the lamp is stained. The tide before it isn't, and Venn wrote down the rhythm in the margin.",
+		"The barometer was mended at a minute. So was the lamp.",
 		"Set the drawer dials to 1-8-5-2, the hour the log says she mends the lamp, then try the drawer.",
 	],
 	"instruments": [
 		"Venn's note names two jobs: the chart sheets and the recording.",
 		"The chart room wants both sheets registered at the lighthouse cross. The listening room has the recording he said to preserve.",
+		"His note under the duty card: register both chart sheets at the lighthouse cross; preserve the recording before winding again.",
 		"Take the corridor to the chart room and the listening room. His tide sheet from the drawer goes in the chart room.",
 	],
 	"reread": [
@@ -167,6 +184,7 @@ const HINTS := {
 	"board": [
 		"Venn's letters belong on the comparison board in the office.",
 		"Follow the name on the contract to the inquiry clipping, and the sentence his letter quotes.",
+		"His letter says why he asked for me. The Board's form never did.",
 		"Thread contract addressee to dissent signatory to the quoted sentence, then stamp REQUESTED BY VENN.",
 	],
 	"service": [
@@ -240,7 +258,7 @@ const OBSERVATIONS := {
 	"piling": "Nine pilings in the window now. The ninth is closer than the others.",
 	"prints": "Bare, narrow footprints from the puddle to the desk drawer. None come back.",
 	"watch": "Venn's watch, locked in the drawer, stopped at 18:52: the minute the log says I mend the lamp.",
-	"photo": "A photograph of this window from outside, at night, dated 18 Oct: me at the desk. There is nothing outside the window to stand on.",
+	"photo": "A photograph of this window from outside, at night, dated 18 Oct: me at the desk. I've seen this picture before. Before I came. There is nothing outside the window to stand on.",
 	"behind": "Through his lens: in the photograph, something pale and too tall stands behind my chair.",
 	"rewritten": "New lines in the tide log, in my hand: \"She reads this line.\" \"She looks at the chair.\" \"HW 9.9 m. Observer located.\"",
 	"seat": "The chair seat is wet, and still warm underneath.",
@@ -366,7 +384,8 @@ const SAVED_BOOLS := ["supply_on", "bridge_installed", "p01_complete", "log_read
 	"finished", "report_filed", "history_seen", "soundings_heard",
 	"heard_silence", "heard_unlatch", "contours_seen", "turned",
 	"board_loaded", "board_stamped", "hook_tags_seen", "service_unlocked", "callback_heard",
-	"latch_announced", "photo_changed_seen", "b_seen"]
+	"latch_announced", "photo_changed_seen", "b_seen", "baro_read", "threshold_started",
+	"threshold_crossed"]
 
 # Transient presentation-adjacent state: never saved, reset in initial_state().
 var facing := "A"           # "A" desk wall, "B" entry wall
@@ -397,7 +416,8 @@ func initial_state() -> Dictionary:
 		"board_loaded": false, "board_pins": [], "board_stamped": false,
 		"hook_tags_seen": false, "service_unlocked": false,
 		"notices_seen": [], "callback_heard": false, "latch_announced": false,
-		"photo_changed_seen": false, "b_seen": false,
+		"photo_changed_seen": false, "b_seen": false, "baro_read": false,
+		"threshold_started": false, "threshold_crossed": false,
 	}
 
 ## Test convenience: a fresh game, as the slice's reset() was. Settings survive.
@@ -604,6 +624,7 @@ func act(action: String, ev: Array) -> void:
 				# The Tide I card gives way to the Tide II card, and the corridor to the chart room.
 				local_view = "room"
 				facing = "A"
+				state.threshold_crossed = true
 				game.solve("t1x_threshold_crossed", ev)
 				# TODO(lead): use the public GameSim.travel() once the core exposes one.
 				game._travel("R03", ev)
@@ -801,6 +822,7 @@ func _room(id: String, ev: Array) -> void:
 				else:
 					_say(ev, "A corridor. Forty feet of it, a mat, two doors at the end. It goes exactly as far as it should.")
 			elif state.report_filed and state.heard_unlatch:
+				state.threshold_started = true
 				local_view = "threshold"
 				_sfx(ev, "door")
 				_fx(ev, "threshold")
@@ -1133,6 +1155,8 @@ func _room_b(id: String, ev: Array) -> void:
 				_say(ev, "A comparison board. Cork, three pins, a rail of rubber stamps. Nothing pinned to it.")
 		"barometer":
 			_sfx(ev, "baro_tap")
+			if state.p01_complete and not state.finished:
+				state.baro_read = true   # its clock stopped at the minute she mended the lamp
 			_say(ev, _barometer_line())
 		"receipt":
 			if not state.p01_complete:
@@ -1236,25 +1260,39 @@ func _board(action: String, ev: Array) -> void:
 		if at >= 0:
 			pins.remove_at(at)
 			_sfx(ev, "unpin")
+			_say(ev, unpin_line(action))
 		elif pins.size() >= BOARD_SLOTS:
 			_say(ev, "Three pins. Take one out first.")
 		else:
 			pins.append(action)
 			_sfx(ev, "pin")
+			_say(ev, thread_line(pins))
 	elif action in ["slot_0", "slot_1", "slot_2"]:
 		var i := int(action.substr(5))
 		if i < pins.size():
+			var m: String = pins[i]
 			pins.remove_at(i)
 			_sfx(ev, "unpin")
+			_say(ev, unpin_line(m))
 	elif STAMPS.has(action):
 		held_stamp = "" if held_stamp == action else action
 	elif action == "provenance":
 		_provenance(ev)
 
+## The thread as it runs now: "Thread: contract addressee → dissent signatory".
+static func thread_line(pins: Array) -> String:
+	var names: PackedStringArray = []
+	for m in pins:
+		names.append(MARK_NAMES.get(m, m))
+	return "Thread: " + " → ".join(names)
+
+static func unpin_line(mark: String) -> String:
+	return "I unpin %s." % MARK_NAMES.get(mark, mark)
+
 ## The board's refusal for the current pins and stamp, in the card's order, or "" to commit.
 func board_refusal(pins: Array, stamp: String) -> String:
 	if pins.size() < BOARD_SLOTS:
-		return "The thread has to run all the way. Three pins first."
+		return THREAD_UNFINISHED
 	if "m_callis" in pins or "m_orme" in pins:
 		return "Their signatures don't carry the sentence. Mine does."
 	if "m_countersign" in pins:
@@ -1270,6 +1308,10 @@ func board_refusal(pins: Array, stamp: String) -> String:
 func _provenance(ev: Array) -> void:
 	if held_stamp == "":
 		_say(ev, "Pick a stamp from the rack first.")
+		return
+	if state.board_pins.size() < BOARD_SLOTS:
+		# An unfinished thread: the stamp stays in her hand and nothing on the board moves.
+		_say(ev, THREAD_UNFINISHED)
 		return
 	var refusal := board_refusal(state.board_pins, held_stamp)
 	if refusal != "":
@@ -1348,7 +1390,7 @@ func _drawer(action: String, ev: Array) -> void:
 			if state.drawer_open:
 				return
 			var code: Array = state.drawer_dial
-			if code == DRAWER_CODE and state.log_read:
+			if code == DRAWER_CODE and knows_lamp_minute():
 				state.drawer_open = true
 				game.record_move("drawer_opened")
 				_observe("watch")
@@ -1362,7 +1404,8 @@ func _drawer(action: String, ev: Array) -> void:
 				_say(ev, "And a photograph.", 7.0, true)
 				_say(ev, "This window, from outside, at night. Someone at the desk under the lamp.", 8.6, true)
 				_say(ev, "That's my coat. That's me.", 11.2, true)
-				_say(ev, "There is nothing outside this window to stand on.", 13.4, true)
+				_say(ev, PHOTO_BEFORE_LINE, 13.0, true)
+				_say(ev, "There is nothing outside this window to stand on.", 15.2, true)
 				# P03 part 1: his second tide sheet and his lens were in there too.
 				game.give("venn_tide_sheet", ev)
 				game.give("inspection_lens", ev)
@@ -1605,10 +1648,33 @@ func hint_frozen() -> bool:
 func hint_line(level: int) -> String:
 	if local_view == "threshold":
 		return THRESHOLD_HINT
-	return HINTS[objective()][mini(level, 2)]
+	var ladder: Array = HINTS[objective()]
+	return ladder[clampi(level, 0, ladder.size() - 1)]
 
 func objective_text() -> String:
 	return OBJECTIVES[objective()]
+
+## How many rungs the current objective's ladder has: 4 (location, relationship, evidence,
+## solution) for the objectives with an evidence tier, else 3.
+func hint_tiers() -> int:
+	if local_view == "threshold":
+		return 1
+	return (HINTS[objective()] as Array).size()
+
+## Where a load lands: the doorway (from its first beat) when the threshold chain began but
+## Go on was never pressed; the report when it was signed but she had not stepped back; else
+## the room.
+func resume_view() -> String:
+	if state.threshold_started and not state.threshold_crossed:
+		return "threshold"
+	if state.report_filed and not state.heard_unlatch:
+		return "report"
+	return "room"
+
+## The drawer's hour can be known two ways: worked out from the log's rhythm, or read off the
+## barometer clock, which stopped at the minute she mended the lamp.
+func knows_lamp_minute() -> bool:
+	return state.log_read or state.baro_read
 
 # ---------------------------------------------------------------------------
 # persistence
@@ -1673,18 +1739,30 @@ func load_state(d: Variant) -> void:
 	state.initialled = state.initialled and state.p01_complete
 	state.log_read = state.log_read and state.p01_complete
 	state.prints_seen = state.prints_seen and state.log_read
-	state.drawer_open = state.drawer_open and state.log_read
+	state.baro_read = state.baro_read and state.p01_complete
+	state.drawer_open = state.drawer_open and (state.log_read or state.baro_read)
 	state.log_rewritten = state.log_rewritten and state.drawer_open
 	state.seat_wet = state.seat_wet and state.log_rewritten
 	state.report_filed = state.report_filed and state.seat_wet \
 		and state.report_fields == REPORT_ANSWER and state.report_time == REPORT_TIME_ANSWER
-	# A filed save always lands in the room, so she has already stepped back from the desk.
-	state.heard_unlatch = state.report_filed
+	# Saved as it was: a save made on the report (filed, not yet stepped back) resumes on the
+	# report, so stepping back still unlatches the door.
+	state.heard_unlatch = state.heard_unlatch and state.report_filed
 	if not state.seat_wet:
 		state.history = []
 	state.history_seen = state.history_seen and not state.history.is_empty()
 	state.foretold_door = state.foretold_door and state.report_filed
 	state.finished = state.finished and state.report_filed
+	# Past the threshold only on Go on. An older save without the key keeps the core's flag.
+	if not d.get("threshold_crossed") is bool:
+		state.threshold_crossed = game.flag("t1x_threshold_crossed")
+	state.threshold_crossed = state.threshold_crossed and state.finished
+	state.threshold_started = (state.threshold_started or state.finished) \
+		and state.report_filed and state.heard_unlatch
+	if not state.threshold_crossed:
+		# A chain begun but not finished (the doorway, or the card before Go on) is played
+		# again from its first beat: nothing of it has happened yet.
+		state.finished = false
 	state.turned = state.turned and state.finished
 	state.heard_silence = state.heard_silence and state.log_read
 	state.soundings_heard = state.soundings_heard and state.drawer_open
@@ -1699,13 +1777,13 @@ func load_state(d: Variant) -> void:
 		state.board_pins = BOARD_ANSWER.duplicate()
 		state.board_stamped = true
 	state.board_stamped = state.board_stamped and state.board_pins == BOARD_ANSWER
-	# The threshold and its card are never restored: a save lands in the room.
+	# The threshold resumes from its first beat (resume_view); its card is never restored.
 
 ## P01, P20 and the Tide I transition flags are R02's (flags.md): they follow its state.
 func reconcile() -> void:
 	game.set_flag("P01", state.p01_complete)
 	game.set_flag("closure_report_filed", state.report_filed)
-	game.set_flag("t1x_threshold_crossed", state.finished)
+	game.set_flag("t1x_threshold_crossed", state.threshold_crossed)
 	game.set_flag("t1x_turned", state.turned)
 	if state.board_stamped:
 		game.set_flag("P20")
@@ -1748,6 +1826,8 @@ func _jump_state(target: int) -> void:
 		_observe("report")
 	if target >= 5:
 		state.finished = true
+		state.threshold_started = true
+		state.threshold_crossed = true
 
 ## The office as real play leaves it at the start of tide `t`. The core has already set
 ## every earlier tide's flags, so weather_band() is the band she arrives in.

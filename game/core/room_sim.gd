@@ -141,6 +141,12 @@ func hint_line(level: int) -> String:
 		return "Nothing here needs me yet."
 	return ladder[mini(level, ladder.size() - 1)]
 
+## How many rungs hint_line() has for the current objective (the Hint climbs 0..tiers-1).
+## Three by default (location, relationship, solution); a room with an evidence rung
+## before the solution returns 4.
+func hint_tiers() -> int:
+	return 3
+
 ## True when the hint ladder should not advance (e.g. a scripted moment with one action).
 func hint_frozen() -> bool:
 	return false

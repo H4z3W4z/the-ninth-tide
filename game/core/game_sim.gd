@@ -565,7 +565,7 @@ func _hint(ev: Array) -> void:
 	var text: String
 	var level: int
 	if away == "":
-		level = mini(int(state.hint["level"]), 2)
+		level = mini(int(state.hint["level"]), maxi(1, r.hint_tiers()) - 1)
 		text = r.hint_line(level)
 	else:
 		# Nothing to do here: first where, then that room's own ladder.
@@ -592,7 +592,7 @@ func _elsewhere_ladder(away: String) -> Array:
 				first = "The %s is through the %s." % [title, str(rooms[rid].c("TITLE", rid)).to_lower()]
 				break
 		steps.append(first)
-	for level in 3:
+	for level in maxi(1, there.hint_tiers()):
 		var line := there.hint_line(level)
 		if not (visited and _changed_line(line)):
 			steps.append(line)

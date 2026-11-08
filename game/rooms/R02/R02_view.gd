@@ -370,7 +370,8 @@ var exhales := 0               # exhales begun since the door opened
 var fig_scale := 1.0           # the figure's scale about VP
 var go_on_said := false
 var seat_hush_t := -1.0        # seconds since the wet seat; < 0 when none
-var hud_pass_open := false     # between tick and draw_hud: the core is about to draw the exits
+var hud_pass_open := false     # between tick and draw_hud: how strongly draw_hud paints the bar
+var threshold_armed := false   # the doorway's lines are queued (on the door, or a load into it)
 var pointer_at: Variant = null # tests: a Vector2 stands in for a hovering pointer there
 
 func _ready() -> void:
@@ -611,7 +612,7 @@ func _tick_stage(dt: float) -> void:
 		eye_x = 640.0
 	if _at_threshold():
 		threshold_t += dt
-		_tick_still(dt, get_global_mouse_position())
+		_tick_still(dt, game.pointer_position() if game else get_global_mouse_position())
 		_tick_figure(dt)
 		_tick_go_on()
 	if seat_hush_t >= 0.0:
@@ -1053,14 +1054,11 @@ func esc_action() -> String:
 		return "menu"
 	return super.esc_action()
 
-## The exits always answer in the room: hit-testing never waits on the cursor, so a tap,
-## a driver's click or a click that lands before the pointer moves all go through. Only the
-## core's full-strength drawing of the bar waits for it: during the HUD pass (opened by tick,
-## closed by draw_hud) a bar at rest is left to draw_hud, which draws it faint.
+## The exits answer whenever she is looking at the room, and only then: hit-testing never
+## waits on the cursor or on a frame being drawn, so a tap, a driver's click, or a click after
+## a tick with no draw all go through. How strongly the bar is painted is draw_hud's business.
 func exits_active() -> bool:
-	if office.local_view != "room":
-		return false
-	return not hud_pass_open or _exit_bar_live()
+	return office.local_view == "room"
 
 ## The exit bar shows at full strength only while the cursor is on a tab (or at the bottom
 ## edge of the screen); the rest of the time it is faint, so it does not cover the floor,
@@ -1070,13 +1068,12 @@ func _exit_bar_live() -> bool:
 		return true
 	if pointer_at is Vector2:
 		return exit_bar_live_at(pointer_at)
-	if not _has_pointer():
+	if not game.has_pointer():
 		return true
-	return exit_bar_live_at(get_global_mouse_position())
+	return exit_bar_live_at(game.pointer_position())
 
-## The core draws the HUD after every room tick (input comes before both), and calls
-## draw_hud right after drawing the exits: the pass is open only while the core draws, and
-## only when draw_hud will close it.
+## The HUD pass (opened by tick, closed by draw_hud) only says whether draw_hud is painting
+## the room's bar this frame, and so how strongly: it never gates a hit-test.
 func _open_hud_pass() -> void:
 	hud_pass_open = game != null and game.sim.view == "room" and office.view == "room" and not hud_hidden()
 
@@ -1084,9 +1081,9 @@ func _close_hud_pass() -> void:
 	hud_pass_open = false
 
 ## Without a hovering pointer (headless, touch screens) the bar is simply always there:
-## there is no cursor to call it up with.
-static func _has_pointer() -> bool:
-	return DisplayServer.get_name() != "headless" and not DisplayServer.is_touchscreen_available()
+## there is no cursor to call it up with. The core's pointer stands in for drivers and tests.
+func _has_pointer() -> bool:
+	return game != null and game.has_pointer()
 
 func exit_bar_live_at(p: Vector2) -> bool:
 	if p.y >= EXIT_REVEAL_EDGE:
@@ -1153,6 +1150,7 @@ func reset_presentation() -> void:
 	hush = 0.0
 	palms_armed = false
 	threshold_t = 0.0
+	threshold_armed = false
 	_reset_still()
 	end_t = 0.0
 	drawer_k = 1.0
@@ -1216,6 +1214,7 @@ func play_fx(id: String, e: Dictionary = {}) -> void:
 		"contours":
 			contours_k = 0.0 if motion else 1.0
 		"threshold":
+			threshold_armed = true
 			threshold_t = 0.0
 			_reset_still()
 			hush = 0.0
@@ -1294,6 +1293,9 @@ func apply_instantly() -> void:
 	push_k = zoom_k
 	transform = _zoom_xform()
 	deep.transform = transform
+	if office.view == "threshold" and threshold_t == 0.0 and not threshold_armed:
+		# A load into the doorway (R02Sim.resume_view): its chain plays again from the first beat.
+		play_fx("threshold")
 	if mixer.players.has("hum"):
 		mixer.players["hum"].pitch_scale = 1.0 - 0.012 * (s if not office.state.finished else 1)
 
@@ -3208,31 +3210,22 @@ func _draw_report_time(c: Node2D, filed: bool) -> void:
 # drawing: HUD
 # ---------------------------------------------------------------------------
 
-## The exits and the turn tab are always there: faint at rest, raised clear of the subtitle
-## bar; full when the cursor is on one or at the bottom edge (then the core draws the exits).
-## At the threshold only the turn tab remains, so she can always turn round.
+## The exits and the turn tab are always there, raised clear of the subtitle bar: the core
+## draws the exit plaques; the turn tab is faint at rest and full when the cursor is on the
+## bar or at the bottom edge. At the threshold only the turn tab remains, so she can always
+## turn round.
 func draw_hud(c: Node2D) -> void:
+	# A pass the room's tick opened: paint by the cursor (full on the bar, faint at rest so
+	# the tab does not sit on the floor). A draw with no tick before it paints full.
+	var faint := hud_pass_open and not _exit_bar_live()
 	_close_hud_pass()
 	if office.view == "room" and game and game.sim.view == "room":
-		if _exit_bar_live():
-			_draw_turn_tab(c, 1.0)
-		else:
-			_draw_rest_tabs(c)
+		# The core has drawn the exit plaques; the turn tab is the room's.
+		_draw_turn_tab(c, BAR_REST_ALPHA if faint else 1.0)
 		_draw_anchored_label(c)
 	if office.view == "threshold" and game and game.sim.view == "room":
-		var hot := _has_pointer() and TURN_RECT.has_point(get_global_mouse_position())
+		var hot := _has_pointer() and TURN_RECT.has_point(game.pointer_position())
 		_draw_turn_tab(c, 1.0 if hot else TAB_REST_ALPHA, hot)
-
-## The exit tabs and the turn tab at rest, faint, in the core's own plaque style.
-func _draw_rest_tabs(c: Node2D) -> void:
-	for e in game.sim.exits():
-		if not exit_rects().has(e[0]):
-			continue
-		var r: Rect2 = exit_rects()[e[0]]
-		var open: bool = game.sim.exit_open(game.sim.state.room, e[0])
-		var label: String = ("◂ " + e[1]) if r.get_center().x < SIZE.x / 2.0 else (e[1] + " ▸")
-		_plaque(c, r, label, BAR_REST_ALPHA * (1.0 if open else 0.6), false)
-	_draw_turn_tab(c, BAR_REST_ALPHA)
 
 ## Ink.button with an opacity: the same plaque, faded as a whole.
 func _plaque(c: CanvasItem, rect: Rect2, label: String, a: float, active: bool, size := 19) -> void:
