@@ -17,10 +17,11 @@ const DIR := "res://assets/rooms/R12/%s.png"
 const PAGE_TEX := {
 	"end_a_record": "res://assets/stages/R12/r12_sever_office.png",
 	"end_b_terminal": "res://assets/stages/R12/r12_continue_terminal.png",
-	"end_b_field": "res://assets/stages/R12/end_b_wide_3.png",
-	"end_b_wide": "res://assets/stages/R12/end_b_wide_3.png",
+	"end_b_field": "res://assets/stages/R12/end_b_wide_4.png",
+	"end_b_wide": "res://assets/stages/R12/end_b_wide_4.png",
+	"continue_morning": "res://assets/stages/R12/continue_morning.png",
 	"c_routing": "res://assets/rooms/R12/c_routing_preview.png",
-	"c_final": "res://assets/rooms/R12/c_final_r2.png",
+	"c_final": "res://assets/rooms/R12/c_final_r4.png",
 	"m_cup_cold": "res://assets/rooms/R12/m_cup_r2_cold.png",
 	"m_cup_warm": "res://assets/rooms/R12/m_cup_r2_warm.png",
 }
@@ -90,11 +91,15 @@ const ROUTING_CONTROLS := [
 	["jack_terminal", Rect2(958, 836, 240, 120), "TERMINAL socket"],
 ]
 ## c_final: the eye's window is the top strip (FINAL_STRIP); the six panels hang FINAL_DY lower
-## than the first plate had them, in front of its sill; the knife switches sit below them.
+## than the first plate had them, in front of its sill; the two lever plates sit below them. The
+## whole eye sits in the upper third, above the panels (iris 30..250), nothing across it.
 const FINAL_DY := 120.0
 const FINAL_STRIP := Rect2(0, 0, 1448, 300)
-const FINAL_EYE_C := Vector2(724, 150)
-const FINAL_EYE_SCALE := 1.2
+const FINAL_EYE_C := Vector2(724, 140)
+const FINAL_EYE_SCALE := 110.0 / 120.0
+## While a lever is hovered the eye's pupil turns to it (presentation only).
+const LEVER_LOOK := {"btn_sever": Vector2(-28, 28), "btn_continue": Vector2(28, 28)}
+const LEVER_LOOK_RATE := 10.0
 const FINAL_CONTROLS := [
 	["contacts", Rect2(100, 260, 440, 260), "Feed contacts"],
 	["look_lamps", Rect2(560, 260, 328, 260), "Preview lamps"],
@@ -102,12 +107,12 @@ const FINAL_CONTROLS := [
 	["tray", Rect2(100, 560, 440, 170), "Yoke tray"],
 	["preview", Rect2(604, 580, 240, 120), "PREVIEW"],
 	["look_handle", Rect2(908, 560, 440, 170), "Severance handle"],
-	["btn_sever", Rect2(100, 760, 600, 200), "BREAK CONNECTION AND LEAVE"],
-	["btn_continue", Rect2(748, 760, 600, 200), "REMAIN AS WITNESS"],
+	["btn_sever", Rect2(100, 760, 600, 200), "SEVER"],
+	["btn_continue", Rect2(748, 760, 600, 200), "CONTINUE"],
 ]
 ## The core holds these fx to their delay and plays them on time: SEVER's indicators go out on them.
 const TIMED_FX := ["line_out_1", "line_out_2", "line_out_3", "line_out_4", "line_out_5", "line_out_6",
-	"line_out_7", "line_out_8"]
+	"line_out_7", "line_out_8", "settle_1", "settle_2", "settle_3", "settle_4", "settle_5", "settle_6"]
 
 
 # ---------------------------------------------------------------------------------------------
@@ -171,11 +176,10 @@ const NEEDLE_PIVOT := Vector2(6, 54)
 ## frame is 12 px inside). GLASS_IN is the water inside the frame.
 const GLASS := Rect2(200, 86, 1048, 344)
 const GLASS_IN := Rect2(212, 98, 1024, 320)
-## What hangs in front of the glass (the conduit, the caged lamp, the column's capital): the lid
-## and the margin are cut round them, so the room stays in front of the water.
+## What hangs in front of the glass (the caged lamp, the column's capital): the lid and the
+## margin are cut round them, so the room stays in front of the water. The conduit runs behind
+## the window frame (a_glass_r4 covers it), so nothing crosses the eye.
 const GLASS_HOLES := [
-	Rect2(964, 0, 32, 404),                                                  # the conduit
-	Rect2(956, 88, 48, 18), Rect2(956, 228, 48, 18), Rect2(956, 358, 48, 18),  # its brass bands
 	Rect2(247, 0, 7, 104), Rect2(232, 100, 36, 22), Rect2(230, 112, 40, 44),  # the caged lamp
 	Rect2(884, 398, 192, 40),                                                # the column's capital
 ]
@@ -188,22 +192,48 @@ const BLINK_CLOSE := 0.5
 const BLINK_HOLD := 0.35
 const BLINK_OPEN := 0.65
 const BLINK_TIME := BLINK_CLOSE + BLINK_HOLD + BLINK_OPEN
-## The eye (a_surface_eye_r3.png: the surface field with the iris at its centre, wider and taller
-## than the glass so it can turn) and its slit pupil (a_pupil_r3.png), centred on EYE_C plus
-## R12Sim.pupil_offset(). An eye_look fx turns it over LOOK_TIME, eased in and out; with Motion
-## off it is simply where it looks. The pupil leads the iris a little (PUPIL_LEAD of the offset).
-const EYE_C := Vector2(724, 258)            # GLASS_IN's centre
+## The eye r4 (tools/art/rooms/R12.py, the same layers as CONTINUE's wide plate): the iris
+## (eye_iris_r4: sea-glass, a dark limbal ring, radial striations) stays at EYE_C, whole inside
+## the water and above the water line; the vertical almond pupil (eye_pupil_r4) sits
+## R12Sim.pupil_offset() from its centre (24..40 px toward what it looks at), with one hard 14 px
+## paper-white catchlight. An eye_look fx turns the pupil over LOOK_TIME, eased in and out; with
+## Motion off it is simply where it looks.
+const EYE_C := Vector2(724, 228)
+const IRIS_R := 120.0                       # eye_iris_r4's radius (its sprite has EYE_PAD round it)
+const PUPIL_H := 128.0                      # eye_pupil_r4's height
+const PUPIL_W := 0.38                       # its width / height
+const EYE_PAD := 6.0
+const CATCH_D := 14.0
+const CATCH_COLOR := Color("f2eee2")
 const LOOK_TIME := 0.8
-const PUPIL_LEAD := 0.2
-const EYE_SCALE_P26 := 1.15                 # after P26 the eye is closer
+const EYE_SCALE_P26 := 1.06                 # after P26 the eye is a little closer
 ## The window's water line: water standing inside the pane, up from the sill. After P25 it
-## stands WATER_RISE higher.
+## stands WATER_RISE higher: still below the iris at its largest.
 const WATER_Y := 382.0
-const WATER_RISE := 80.0
+const WATER_RISE := 20.0
 const WATER_COLOR := Color(0x7f / 255.0, 0x95 / 255.0, 0x90 / 255.0, 0.24)
 const WATER_EDGE := Color("a9c8b8")
 ## The previews' two lamps, reflected in the pupil: offsets from its centre.
-const PUPIL_LAMPS := [Vector2(-52, -8), Vector2(52, -8)]
+const PUPIL_LAMPS := [Vector2(0, -30), Vector2(0, 26)]
+## c_routing's window: a tall narrow pane between the two plates, above the patch panel
+## (c_routing_window_r4 at ROUTE_WIN's corner; the HUD covers the close-up's top band, so the pane
+## stands in the plates' gap, clear of every control). The eye there (eye_iris_r4_s) leans one
+## ROUTE_STEP toward the plate each seated cord feeds (R12Sim.patch_lean()); its lids close to a
+## slit after a completed SEVER preview and open wide, the pupil dilated, after CONTINUE.
+const ROUTE_WIN := Rect2(664, 90, 120, 362)
+const ROUTE_WIN_IN := Rect2(676, 102, 96, 338)
+const ROUTE_EYE_C := Vector2(724, 196)
+const ROUTE_IRIS_R := 46.0
+const ROUTE_IRIS_SPRITE_R := 50.0          # eye_iris_r4_s's own radius
+const ROUTE_PUPIL_H := 54.0                # eye_pupil_r4_s's height
+const ROUTE_STEP := 8.0
+const ROUTE_LOOK_DY := 6.0                 # it looks down at the panel
+const ROUTE_OPEN_REST := 0.82              # lids' half-opening / iris radius: at rest ...
+const ROUTE_OPEN_SLIT := 0.07              # ... after SEVER: a slit ...
+const ROUTE_OPEN_WIDE := 1.14              # ... after CONTINUE: wide open
+const ROUTE_WK_WIDE := 1.9
+const ROUTE_RATE := 2.4                    # the lids and pupil ease, per second (Motion on)
+const ROUTE_WATER_Y := 404.0
 ## Ending B's morning: the chamber window goes grey, flat, over the eye.
 const MORNING_GREY := Color(0x9a / 255.0, 0xa4 / 255.0, 0xa8 / 255.0, 0.7)
 ## A held breath: the chamber's loops go silent over BREATH_OUT, come back over BREATH_IN.
@@ -225,6 +255,9 @@ const PREV_OUT := 0.8
 ## After P26: the margin of darker water inside the glass edge (storm navy at 0.85).
 const MARGIN_W := 40.0
 const MARGIN_COLOR := Color(0x22 / 255.0, 0x30 / 255.0, 0x3a / 255.0, 0.85)
+## The surface field's flat blend (tools/art/rooms/R12.py SURFW_TOP / SURFW_BOT).
+const SURF_TOP := Color8(81, 106, 104)
+const SURF_BOT := Color8(39, 53, 64)
 ## Ending B's morning: warm light on the wall round the pane, never on the water.
 const MORNING := Color("e8c27a")
 const LAMP_B_X0 := 214.0
@@ -248,10 +281,12 @@ const SWITCH_AT := Vector2(1110, 700)
 const ROUTE_AT := Vector2(1110, 840)
 const BTN_X := {"sever": 100.0, "continue": 748.0}
 const BTN_Y := 760.0
-const SMALLCAPS_BIG := 30
-const SMALLCAPS_SMALL := 23
-const SMALLCAPS_TRACK := 1.5
-const BTN_TEXT := {"sever": "BREAK CONNECTION AND LEAVE", "continue": "REMAIN AS WITNESS"}
+const BTN_TEXT := {"sever": "SEVER", "continue": "CONTINUE"}
+## The engraved caption under each lever plate's word.
+const BTN_CAPTION := {"sever": "The station is let go.", "continue": "The station is kept."}
+const BTN_WORD_SIZE := 46
+const BTN_WORD_TRACK := 12.0
+const BTN_CAPTION_SIZE := 20
 const FINAL_LAMPS_Y := [200.0, 270.0]
 const OVAL_AT := Vector2(80, 40)     # the instrument tableau window in end_card
 const CAPTION := Rect2(514, 830, 420, 48)
@@ -372,6 +407,15 @@ var breath_waits := []         # [{seconds, line|sfx+lead|due}] held breaths wai
 var breath_until := -1.0       # the chamber is silent until this time
 var win_route := ""            # the preview the window shows ("" = none)
 var win_t0 := -1.0             # its clock (-1 = waiting for the glance)
+var final_gaze := Vector2.ZERO # c_final: the pupil's drawn offset (the sim's look, or a hovered lever)
+# --- the routing close-up's window (P26) ------------------------------------------------------
+var strip_look := Vector2.ZERO # the pupil's drawn offset there (patch_lean() steps, eased)
+var strip_open := ROUTE_OPEN_REST   # the lids' half-opening / iris radius, drawn
+var strip_wk := 1.0            # the pupil's drawn width factor
+var strip_mood := ""           # "sever" (closed to a slit) / "continue" (wide) after a completed preview
+# --- the ending, more ---------------------------------------------------------------------------
+var morning_t0 := -1.0         # a_morning: the line went up; the morning plate comes in from here
+var settle_t := [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0]   # m_montage: when each vignette settled
 
 func _ready() -> void:
 	var layer := CanvasLayer.new()
@@ -464,10 +508,22 @@ func tick(dt: float) -> void:
 		if pv_t0 < 0.0 and _now() - pv_since > 0.7:
 			pv_t0 = _now()
 		if pv_t0 >= 0.0 and _now() - pv_t0 > _preview_length(pv_route):
+			if _view() == "c_routing":
+				strip_mood = pv_route   # a completed preview: the eye above the panel answers it
 			pv_route = ""
 	if slide_pending and _now() - slide_t0 > 3.0 and slide_t0 >= 0.0:
 		slide_pending = false
 	_tick_eye(dt)
+	_tick_final(dt)
+	_tick_route_win(dt)
+	if withdraw_pending and _view() == "room" and (game == null or not game.chain_active()):
+		# P26 is done in the routing close-up now (no glance): the surface draws back when she
+		# next looks at the window
+		withdraw_pending = false
+		withdraw_t0 = _now()
+	if r.chosen() == "" and cur_tab != "":
+		# the checkpoint was restored (Return to final decision): nothing of the ending stays
+		clear_ending_page()
 	if _in_ending() and cur_change != "" and change_t0 < 0.0 and not tab_done and game != null \
 			and _now() - tab_t0 > 0.5 and not game.chain_active():
 		change_t0 = _now()
@@ -515,6 +571,52 @@ func _tick_eye(_dt: float) -> void:
 		win_route = ""
 		win_t0 = -1.0
 
+## c_final: the pupil eases to a hovered lever, else to where the sim says it looks (with Motion
+## off it is simply there). Presentation only: the sim's gaze never changes for a hover.
+func _tick_final(dt: float) -> void:
+	var target := gaze_at
+	if _view() == "c_final" and game != null and LEVER_LOOK.has(game.hover_id):
+		target = LEVER_LOOK[game.hover_id]
+	if not motion:
+		final_gaze = target
+	else:
+		final_gaze = final_gaze.lerp(target, 1.0 - exp(-LEVER_LOOK_RATE * dt))
+
+## The routing window's eye: the pupil leans with the patch (and toward a running preview's
+## plate); the lids and pupil follow the mood a completed preview left. Eased with Motion, snapped
+## without.
+func _tick_route_win(dt: float) -> void:
+	if _view() != "c_routing":
+		strip_mood = ""
+	var look := route_look_target()
+	var open := route_open_target()
+	var wk := ROUTE_WK_WIDE if strip_mood == "continue" else 1.0
+	if not motion:
+		strip_look = look
+		strip_open = open
+		strip_wk = wk
+		return
+	var k := 1.0 - exp(-8.0 * dt)
+	strip_look = strip_look.lerp(look, k)
+	strip_open = move_toward(strip_open, open, ROUTE_RATE * dt)
+	strip_wk = move_toward(strip_wk, wk, ROUTE_RATE * dt)
+
+## The routing window pupil's offset: one ROUTE_STEP per seated cord toward the plate it feeds;
+## while a preview runs on a plate, all the way to that plate.
+func route_look_target() -> Vector2:
+	var steps := float(r.patch_lean())
+	if pv_route != "" and _view() == "c_routing":
+		steps = -3.0 if pv_route == "sever" else 3.0
+	return Vector2(steps * ROUTE_STEP, ROUTE_LOOK_DY)
+
+func route_open_target() -> float:
+	match strip_mood:
+		"sever":
+			return ROUTE_OPEN_SLIT
+		"continue":
+			return ROUTE_OPEN_WIDE
+	return ROUTE_OPEN_REST
+
 ## The eye turns to `target` from wherever it is drawn now (Motion off: it is simply there).
 func _turn_to(target: String) -> void:
 	var o: Array = R12Sim.PUPIL_OFFSET.get(target, [0, 0])
@@ -561,6 +663,11 @@ func _tick_ending() -> void:
 	var said: Array = st.lines
 	if not page_spoke and not said.is_empty() and game.cur_text == said[0][1]:
 		page_spoke = true
+		if cur_tab == "a_morning" and morning_t0 < 0.0:
+			morning_t0 = _now()
+	if montage_waiting():
+		cont_t0 = -1.0
+		return
 	# 'Go on' shows as soon as her lines are read (a sound may still be to come); unanswered, the
 	# page turns itself only once its sounds have played too
 	if captions_done() or page_finished():
@@ -572,10 +679,30 @@ func _tick_ending() -> void:
 	else:
 		cont_t0 = -1.0
 
+## SEVER's montage keeps its page until every vignette has settled and the chamber has let its
+## held breath go: the terminal page comes after the silence, never into it.
+func montage_waiting() -> bool:
+	if cur_tab != R12Sim.MONTAGE or tab_done or not _in_ending():
+		return false
+	for t in settle_t:
+		if t < 0.0:
+			return true
+	return breath_held() or not breath_waits.is_empty()
+
+## How many of the montage's six vignettes have settled.
+func montage_settled() -> int:
+	if tab_done:
+		return 6
+	var n := 0
+	for t in settle_t:
+		if t >= 0.0:
+			n += 1
+	return n
+
 ## The page on show has said everything and played every sound, and its last line has had
 ## its read time.
 func page_finished() -> bool:
-	if not _in_ending() or game == null:
+	if not _in_ending() or game == null or montage_waiting():
 		return false
 	if not tab_done and (cur_step != r.ending_step() or _now() - tab_t0 < 0.5):
 		return false
@@ -584,7 +711,7 @@ func page_finished() -> bool:
 ## Every line of the page on show has gone up and been read (its sounds may still be playing,
 ## e.g. SEVER's last line-outs): a click may turn the page without leaving a caption behind.
 func captions_done() -> bool:
-	if not _in_ending() or game == null:
+	if not _in_ending() or game == null or montage_waiting():
 		return false
 	if not tab_done and (cur_step != r.ending_step() or _now() - tab_t0 < 0.5):
 		return false
@@ -627,6 +754,11 @@ const TERMINAL_DB := -20.0
 const R12_LOOPS := ["r12_hum", "r12_pressure", "r12_pressure_low", "r12_surface", "r12_terminal", "r12_mid"]
 const LINE_OUT_FADE := 0.5      # s, each eighth of the hum after its line goes out
 const WIDE_DB := -14.0          # CONTINUE's wide dark
+## The ending pages the loops turn on: SEVER's terminal page (b_dark) and its daylight (a_day);
+## CONTINUE's wide page.
+const SEVER_DARK_STEP := 2
+const SEVER_DAY_STEP := 3
+const CONTINUE_WIDE_STEP := 8
 
 ## The mid band (r12_mid, mastered at -24/-28 dBFS): -6 dB, 2 dB up after P25 and 2 more after P26.
 func mid_db() -> float:
@@ -655,9 +787,9 @@ func loop_targets() -> Dictionary:
 			# the last line has gone out: nothing at all, no bed, until the next page speaks
 			for id in R12_LOOPS:
 				t[id] = 0.0
-		if step >= 7:
+		if step >= SEVER_DARK_STEP:
 			t["r12_terminal"] = 0.0
-		if step >= 8:
+		if step >= SEVER_DAY_STEP:
 			t["r12_pressure_low"] = 0.0
 			t["r12_surface"] = 0.0
 			t["r12_mid"] = 0.0
@@ -665,7 +797,7 @@ func loop_targets() -> Dictionary:
 	else:
 		t["r12_hum"] = _lin(hum_db())
 		t["r12_terminal"] = _lin(TERMINAL_DB)
-		if step >= 8:
+		if step >= CONTINUE_WIDE_STEP:
 			for id in R12_LOOPS:
 				t[id] = 0.0
 			t["end_wide"] = _lin(WIDE_DB)
@@ -693,7 +825,7 @@ func loop_rates() -> Dictionary:
 		rates[id] = _lin(-12.0) / CROSSFADE
 	if r.chosen() != "":
 		var step := r.ending_step()
-		if step >= 8:
+		if step >= (SEVER_DAY_STEP if r.chosen() == "sever" else CONTINUE_WIDE_STEP):
 			for id in LOOPS:
 				rates[id] = _lin(-12.0) / ENDING_FADE
 		elif r.chosen() == "sever" and step <= 1:
@@ -778,9 +910,22 @@ func play_fx(id: String, e: Dictionary) -> void:
 			fit_t0 = _now()
 		"ending":
 			_start_step(int(e.get("step", 0)), str(e.get("tableau", "")), str(e.get("change", "")))
+		"patch":
+			strip_mood = ""          # a cord moved: the eye looks again
 		_:
 			if id.begins_with("line_out_"):
 				_line_out(clampi(int(id.substr(9)), 1, 8))
+			elif id.begins_with("settle_"):
+				_settle(clampi(int(id.substr(7)), 1, 6))
+
+## SEVER's montage: vignette n (1..6) settles, only ever on its settle_n fx (the earlier ones with
+## it, if one was missed).
+func _settle(n: int) -> void:
+	if cur_tab != R12Sim.MONTAGE:
+		return
+	for i in n:
+		if settle_t[i] < 0.0:
+			settle_t[i] = _now()
 
 ## SEVER's indicator n (1..8) goes out: its lamp to unlit ink at once, its name plate's brass
 ## fill SEVER_FILL_LAG later (at once with Motion off). Only ever from the line_out_n fx.
@@ -888,6 +1033,40 @@ func _start_step(step: int, tab: String, change: String) -> void:
 	page_spoke = false
 	cont_t0 = -1.0
 	wall_out_t = [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0]
+	morning_t0 = -1.0
+	settle_t = [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0]
+
+## Clears every trace of the ending's pages: the page and the one fading behind it, their
+## textures, its clocks. A restored checkpoint (Return to final decision) draws nothing of the
+## ending it came back from.
+func clear_ending_page() -> void:
+	for id in [cur_tab, prev_tab]:
+		if id != "":
+			textures.erase(id)
+	cur_tab = ""
+	prev_tab = ""
+	cur_step = -1
+	cur_change = ""
+	tab_done = false
+	fade_t0 = -99.0
+	lines_out = 0
+	am_t0 = -1.0
+	change_t0 = -1.0
+	pen_t0 = []
+	index_t0 = -1.0
+	pencil_t0 = []
+	counter_t0 = -1.0
+	paper_t0 = -1.0
+	cover_line_t0 = -1.0
+	page_spoke = false
+	cont_t0 = -1.0
+	wall_out_t = [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0]
+	morning_t0 = -1.0
+	settle_t = [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0]
+
+## The ending page on show ("" when none).
+func ending_page_id() -> String:
+	return cur_tab
 
 ## The window's glance (P26): the preview it was asked to show, and the surface drawing back
 ## with it once P26 is done. The room shows both itself.
@@ -940,6 +1119,13 @@ func apply_instantly() -> void:
 	if r != null:
 		gaze_at = r.pupil_offset()
 		look_to = gaze_at
+		final_gaze = gaze_at
+		strip_mood = ""
+		strip_look = route_look_target()
+		strip_open = ROUTE_OPEN_REST
+		strip_wk = 1.0
+	morning_t0 = -1.0
+	settle_t = [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0]
 	if r != null and r.chosen() != "":
 		cur_tab = r.tableau()
 		cur_step = r.ending_step()
@@ -947,11 +1133,7 @@ func apply_instantly() -> void:
 		tab_done = true
 		lines_out = 8
 	else:
-		cur_tab = ""
-		cur_step = -1
-		cur_change = ""
-		tab_done = false
-		lines_out = 0
+		clear_ending_page()
 	if mixer and r != null:
 		mixer.snap(loop_targets())
 
@@ -1151,23 +1333,24 @@ func _draw_view_a(c: CanvasItem, tab: String) -> void:
 			_full(c, "a_daylight")
 		"a_sit":
 			# it stays drawn back from the glass
-			_full(c, "a_surface_wide")
+			_full(c, "a_glass_r4")
+			_draw_margin(c, 1.0)
 			_draw_eye(c)
 			_draw_water(c)
-			_draw_margin(c, 1.0)
 		"a_morning":
-			# morning reaches the windows: the chamber's goes grey, flat, over the eye
-			_full(c, "a_surface_wide")
+			# morning reaches the windows: the chamber's goes grey, flat, over the eye (until the
+			# morning plate takes over, below)
+			_full(c, "a_glass_r4")
+			_draw_margin(c, 1.0)
 			_draw_eye(c)
 			_draw_water(c)
-			_draw_margin(c, 1.0)
 			_glass_rect(c, GLASS_IN, MORNING_GREY)
 		_:
-			_full(c, "a_surface_wide")
-			_draw_eye(c)
-			_draw_water(c)
+			_full(c, "a_glass_r4")
 			if s >= 2:
 				_draw_margin(c, _withdraw_k())
+			_draw_eye(c)
+			_draw_water(c)
 	if tab == "":
 		_draw_window_preview(c)
 		_draw_pupil_lamps(c)
@@ -1189,7 +1372,22 @@ func _draw_view_a(c: CanvasItem, tab: String) -> void:
 		_full(c, "a_ada_seated")
 	_draw_gauge(c, tab)
 	if tab == "a_morning":
-		_draw_morning(c)
+		# 'Morning reaches the windows.': the morning plate (continue_morning) comes in on the line
+		var k := morning_swap_k()
+		if k < 1.0:
+			_draw_morning(c)
+		if k > 0.0:
+			_full(c, "continue_morning", k)
+			_draw_gauge(c, tab)
+
+## 0..1, how far a_morning has turned to the morning plate: from the moment her line goes up,
+## over MORNING_SWAP s (at once with Motion off); whole once loaded or fading behind the next.
+const MORNING_SWAP := 1.2
+
+func morning_swap_k() -> float:
+	if tab_done or cur_tab != "a_morning":
+		return 1.0
+	return _k(morning_t0, MORNING_SWAP)
 
 func _withdraw_k() -> float:
 	if _stage() < 2 or withdraw_pending:
@@ -1212,24 +1410,35 @@ func _draw_lid(c: CanvasItem) -> void:
 	if k < 1.0:
 		_glass_rect(c, Rect2(g.position.x, y - 3.0, g.size.x, 3.0), LID_EDGE)
 
-## The eye's scale: closer (x1.15) once P26 is done.
+## The eye's scale: a little closer once P26 is done.
 func eye_scale() -> float:
 	return EYE_SCALE_P26 if _stage() >= 2 else 1.0
 
-## The eye's centre in the room now.
+## The iris's centre in the room: it never moves; the pupil does.
 func eye_centre() -> Vector2:
-	return EYE_C + gaze_at
+	return EYE_C
 
-## The pupil's centre: the iris's, led a little further the way the eye looks.
+## The iris's drawn rect in the room (whole inside the water, above the water line).
+func iris_rect() -> Rect2:
+	var rr := IRIS_R * eye_scale()
+	return Rect2(EYE_C - Vector2(rr, rr), Vector2(rr, rr) * 2.0)
+
+## The pupil's centre: the gaze offset from the iris's centre.
 func pupil_centre() -> Vector2:
-	return EYE_C + gaze_at * (1.0 + PUPIL_LEAD) * eye_scale()
+	return EYE_C + gaze_at * eye_scale()
 
-## The eye: the surface field and iris (a_surface_eye_r3) at its gaze, scaled after P26, then the
-## slit pupil (a_pupil_r3). Clipped to the water, the room in front of it.
+## The catchlight's centre for a pupil at `pc`, `h` tall, `wk` wide (R12.py eye4_catch_at()).
+static func catch_at(pc: Vector2, h: float, wk := 1.0) -> Vector2:
+	return pc + Vector2(PUPIL_W * h * wk * 0.28 + 4.0, -h * 0.26)
+
+## The eye r4: the iris at EYE_C, the pupil at its gaze, the catchlight on it. Clipped to the
+## water, the room in front of it.
 func _draw_eye(c: CanvasItem) -> void:
 	var sc := eye_scale()
-	_glass_tex_scaled(c, _tex("a_surface_eye_r3"), eye_centre(), sc)
-	_glass_tex_scaled(c, _tex("a_pupil_r3"), pupil_centre(), sc)
+	_glass_tex_scaled(c, _tex("eye_iris_r4"), EYE_C, sc)
+	var pc := pupil_centre()
+	_glass_tex_scaled(c, _tex("eye_pupil_r4"), pc, sc)
+	c.draw_circle(catch_at(pc, PUPIL_H * sc), CATCH_D / 2.0, CATCH_COLOR)
 
 ## Draws `t` centred on `centre` at scale `sc`, clipped to the water and cut round the holes.
 func _glass_tex_scaled(c: CanvasItem, t: Texture2D, centre: Vector2, sc: float, a := 1.0) -> void:
@@ -1877,6 +2086,67 @@ func _draw_c_routing(c: CanvasItem) -> void:
 			c.draw_rect(band.grow(2.0), BRUISE, false, 3.0)
 			_spaced(c, R12Sim.ROUTE_INCOMPLETE, band, 24, INK, f, 2.0)
 	_draw_patch(c)
+	_draw_route_window(c)
+
+## The window above the panel (between the plates): its pane, the water line, and the eye r4,
+## its pupil leaning with the patch, its lids at strip_open. Clipped to the pane.
+func _draw_route_window(c: CanvasItem) -> void:
+	var t := _tex("c_routing_window_r4")
+	if t:
+		c.draw_texture(t, ROUTE_WIN.position)
+	var sc := ROUTE_IRIS_R / ROUTE_IRIS_SPRITE_R
+	_clip_tex(c, _tex("eye_iris_r4_s"), ROUTE_EYE_C, Vector2(sc, sc), ROUTE_WIN_IN)
+	var pc := route_pupil_centre()
+	_clip_tex(c, _tex("eye_pupil_r4_s"), pc, Vector2(sc * strip_wk, sc), ROUTE_WIN_IN)
+	var ph := ROUTE_PUPIL_H * sc
+	var cd := 8.0
+	var ca := catch_at(pc, ph, strip_wk)
+	if ROUTE_WIN_IN.has_point(ca):
+		c.draw_circle(ca, cd / 2.0, CATCH_COLOR)
+	_draw_route_lids(c)
+	var wy := ROUTE_WATER_Y
+	var w := ROUTE_WIN_IN
+	c.draw_rect(Rect2(w.position.x, wy, w.size.x, w.end.y - wy), WATER_COLOR)
+	c.draw_rect(Rect2(w.position.x, wy - 1.5, w.size.x, 3.0), Color(WATER_EDGE, 0.85))
+
+## The routing window pupil's centre now.
+func route_pupil_centre() -> Vector2:
+	return ROUTE_EYE_C + strip_look
+
+## The lids over the routing window's eye: dark bands from above and below the iris to an almond
+## opening strip_open * its radius high, a sea-glass line along each edge.
+func _draw_route_lids(c: CanvasItem) -> void:
+	var w := ROUTE_WIN_IN
+	var cx := ROUTE_EYE_C.x
+	var cy := ROUTE_EYE_C.y
+	var hw := w.size.x / 2.0
+	var top := cy - ROUTE_IRIS_R - 4.0
+	var bot := cy + ROUTE_IRIS_R + 4.0
+	# wide open the lids draw back past the iris: only a sliver at its edge
+	var hh := minf(strip_open * ROUTE_IRIS_R, ROUTE_IRIS_R + 1.0)
+	for sd in [-1.0, 1.0]:
+		var edge := PackedVector2Array()
+		for i in 25:
+			var x := lerpf(-hw, hw, i / 24.0)
+			var y := hh * pow(maxf(0.0, 1.0 - pow(x / hw, 2.0)), 0.8)
+			edge.append(Vector2(cx + x, cy + sd * y))
+		var poly := PackedVector2Array(edge)
+		poly.append(Vector2(cx + hw, top if sd < 0.0 else bot))
+		poly.append(Vector2(cx - hw, top if sd < 0.0 else bot))
+		c.draw_colored_polygon(poly, LID_COLOR)
+		c.draw_polyline(edge, Color(LID_EDGE, 0.9), 2.0)
+		c.draw_polyline(edge, INK, 1.0)
+
+## Draws `t` centred on `centre`, scaled by `sc` (x and y), clipped to `clip`.
+func _clip_tex(c: CanvasItem, t: Texture2D, centre: Vector2, sc: Vector2, clip: Rect2) -> void:
+	if t == null:
+		return
+	var size := t.get_size() * sc
+	var dest := Rect2(centre - size / 2.0, size)
+	var part := dest.intersection(clip)
+	if part.size.x <= 0.0 or part.size.y <= 0.0:
+		return
+	c.draw_texture_rect_region(t, part, Rect2((part.position - dest.position) / sc, part.size / sc))
 
 ## The lit ROUTE INCOMPLETE band on a routing plate, over its OUTER DOOR row.
 func incomplete_rect(route: String) -> Rect2:
@@ -2035,49 +2305,48 @@ func _draw_c_final(c: CanvasItem) -> void:
 		if fit_what == "bridge_seat" and motion and fit_t0 >= 0.0:
 			bat.y -= 12.0 * (1.0 - _k(fit_t0, 0.25))
 		_sprite(c, "bridge", bat)
-	# the two knife switches: navy small caps stamped into each brass band (painted in c_final_r2)
+	# the two lever plates (c_final_r4): each word stamped deep into its brass field, its meaning
+	# engraved small under it
 	for route in R12Sim.ROUTES:
-		var band := knife_band(route)
-		_small_caps(c, BTN_TEXT[route], band, f)
+		_stamp(c, BTN_TEXT[route], knife_band(route), BTN_WORD_SIZE, f)
+		_engrave(c, BTN_CAPTION[route], caption_band(route), BTN_CAPTION_SIZE, f)
 		if r.refused_button == route:
 			var x0: float = BTN_X[route]
-			_ctext(c, "Preview first.", x0 + 300, BTN_Y + 176, 20, AMBER_HI, Ink.hand())
+			_ctext(c, "Preview first.", x0 + 300, BTN_Y + 186, 20, AMBER_HI, Ink.hand())
 
-## The brass lettering band of a knife-switch plate (tools/art/rooms/R12.py KNIFE_BAND).
+## The stamped word's band on a lever plate (tools/art/rooms/R12.py lever_plate(): the recessed
+## field is x0+34..x0+566, y0+24..y0+112; the word takes its upper part, the caption the lower).
 func knife_band(route: String) -> Rect2:
-	return Rect2(BTN_X[route] + 40.0, BTN_Y + 30.0, 520.0, 50.0)
+	return Rect2(BTN_X[route] + 34.0, BTN_Y + 24.0, 532.0, 58.0)
 
-## Stamped small caps centred in `band`: each word's first letter at SMALLCAPS_BIG px, the rest
-## at SMALLCAPS_SMALL px, navy, with a pale brass lip under each stroke.
-func _small_caps(c: CanvasItem, s: String, band: Rect2, f: Font) -> void:
-	var parts := []   # [char, size]
-	for w in s.split(" "):
-		if not parts.is_empty():
-			parts.append([" ", SMALLCAPS_SMALL])
-		for i in w.length():
-			parts.append([w[i], SMALLCAPS_BIG if i == 0 else SMALLCAPS_SMALL])
-	var width := 0.0
-	for p in parts:
-		width += f.get_char_size(str(p[0]).unicode_at(0), p[1]).x + SMALLCAPS_TRACK
-	var x := band.get_center().x - width / 2.0
-	var y := band.get_center().y + SMALLCAPS_BIG * 0.36
-	for p in parts:
-		var ch: String = p[0]
-		c.draw_char(f, Vector2(x, y + 1.0), ch, p[1], Color(BRASS_HI, 0.9))
-		c.draw_char(f, Vector2(x, y), ch, p[1], INK)
-		x += f.get_char_size(ch.unicode_at(0), p[1]).x + SMALLCAPS_TRACK
+func caption_band(route: String) -> Rect2:
+	return Rect2(BTN_X[route] + 34.0, BTN_Y + 80.0, 532.0, 30.0)
 
-## The eye in c_final's top strip: the surface and iris at its gaze, the slit pupil led a little
-## further, clipped to FINAL_STRIP; the margin of darker water along its edges (P26 is done).
+## A word stamped into brass: letter-spaced caps, navy, with a pale brass lip under each stroke.
+func _stamp(c: CanvasItem, s: String, band: Rect2, size: int, f: Font) -> void:
+	_spaced(c, s, Rect2(band.position + Vector2(0, 1.5), band.size), size, Color(BRASS_HI, 0.95), f, BTN_WORD_TRACK)
+	_spaced(c, s, band, size, INK, f, BTN_WORD_TRACK)
+
+## A small engraved caption: navy, a pale lip under it.
+func _engrave(c: CanvasItem, s: String, band: Rect2, size: int, f: Font) -> void:
+	var cen := band.get_center()
+	_ctext(c, s, cen.x, cen.y + size * 0.36 + 1.0, size, Color(BRASS_HI, 0.9), f)
+	_ctext(c, s, cen.x, cen.y + size * 0.36, size, Color(INK, 0.9), f)
+
+## The eye in c_final's top strip: the flat surface field, the margin of darker water along its
+## edges (P26 is done), and the whole eye r4 in the upper third: the iris at FINAL_EYE_C, the
+## pupil at final_gaze (the sim's look, or a hovered lever), its catchlight. Nothing crosses it.
 func _draw_final_strip(c: CanvasItem) -> void:
 	var s := FINAL_STRIP
-	c.draw_rect(s, Color("26343e"))
-	var sc := FINAL_EYE_SCALE
-	_strip_tex(c, _tex("a_surface_eye_r3"), FINAL_EYE_C + gaze_at * sc, sc)
-	_strip_tex(c, _tex("a_pupil_r3"), FINAL_EYE_C + gaze_at * (1.0 + PUPIL_LEAD) * sc, sc)
+	_vgrad(c, s, SURF_TOP, SURF_BOT)
 	var m := MARGIN_W
 	c.draw_rect(Rect2(s.position.x, s.position.y, m, s.size.y), MARGIN_COLOR)
 	c.draw_rect(Rect2(s.end.x - m, s.position.y, m, s.size.y), MARGIN_COLOR)
+	var sc := FINAL_EYE_SCALE
+	_strip_tex(c, _tex("eye_iris_r4"), FINAL_EYE_C, sc)
+	var pc := final_pupil_centre()
+	_strip_tex(c, _tex("eye_pupil_r4"), pc, sc)
+	c.draw_circle(catch_at(pc, PUPIL_H * sc), CATCH_D / 2.0, CATCH_COLOR)
 
 ## Draws `t` centred on `centre` at scale `sc`, clipped to FINAL_STRIP.
 func _strip_tex(c: CanvasItem, t: Texture2D, centre: Vector2, sc: float) -> void:
@@ -2092,7 +2361,7 @@ func _strip_tex(c: CanvasItem, t: Texture2D, centre: Vector2, sc: float) -> void
 
 ## The pupil's centre in c_final's strip (tests and captures).
 func final_pupil_centre() -> Vector2:
-	return FINAL_EYE_C + gaze_at * (1.0 + PUPIL_LEAD) * FINAL_EYE_SCALE
+	return FINAL_EYE_C + final_gaze * FINAL_EYE_SCALE
 
 # ---------------------------------------------------------------------------------------------
 # layer 5: the ending tableaux
@@ -2107,6 +2376,8 @@ func _draw_tab(c: CanvasItem, id: String, done: bool) -> void:
 			_draw_sever_wall(c, done)
 		"m_kettle":
 			_draw_kettle(c)
+		R12Sim.MONTAGE:
+			_draw_montage(c, done)
 		"b_dark":
 			_draw_view_b(c, "b_dark")
 		"a_day", "a_sit", "a_morning":
@@ -2264,6 +2535,50 @@ func _draw_sever_wall(c: CanvasItem, done: bool) -> void:
 ## Indicator i's centre on c_sever_wall (view B's LAMPS_B through the page's scale).
 func sever_wall_centre(i: int) -> Vector2:
 	return SEVER_WALL_AT + (Vector2(LAMP_B_X0 + LAMP_B_STEP * i, LAMP_B_Y) - SEVER_WALL_FROM) * SEVER_WALL_SCALE
+
+## SEVER's montage: the six rooms on one page, 3 x 2, each vignette in its own brass frame with
+## its room's name on an enamel plate under it; each turns from its before to its after on its
+## own settle fx (CHANGE_FADE, at once with Motion off).
+const MONTAGE_SCALE := 0.31
+const MONTAGE_X0 := 75.0
+const MONTAGE_GAP_X := 50.0
+const MONTAGE_Y := [110.0, 530.0]
+const MONTAGE_GROUND := Color("3c4c56")
+
+func montage_cell(i: int) -> Rect2:
+	var sz := Vector2(1288, 760) * MONTAGE_SCALE
+	return Rect2(Vector2(MONTAGE_X0 + (sz.x + MONTAGE_GAP_X) * (i % 3), MONTAGE_Y[i / 3]), sz)
+
+## 0..1, how far vignette i has settled.
+func montage_k(i: int, done: bool) -> float:
+	if done:
+		return 1.0
+	return _k(settle_t[i], CHANGE_FADE) if settle_t[i] >= 0.0 else 0.0
+
+func _draw_montage(c: CanvasItem, done: bool) -> void:
+	c.draw_rect(Rect2(Vector2.ZERO, SIZE), MONTAGE_GROUND)
+	var f := Ink.serif()
+	for i in R12Sim.MONTAGE_TABS.size():
+		var id: String = R12Sim.MONTAGE_TABS[i]
+		var cell := montage_cell(i)
+		c.draw_rect(cell.grow(14.0), BRASS)
+		c.draw_rect(cell.grow(14.0), INK, false, 2.5)
+		c.draw_rect(cell.grow(6.0), Color(BRASS, 0.7).darkened(0.25))
+		c.draw_rect(cell, Color("3c4c56"))
+		var pair: Array = PAIRS[id]
+		var k := montage_k(i, done)
+		var before := _tex("%s_%s" % [id, pair[0]])
+		var after := _tex("%s_%s" % [id, pair[1]])
+		if before and k < 1.0:
+			c.draw_texture_rect(before, cell, false)
+		if after and k > 0.0:
+			c.draw_texture_rect(after, cell, false, Color(1, 1, 1, k))
+		c.draw_rect(cell, INK, false, 2.0)
+		var name: String = CAPTIONS.get(id, "")
+		var w := _tw(name, 18, f) + 28.0
+		var plate := Rect2(cell.get_center().x - w / 2.0, cell.end.y + 24.0, w, 32.0)
+		_plate(c, plate)
+		_rtext(c, name, plate, 18, INK, f)
 
 ## CONTINUE's kitchen, close: the range, the kettle, the one lit window, its steam (m_kettle).
 func _draw_kettle(c: CanvasItem) -> void:

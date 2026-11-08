@@ -4103,6 +4103,462 @@ def paint_end_a_card(rng):
     return im
 
 
+# ============================================================================ fix p4: new files only
+# The eye r4, one design at every size: a sea-glass iris with a dark limbal ring and radial
+# striations (no concentric rings), a vertical almond pupil, and one hard 14 px paper-white
+# catchlight. The chamber, c_final and the routing window draw these sprites (R12_view.gd);
+# the CONTINUE wide plate and the morning plate paint them with the same painters.
+#   eye_iris_r4 / eye_pupil_r4        the chamber's (iris R 120, pupil 128 tall)
+#   eye_iris_r4_s / eye_pupil_r4_s    the routing close-up's window (iris R 50, pupil 54 tall)
+#   a_glass_r4                        the back wall's pane: field and frame, no eye; the conduit
+#                                     goes behind the frame (transparent only round the column's
+#                                     capital, the caged lamp and the gauge)
+#   c_final_r4                        c_final_r2 with the knife switches restyled as stamped brass
+#                                     plates with heavy levers (the view stamps SEVER / CONTINUE)
+#   c_routing_window_r4               the narrow window between the routing plates (sprite)
+#   stages/continue_morning           CONTINUE's morning in the chamber (opaque, the gauge's
+#                                     numerals and needle are the view's)
+#   stages/end_b_wide_4               CONTINUE's wide plate and its end-card still
+EYE4_IRIS = (0x5F, 0x8F, 0x86)              # sea-glass green
+EYE4_LIMBUS = (0x0F, 0x2A, 0x2E)            # the darker limbal ring
+EYE4_STREAK_DK = mix(EYE4_IRIS, EYE4_LIMBUS, 0.55)
+EYE4_STREAK_HI = mix(EYE4_IRIS, SEAGLASS_HI, 0.6)
+EYE4_PUPIL = (0x07, 0x0B, 0x0F)
+EYE4_CATCH = (0xF2, 0xEE, 0xE2)             # paper-white
+EYE4_CATCH_D = 14                           # px, at every size
+EYE4_PAD = 6
+EYE4_R = 120                                # the chamber's iris radius
+EYE4_PUPIL_H = 128                          # the chamber's pupil height
+EYE4_PUPIL_W = 0.38                         # pupil width / height
+EYE4_S_R = 50
+EYE4_S_PUPIL_H = 54
+
+
+def eye4_streaks():
+    """The striations, as [(angle, r0 / R, r1 / R, dark, width / R)]: one fixed seeded list, so
+    every size of the iris has the same marks."""
+    r = random.Random(SEED + 12400)
+    out = []
+    n = 64
+    for i in range(n):
+        a = math.tau * (i + r.uniform(-0.35, 0.35)) / n
+        out.append((a, r.uniform(0.30, 0.42), r.uniform(0.70, 0.86), i % 3 != 1, r.uniform(0.012, 0.024)))
+    return out
+
+
+def eye4_iris_on(p, cx, cy, R):
+    """The iris on pen `p`, centred (cx, cy), radius R."""
+    p.ell(cx, cy, R, R, EYE4_IRIS, None)
+    st = p.layer()
+    for a, r0, r1, dark, wd in eye4_streaks():
+        col = EYE4_STREAK_DK if dark else EYE4_STREAK_HI
+        pts = []
+        for k in range(7):
+            t = k / 6
+            rr = R * lerp(r0, r1, t)
+            aa = a + 0.05 * math.sin(math.pi * t)
+            pts.append((cx + rr * math.cos(aa), cy + rr * math.sin(aa)))
+        for k in range(6):
+            st.line([pts[k], pts[k + 1]], col, max(1.0, R * wd * lerp(1.4, 0.6, k / 5)))
+    p.put(st, 0.85)
+    # the limbal ring: one dark band at the edge, a softer inner edge
+    lim = Image.new("L", p.im.size, 0)
+    d = ImageDraw.Draw(lim)
+    d.ellipse(p._box(cx - R, cy - R, cx + R, cy + R), fill=255)
+    d.ellipse(p._box(cx - R * 0.86, cy - R * 0.86, cx + R * 0.86, cy + R * 0.86), fill=0)
+    band = p.layer()
+    band.ell(cx, cy, R, R, EYE4_LIMBUS, None)
+    p.put(band, mask=lim)
+    p.ell(cx, cy, R, R, None, INK, max(2.0, R * 0.022))
+
+
+def eye4_pupil_pts(cx, cy, h, wk=1.0):
+    """A vertical almond, `h` tall, EYE4_PUPIL_W * h * wk wide, pointed top and bottom."""
+    w = EYE4_PUPIL_W * h * wk
+    pts = []
+    for i in range(73):
+        a = math.tau * i / 72
+        x, y = math.cos(a), math.sin(a)
+        pts.append((cx + w / 2 * x * (1 - 0.45 * abs(y) ** 2.4), cy + h / 2 * y))
+    return pts
+
+
+def eye4_pupil_on(p, cx, cy, h, wk=1.0):
+    p.poly(eye4_pupil_pts(cx, cy, h, wk), EYE4_PUPIL, INK, max(1.6, h * 0.018))
+
+
+def eye4_catch_on(p, cx, cy):
+    """The catchlight: one hard paper-white disc, EYE4_CATCH_D px across, at (cx, cy)."""
+    r = EYE4_CATCH_D / 2
+    p.ell(cx, cy, r, r, EYE4_CATCH, None)
+
+
+def eye4_catch_at(pc, h, wk=1.0):
+    """The catchlight's centre for a pupil centred `pc`, `h` tall: up and right, off centre."""
+    return (pc[0] + EYE4_PUPIL_W * h * wk * 0.28 + 4, pc[1] - h * 0.26)
+
+
+def paint_eye_iris_r4(R):
+    def run(rng):
+        s = 2 * R + 2 * EYE4_PAD
+        p = Pen(s, s, rng)
+        eye4_iris_on(p, s / 2, s / 2, R)
+        return p
+    return run
+
+
+def paint_eye_pupil_r4(h):
+    def run(rng):
+        w = int(math.ceil(EYE4_PUPIL_W * h)) + 2 * EYE4_PAD
+        hh = h + 2 * EYE4_PAD
+        p = Pen(w, hh, rng)
+        eye4_pupil_on(p, w / 2, hh / 2, h)
+        return p
+    return run
+
+
+def glass4_mask():
+    """Where the back-wall pane is drawn: the glass rect, less what hangs in front of it in view_a
+    (the column's capital and body, the gauge, the caged lamp). The conduit is not cut: it runs
+    behind the frame."""
+    p = Pen(W, H, rng_for(0))
+    col = Pen(W, H, rng_for(0))
+    column(col, rng_for(0))
+    gauge(p)
+    lamp = Pen(W, H, rng_for(0))
+    caged_lamp(lamp, 250, 36)
+    a = ImageChops.lighter(p.im.getchannel("A"), col.im.getchannel("A")).point(lambda v: 255 if v > 24 else 0)
+    # the conduit (966..994 above the capital, its bands 958..1002) is behind the glass
+    conduit = Image.new("L", a.size, 0)
+    ImageDraw.Draw(conduit).rectangle((954 * SS, 0, 1006 * SS, 399 * SS), fill=255)
+    a = ImageChops.subtract(a, conduit)
+    b = lamp.im.getchannel("A").point(lambda v: 255 if v > 200 else 0)
+    m = ImageChops.lighter(a, b).resize((W, H), Image.NEAREST)
+    return m.filter(ImageFilter.MaxFilter(3))
+
+
+def paint_glass_r4(rng):
+    """The back wall's pane with no eye in it: paint_surface_wide's flat field and iron frame. The
+    view draws the r4 eye over the field."""
+    x0, y0, x1, y1 = GLASS
+    f = GLASS_FRAME
+    p = Pen(W, H, rng)
+    p.vgrad(x0, y0, x1, y1, SURFW_TOP, SURFW_BOT)
+    inner = poly_mask((W, H), [(x0 + f, y0 + f), (x1 - f, y0 + f), (x1 - f, y1 - f), (x0 + f, y1 - f)])
+    fr = p.layer()
+    fr.rect(x0, y0, x1, y1, IRON, INK, 3.0)
+    p.put(fr, mask=ImageChops.subtract(poly_mask((W, H), [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]), inner))
+    p.rect(x0 + f, y0 + f, x1 - f, y1 - f, None, INK, 2.6)
+    p.rect(x0 + f - 3, y0 + f - 3, x1 - f + 3, y1 - f + 3, None, BRASS_LO, 1.6)
+    p.line([(x0 + 2, y0 + 3), (x1 - 2, y0 + 3)], IRON_HI, 1.4)
+    for x in range(int(x0) + 30, int(x1) - 10, 60):
+        rivet(p, x, y0 + f / 2, 2.2, IRON_HI)
+        rivet(p, x, y1 - f / 2, 2.2, IRON_HI)
+    im = grain(p.done(), rng_for(2430), amp=4, mottle=4, speck=6)
+    a = ImageChops.subtract(im.getchannel("A"), glass4_mask())
+    im.putalpha(a)
+    return im
+
+
+# c_final r4: the knife switches become stamped brass plates with heavy levers.
+LEVER_SLOT = (90, 132, 520, 160)            # plate-relative: the lever's slot
+
+
+def lever_plate(p, x0, y0):
+    """A stamped brass plate, 600 x 200: a raised rim stamped round a brass face, a smooth field
+    across the top for the stamped word and its engraved caption (the view writes both), and under
+    them a heavy iron lever lying in its slot: a pivot boss on the left, a thick bar, a turned
+    brown grip on the right."""
+    sh = p.layer()
+    sh.rect(x0 + 8, y0 + 10, x0 + 608, y0 + 210, BLACK, None, r=8)
+    p.put_soft(sh, 8, 0.35)
+    p.rect(x0, y0, x0 + 600, y0 + 200, BRASS, INK, 3, 8)
+    # the stamped rim: a raised bead, lit top-left, shadowed bottom-right
+    p.rect(x0 + 12, y0 + 12, x0 + 588, y0 + 188, None, mix(BRASS, BRASS_DK, 0.6), 2.4, 5)
+    p.line([(x0 + 15, y0 + 185), (x0 + 15, y0 + 15), (x0 + 585, y0 + 15)], BRASS_HI, 2.0)
+    p.line([(x0 + 16, y0 + 185), (x0 + 585, y0 + 185), (x0 + 585, y0 + 16)], BRASS_DK, 2.0)
+    # the field for the word: a shallow recess
+    p.rect(x0 + 34, y0 + 24, x0 + 566, y0 + 112, mix(BRASS, BRASS_HI, 0.18), mix(BRASS, BRASS_DK, 0.5), 1.6, 3)
+    p.line([(x0 + 36, y0 + 110), (x0 + 564, y0 + 110)], BRASS_HI, 1.2)
+    # the slot, cut deep
+    sx0, sy0, sx1, sy1 = LEVER_SLOT
+    p.rect(x0 + sx0, y0 + sy0, x0 + sx1, y0 + sy1, BLACK, INK, 2.2, 12)
+    p.line([(x0 + sx0 + 10, y0 + sy1 + 2), (x0 + sx1 - 10, y0 + sy1 + 2)], BRASS_HI, 1.4)
+    # the pivot boss
+    bx, by = x0 + 118, y0 + 146
+    p.ell(bx, by, 30, 30, BRASS_LO, INK, 2.6)
+    p.arc(bx, by, 25, 25, 200, 300, BRASS_HI, 2.2)
+    # the bar: heavy iron, a bright edge on top
+    p.rect(bx, by - 13, x0 + 448, by + 13, IRON, INK, 2.6, 6)
+    p.line([(bx + 6, by - 8), (x0 + 442, by - 8)], IRON_HI, 2.0)
+    p.line([(bx + 6, by + 8), (x0 + 442, by + 8)], IRON_LO, 1.6)
+    p.ell(bx, by, 14, 14, BRASS, INK, 2.2)
+    p.ell(bx, by, 5, 5, BRASS_DK, None)
+    # the grip: a turned brown handle, collar and knob
+    p.rect(x0 + 440, by - 18, x0 + 456, by + 18, BRASS, INK, 2.0, 3)
+    p.rect(x0 + 454, by - 20, x0 + 548, by + 20, LEATHER, INK, 2.4, 18)
+    p.line([(x0 + 466, by - 12), (x0 + 538, by - 12)], LEATHER_HI, 2.0)
+    for (sx, sy) in ((x0 + 9, y0 + 9), (x0 + 591, y0 + 9), (x0 + 9, y0 + 191), (x0 + 591, y0 + 191)):
+        screw(p, sx, sy, 3.6, BRASS_LO)
+
+
+def paint_c_final_r4(rng):
+    p = Pen(W, H, rng)
+    closeup_ground(p, rng)
+    p.rect(-4, FINAL_SILL, W + 4, FINAL_SILL + 18, IRON, INK, 2.6)
+    p.line([(-4, FINAL_SILL + 4), (W + 4, FINAL_SILL + 4)], IRON_HI, 1.4)
+    final_panels(p, FINAL_DY)
+    for x0 in KNIFE_X:
+        lever_plate(p, x0, KNIFE_Y)
+    im = grain(p.done(), rng_for(2440))
+    keep = Image.new("L", (W, H), 255)
+    d = ImageDraw.Draw(keep)
+    d.rectangle((0, 0, W, FINAL_SILL - 1), fill=0)
+    for (x0, y0, x1, y1) in FINAL_PANELS:
+        d.rectangle((x0 - 3, y0 + FINAL_DY - 3, x1 + 3, y1 + FINAL_DY + 3), fill=255)
+    im.putalpha(ImageChops.multiply(im.getchannel("A"), keep))
+    return im
+
+
+# The routing close-up's window: a tall narrow pane between the two plates (R12_view.gd
+# ROUTE_WIN), its iron frame round a flat field; the view draws the eye and its lids inside.
+ROUTE_WIN = (664, 90, 784, 452)             # x0, y0, x1, y1 in the close-up
+ROUTE_WIN_FRAME = 12
+
+
+def paint_c_routing_window_r4(rng):
+    x0, y0, x1, y1 = ROUTE_WIN
+    w, h = x1 - x0, y1 - y0
+    f = ROUTE_WIN_FRAME
+    p = Pen(w, h, rng)
+    p.rect(0, 0, w, h, IRON, INK, 3.0, 4)
+    p.line([(3, h - 4), (3, 3), (w - 4, 3)], IRON_HI, 1.4)
+    p.vgrad(f, f, w - f, h - f, SURFW_TOP, SURFW_BOT)
+    p.rect(f, f, w - f, h - f, None, INK, 2.4)
+    p.rect(f - 3, f - 3, w - f + 3, h - f + 3, None, BRASS_LO, 1.6)
+    for y in range(18, h - 8, 48):
+        rivet(p, f / 2, y, 2.0, IRON_HI)
+        rivet(p, w - f / 2, y, 2.0, IRON_HI)
+    return grain(p.done(), rng_for(2450), amp=3, mottle=3, speck=4)
+
+
+# CONTINUE's morning in the chamber: view_a at stage 2 with the arms lowered and Ada in the chair;
+# flat grey daylight floods the pane, the eye faint in it with its pupil narrowed to a vertical
+# slit turned toward the chair; the window throws a hard pale rectangle across the floor, and the
+# seated silhouette lies in it in flat storm navy.
+MORNING4_GREY = (0x9A, 0xA4, 0xA8)
+MORNING4_FLOOR = (0xD9, 0xD2, 0xC0)          # paper, laid at ~70%
+MORNING4_EYE_C = (724, 228)                 # R12_view.gd EYE_C
+MORNING4_LOOK = (-30, 22)                   # R12Sim.PUPIL_OFFSET["chair"]
+MORNING4_RECT = (238, 906, 1212, 1078)      # the light on the floor
+FLOOR_Y = 900
+
+
+def chair_mask(ss=SS):
+    """The chair in view_a as a flat shape (the back posts, the seat, the legs), at ss."""
+    m = Image.new("L", (W * ss, H * ss), 0)
+    d = ImageDraw.Draw(m)
+    for (a, b, c, e) in ((380, 474, 428, 900), (380, 686, 640, 716), (598, 700, 626, 900), (380, 812, 626, 826)):
+        d.rectangle((a * ss, b * ss, c * ss, e * ss), fill=255)
+    return m
+
+
+def _asset(name):
+    return Image.open(os.path.join(OUT, name + ".png")).convert("RGBA")
+
+
+def paint_continue_morning(rng):
+    im = Image.open(os.path.join(OUT, "view_a.png")).convert("RGBA")
+    # the pane: field and frame, then the grey day over the water, the eye faint in it
+    glass = paint_glass_r4(rng_for(1225))
+    im.alpha_composite(glass)
+    gx, gy, gw, gh = GLASS_IN
+    pane = glass.getchannel("A").crop((0, 0, W, H))
+    inside = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(inside).rectangle((gx, gy, gx + gw - 1, gy + gh - 1), fill=255)
+    inside = ImageChops.multiply(inside, pane.point(lambda v: 255 if v > 200 else 0))
+    eye = Pen(W, H, rng)
+    ex, ey = MORNING4_EYE_C
+    eye4_iris_on(eye, ex, ey, EYE4_R)
+    pc = (ex + MORNING4_LOOK[0], ey + MORNING4_LOOK[1])
+    eye4_pupil_on(eye, pc[0], pc[1], EYE4_PUPIL_H, 0.22)
+    eye4_catch_on(eye, *eye4_catch_at(pc, EYE4_PUPIL_H, 0.22))
+    day = Image.new("RGBA", (W, H), rgba(MORNING4_GREY))
+    day.putalpha(inside)
+    im.alpha_composite(day)
+    e = eye.done()
+    e.putalpha(ImageChops.multiply(e.getchannel("A"), inside.point(lambda v: v * 150 // 255)))
+    im.alpha_composite(e)
+    # the pupil and its light stay hard: the slit is the darkest thing in the room's light
+    slit = Pen(W, H, rng)
+    eye4_pupil_on(slit, pc[0], pc[1], EYE4_PUPIL_H, 0.22)
+    eye4_catch_on(slit, *eye4_catch_at(pc, EYE4_PUPIL_H, 0.22))
+    s = slit.done()
+    s.putalpha(ImageChops.multiply(s.getchannel("A"), inside))
+    im.alpha_composite(s)
+    # the water line, as the view draws it at stage 2 (R12_view.gd water_y())
+    wl = Pen(W, H, rng)
+    wl.rect(gx, 362, gx + gw, gy + gh, mix(MORNING4_GREY, SEA, 0.5), None)
+    wl.line([(gx, 362), (gx + gw, 362)], mix(SEAGLASS_HI, PAPER_HI, 0.4), 3)
+    w = wl.done()
+    w.putalpha(ImageChops.multiply(w.getchannel("A"), inside))
+    im.alpha_composite(w)
+    # the stage marks and the seated figure, as a_morning had them
+    for name in ("a_stain_2", "a_gauge_pinned", "a_arm_low"):
+        im.alpha_composite(_asset(name))
+    # the light on the floor, and the seated silhouette laid in it
+    fl = Pen(W, H, rng)
+    x0, y0, x1, y1 = MORNING4_RECT
+    fl.poly([(x0 + 40, y0), (x1 - 40, y0), (x1, y1), (x0, y1)], MORNING4_FLOOR, None)
+    f = fl.done()
+    f.putalpha(f.getchannel("A").point(lambda v: v * 178 // 255))
+    im.alpha_composite(f)
+    fig = ImageChops.lighter(ada_mask(1), chair_mask(1))
+    # cast forward and down onto the floor from the chair's feet: flipped, foreshortened
+    box = fig.crop((0, 470, W, FLOOR_Y))
+    bh = FLOOR_Y - 470
+    sh_h = int(bh * 0.38)
+    cast = box.transpose(Image.FLIP_TOP_BOTTOM).resize((W, sh_h), Image.LANCZOS)
+    cast = cast.point(lambda v: 255 if v > 110 else 0)
+    shadow = Image.new("L", (W, H), 0)
+    shadow.paste(cast, (34, FLOOR_Y + 10))
+    clip = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(clip).polygon([(x0 + 40, y0), (x1 - 40, y0), (x1, y1), (x0, y1)], fill=255)
+    shadow = ImageChops.multiply(shadow, clip)
+    navy = Image.new("RGBA", (W, H), rgba(STORM))
+    navy.putalpha(shadow)
+    im.alpha_composite(navy)
+    im.alpha_composite(_asset("a_ada_seated"))
+    return grain(im.convert("RGB"), rng_for(2460), amp=2, mottle=2, speck=2)
+
+
+# CONTINUE's wide plate, r4: the night field with the eye fully in frame. Its iris (R 260, the r4
+# painter) sits in an almond opening in the storm-navy sky, centred at y 155; its pupil is
+# turned down and left to the one lit station, three times the size it was, brass-bright, with
+# Ada seated in it.
+WIDE4_EYE_C = (900, 155)
+WIDE4_IRIS_R = 260
+WIDE4_OPEN = (470, 145)                    # the opening's half-width and half-height
+WIDE4_PUPIL_H = 176
+WIDE4_HOME = (724, 690, 96)                # the lit station: foot x, foot y, box width
+WIDE4_WIN = (42, 39)                       # its window: three times end_b_wide_3's 14 x 13
+WIDE4_LIT = mix(BRASS_HI, AMBER_HI, 0.55)  # brass-bright
+WIDE4_SCLERA = mix(STORM, BLACK, 0.3)
+
+
+def wide4_layout(rng):
+    out = []
+    sizes = [16.0 * (1.42 ** i) for i in range(WIDE2_ROWS)]
+    ys = [lerp(WIDE2_HOR + 14, 1060, (i / (WIDE2_ROWS - 1)) ** 1.25) for i in range(WIDE2_ROWS)]
+    hx, hy, hw = WIDE4_HOME
+    for i in range(WIDE2_ROWS):
+        s, y = sizes[i], ys[i]
+        step = s * rng.uniform(2.1, 2.5)
+        x = -s + rng.uniform(0, step)
+        while x < W + s:
+            cx = x + rng.uniform(-0.2, 0.2) * step
+            base = y + rng.uniform(-0.25, 0.25) * s
+            w = s * rng.uniform(0.92, 1.08)
+            if abs(cx - hx) > hw * 0.8 + w * 0.7 or abs(base - hy) > hw * 1.2 + w:
+                out.append((cx, base, w))
+            x += step
+    return out
+
+
+def wide4_window():
+    """The lit window's box (x0, y0, x1, y1) on the home station."""
+    hx, hy, hw = WIDE4_HOME
+    bh = int(round(hw * 0.56))
+    sh = int(round(hw * 0.42))
+    by1 = hy - sh
+    by0 = by1 - bh + 1
+    ww, wh = WIDE4_WIN
+    wx = int(round(hx - ww / 2))
+    wy = int(round(by0 + (bh - wh) * 0.45))
+    return (wx, wy, wx + ww - 1, wy + wh - 1)
+
+
+def wide4_pupil_c():
+    wx0, wy0, wx1, wy1 = wide4_window()
+    tx, ty = (wx0 + wx1) / 2, (wy0 + wy1) / 2
+    dx, dy = tx - WIDE4_EYE_C[0], ty - WIDE4_EYE_C[1]
+    L = math.hypot(dx, dy)
+    return (WIDE4_EYE_C[0] + 52 * dx / L - 24, WIDE4_EYE_C[1] + 52 * dy / L)
+
+
+def almond_pts(cx, cy, hw, hh, n=96):
+    pts = []
+    for i in range(n + 1):
+        t = i / n
+        x = lerp(-hw, hw, t)
+        y = hh * (1 - (x / hw) ** 2) ** 0.8
+        pts.append((cx + x, cy - y))
+    for i in range(n + 1):
+        t = i / n
+        x = lerp(hw, -hw, t)
+        y = hh * (1 - (x / hw) ** 2) ** 0.9
+        pts.append((cx + x, cy + y))
+    return pts
+
+
+def paint_end_b_wide_4(rng):
+    p = Pen(W, H, rng)
+    p.vgrad(-4, -4, W + 4, WIDE2_HOR, WIDE3_SKY_TOP, WIDE3_SKY_LOW)
+    p.vgrad(-4, WIDE2_HOR, W + 4, H + 4, WIDE3_SEA_FAR, WIDE3_SEA_NEAR)
+    ex, ey = WIDE4_EYE_C
+    ow, oh = WIDE4_OPEN
+    opening = almond_pts(ex, ey, ow, oh)
+    eye = p.layer()
+    eye.poly(opening, WIDE4_SCLERA, None)
+    eye4_iris_on(eye, ex, ey, WIDE4_IRIS_R)
+    pc = wide4_pupil_c()
+    eye4_pupil_on(eye, pc[0], pc[1], WIDE4_PUPIL_H)
+    eye4_catch_on(eye, *eye4_catch_at(pc, WIDE4_PUPIL_H))
+    p.put(eye, mask=p.mask_poly(opening))
+    # the lids: an inked edge, and one crease above in a step lighter than the sky
+    p.poly(opening, None, INK, 3.4)
+    p.line(almond_pts(ex, ey - 4, ow + 30, oh + 26)[:97], mix(WIDE3_SKY_TOP, SEAGLASS, 0.35), 2.2)
+    p.line([(-4, WIDE2_HOR), (W + 4, WIDE2_HOR)], INK, 2.2)
+    chop = p.layer()
+    for _ in range(70):
+        x, y = rng.uniform(-20, W), rng.uniform(WIDE2_HOR + 10, H)
+        L = rng.uniform(20, 70) * (0.4 + (y - WIDE2_HOR) / 500)
+        chop.line([(x, y), (x + L * 0.5, y - 3), (x + L, y)], mix(WIDE3_SEA_FAR, SEAGLASS, 0.35), 1.6)
+    p.put(chop, 0.45)
+    im = grain(p.done(), rng_for(12470), amp=3, mottle=3, speck=4).convert("RGB")
+    d = ImageDraw.Draw(im)
+    hx, hy, hw = WIDE4_HOME
+    home_drawn = False
+    for cx, base, w in wide4_layout(random.Random(SEED + 12091)):
+        if not home_drawn and base > hy:
+            station_shape(d, hx, hy, hw, WIDE3_SIL, WIDE3_WIN)
+            home_drawn = True
+        station_shape(d, cx, base, w, WIDE3_SIL, WIDE3_WIN)
+    if not home_drawn:
+        station_shape(d, hx, hy, hw, WIDE3_SIL, WIDE3_WIN)
+    # the lit window, three times the size, and its small flat glow, then Ada seated in it
+    wx0, wy0, wx1, wy1 = wide4_window()
+    gx, gy = (wx0 + wx1) / 2, (wy0 + wy1) / 2
+    glow = Image.new("RGBA", (W * SS, H * SS), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    gd.ellipse(((gx - 50) * SS, (gy - 46) * SS, (gx + 50) * SS, (gy + 46) * SS), fill=rgba(AMBER, 54))
+    gd.ellipse(((gx - 34) * SS, (gy - 31) * SS, (gx + 34) * SS, (gy + 31) * SS), fill=rgba(AMBER, 66))
+    im = im.convert("RGBA")
+    im.alpha_composite(glow.resize((W, H), Image.LANCZOS))
+    d = ImageDraw.Draw(im)
+    d.rectangle((wx0 - 2, wy0 - 2, wx1 + 2, wy1 + 2), fill=INK)
+    d.rectangle((wx0, wy0, wx1, wy1), fill=WIDE4_LIT)
+    # Ada: the chamber's seated figure (ada_mask), cropped and laid in the window's lower left
+    fig = ada_mask(1).crop((396, 478, 668, 884))
+    fh = wy1 - wy0 - 5
+    fw = int(round(fig.size[0] * fh / fig.size[1]))
+    fig = fig.resize((fw, fh), Image.LANCZOS).point(lambda v: 255 if v > 100 else 0)
+    sil = Image.new("RGBA", fig.size, rgba(INK))
+    sil.putalpha(fig)
+    im.alpha_composite(sil, (int(wx0 + 4), int(wy1 - fh + 1)))
+    return im.convert("RGB")
+
+
 # ============================================================================ registry
 def opaque_grain(k, painter):
     return lambda rng: grain(painter(rng).done(), rng_for(1000 + k))
@@ -4208,6 +4664,16 @@ ASSETS = [  # name, seed index, painter, opaque
     # CONTINUE's end still: end_b_wide_3 (its seeds, its stations, its kitchen at y 643) with the
     # eye let down far enough that its whole pupil shows above the horizon
     ("stages/end_b_card", 1219, lambda r: paint_end_b_wide_3(r, eye_y=-40), True),
+    # fix p4: new files only
+    ("eye_iris_r4", 1230, paint_eye_iris_r4(EYE4_R), False),
+    ("eye_pupil_r4", 1231, paint_eye_pupil_r4(EYE4_PUPIL_H), False),
+    ("eye_iris_r4_s", 1230, paint_eye_iris_r4(EYE4_S_R), False),
+    ("eye_pupil_r4_s", 1231, paint_eye_pupil_r4(EYE4_S_PUPIL_H), False),
+    ("a_glass_r4", 1225, paint_glass_r4, False),
+    ("c_final_r4", 1226, paint_c_final_r4, False),
+    ("c_routing_window_r4", 1227, paint_c_routing_window_r4, False),
+    ("stages/continue_morning", 1228, paint_continue_morning, True),
+    ("stages/end_b_wide_4", 1229, paint_end_b_wide_4, True),
 ]
 
 

@@ -739,10 +739,13 @@ func play_p26() -> void:
 	ev = _qd("preview_sever")
 	check(not g.flag("P26") and chamber.previewed("sever"), "P26: one route rehearsed is not enough")
 	check(has_ev(ev, "fx", "eye_look") and chamber.gaze() == "routing", "P26: a preview turns the eye to the routing wall")
-	_r12_room()   # the SEVER preview's window glance may have put the close-up down
-	for a in ["to_routing", "plate_continue", "cord_ev", "patch:ev:am", "cord_am", "patch:am:terminal", "preview_continue"]:
-		_qd(a)
+	check(not has_ev(ev, "fx", "glance") and chamber.local_view == "c_routing",
+		"P26: the preview stays in the close-up; the window above the panel shows it")
+	# straight on to the other route, in the same close-up
+	for a in ["cord_ev", "patch:ev:am", "cord_am", "patch:am:terminal", "preview_continue"]:
+		ev = _qd(a)
 	check(g.flag("P26") and chamber.previewed("sever") and chamber.previewed("continue"), "P26: both routes rehearsed")
+	check(not has_ev(ev, "fx", "glance") and chamber.local_view == "c_routing", "P26: solved in the close-up, no glance")
 	check(not g.checkpoint.is_empty(), "P26: the pre-ending checkpoint is stored")
 	check(g.checkpoint.rooms.R12.patch == {"feed_a": "open", "feed_b": "open", "ev": "am", "am": "terminal"},
 		"P26: the checkpoint keeps the patch (%s)" % [g.checkpoint.rooms.R12.patch])
@@ -750,11 +753,12 @@ func play_p26() -> void:
 ## R12 P27, played as SEVER: the yoke across the feed contacts, preview, SEVER; then every
 ## page of the ending to the end card. _endings() replays the checkpoint to CONTINUE.
 func play_p27() -> void:
-	_r12_room()   # the P26 glance may already have put the routing close-up down
-	for a in ["to_routing", "contacts", "tray", "contacts", "preview"]:
+	_r12_room()   # down from the routing close-up P26 was solved in
+	for a in ["to_routing", "contacts", "tray", "contacts"]:
 		_qd(a)
+	# the routing wall's SEVER preview counts: no third preview
 	_qd("btn_sever")
-	check(g.flag("P27") and chamber.chosen() == "sever", "P27: SEVER pressed")
+	check(g.flag("P27") and chamber.chosen() == "sever", "P27: SEVER pressed, no third preview asked for")
 	var guard := 0
 	while g.view != "end" and guard < 20:
 		_qd("ending_next")
