@@ -209,13 +209,15 @@ const OBJECTIVES := {
 	"done": "The plan is fixed. My name is in the middle of it.",
 }
 ## Evidence tiers (hint_tiers()): what the room, the recorder and the notebook already show,
-## said before the answer and short of it. P03 (register), P04, P05 and P21 have one; the rest
+## said before the answer and short of it. P03 (register), T1X (office), P04, P05 and P21 have one; the rest
 ## have three tiers.
 const EVIDENCE_CALIBRATE := "Venn's recording says the zero out loud. The registered curve runs through one of his numbered bands. The plate's seven and two are only its example."
 const EVIDENCE_RECORD := "The recorder printed what you actually did. The hatch frame is carved top to bottom: a bracket, two linked strokes, a circle. The plates carry the same marks."
 const EVIDENCE_PLAN := "The composite chart is in the notebook: his lighthouse cross, his north arrow, and the line his two sheets draw together. The station plan prints a lighthouse cross of its own, and its own north arrow."
 ## P03's evidence tier (the register ladder): what the table and his sheet already show.
 const EVIDENCE_REGISTER := "The table has two sheets for the 17th. His sheet's north arrow is pointing somewhere else."
+## T1X's evidence tier (the office ladder): what his log already showed her.
+const EVIDENCE_OFFICE := "His log ended with my name on the 18th. A record is only finished when nobody is still writing in it."
 const PLAN_ANSWER_HINT := "Lay his composite on the plan and turn it once to the right, so its north points the way the plan's does. Pin his lighthouse cross on the plan's, beside the lantern gallery, and clip. Then the WITNESS pin in the centre chamber."
 const HINTS := {
 	"sheet_missing": [
@@ -237,6 +239,7 @@ const HINTS := {
 	"office": [
 		"Something in the office has changed.",
 		"Venn's log is not finished with you.",
+		EVIDENCE_OFFICE,
 		"Go back to the Intake Office and open the tide log.",
 	],
 	"calibrate": [
@@ -1158,7 +1161,7 @@ func objective() -> String:
 		return "plan"
 	return "done"
 
-## P03 (register), P04, P05 and P21 have four tiers (nudge, relationship, evidence, answer); the rest three.
+## P03 (register), T1X (office), P04, P05 and P21 have four tiers (nudge, relationship, evidence, answer); the rest three.
 func hint_tiers() -> int:
 	return 4 if HINTS.get(objective(), []).size() >= 4 else 3
 
