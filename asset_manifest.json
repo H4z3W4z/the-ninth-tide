@@ -7963,6 +7963,60 @@
       "source_svg": null
     },
     {
+      "id": "staff_shut",
+      "path": "assets/stages/R10/staff_shut.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "b3f4a4d52939644904d5fb662a2ee55f54e7c6abebf41af2b9abeea71109f42e",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "staff_slot",
+      "path": "assets/stages/R10/staff_slot.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "d68ccb414b0d10835390a6ff496e30e7d4f5e5cc3729d6dd8aa12b0766a57220",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "staff_slot_1",
+      "path": "assets/stages/R10/staff_slot_1.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "63c498fbbcefdebd991e2de150556aaced3cdc1c13cbd5e0bfb52288c9e4c522",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "staff_slot_2",
+      "path": "assets/stages/R10/staff_slot_2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "49a419d968eb40df856c0b3177a25fa82840b4e8dfa6d3331aff1f6302e31f52",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "staff_slot_riffle",
+      "path": "assets/stages/R10/staff_slot_riffle.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "9de5be4d404e5729084f06386002d1cd3be47d727f710a8aa4e5bfd4e75f9120",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "vault_grade",
+      "path": "assets/stages/R10/vault_grade.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "deae1478c6984162990b9acf26e0167818ccc98be4863bf7749c148802fce44f",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "away_coat",
       "path": "assets/stages/away_coat.png",
       "width": 1448,

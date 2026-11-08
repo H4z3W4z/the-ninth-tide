@@ -99,9 +99,11 @@ const P18_RELEASE := "I pull the release. Venn's drawer opens."
 
 # --- P23: the Index model --------------------------------------------------------------------
 const SHUTTER_LINE := "A brass shutter over the terminals. A hollow circle on it: OBSERVER. No keyhole this side. It opens from the other side."
-const FACEPLATE := "'A copied acknowledgement closes the cycle. A human witness may append another correction.'"
+## The faceplate names the terminals and nothing else: the rule is written only in the margin
+## of the session log (R04, P17). Here it is learned by testing, and by the copy test's failure.
+const FACEPLATE := "INPUT. COPY. WITNESS. Nothing else on the plate."
 const MODEL_OPEN_LINE := "The Index model. Three brass leaves over a terminal block."
-const STRIP_CLOSED := "COPY ACKNOWLEDGED. RECORD CLOSED."
+const STRIP_CLOSED := "AMENDMENT 1 APPENDED. RECORD CLOSED."
 const STRIP_OPEN := "AMENDMENT 1 APPENDED. RECORD OPEN."
 const STRIP_WITNESS := "WITNESS: MERCER, A."
 const STRIP_RECORD_OPEN := "RECORD OPEN"
@@ -152,8 +154,8 @@ const OBSERVATIONS := {
 	"o06_photo": "Rook's own photograph, wrapped and tied: a woman and a small boy on the jetty in summer. On the back: 'Edith and Kit, 1911. To keep them exactly as they are.' He meant preservation as love, once.",
 	"model": "An Index model on the cabinet: three brass leaves over a terminal block.",
 	"model_shutter": "The model's terminals are behind a brass shutter marked with a hollow circle, OBSERVER. No keyhole on this side.",
-	"faceplate": "The model's faceplate: 'A copied acknowledgement closes the cycle. A human witness may append another correction.' Terminals INPUT, COPY, WITNESS; a lead from INPUT with two plugs; TEST AMENDMENT and RESET. A bridge sits across WITNESS.",
-	"model_closed_test": "On the model, INPUT to COPY: TEST AMENDMENT stamps CLOSED. RESET opens it again at once.",
+	"faceplate": "The model's faceplate names three terminals, INPUT, COPY and WITNESS, and says nothing about them. A lead from INPUT with two plugs; TEST AMENDMENT and RESET. A bridge sits across WITNESS.",
+	"model_closed_test": "On the model, INPUT to COPY: the amendment was appended and the record printed CLOSED. Every STAFF drawer slammed shut at once, and for a moment the photographs on the wall held nothing. RESET opens it again at once.",
 	"witness_test": "On the model: INPUT to COPY closes the record. INPUT to WITNESS takes an amendment and stays open. The witness has to be a person, and the person has to stay.",
 	"aperture_wider": "After the test the STAFF opening is wider than it was. Nothing moved it.",
 	"aperture_wide": "The STAFF opening is wider again. Still motionless.",
@@ -170,16 +172,19 @@ const HINTS := {
 	"p16": [
 		"The vault's contact table holds four panels of the same night.",
 		"The film edge numbers must run on, and the lamps go out in order.",
+		"Each panel's film edge is numbered, and its chair lamps can be counted.",
 		"B, D, A, C: eight lamps, six, three, none. Clip the edge, then slide the cover off.",
 	],
 	"p18": [
 		"The vault's three folders want Nora's three records.",
-		"Each cover shows what it holds: a trace, a bearing, a card. Then the date of the session.",
+		"Each folder takes what that instrument measured.",
+		"The film edge is dated. So is the spool.",
 		"Frame to BODY, strip to PLACE, register card to NAME, date 18 Oct 1927, COMPARE.",
 	],
 	"p23": [
 		"The model in the vault can be tested safely.",
 		"A copy closes a record. A witness keeps it open.",
+		"The margin of the session log, in the listening room, says what closes a record.",
 		"Lead from INPUT to WITNESS, leave COPY empty, press TEST AMENDMENT. Take the bridge.",
 	],
 	"away_p17": [
@@ -227,6 +232,11 @@ func initial_state() -> Dictionary:
 
 func is_closeup(v := local_view) -> bool:
 	return v in CLOSEUPS
+
+## The puzzles' ladders carry an evidence rung before the solution (location, relationship,
+## evidence, solution); the idle ones keep three.
+func hint_tiers() -> int:
+	return c("HINTS", {}).get(objective(), []).size()
 
 func objective() -> String:
 	_sync()
@@ -299,6 +309,11 @@ func aperture_width() -> int:
 
 func staff_open() -> bool:
 	return state.staff_open
+
+## The copy test closed the record: every STAFF drawer is slammed shut until RESET. Derived from
+## the stamp, so a load, RESET and the solve all agree with it.
+func staff_shut() -> bool:
+	return state.staff_open and str(state.stamp) == "closed"
 
 func drawer_open() -> bool:
 	return state.drawer_open
@@ -491,6 +506,9 @@ func _open_contact(ev: Array) -> void:
 func _catalogue(action: String, ev: Array) -> void:
 	match action:
 		"staff_drawer":
+			if staff_shut():
+				_say(ev, "Shut. Flush with the front, as if it had never opened. The model says CLOSED.")
+				return
 			if not has_seen("staff_aperture"):
 				if not state.staff_open:
 					state.staff_open = true
@@ -931,12 +949,20 @@ func _test(ev: Array) -> void:
 		_say(ev, "No input.")
 		return
 	if state.copy:
+		# Teaching by failure: the copy appends the amendment and closes the record, and the
+		# vault answers. Reversible with RESET; never P23.
 		state.stamp = "closed"
 		model_text = STRIP_CLOSED
+		_fx(ev, "print_closed", {"text": STRIP_CLOSED, "delay": 0.0})
+		_sfx(ev, "strip_print", 0.1)
 		_sfx(ev, "stamp_closed", 0.3)
 		_fx(ev, "stamp_closed", {"delay": 0.3})
 		_say(ev, "CLOSED.")
-		_say(ev, "The copy answered for her. That's what it did to them.", 1.4, true)
+		_sfx(ev, "staff_slam", 1.2)
+		_fx(ev, "staff_slam", {"delay": 1.2})
+		_fx(ev, "photos_blank", {"delay": 1.2})
+		_say(ev, "Behind me every STAFF drawer slams at once.", 1.3, true)
+		_say(ev, "The copy answered for her. That's what it did to them.", 3.0, true)
 		_observe("model_closed_test")
 		return
 	state.stamp = "open"

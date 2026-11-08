@@ -38,6 +38,18 @@ every label is a blank enamel or paper plate the view writes on; clock faces hav
 The retouched blanks are pale, brush-soft head-and-shoulders shapes with no features at all; a
 turned one is a stark dark back-of-head silhouette.
 
+and, as new stage art, assets/stages/R10/*.png (full-plate RGBA overlays, registered):
+
+  staff_slot, staff_slot_1, staff_slot_2
+                      the STAFF drawer's mouth, redrawn: a dark lens-shaped slot cut in the shut
+                      drawer front, no lip contour, lined top and bottom with rows of buff index
+                      cards on end, each with a tiny typed tab. Each widen step is a wider slot
+                      and one more row of cards further back in the dark.
+  staff_slot_riffle   the narrow slot with every card leaning the same way (the P18 riffle)
+  staff_shut          the slot slammed shut: a seam in the front with card tabs pinched in it
+  vault_grade         view A from band 6: the back shelving graded toward storm navy, frame by
+                      frame, so the run reads deeper than the floor plan; the lit doorway kept
+
 Python 3 + PIL only. Deterministic: each asset has its own random.Random(SEED + k), there is no
 clock and no PIL noise effect, so a rerun is byte-identical.
 
@@ -54,6 +66,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 OUT = os.path.join(ROOT, "assets", "rooms", "R10")
+STAGE_OUT = os.path.join(ROOT, "assets", "stages", "R10")   # the later-stage art (owner, Nov 6)
 W, H = 1448, 1086
 SS = 2                      # supersampling for every painted shape
 SEED = 1931_10_00
@@ -263,8 +276,9 @@ def grain(im, rng, amp=4, mottle=5, speck=9):
     return rgb
 
 
-def save(im, name, opaque):
-    os.makedirs(OUT, exist_ok=True)
+def save(im, name, opaque, out=None):
+    out = out or OUT
+    os.makedirs(out, exist_ok=True)
     if opaque:
         im = im.convert("RGB")
     else:
@@ -272,7 +286,7 @@ def save(im, name, opaque):
         a = im.getchannel("A")
         clear = a.point(lambda v: 255 if v == 0 else 0)
         im.paste((0, 0, 0, 0), mask=clear)
-    path = os.path.join(OUT, name + ".png")
+    path = os.path.join(out, name + ".png")
     im.save(path, optimize=False, compress_level=9)
     print("  wrote", os.path.relpath(path, ROOT), im.size, im.mode)
 
@@ -1627,6 +1641,165 @@ def paint_b_staff(rng, aw, ah, riffle=False, lip=0.0):
     return p
 
 
+# ----------------------------------------------------------------------------- stage art: the STAFF slot
+
+BUFF = mix(mix(PAPER_HI, BRASS_HI, 0.30), PAPER, 0.25)    # index-card buff
+BUFF_DK = mix(BUFF, TIMBER, 0.25)
+SLOT_C = (530, 470)
+# width step -> (lens width, lens height, card rows)
+SLOT_STEPS = {0: (150, 60, 1), 1: (178, 76, 2), 2: (206, 94, 3)}
+SLOT_DARK = [mix(STORM, SOOT, 0.45), mix(STORM, SOOT, 0.62), mix(STORM, SOOT, 0.78), mix(STORM, SOOT, 0.9)]
+
+
+def staff_front(p):
+    """The STAFF drawer front, shut, without its pull: the slot is cut where the pull was."""
+    x0, y0, x1, y1 = STAFF
+    p.rect(x0 - 2, y0 - 2, x1 + 2, y1 + 2, OAK_DK, INK, 3)
+    p.rect(x0 + 4, y0 + 4, x1 - 4, y1 - 4, OAK, INK, 2.6, r=2)
+    p.rect(x0 + 14, y0 + 44, x1 - 14, y1 - 14, None, mix(INK, OAK, 0.4), 1.6, r=2)
+    p.line([(x0 + 8, y0 + 8), (x1 - 8, y0 + 8)], OAK_HI, 1.6)
+    plate(p, *STAFF_PLATE)
+
+
+def lens_pts(cx, cy, aw, ah, n=64):
+    top, bot = vesica(cx, cy, aw, ah, n)
+    return top + bot[::-1][1:-1]
+
+
+def lens_edges(cx, aw, ah, x):
+    """The lens's top and bottom y at x (about SLOT_C), or None outside it."""
+    a, b = aw / 2.0, ah / 2.0
+    R = (a * a + b * b) / (2 * b)
+    d = R - b
+    u = x - cx
+    if abs(u) >= a:
+        return None
+    yy = math.sqrt(max(0.0, R * R - u * u)) - d
+    return SLOT_C[1] - yy, SLOT_C[1] + yy
+
+
+def card_on_end(p, x, root, tip, w, lean, col, rng, down):
+    """One index card on end, front face: a buff slip from `root` (at the slot's edge) to `tip`,
+    leaning `lean` px over its length, with a tiny tab at the tip carrying two or three typed
+    ink ticks. `down`: the card hangs from the top edge."""
+    sgn = 1 if down else -1
+    hw = w / 2.0
+    pts = [(x - hw, root), (x + hw, root), (x + hw + lean, tip), (x - hw + lean, tip)]
+    p.poly(pts, col, INK, 1.4)
+    # the tab: a third of the card's width, off-centre, standing proud of the tip
+    tw = max(3.0, w * rng.uniform(0.34, 0.46))
+    off = rng.choice([-1, 1]) * rng.uniform(0.0, hw - tw / 2.0 - 0.5)
+    tx = x + lean + off
+    th = rng.uniform(3.2, 4.6)
+    tab = [(tx - tw / 2, tip), (tx + tw / 2, tip), (tx + tw / 2 - 0.6, tip + sgn * th),
+           (tx - tw / 2 + 0.6, tip + sgn * th)]
+    p.poly(tab, mix(col, PAPER_HI, 0.25), INK, 1.1)
+    # typed: two or three tiny ticks on the tab, and a typed line across the card's face
+    for k in range(rng.choice([2, 3])):
+        ty = tip + sgn * (1.4 + k * 0.0)
+        tx0 = tx - tw / 2 + 1.0 + k * (tw - 2.0) / 3.0
+        p.line([(tx0, ty + sgn * 0.6), (tx0 + 0.9, ty + sgn * 0.6)], mix(INK, col, 0.25), 0.9)
+    fy = lerp(root, tip, rng.uniform(0.55, 0.75))
+    fl = lean * (fy - root) / max(1e-6, tip - root)
+    p.line([(x - hw + 1.6 + fl, fy), (x - hw + 1.6 + fl + w * rng.uniform(0.35, 0.6), fy)],
+           mix(INK, col, 0.45), 0.9)
+
+
+def slot_cards(p, aw, ah, rows, rng, riffle=False):
+    """The card rows round the lens, deepest first: each further row set further into the slot,
+    smaller, closer-spaced and graded toward the dark."""
+    cx = SLOT_C[0]
+    for k in range(rows - 1, -1, -1):
+        col = mix(BUFF, SLOT_DARK[1], min(0.8, 0.45 * k))
+        w = 11.0 - 2.0 * k
+        pitch = 12.5 - 2.2 * k
+        inset = 9.0 * k + 1.0                   # how far the row's roots sit inside the edge
+        length = (ah * 0.2 + 5.0) * (1.0 - 0.17 * k)
+        x = cx - aw / 2.0 + pitch * (0.7 + 0.5 * (k % 2))
+        while x < cx + aw / 2.0 - pitch * 0.5:
+            e = lens_edges(cx, aw, ah, x)
+            if e is not None:
+                top, bot = e
+                half = (bot - top) / 2.0
+                if half > inset + length * 0.6:
+                    for down in (True, False):
+                        ln = length * rng.uniform(0.8, 1.15)
+                        lean = rng.uniform(-2.2, 2.2)
+                        if riffle:
+                            lean += 6.5 if down else 6.5
+                        edge = top if down else bot
+                        sgn = 1 if down else -1
+                        root = edge + sgn * (inset - 6.0)      # starts behind the oak edge
+                        tip = edge + sgn * (inset + ln)
+                        jit = rng.uniform(-1.6, 1.6)
+                        card_on_end(p, x + jit, root, tip, w * rng.uniform(0.9, 1.1), lean, col, rng, down)
+            x += pitch * rng.uniform(0.9, 1.12)
+
+
+def paint_staff_slot(rng, step, riffle=False):
+    aw, ah, rows = SLOT_STEPS[step]
+    p = Pen(W, H, rng)
+    staff_front(p)
+    cx, cy = SLOT_C
+    lens = lens_pts(cx, cy, aw, ah)
+    inner = p.layer()
+    # the dark: flat lenses, each smaller and darker, no contour anywhere
+    inner.poly(lens, SLOT_DARK[0], None)
+    for k in range(1, len(SLOT_DARK)):
+        sc = 1.0 - 0.2 * k
+        inner.poly(lens_pts(cx, cy, aw * sc, ah * sc), SLOT_DARK[k], None)
+    slot_cards(inner, aw, ah, rows, rng_for(960 + step + (10 if riffle else 0)), riffle)
+    # the front's cut thickness: a slim oak-dark band just inside the top edge, no outline
+    th = inner.layer()
+    th.poly(lens, None, mix(OAK_DK, SOOT, 0.35), 3.0)
+    inner.put(th, 0.55)
+    p.put(inner, mask=poly_mask(lens))
+    return p
+
+
+def paint_staff_shut(rng):
+    """Slammed: the slot closed to a seam, a few card tabs pinched in it."""
+    aw, ah, _ = SLOT_STEPS[0]
+    p = Pen(W, H, rng)
+    staff_front(p)
+    cx, cy = SLOT_C
+    seam = lens_pts(cx, cy, aw, 5.0)
+    p.poly(seam, SLOT_DARK[2], None)
+    p.line(vesica(cx, cy, aw, 5.0)[0], mix(INK, OAK, 0.2), 1.6)
+    r = rng_for(975)
+    for x in (cx - 46, cx - 19, cx + 8, cx + 37, cx + 58):
+        x += r.uniform(-4, 4)
+        w = r.uniform(5.0, 7.0)
+        h = r.uniform(3.5, 6.0)
+        y = cy + r.choice([-1, 1]) * 1.0
+        p.poly([(x - w / 2, y - 1), (x + w / 2, y - 1), (x + w / 2 - 0.8, y + h), (x - w / 2 + 0.8, y + h)],
+               BUFF, INK, 1.1)
+    return p
+
+
+def paint_vault_grade(rng):
+    """Band 6 on (view A): the back shelving graded toward storm navy, frame by frame, from
+    clear at the near flat to deep at the innermost frames, so the run reads deeper than the
+    room. Stepped flat bands (the plate's own nested frames), no airbrush; the lit doorway in
+    RECESS and the near flat's archive boxes are left untouched."""
+    p = Pen(W, H, rng)
+    n = 14
+    ts = bay_t(n)
+    rects = [lerp_rect(SHELF, RECESS, t) for t in ts] + [RECESS]
+    for k in range(1, len(rects) - 1):
+        a = min(0.78, 0.08 + 0.74 * ((k - 1) / (n - 2)) ** 1.1)
+        lay = p.layer(STORM)
+        lay.rect(*rects[k], STORM, None, 0)
+        p.put(lay, a, mask=band_mask(rects[k], rects[k + 1]))
+    # beyond the inner frame's sides the dark keeps going: two thin storm-navy rules either side
+    # of the doorway, as if more frames were there than were drawn
+    x0, y0, x1, y1 = RECESS
+    for k in range(1, 4):
+        g = 3 * k
+        p.rect(x0 - g, y0 - g, x1 + g, y1 + g * 0.5, None, mix(STORM, SOOT, 0.3), 1.0)
+    return p
+
+
 def paint_b_drawer_open(rng):
     p = Pen(W, H, rng)
     x0, y0, x1, y1 = VENN
@@ -2434,17 +2607,28 @@ ASSETS = [  # name, seed index, painter, opaque, grain
 ]
 
 
+STAGE_ASSETS = [  # name, seed index, painter, opaque, grain -> assets/stages/R10/
+    ("staff_slot", 90, lambda r: paint_staff_slot(r, 0), False, False),
+    ("staff_slot_1", 91, lambda r: paint_staff_slot(r, 1), False, False),
+    ("staff_slot_2", 92, lambda r: paint_staff_slot(r, 2), False, False),
+    ("staff_slot_riffle", 93, lambda r: paint_staff_slot(r, 0, riffle=True), False, False),
+    ("staff_shut", 94, paint_staff_shut, False, False),
+    ("vault_grade", 95, paint_vault_grade, False, False),
+]
+
+
 def main(argv):
     pats = argv or ["*"]
-    for name, k, fn, opaque, gr in ASSETS:
-        if not any(fnmatch.fnmatch(name, pat) for pat in pats):
-            continue
-        rng = rng_for(k)
-        res = fn(rng)
-        im = res.done() if isinstance(res, Pen) else res
-        if gr is not False:
-            im = grain(im, rng_for(1000 + (k if gr is True else gr)))
-        save(im, name, opaque)
+    for table, out in ((ASSETS, OUT), (STAGE_ASSETS, STAGE_OUT)):
+        for name, k, fn, opaque, gr in table:
+            if not any(fnmatch.fnmatch(name, pat) for pat in pats):
+                continue
+            rng = rng_for(k)
+            res = fn(rng)
+            im = res.done() if isinstance(res, Pen) else res
+            if gr is not False:
+                im = grain(im, rng_for(1000 + (k if gr is True else gr)))
+            save(im, name, opaque, out)
 
 
 if __name__ == "__main__":

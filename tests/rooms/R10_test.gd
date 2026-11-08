@@ -65,6 +65,11 @@ func run_tests() -> void:
 	test_p23_no_side_effects()
 	test_p23_idempotent()
 	test_p23_save_load()
+	test_p23_copy_failure()
+	test_p18_decoy_date()
+	test_p18_p23_no_rule_text()
+	test_stage_art()
+	test_bed_levels()
 	test_escalation()
 	test_notices()
 	test_hotspots_every_band()
@@ -80,6 +85,7 @@ func run_tests() -> void:
 	test_chain_scripts()
 	await test_view_presentation()
 	await test_view_p18_staging()
+	await test_view_copy_slam()
 	if _view_ready():
 		await view_checks(ROOM)
 	else:
@@ -733,7 +739,7 @@ func test_p23_shutter() -> void:
 	g = model_game()
 	r = r10(g)
 	check(r.shutter_open() and r.has_seen("faceplate"), "after P21 the first open notes the faceplate")
-	check(says(g.dispatch("faceplate")) == "'A copied acknowledgement closes the cycle. A human witness may append another correction.'", "faceplate line")
+	check(says(g.dispatch("faceplate")) == "INPUT. COPY. WITNESS. Nothing else on the plate.", "faceplate line: the port labels only")
 
 func test_p23_combinations() -> void:
 	for i in [false, true]:
@@ -751,8 +757,8 @@ func test_p23_combinations() -> void:
 					check(says(ev) == "No input." and r.model_text == "NO INPUT" and r.state.stamp == "", "%s: no input" % tag)
 					check(not g.flag("P23"), "%s: no P23" % tag)
 				elif c:
-					check(r.state.stamp == "closed" and r.model_text == "COPY ACKNOWLEDGED. RECORD CLOSED."
-						and says(ev) == "CLOSED. | The copy answered for her. That's what it did to them.", "%s: closed" % tag)
+					check(r.state.stamp == "closed" and r.model_text == "AMENDMENT 1 APPENDED. RECORD CLOSED."
+						and says(ev) == "CLOSED. | Behind me every STAFF drawer slams at once. | The copy answered for her. That's what it did to them.", "%s: closed (%s)" % [tag, says(ev)])
 					check(has_ev(ev, "sfx", "stamp_closed") and has_ev(ev, "fx", "stamp_closed") and r.has_seen("model_closed_test"), "%s: closed events" % tag)
 					check(not g.flag("P23") and not g.has_item("witness_bridge"), "%s: no P23" % tag)
 				else:
@@ -847,6 +853,120 @@ func test_p23_save_load() -> void:
 	check(r.state.input and r.state.witness and r.state.stamp == "", "seated leads survive")
 	play(t, ["to_catalogue", "model", "test"])
 	check(t.flag("P23"), "test after load solves")
+
+## P23 teaches by failure: INPUT to COPY appends the amendment and closes the record; every
+## STAFF drawer slams and the photographs go blank for a beat, as sim events. RESET undoes it all,
+## and it never sets P23.
+func test_p23_copy_failure() -> void:
+	var g := model_game()
+	var r := r10(g)
+	check(r.state.staff_open and not r.staff_shut(), "tide VIII: STAFF open, not shut")
+	var before := JSON.stringify(r.state)
+	var snap := snapshot(g)
+	play(g, ["t_input", "t_copy"])
+	var ev := g.dispatch("test")
+	check(r.model_text == "AMENDMENT 1 APPENDED. RECORD CLOSED." and r.model_lines() == ["AMENDMENT 1 APPENDED. RECORD CLOSED."],
+		"the strip types AMENDMENT 1 APPENDED. RECORD CLOSED.")
+	check(has_ev(ev, "fx", "print_closed"), "the strip is typed (print_closed)")
+	check(has_ev(ev, "sfx", "staff_slam") and has_ev(ev, "fx", "staff_slam") and has_ev(ev, "fx", "photos_blank"),
+		"the slam and the blank beat are sim events")
+	var slam_at := -1.0
+	var blank_at := -1.0
+	for e in ev:
+		if e.type == "fx" and e.id == "staff_slam":
+			slam_at = float(e.get("delay", 0.0))
+		if e.type == "fx" and e.id == "photos_blank":
+			blank_at = float(e.get("delay", 0.0))
+	check(slam_at > 0.0 and is_equal_approx(slam_at, blank_at), "the photographs blank on the slam (%s, %s)" % [slam_at, blank_at])
+	check(r.staff_shut() and r.state.stamp == "closed", "every STAFF drawer shut")
+	check(not g.flag("P23") and not r.state.p23_complete and not g.has_item("witness_bridge"), "the copy never sets P23")
+	check(snapshot(g) == snap, "no flag, item or ending change")
+	check(r.has_seen("model_closed_test"), "the failure is noted")
+	# STAFF stays shut on the catalogue wall, and says so without changing anything
+	g.dispatch("back")
+	var st := JSON.stringify(r.state)
+	check(says(g.dispatch("staff_drawer")) == "Shut. Flush with the front, as if it had never opened. The model says CLOSED."
+		and JSON.stringify(r.state) == st, "the shut STAFF drawer refuses quietly")
+	# survives a save
+	var t := roundtrip(g)
+	check(r10(t).staff_shut() and not t.flag("P23"), "shut survives a load")
+	# RESET undoes it all
+	play(g, ["model", "reset", "lead"])
+	check(not r.staff_shut() and r.state.stamp == "" and r.model_text == "", "RESET reopens STAFF")
+	check(JSON.stringify(r.state) == before, "fully reversible: the state is as it was")
+	check(snapshot(g) == snap, "still nothing else changed")
+	# then the witness solves as before
+	play(g, ["t_input", "t_witness", "test"])
+	check(g.flag("P23") and not r.staff_shut() and r.aperture_width() >= 1, "then INPUT to WITNESS solves; STAFF open wider")
+
+## P18: the dial opens on 17 OCT 1931 (a decoy: today), which COMPARE refuses; the session
+## date is 18 OCT 1927, from the film edge and the spool.
+func test_p18_decoy_date() -> void:
+	var g := folders_game()
+	var r := r10(g)
+	check(r.date_text() == "17 OCT 1931", "the dial defaults to 17 OCT 1931")
+	file_all_correct(g)
+	var snap := JSON.stringify(g.state.flags)
+	var ev := g.dispatch("compare")
+	check(not g.flag("P18") and not r.state.p18_complete, "the decoy date is refused")
+	check(r.strip_text == "DATE DOES NOT CORRESPOND." and has_ev(ev, "sfx", "compare_refuse"), "DATE DOES NOT CORRESPOND.")
+	check(JSON.stringify(g.state.flags) == snap and r.state.filed.values() == RECS, "nothing set; her records stay filed")
+	set_date(g, "18 OCT 1927")
+	g.dispatch("compare")
+	check(g.flag("P18"), "18 OCT 1927 solves")
+
+## No written rule on the model's plate or the folders' covers: the faceplate is port labels only,
+## the covers keep only their category word, and the margin note stays the rule's only statement.
+func test_p18_p23_no_rule_text() -> void:
+	var src: String = FileAccess.get_file_as_string(VIEW_PATH)
+	for banned in ["copied acknowledgement", "closes the cycle", "may append another correction", "FOR TRAINING",
+			"MASS / BREATH TRACE", "PERSONAL CARD", "FOLDER_CAPTIONS"]:
+		check(src.find(banned) < 0, "the view draws no '%s'" % banned)
+	check(RV.FACEPLATE_PORTS == ["INPUT", "COPY", "WITNESS"], "the faceplate: INPUT / COPY / WITNESS")
+	for k in R10Sim.OBSERVATIONS:
+		var o: String = R10Sim.OBSERVATIONS[k]
+		check(o.find("copied acknowledgement") < 0 and o.find("human witness may") < 0, "%s states no rule" % k)
+	check(R10Sim.FACEPLATE.find("closes") < 0 and R10Sim.FACEPLATE.find("INPUT") >= 0, "the faceplate line names ports only")
+	var g := model_game()
+	check(says(g.dispatch("faceplate")).find("cycle") < 0, "reading the faceplate states no rule")
+	var hints: Array = R10Sim.HINTS["p18"]
+	check(hints[1] == "Each folder takes what that instrument measured." and hints[2] == "The film edge is dated. So is the spool.",
+		"P18 hints: the instrument, then the evidence")
+	for k in ["p16", "p18", "p23"]:
+		check(R10Sim.HINTS[k].size() == 4, "%s: four tiers, evidence before the solution" % k)
+
+## The new stage art exists where the view looks for it.
+func test_stage_art() -> void:
+	for id in RV.STAGE_IDS:
+		check(ResourceLoader.exists(RV.STAGE_DIR % id), "stage art %s" % id)
+		check(FileAccess.file_exists("res://assets/stages/R10/%s.png" % id), "assets/stages/R10/%s.png" % id)
+	for id in RV.STAFF_SLOTS:
+		check(id in RV.STAGE_IDS, "%s is stage art" % id)
+	check(ResourceLoader.exists("res://assets/audio/R10/r10_paper_tick.wav") and ResourceLoader.exists("res://assets/audio/R10/staff_slam.wav"),
+		"the paper ticks and the slam exist")
+	check("staff_slam" in RV.SFX_SOFT and RV.SFX_DB.has("staff_slam"), "the slam is a sudden sound")
+
+## The bed: paper ticks at -16 dB from band 0, far paper at -14 dB from band 2 until band 7's
+## aperture takes over; the copy in tools/audio/rooms/R10.py agrees.
+func test_bed_levels() -> void:
+	var db: Dictionary = RV.STAGE_DB
+	for b in 8:
+		check(db["r10_paper_tick"][b] == -16.0, "band %d: paper ticks at -16 dB" % b)
+		var far: float = db["r10_paper_far"][b]
+		check(far == (-14.0 if b >= 2 and b <= 6 else RV.OFF), "band %d: far paper %s" % [b, far])
+	check("r10_paper_tick" in RV.LOOPS, "the ticks are a room loop")
+	var py: String = FileAccess.get_file_as_string("res://tools/audio/rooms/R10.py")
+	for id in db:
+		var vals := []
+		for v in db[id]:
+			vals.append("None" if v <= RV.OFF else "%.1f" % v)
+		var at := py.find('"%s": ' % id)
+		check(at >= 0, "R10.py STAGE_DB has %s" % id)
+		var line := py.substr(at, py.find("\n", at) - at)
+		var want := "[%s]" % ", ".join(vals)
+		var same := line.ends_with(want + ",") or (line.find("[-6.0] * 7 + [-5.0]") >= 0 and want == "[-6.0, -6.0, -6.0, -6.0, -6.0, -6.0, -6.0, -5.0]") \
+			or (line.find("[-16.0] * 8") >= 0 and want == "[-16.0, -16.0, -16.0, -16.0, -16.0, -16.0, -16.0, -16.0]")
+		check(same, "R10.py STAGE_DB %s matches the view (%s vs %s)" % [id, line, want])
 
 # ---------------------------------------------------------------------------------------------
 # escalation
@@ -1029,11 +1149,14 @@ func ev_go(g: GameSim) -> void:
 const REF_HINTS := {
 	"p16": ["The vault's contact table holds four panels of the same night.",
 		"The film edge numbers must run on, and the lamps go out in order.",
+		"Each panel's film edge is numbered, and its chair lamps can be counted.",
 		"B, D, A, C: eight lamps, six, three, none. Clip the edge, then slide the cover off."],
 	"p18": ["The vault's three folders want Nora's three records.",
-		"Each cover shows what it holds: a trace, a bearing, a card. Then the date of the session.",
+		"Each folder takes what that instrument measured.",
+		"The film edge is dated. So is the spool.",
 		"Frame to BODY, strip to PLACE, register card to NAME, date 18 Oct 1927, COMPARE."],
 	"p23": ["The model in the vault can be tested safely.", "A copy closes a record. A witness keeps it open.",
+		"The margin of the session log, in the listening room, says what closes a record.",
 		"Lead from INPUT to WITNESS, leave COPY empty, press TEST AMENDMENT. Take the bridge."],
 	"away_p17": ["The vault's done its part of the session.",
 		"The contact sheet says sync on the bell. The listening room has the session spool.",
@@ -1062,8 +1185,9 @@ func test_objectives_hints() -> void:
 		var o := r.objective()
 		check(o == s[1], "jump %d: objective %s (got %s)" % [s[0], s[1], o])
 		check(r.objective_text() == REF_OBJ[s[1]], "jump %d: objective text" % s[0])
-		check(r.c("HINTS", {})[o].size() == 3, "jump %d: three hint levels" % s[0])
-		for lvl in 3:
+		var tiers: int = REF_HINTS[s[1]].size()
+		check(r.c("HINTS", {})[o].size() == tiers and r.hint_tiers() == tiers, "jump %d: %d hint levels" % [s[0], tiers])
+		for lvl in tiers:
 			check(r.hint_line(lvl) == REF_HINTS[s[1]][lvl], "jump %d: hint %d" % [s[0], lvl])
 	check(r10(game_at(7, ROOM)).objective() == "wait_p21", "tide VII: wait_p21")
 	for k in REF_HINTS:
@@ -1246,7 +1370,7 @@ func test_view_presentation() -> void:
 		for n in range(6, 10):
 			check(ResourceLoader.exists("res://assets/rooms/R10/view_%s_t%d.png" % [side, n]), "plate view_%s_t%d" % [side, n])
 	check(scene.sim.tide() == 6 and v.plate_id() == "view_a_t6" and v.bay_frames() == 6 and not v.bay_doorway(), "tide VI: six frames")
-	check(is_equal_approx(v.loop_targets()["r10_room"], 0.4), "bed loop 0.4 below band 7")
+	check(is_equal_approx(v.loop_targets()["r10_room"], db_to_linear(-6.0)), "bed loop -6 dB below band 7")
 	# P16 on the table: numbers only where placed panels meet; no date before the cover.
 	scene.room_jump(ROOM, 2)
 	scene.dispatch("contact_table")
@@ -1298,7 +1422,7 @@ func test_view_presentation() -> void:
 	scene.room_jump(ROOM, 9)
 	v = scene.room_view
 	check(scene.sim.tide() == 9 and v.plate_id() == "view_a_t9" and v.bay_frames() == 14 and v.bay_doorway(), "tide IX: the same depth")
-	check(is_equal_approx(v.loop_targets()["r10_room"], 0.45), "bed loop 0.45 at band 7")
+	check(is_equal_approx(v.loop_targets()["r10_room"], db_to_linear(-5.0)), "bed loop -5 dB at band 7")
 	scene.dispatch("to_catalogue")
 	check(v.plate_id() == "view_b_t9", "view B: the tide IX plate")
 	await free_scene(scene)
@@ -1343,3 +1467,43 @@ func test_view_p18_staging() -> void:
 		v.tick(RV.GLANCE_TIME)
 		check(v.b_glance() == "" and "b_drawer_open" in v.overlay_ids(), "%s: the glance ends, the drawer stays open" % tag)
 		await free_scene(scene)
+
+## The copy test on screen: STAFF shows open until the slam is heard, then shut (in the mirror
+## too); the photographs blank for one beat when she next faces the shelves; RESET reopens.
+func test_view_copy_slam() -> void:
+	for motion in [true, false]:
+		var t: Array = await _vault_scene("user://room_test_R10_slam.json", 7, motion)
+		var scene = t[0]
+		var v = t[1]
+		var r: R10Sim = t[2]
+		var tag := "motion %s" % motion
+		scene.dispatch("to_catalogue")
+		scene.dispatch("model")
+		check(r.local_view == "c_model", "%s: at the model" % tag)
+		check(v.mirror_staff()[0][0] in RV.STAFF_SLOTS, "%s: the mirror shows the STAFF slot" % tag)
+		for a in ["t_input", "t_copy", "test"]:
+			scene.dispatch(a)
+		check(r.staff_shut() and v.slam_hold, "%s: shut in the sim, held until the slam" % tag)
+		check(v.mirror_staff()[0][0] != "staff_shut", "%s: not yet shut on screen" % tag)
+		v.on_sfx("staff_slam")
+		check(not v.slam_hold and v.staff_shut_drawn() and v.mirror_staff() == [["staff_shut", 1.0]], "%s: slammed, in the mirror" % tag)
+		check(v.blank_owed and not v.photos_blank(), "%s: the photographs' beat waits for the wall" % tag)
+		scene.dispatch("back")
+		check("staff_shut" in v.overlay_ids(), "%s: view B shows STAFF shut" % tag)
+		scene.dispatch("to_shelves")
+		v.tick(0.05)
+		check(v.photos_blank() and v.photo_rects().size() >= 8, "%s: on the shelves wall the photographs are blank" % tag)
+		v.tick(RV.BLANK_BEAT + 0.1)
+		check(not v.photos_blank(), "%s: for one beat" % tag)
+		check(v.overlay_ids()[0] == "vault_grade", "%s: band 6: the back shelving is graded" % tag)
+		scene.dispatch("to_catalogue")
+		scene.dispatch("model")
+		scene.dispatch("reset")
+		check(not r.staff_shut() and not v.staff_shut_drawn() and v.mirror_staff()[0][0] in RV.STAFF_SLOTS, "%s: RESET reopens STAFF" % tag)
+		check(not scene.sim.flag("P23"), "%s: no P23" % tag)
+		await free_scene(scene)
+	# below band 6 the shelves are not graded
+	var t2: Array = await _vault_scene("user://room_test_R10_grade.json", 1)
+	check(not "vault_grade" in t2[1].overlay_ids(), "band 4: no vault grade")
+	await free_scene(t2[0])
+

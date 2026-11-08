@@ -14,7 +14,7 @@ Transients: no loop has a rise faster than LOOP_ATTACK (16 ms): paper crackle is
 smooth walk with knots at least 18 ms apart, and every irregular loop event (wood tick, rustle,
 relay chatter) is placed by a seeded walk and kept out of the crossfade window, so the seam is
 never heard and nothing ticks like a metronome. The sudden one-shots (clip_snap, stamp_closed,
-drawer_locked) keep every attack at SUDDEN_ATTACK (10 ms, >= 6 ms measured onset-to-peak), so the
+drawer_locked, staff_slam) keep every attack at SUDDEN_ATTACK (10 ms, >= 6 ms measured onset-to-peak), so the
 12 dB "Soften sudden sounds" cut is enough on its own.
 
 Character (GDD 12): the vault is DRY. Paper, card, oak, brass, felt. The only water is the band-4
@@ -52,6 +52,25 @@ FADE = 1.0                    # seamless() crossfade, seconds
 AIR_HUM = 50.0      # the vault's air handler: a 50 Hz-ish hum, not the station's 60 Hz mains
 MODEL_HUM = 100.0   # the Index model's open terminals
 FAR_LP = 1200.0     # the far paper's heavy lowpass
+AIR_MIX = 0.70      # r10_room: the dry air hush against the brown bed (unit RMS each)
+
+# r10_paper_tick: the sparse card ticks.
+TICK_SEED = 1001
+TICK_GAP = (1.7, 4.1)
+TICK_COUNT = 8
+TICK_DECAY = 0.030
+TICK_RISE = 0.001
+
+# The bed as the view mixes it (R10_view.gd STAGE_DB, dB per weather band 0..7; None = off).
+# Kept in step with the view by tests/rooms/R10_test.gd. The bed must survive a laptop speaker:
+# hi_share(mix, 150) >= BED_HI_SHARE_MIN at every band.
+STAGE_DB = {
+    "r10_room": [-6.0] * 7 + [-5.0],
+    "r10_paper_far": [None, None, -14.0, -14.0, -14.0, -14.0, -14.0, None],
+    "r10_paper_tick": [-16.0] * 8,
+    "r10_sea_wall": [None, None, None, None, -12.0, None, None, None],
+}
+BED_HI_SHARE_MIN = 0.4
 
 # r10_aperture: breath periods, seconds (seeded jitter about 4.5-6 s; they sum to the 16 s loop).
 APERTURE_LEN = 16.0
@@ -273,12 +292,14 @@ def far(rnd: random.Random, xs: list[float]) -> list[float]:
 
 # ---------------------------------------------------------------- loops
 
-def write_loop(name: str, xs: list[float]) -> None:
+def write_loop(name: str, xs: list[float]) -> list[float]:
+    """Writes the loop and returns it as written (closed and normalized), for the bed check."""
     xs = seamless(xs, FADE)
     r = rms(xs)
     m = max(abs(x) for x in xs)
     peak = min(0.98, LOOP_RMS * m / max(1e-9, r))
     write(OUT, name, xs, peak)
+    return normalize(xs, peak)
 
 
 def write_shot(name: str, xs: list[float], fin: float = 0.004, fout: float = 0.01) -> None:
@@ -312,7 +333,8 @@ def wood_tick(rnd: random.Random) -> list[float]:
 
 
 def r10_room() -> list[float]:
-    """Dry archive room tone: brown noise at 220 Hz, a faint 50 Hz-ish air hum, very rare wood ticks. 12 s."""
+    """Dry archive room tone: brown noise at 220 Hz under a dry air hush loud enough to survive a
+    laptop speaker (AIR_MIX), a faint 50 Hz-ish air hum, very rare wood ticks. 12 s."""
     rnd = seed(1)
     dur = 12.0
     n = n_of(dur + FADE)
@@ -322,7 +344,7 @@ def r10_room() -> list[float]:
     f = AIR_HUM * 1.004                                  # "-ish": the fan runs a little fast
     hum = unit(hum_tone(n, f, [0.55, 1.0, 0.5, 0.32, 0.16, 0.08]))
     sway = smooth_walk(n, rnd, 3.1)
-    out = [b * (0.86 + 0.14 * k) + 0.15 * a + 0.07 * h * (0.85 + 0.15 * s)
+    out = [b * (0.86 + 0.14 * k) + AIR_MIX * a + 0.07 * h * (0.85 + 0.15 * s)
            for b, a, k, h, s in zip(bed, air, walk, hum, sway)]
     for t in walk_times(rnd, dur, 2, 4.4, 7.6, FADE + rnd.uniform(0.6, 1.8), 0.5):
         tk = wood_tick(rnd)
@@ -354,6 +376,28 @@ def r10_paper_far() -> list[float]:
     for t in walk_times(rnd, dur, 4, 2.4, 4.6, FADE + rnd.uniform(0.1, 0.6), 2.6):
         ev = far_event(rnd)
         mix(out, ev, t, rnd.uniform(0.55, 1.0) / max(abs(x) for x in ev))
+    return out
+
+
+def r10_paper_tick() -> list[float]:
+    """Somewhere in the stacks a card drops onto a card: a sparse, seeded click train, one tick
+    every 1.7-4.1 s (random.Random(1001)), each a burst of band(white, 1500, 5000) under a 30 ms
+    decay, normalized. The loop is exactly the sum of its gaps, so the seam is one more gap.
+
+    The one loop exempt from LOOP_ATTACK: a tick is a tick. Each rises over TICK_RISE (1 ms) so
+    it never clicks digitally, and sits at -16 dB in the bed (R10_view STAGE_DB)."""
+    rnd = random.Random(TICK_SEED)
+    gaps = [rnd.uniform(TICK_GAP[0], TICK_GAP[1]) for _ in range(TICK_COUNT)]
+    dur = sum(gaps)
+    out = [0.0] * n_of(dur + FADE)
+    t = FADE + 0.1                         # clear of the crossfade window; the last gap wraps to it
+    a = max(1, n_of(TICK_RISE))
+    for g in gaps:
+        ln = n_of(TICK_DECAY * 6)
+        src = band(white(ln, rnd), 1500, 5000)
+        tk = [x * rc(i, a) * math.exp(-i / (TICK_DECAY * SR)) for i, x in enumerate(src)]
+        mix(out, peak1(tk), t, rnd.uniform(0.55, 1.0))
+        t += g
     return out
 
 
@@ -762,6 +806,28 @@ def staff_open() -> list[float]:
     return fit(out, 0.9)
 
 
+def staff_slam() -> list[float]:
+    """The copy closes the record and every STAFF drawer slams shut at once: one hard oak slam made
+    of many fronts landing within 25 ms of each other, a dry clatter of card ends inside, and the
+    hollow ring of the deep cavity, cut short. SUDDEN. 0.9 s."""
+    rnd = seed(40)
+    out = silence(0.9)
+    for k in range(7):                     # seven fronts, not quite together
+        t = rnd.uniform(0.0, 0.025)
+        mix(out, thock(rnd, 0.3, rnd.uniform(88, 128), 0.05, SUDDEN_ATTACK, 650), t, rnd.uniform(0.5, 0.8))
+        mix(out, click(rnd, 0.08, SUDDEN_ATTACK, [(rnd.uniform(1100, 1500), 0.5, 0.012)], noise=0.5,
+                       noise_lp=3800), t + 0.002, 0.25)
+    t = 0.03
+    while t < 0.22:                        # the cards inside, thrown against the fronts
+        g = swish(rnd, 0.03, 1500, 5200, lambda x: rc(n_of(0.03 * x), n_of(SUDDEN_ATTACK)) * (1 - x) ** 2)
+        mix(out, g, t, rnd.uniform(0.1, 0.3))
+        t += rnd.uniform(0.008, 0.03)
+    ring = body(lowpass(out[: n_of(0.12)], 600), [(150, 1.0, 3.5), (290, 0.5, 4.0)])
+    ring = lowpass(echo(ring, 0.083, 0.4, 4), 800)
+    mix(out, ring, 0.01, 0.45 / max(1e-9, max(abs(x) for x in ring)))
+    return fit(lowpass(out, 4200), 0.9)
+
+
 def staff_settle() -> list[float]:
     """The aperture widening off-screen: one faint dry paper settle, close. 1.0 s."""
     rnd = seed(27)
@@ -905,8 +971,8 @@ def bridge_lift() -> list[float]:
 
 # ---------------------------------------------------------------- build
 
-LOOPS = [("r10_room", r10_room), ("r10_paper_far", r10_paper_far), ("r10_sea_wall", r10_sea_wall),
-         ("r10_aperture", r10_aperture), ("r10_model_hum", r10_model_hum)]
+LOOPS = [("r10_room", r10_room), ("r10_paper_far", r10_paper_far), ("r10_paper_tick", r10_paper_tick),
+         ("r10_sea_wall", r10_sea_wall), ("r10_aperture", r10_aperture), ("r10_model_hum", r10_model_hum)]
 SHOTS = [
     ("paper_settle", paper_settle), ("panel_pick", panel_pick), ("panel_place", panel_place),
     ("edge_refuse", edge_refuse), ("clip_snap", clip_snap), ("cover_slide", cover_slide),
@@ -919,15 +985,42 @@ SHOTS = [
     ("clock_tap", clock_tap), ("string_untie", string_untie), ("paper_unwrap", paper_unwrap),
     ("lead_plug", lead_plug), ("lead_unplug", lead_unplug), ("test_key", test_key),
     ("stamp_closed", stamp_closed), ("stamp_open", stamp_open), ("reset_key", reset_key),
-    ("bridge_lift", bridge_lift),
+    ("bridge_lift", bridge_lift), ("staff_slam", staff_slam),
 ]
-SUDDEN = {"clip_snap", "stamp_closed", "drawer_locked"}
+SUDDEN = {"clip_snap", "stamp_closed", "drawer_locked", "staff_slam"}
+
+
+def bed_mix(loops: dict[str, list[float]], b: int, seconds: float = 12.0) -> list[float]:
+    """The band-`b` bed as the view plays it in view A: every STAGE_DB loop at its level, each
+    looped to `seconds`."""
+    n = n_of(seconds)
+    out = [0.0] * n
+    for name, levels in STAGE_DB.items():
+        db = levels[b]
+        if db is None:
+            continue
+        g = 10 ** (db / 20)
+        xs = loops[name]
+        for i in range(n):
+            out[i] += g * xs[i % len(xs)]
+    return out
+
+
+def check_bed(loops: dict[str, list[float]]) -> None:
+    for b in range(8):
+        xs = bed_mix(loops, b)
+        share = hi_share(xs, 150)
+        level = 20 * math.log10(max(1e-9, rms(xs)))
+        print(f"  bed band {b}: {level:6.1f} dBFS RMS  hi_share(150)={share:.1%}")
+        assert share >= BED_HI_SHARE_MIN, f"R10 bed band {b}: hi_share(150) {share:.1%} < {BED_HI_SHARE_MIN:.0%}"
 
 
 def main() -> None:
     print(f"Writing to {OUT}")
+    loops = {}
     for name, fn in LOOPS:
-        write_loop(name, fn())
+        loops[name] = write_loop(name, fn())
+    check_bed(loops)
     for name, fn in SHOTS:
         xs = fn()
         if name in SUDDEN:
