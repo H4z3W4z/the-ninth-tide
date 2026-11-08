@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
 """R08 Machine Room painter (The Ninth Tide).
 
-Writes, and only writes, assets/rooms/R08/*.png:
+Writes, and only writes, assets/rooms/R08/*.png and, as later-stage art (new files only),
+assets/stages/R08/r08_*.png:
+
+  r08_boss_rest, r08_boss_sunk           the centre boss's two breath frames (400x400): at rest, and
+                                         sunk 12 px into the skin with a socket left above it
+  r08_room_s4_bulge                      band 4+ after P11: room_s4 with the membrane bulging out of
+                                         its ring between the bolts, a palm pressed into it from behind
+  r08_diaphragm_bulge                    the same bulge as an overlay for the view's membrane (480x480,
+                                         centre 240,240: laid at the membrane's origin less 40 px)
 
   room, room_s3, room_s4, room_sever     stage plates (1448x1086 opaque): bands <=2, 3, 4-7 and
                                          ending A's released room in grey daylight
@@ -42,6 +50,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageOp
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 OUT = os.path.join(ROOT, "assets", "rooms", "R08")
+STAGE_OUT = os.path.join(ROOT, "assets", "stages", "R08")   # later-stage art (owner, Nov 6): new files only
 W, H = 1448, 1086
 LW, LH = 362, 272           # light maps: quarter size, stretched x4 by the view
 SS = 2                      # supersampling for every painted shape
@@ -326,15 +335,15 @@ def grain(im, rng, amp=5, mottle=5, speck=10):
     return rgb
 
 
-def save(im, name, opaque):
-    os.makedirs(OUT, exist_ok=True)
+def save(im, name, opaque, out=OUT):
+    os.makedirs(out, exist_ok=True)
     if opaque:
         im = im.convert("RGB")
     else:
         im = im.convert("RGBA")
         a = im.getchannel("A")
         im.paste((0, 0, 0, 0), mask=a.point(lambda v: 255 if v == 0 else 0))
-    path = os.path.join(OUT, name + ".png")
+    path = os.path.join(out, name + ".png")
     im.save(path, optimize=False, compress_level=9)
     print("  wrote", os.path.relpath(path, ROOT), im.size, im.mode)
 
@@ -479,7 +488,7 @@ def dust(p, rng, stage):
 
 # ----------------------------------------------------------------------------- the diaphragm ring
 
-def ring(p, rng, stage):
+def ring(p, rng, stage, bulge=False):
     cx, cy = RING_C
     pushed = stage in ("s4", "sever")
     if pushed:
@@ -524,6 +533,9 @@ def ring(p, rng, stage):
     p.wob_ell(cx, cy, RING_R, None, INK, 5.5, 1.0)
     # the recess the membrane sits in (the sprite covers it)
     p.ell(cx, cy, MEM_R, MEM_R, MEMBRANE, INK, 3.5)
+    if bulge:
+        # its own generator, so every other stroke of the plate stays room_s4's
+        paint_bulge(p, RING_C, random.Random(SEED + 81))
     for i in range(12):
         a = i * 30
         seat = polar(RING_C, BOLT_R, a)
@@ -758,10 +770,10 @@ def pump(p):
     p.ell(ax, ay, 9, 9, IRON, INK, 2)
 
 
-def paint_room(rng, stage="base"):
+def paint_room(rng, stage="base", bulge=False):
     p = Pen(W, H, rng)
     shell(p, rng, stage)
-    ring(p, rng, stage)
+    ring(p, rng, stage, bulge)
     lamp(p, lit=stage != "sever")
     pedestal(p)
     column(p, rng)
@@ -1852,6 +1864,130 @@ def paint_tag(rng, new):
     return p
 
 
+# ----------------------------------------------------------------------------- stage art (assets/stages/R08)
+
+BOSS_SINK = 12              # px the boss sinks at the top of the inhale (R08_view.BOSS_SINK)
+BULGE = 26                  # px each lobe swells past the pinch, over the ring's lip
+
+
+def paint_boss(rng, sunk):
+    """The breath's two frames for the centre boss (400x400, centre 200,200).
+
+    rest: the boss where the base sprite has it. sunk: drawn BOSS_SINK px down into the skin,
+    a dark socket left above it where it sat and the membrane's lip folded over its top edge."""
+    p = Pen(400, 400, rng)
+    c = (200, 200)
+    if not sunk:
+        _boss(p, c)
+        return p
+    p.ell(200, 200, 27.5, 27.5, FOLD_LO, None)            # where it sat: a hole now
+    p.ell(200, 200, 26, 26, None, INK, 2.2)
+    q = (200, 200 + BOSS_SINK)
+    _boss(p, q, mix(BRASS, MEMBRANE, 0.3), mix(BRASS_HI, MEMBRANE, 0.35))
+    # the skin's lip lies over the boss's top: clipped to the boss so it never leaves the socket
+    lip = p.layer()
+    lip.ell(200, 197, 28, 14, MEMBRANE_HI, None)
+    lip.arc(200, 197, 28, 14, 15, 165, INK, 2.4)
+    lip.arc(200, 195, 26, 12, 200, 340, mix(FOLD_HI, MEMBRANE, 0.2), 1.4)
+    p.put(lip, 1.0, circle_mask((400, 400), q, 25.5))
+    return p
+
+
+def _hand_mask(size, at, scale=1.0, ang=-18.0):
+    """A left palm, fingers up, as an L mask (supersampled) at `at`."""
+    m = Image.new("L", (size[0] * SS, size[1] * SS), 0)
+    d = ImageDraw.Draw(m)
+
+    def tp(x, y):
+        rx, ry = rot((x * scale, y * scale), (0, 0), ang)
+        return ((at[0] + rx) * SS, (at[1] + ry) * SS)
+
+    def capsule(a, b, w):
+        pa, pb = tp(*a), tp(*b)
+        r = w * scale * SS / 2
+        d.line([pa, pb], fill=255, width=int(round(2 * r)))
+        for q in (pa, pb):
+            d.ellipse((q[0] - r, q[1] - r, q[0] + r, q[1] + r), fill=255)
+
+    palm = [tp(24 * math.cos(t), 12 + 28 * math.sin(t)) for t in [math.tau * i / 48 for i in range(48)]]
+    d.polygon(palm, fill=255)
+    for x, top, w in ((-15, -42, 8.5), (-5, -50, 9), (5, -47, 9), (14.5, -36, 8)):
+        capsule((x * 0.85, -8), (x * 1.06, top), w)
+    capsule((-17, 24), (-34, 2), 10)
+    return m
+
+
+def paint_palm(p, at, scale=1.0, strength=1.0):
+    """A faint palm pressed into the membrane from behind: a raised flat shape, its edge toward
+    the sconce (upper right) caught pale, its lower-left edge in shadow. No outline."""
+    mask = _hand_mask((p.w, p.h), at, scale)
+    o = int(round(3 * SS))
+    nb = ImageChops.offset(mask, -o, o)         # at (x, y): the mask at (x + 3, y - 3)
+    lit = ImageChops.subtract(mask, nb).filter(ImageFilter.GaussianBlur(1.2 * SS))
+    shade = ImageChops.subtract(nb, mask).filter(ImageFilter.GaussianBlur(1.6 * SS))
+    body = mask.filter(ImageFilter.GaussianBlur(4 * SS))
+    for col, a, k in (((40, 50, 64), body, 0.55), ((86, 104, 122), lit, 0.75), (FOLD_LO, shade, 0.9)):
+        lay = Image.new("RGBA", p.im.size, rgba(col))
+        lay.putalpha(a.point(lambda v, k=k: int(v * k * strength)))
+        p.im.alpha_composite(lay)
+
+
+def _bulge_outline(c, n=24):
+    """The membrane's edge once it bulges into the room: twelve lobes swelling out between the
+    bolts and pinched back under each one."""
+    pts = []
+    for k in range(12):
+        for i in range(n):
+            t = i / n
+            a = k * 30 + 30 * t
+            r = MEM_R - 4 + BULGE * math.sin(math.pi * t) ** 2
+            pts.append(polar(c, r, a))
+    return pts
+
+
+def paint_bulge(p, c, rng):
+    """Band 4+, after P11: the membrane pushes out of its ring into the room. Lobes of skin swell
+    over the lip between the bolts, a broad dome of light lies on its upper right, and low on the
+    right a palm is pressed into it from behind. Drawn into the plate and, as an overlay, over
+    the view's membrane stack (480x480 at c = (240, 240))."""
+    outline = _bulge_outline(c)
+    # it stands proud of the flange: a hard shadow thrown down and right, outside the disc only
+    sh = p.layer()
+    sh.poly([(x + 7, y + 9) for x, y in outline], (8, 12, 18, 255), None)
+    outside = ImageChops.invert(circle_mask((p.w, p.h), c, MEM_R - 2))
+    p.put_soft(sh, 3, 0.7, outside)
+    lobes = p.layer()
+    lobes.poly(outline, MEMBRANE, None)
+    p.put(lobes, 1.0, ImageChops.invert(circle_mask((p.w, p.h), c, MEM_R - 8)))   # the rim only: the folds show
+    # the dome: one broad dull light toward the sconce
+    disc = circle_mask((p.w, p.h), c, MEM_R - 3)
+    dome = p.layer()
+    dome.ell(c[0] + 34, c[1] - 30, 126, 108, (52, 66, 82, 255), None)
+    p.put_soft(dome, 36, 0.55, disc)
+    # each lobe's ridge, lit where it faces the light
+    for k in range(12):
+        a_mid = k * 30 + 15
+        lit = 0.5 + 0.5 * math.cos(math.radians(a_mid + 60))
+        if lit < 0.3:
+            continue
+        arc = [polar(c, MEM_R - 4 + BULGE * math.sin(math.pi * t) ** 2 - 4, k * 30 + 30 * t)
+               for t in [0.18 + 0.64 * i / 12 for i in range(13)]]
+        p.line(arc, mix(MEMBRANE, (96, 116, 134), lit), 1.8)
+    p.line(outline + [outline[0]], INK, 3)
+    paint_palm(p, (c[0] + 66, c[1] + 44), 1.0, 0.85 + 0.15 * rng.random())
+
+
+BULGE_PAD = 40              # the overlay is 480x480: the lobes reach past the 400 px membrane frame
+
+
+def paint_bulge_sprite(rng):
+    """r08_diaphragm_bulge: 480x480, centre 240,240; the view lays it at MEM_ORIGIN - 40."""
+    n = 400 + 2 * BULGE_PAD
+    p = Pen(n, n, rng)
+    paint_bulge(p, (n / 2, n / 2), rng)
+    return p
+
+
 # ----------------------------------------------------------------------------- registry
 
 ASSETS = [  # name, seed index, painter, opaque, grain
@@ -1901,17 +2037,26 @@ ASSETS = [  # name, seed index, painter, opaque, grain
 ]
 
 
+STAGE_ASSETS = [  # name, seed index, painter, opaque, grain -> assets/stages/R08/ (ids are bare stems)
+    ("r08_boss_rest", 80, lambda r: paint_boss(r, False), False, False),
+    ("r08_boss_sunk", 82, lambda r: paint_boss(r, True), False, False),
+    ("r08_room_s4_bulge", 0, lambda r: paint_room(r, "s4", bulge=True), True, True),
+    ("r08_diaphragm_bulge", 83, paint_bulge_sprite, False, False),
+]
+
+
 def main(argv):
     pats = argv or ["*"]
-    for name, k, fn, opaque, gr in ASSETS:
-        if not any(fnmatch.fnmatch(name, pat) for pat in pats):
-            continue
-        rng = rng_for(k)
-        res = fn(rng)
-        im = res.done() if isinstance(res, Pen) else res
-        if gr:
-            im = grain(im, rng_for(1000 + k))
-        save(im, name, opaque)
+    for table, out in ((ASSETS, OUT), (STAGE_ASSETS, STAGE_OUT)):
+        for name, k, fn, opaque, gr in table:
+            if not any(fnmatch.fnmatch(name, pat) for pat in pats):
+                continue
+            rng = rng_for(k)
+            res = fn(rng)
+            im = res.done() if isinstance(res, Pen) else res
+            if gr:
+                im = grain(im, rng_for(1000 + k))
+            save(im, name, opaque, out)
 
 
 if __name__ == "__main__":

@@ -171,7 +171,7 @@ const HINTS := {
 const ITEMS := {}
 
 const SAVED_BOOLS := ["p11_complete", "index_offered", "released_once", "previewed", "tags_opened",
-	"diaphragm_looked"]
+	"diaphragm_looked", "exhale_said"]
 
 ## Transient, never saved: the circuit last traced on the drawing and why ("preview" | "pump").
 var trace := ""
@@ -182,7 +182,7 @@ func initial_state() -> Dictionary:
 		"toggles": {"SUPPLY": false, "GATE": false, "RETURN": false, "INDEX": true},
 		"p11_complete": false, "index_offered": false, "released_once": false, "previewed": false,
 		"previewed_codes": [], "misses": 0, "tags_opened": false, "tag": 0, "tag_max": 0,
-		"diaphragm_looked": false, "notices": [],
+		"diaphragm_looked": false, "exhale_said": false, "notices": [],
 	}
 
 func is_closeup(v := local_view) -> bool:
@@ -283,11 +283,18 @@ func stage_plate() -> String:
 	if ending() == "sever":
 		return "room_sever"
 	var b := band()
+	if bulging():
+		return BULGE_PLATE
 	if b >= 4:
 		return "room_s4"
 	if b == 3:
 		return "room_s3"
 	return "room"
+
+## Band 4+ after P11 (and on into the continue ending): the membrane bulges out of its ring into
+## the room, a palm pressed into it from behind (the plate and the view's overlay).
+func bulging() -> bool:
+	return _p11() and band() >= 4 and ending() != "sever"
 
 ## The stamped lines on tag 8: the date, and "A.M." once the station is at band 7.
 func tag_stamp() -> Array:
@@ -437,6 +444,11 @@ const DIAPHRAGM_LINES := {
 	"sever": "Slack. It hangs in its ring like a wet sail.",
 	"continue": "It breathes. Evenly. Not behind any more.",
 }
+## The first diaphragm look after P11 (state.exhale_said, once), after that stage's own line.
+const EXHALE_LINE := "It's breathing out. It never used to."
+const EXHALE_DELAY := 2.8
+## Band 4+ after P11: assets/stages/R08/r08_room_s4_bulge.png (tools/art/rooms/R08.py).
+const BULGE_PLATE := "r08_room_s4_bulge"
 ## The notebook entry a diaphragm look at each stage confirms.
 const DIAPHRAGM_OBS := {"b4": "bolts_out", "b5": "breath_nora", "b6": "late_reflection",
 	"b7": "far_horizon", "sever": "end_sever", "continue": "end_continue"}
@@ -452,6 +464,13 @@ func _room(action: String, ev: Array) -> void:
 					_say(ev, "In. And out. With the belt.")
 				else:
 					_say(ev, "It draws in when the belt pulls and lets go when it slacks. A pump. It's only a pump.")
+			elif _p11() and ending() == "" and not state.exhale_said:
+				# the first look since it was let go: its stage line, then the one thing it never did
+				state.exhale_said = true
+				_say(ev, DIAPHRAGM_LINES[s], 0.0, true)
+				_say(ev, EXHALE_LINE, EXHALE_DELAY, true)
+				if DIAPHRAGM_OBS.has(s):
+					_observe(DIAPHRAGM_OBS[s])
 			else:
 				_say(ev, DIAPHRAGM_LINES[s])
 				if DIAPHRAGM_OBS.has(s):
