@@ -82,6 +82,8 @@ func run_tests() -> void:
 	test_ledger()
 	test_control_rects()
 	test_kitchen_rects()
+	test_register_closeup()
+	test_work_card_closeup()
 	if _view_ready():
 		await view_checks(ROOM)
 	else:
@@ -547,7 +549,7 @@ func test_tally() -> void:
 	for i in 15:
 		c.dispatch("tally_up")
 	check(int(r.state.tally) == 12, "the tally clamps at 12")
-	check(says(c.dispatch("look_register")) == "REGISTER: 8. Rook's number.", "the register plate")
+	check(says(c.dispatch("look_register")).begins_with("REGISTER: 8. Rook's number."), "the register plate")
 
 # ---------------------------------------------------------------------------------------------
 # (5) PLACES and PORTIONS independently
@@ -1360,3 +1362,80 @@ func test_kitchen_rects() -> void:
 			check(not exits[k].intersects(rr), "kitchen %s clear of exit %s" % [h[0], k])
 	for id in R05Sim.KITCHEN_HOTSPOTS:
 		check(id in ids, "the view has a kitchen rect for %s" % id)
+
+# ---------------------------------------------------------------------------------------------
+# (p2) c_register: Rook's register at 2x, from the tally's register plate
+# ---------------------------------------------------------------------------------------------
+func test_register_closeup() -> void:
+	var g := fresh()
+	var r := r5(g)
+	open_table(g)
+	g.dispatch("slot_%d" % R05Sim.RACK_HOME.find("b_sq"))
+	check(r.held == "b_sq", "the patched bowl in hand before the plate")
+	var snap0 := snap(g)
+	var ev := g.dispatch("look_register")
+	check(r.local_view == "c_register" and r.is_closeup(), "the register plate opens c_register")
+	check(says(ev) == "REGISTER: 8. Rook's number. | " + R05Sim.REGISTER_OPEN, "the plate's lines, first time")
+	check(r.held == "" and has_ev(ev, "sfx", "bowl_rack"), "the held bowl goes back to the rack first")
+	check(snap(g) == snap0, "looking changes no saved state")
+	g.dispatch("back")
+	check(r.local_view == "c_table", "Back from the register: the table")
+	check(says(g.dispatch("look_register")) == "REGISTER: 8. Rook's number.", "the plate again: one line")
+	g.dispatch("back")
+	g.dispatch("back")
+	check(r.local_view == "room", "Back again: the mess")
+	# band 5: the spoon waits for the room, not for the table under the register
+	var t := game_at(7, ROOM)
+	var rt := r5(t)
+	rt.local_view = "c_table"
+	ev = t.dispatch("look_register")
+	ev = t.dispatch("back")
+	check(rt.local_view == "c_table" and not has_ev(ev, "fx", "spoon_lift"), "register -> table: no spoon yet")
+	ev = t.dispatch("back")
+	check(rt.local_view == "room" and has_ev(ev, "fx", "spoon_lift"), "table -> room: the spoon")
+	# the view: every name at >= 18 px in plate space, larger than the kitchen board's
+	check(load("res://game/rooms/R05/R05_view.gd").REG_NAME_SIZE >= 18, "register names >= 18 px")
+	check(R05Sim.BOARD_NAMES.size() == 8, "eight names on Rook's register")
+
+# ---------------------------------------------------------------------------------------------
+# (p2) c_work_card: the stamp, legible, and verbatim in the notebook
+# ---------------------------------------------------------------------------------------------
+func test_work_card_closeup() -> void:
+	check(R05Sim.CARD_SPECIMEN == "SPECIMEN 27-11", "the specimen stamp, verbatim")
+	check(R05Sim.CARD_SPECIMEN in R05Sim.CARD_STAMP, "the card's stamp carries it")
+	check(R05Sim.CARD_SPECIMEN in R05Sim.OBSERVATIONS.nora_work_card, "nora_work_card records SPECIMEN 27-11 verbatim")
+	check(R07Sim.STAMP_N == R05Sim.CARD_SPECIMEN, "P13's stamp is the card's")
+	var g := fresh()
+	var r := r5(g)
+	g.dispatch("to_kitchen")
+	var ev := g.dispatch("work_card")
+	check(r.local_view == "c_work_card" and r.is_closeup(), "the card opens its close-up")
+	check(g.has_seen(ROOM, "nora_work_card"), "observed on the first look")
+	check(R05Sim.CARD_SPECIMEN in says(ev), "her line reads the specimen")
+	ev = g.dispatch("service_drawer")
+	check(r.local_view == "kitchen", "a live kitchen hotspot beside the card puts it down and acts")
+	g.dispatch("work_card")
+	g.dispatch("back")
+	check(r.local_view == "kitchen", "Back from the card: the kitchen")
+	# endings: the override line, and the card still comes up
+	for e in ["sever", "continue"]:
+		var t := game_at(9, ROOM)
+		t.state.ending = e
+		r5(t).local_view = "kitchen"
+		ev = t.dispatch("work_card")
+		var want: String = (R05Sim.SEVER_LINES if e == "sever" else R05Sim.CONTINUE_LINES).get("work_card", "")
+		check(r5(t).local_view == "c_work_card", "%s: the card still comes up" % e)
+		if want != "":
+			check(says(ev) == want, "%s: the ending's line" % e)
+	# the view: the card's controls leave the kitchen hotspots outside the panel live
+	var V = load("res://game/rooms/R05/R05_view.gd")
+	var v = V.new()
+	var ids := []
+	for h in v.work_card_controls():
+		ids.append(h[0])
+		if h[0] != "work_card":
+			check(not V.WC_PANEL.intersects(h[1]), "%s is clear of the card panel" % h[0])
+	for id in ["work_card", "service_drawer", "service_hatch", "shift_board", "menu_note", "to_mess"]:
+		check(id in ids, "%s stays clickable beside the held-up card" % id)
+	check(V.WC_PANEL.encloses(v.wc_card_rect()), "the card sits on its panel")
+	v.free()

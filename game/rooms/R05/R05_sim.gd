@@ -6,7 +6,9 @@ extends RoomSim
 ## ledger_spread), and plays the events.
 ##
 ## Two base views: "room" (A, the mess table) and "kitchen" (B, range, book, shift board; not a
-## close-up). Close-ups: c_table (P07), c_ledger (Nora's book), c_service_board (P09).
+## close-up). Close-ups: c_table (P07), c_ledger (Nora's book), c_service_board (P09),
+## c_register (Rook's shift register at 2x, from c_table's register plate) and c_work_card (Nora's
+## work card held up over the kitchen; the kitchen's other hotspots stay live beside it).
 
 const ID := "R05"
 const TITLE := "Kitchen and Mess"
@@ -30,7 +32,7 @@ const HOTSPOTS := ["spoon", "unsigned_bowl", "tally", "towel", "window", "place_
 	"bowl_stack", "chair", "to_kitchen"]
 const KITCHEN_HOTSPOTS := ["work_card", "menu_note", "kettle", "ledger", "service_drawer",
 	"service_hatch", "shift_board", "range", "to_mess"]
-const CLOSEUPS := ["c_table", "c_ledger", "c_service_board"]
+const CLOSEUPS := ["c_table", "c_ledger", "c_service_board", "c_register", "c_work_card"]
 
 ## Close-up controls (the view's rects carry the same ids).
 const TABLE_CONTROLS := ["place_1", "place_2", "place_3", "place_4", "place_5", "place_6",
@@ -114,6 +116,11 @@ const RUBBING_LABEL := "E. VENN · seal, rubbed"
 const RUBBING_LINE := "Pinned beside it, a rubbing of a seal. Three cuts. Pencilled under it: E. VENN."
 ## The work card's stamp, on the card, in her line and in the notebook (P13 reads the specimen).
 const CARD_STAMP := "CALIBRATION 18 OCT 1927 · SPECIMEN 27-11"
+## The specimen half of the stamp, verbatim: P13 (R07) matches it on the sample cards.
+const CARD_SPECIMEN := "SPECIMEN 27-11"
+## The register plate on the tally opens Rook's register (c_register).
+const REGISTER_LINE := "REGISTER: 8. Rook's number."
+const REGISTER_OPEN := "Under the plate, his register again, copied small for the tally. Eight names."
 const DUPLICATE_LINE := "Eight retained. One witnessing."
 const REJECT_TAPE := "REJECTED: UNVERIFIABLE CORRECTION. ORIGINAL ENTRY MUST STAND."
 ## The stamped strip under TULL on the front board after P09 (red-brown stamp ink).
@@ -262,6 +269,7 @@ var ledger_spread := 0
 var _spoon_this_visit := false
 var _sq_lift_said := false
 var _mercer_said := false
+var _register_said := false
 
 func initial_state() -> Dictionary:
 	return {
@@ -464,11 +472,14 @@ func back(ev: Array) -> void:
 		"c_table":
 			_return_held(ev)
 			local_view = "room"
-		"c_ledger", "c_service_board":
+		"c_ledger", "c_service_board", "c_work_card":
 			local_view = "kitchen"
+		"c_register":
+			local_view = "c_table"
 		_:
 			local_view = "room"
-	if is_closeup(before) and band() >= 5 and ending() == "" and not _spoon_this_visit:
+	# the spoon waits for her to come back to the room, not from one close-up into another
+	if is_closeup(before) and not is_closeup() and band() >= 5 and ending() == "" and not _spoon_this_visit:
 		_spoon_this_visit = true
 		_fx(ev, "spoon_lift")
 		_sfx(ev, "spoon_china", 2.6)
@@ -662,12 +673,16 @@ func _kitchen(action: String, ev: Array) -> void:
 		override = SEVER_LINES.get(action, "")
 	elif e == "continue":
 		override = CONTINUE_LINES.get(action, "")
-	if override != "" and action != "shift_board":
+	if override != "" and not action in ["shift_board", "work_card"]:
 		_say(ev, override)
 		return
 	match action:
 		"work_card":
+			local_view = "c_work_card"
 			_observe("nora_work_card")
+			if override != "":
+				_say(ev, override)
+				return
 			_say(ev, "A work card, stamped %s. A trace of her breathing." % CARD_STAMP)
 			if b >= 5 and e == "":
 				_say(ev, "It's lifting on its nail in that rhythm. The draught is steady. The card isn't.", 2.0)
@@ -772,7 +787,12 @@ func _table(action: String, ev: Array) -> void:
 		_compare(ev)
 		return
 	if action == "look_register":
-		_say(ev, "REGISTER: 8. Rook's number.")
+		_return_held(ev)
+		local_view = "c_register"
+		_say(ev, REGISTER_LINE)
+		if not _register_said:
+			_register_said = true
+			_say(ev, REGISTER_OPEN, 1.6)
 		return
 	if action.begins_with("place_"):
 		var k := int(action.substr(6))
@@ -1396,4 +1416,5 @@ func debug_jump(n: int) -> void:
 	_clear_transients()
 	_sq_lift_said = false
 	_mercer_said = false
+	_register_said = false
 	local_view = "c_service_board" if n == 3 else "room"
