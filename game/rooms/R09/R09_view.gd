@@ -20,13 +20,21 @@ extends RoomView
 ##
 ## The upright sea (bands 4-6) is composed here from layers (repaint r2): the standing plane
 ## `<v>_surf_<band>_r2`, the b3 whitecaps turned on end (`vchop_tile_r2`, drifting sideways) and
-## the rooms behind Ada as filled silhouettes (`<v>_refl_<band>_r2`). The reveal stands it up:
-## the b3 horizon rises to the surface's top edge, the sea below it stretching upward in its
-## wake. From then on (reveal_seen) view A shows `surface_standing` (b6: `surface_standing_b6`,
-## the lighthouse hung in it) in place of those layers: one flat sea-glass plane edge to edge,
-## the station's rooms upside down in it as a stark cutaway, the pennant straight out, and its
-## own painted rain stopping dead 60 px above the rail. The lid (a dark navy band) crosses the
-## glass once on the reveal, then rests half-lowered along the glass's top edge for good.
+## the rooms behind Ada as filled silhouettes (`<v>_refl_<band>_r2`).
+##
+## The P15 beat (fx reveal_upright; the sim's REVEAL_LINES and fx delays set every time here):
+##   0.6  "The horizon's standing up." The stage overlay `assets/stages/R09/p15_surface_on_end`
+##        (b6: `_b6`, the lighthouse hung in it) comes up the glass: one flat storm-navy plane
+##        edge to edge, no sky, no horizon, the station's rooms small warm lit rectangles in it,
+##        the office lamp the brightest point. Motion off: it is simply there. The same fx time
+##        (rain_freeze) stops every rain streak where it is; from P15 on the rain is always drawn
+##        frozen (r.rain_frozen()), in both views and both Motion settings.
+##  13.4  fx lid_pass: an ink-black band LID_H tall sweeps the glass top to bottom in LID_SWEEP
+##        and leaves a 2 px sea-glass line across the glass's middle for the rest of the beat.
+##        Motion off: the band stands still at the middle for LID_SWEEP, then the line.
+##  18.0  fx hold_breath (the core's hook). When the hold ends the room's bed is only
+##        r09_pressure, 6 dB under its level, and r09_glass_air, until she leaves R09.
+## The overlay replaces the old standing plate for the beat and for good after it.
 
 const DIR := "res://assets/rooms/R09/%s.png"
 
@@ -91,20 +99,30 @@ const SFX_DB := {
 const SFX_SOFT := ["key_refuse", "mount_tap", "glass_tap"]
 
 const LOOPS := ["r09_room", "r09_clockwork", "r09_wind", "r09_sea_far", "r09_rain_glass", "r09_surface",
-	"r09_pressure", "r09_flap"]
+	"r09_pressure", "r09_flap", "r09_glass_air"]
 ## Loop levels (dB) per sea stage; a loop not listed is silent.
 const LOOP_DB := {
 	"b3": {"r09_room": -14.0, "r09_clockwork": -20.0, "r09_wind": -3.0, "r09_sea_far": -16.0, "r09_rain_glass": -13.0},
 	"b4": {"r09_room": -14.0, "r09_clockwork": -20.0, "r09_wind": -5.0, "r09_rain_glass": -20.0, "r09_surface": -24.0},
-	"b5": {"r09_room": -10.0, "r09_clockwork": -22.0, "r09_surface": -21.0},
-	"b6": {"r09_room": -14.0, "r09_surface": -18.0, "r09_pressure": -24.0},
-	"b7": {"r09_room": -16.0, "r09_surface": -16.0, "r09_pressure": -14.0},
+	"b5": {"r09_room": -10.0, "r09_clockwork": -22.0, "r09_surface": -17.0, "r09_glass_air": -14.0},
+	"b6": {"r09_room": -14.0, "r09_surface": -14.0, "r09_pressure": -24.0, "r09_glass_air": -12.0},
+	"b7": {"r09_room": -16.0, "r09_surface": -12.0, "r09_pressure": -14.0, "r09_glass_air": -12.0},
 	"sever": {"r09_room": -14.0, "r09_clockwork": -20.0, "r09_wind": -8.0, "r09_sea_far": -12.0,
 		"r09_rain_glass": -14.0, "r09_flap": -16.0},
 }
+## A whole-bed trim (dB) per stage, on top of LOOP_DB, so the gallery's bed at bands 5-7 sits
+## within 3 dB of the dry stair's (R11) at the same band (file RMS plus mixer target, summed by
+## power), the mix inside it unchanged.
+const BED_TRIM := {"b5": 2.5, "b6": 3.0, "b7": 3.0}
 ## The deep sounds the loops duck under (6 dB).
 const DUCK_IDS := ["deep_tone", "lid_pass", "glass_hum"]
 const LOOP_RATE := 0.11        # linear units / s: about a 1.5 s fade at these levels
+## After the P15 hold: the bed is only these two, r09_pressure HUSH_CUT under its stage level
+## (HUSH_PRESSURE_DB where the stage has none), r09_glass_air at its stage level
+## (HUSH_AIR_DB where the stage has none).
+const HUSH_CUT := 6.0
+const HUSH_PRESSURE_DB := -14.0
+const HUSH_AIR_DB := -14.0
 ## While lid_pass plays, deep_tone is ducked DEEP_DUCK_DB from DEEP_DUCK_FROM to DEEP_DUCK_TO
 ## seconds after the lid_pass cue starts, ramped in and out over DEEP_DUCK_RAMP.
 const DEEP_DUCK_DB := -8.0
@@ -187,21 +205,19 @@ const ZOOM_PITCH := 32.0
 const ZOOM_WORD := ["×1", "×10", "×100", "×1000"]
 
 # --- the reveal (fx reveal_upright) -------------------------------------------------------
-const RISE_END := 3.5
-const B3_HORIZON := 400.0
-## After the rise the standing plate fades in over the composed surface.
-const PLATE_FADE := 1.0
-## The lid: a dark navy band across the whole glass. It crosses once, top to bottom, from
-## LID_START over LID_CROSS seconds, then fades in at rest, half-lowered along the glass's top
-## edge, where it stays for the rest of the game. Motion off: only the resting band.
-const LID_START := 7.0
-const LID_CROSS := 4.0
-const LID_END := LID_START + LID_CROSS
-const REST_FADE := 0.8
-const STILL_TIME := 4.0
-const LID_H := 120.0
-const LID_REST := LID_H / 2.0
-const LID_COL := Color("0f1d27")
+const STAGE_DIR := "res://assets/stages/R09/%s.png"
+const SURFACE_PLATE := "p15_surface_on_end"
+## The overlay comes up the glass over RISE_TIME from the first line (Motion off: at once).
+const RISE_TIME := 1.6
+## The lid: an ink-black band LID_H tall, full width, sweeping the glass top to bottom in
+## LID_SWEEP; it leaves a LINE_W px sea-glass line across the glass's middle that stays until
+## the beat ends (the hold's end), then fades over LINE_FADE.
+const LID_H := 90.0
+const LID_SWEEP := 1.2
+const LID_COL := Ink.INK
+const LINE_COL := Color("a9c8b8")
+const LINE_W := 2.0
+const LINE_FADE := 1.0
 ## The lens overlay's opacity once the sea has stood up: the plate behind must lead.
 const LENS_AFTER_REVEAL := 0.35
 
@@ -246,6 +262,15 @@ var eject_wait := -1.0          # seconds waited for clamp_release, -1 = none
 var strip_t := -1.0             # seconds into the strip feeding out, -1 = settled
 var strip_wait := -1.0          # seconds waited for strip_feed, -1 = none
 var lid_cue_t := -1.0           # seconds since the lid_pass cue started, -1 = none
+## The beat's times, seconds after reveal_upright (set from the sim's fx delays).
+var freeze_at: float = R09Sim.RAIN_FREEZE_AT
+var lid_at: float = R09Sim.LID_PASS_AT
+var hush_at: float = R09Sim.HOLD_BREATH_AT + R09Sim.HOLD_BREATH_SECONDS
+var rain_off := 0.0             # the rain's scroll where it froze (px)
+var rain_caught := false        # rain_off holds the frozen position
+var beat_origin := -1.0         # the presentation clock at reveal_upright, -1 = none
+var beat_locked := {}           # anchors whose line is up: they no longer move
+var hushed := false             # the hold is over: the bed is pressure and glass air until she leaves
 
 func _ready() -> void:
 	narrow = SystemFont.new()
@@ -260,7 +285,7 @@ func _ready() -> void:
 
 func _tex(id: String) -> Texture2D:
 	if not textures.has(id):
-		var path := DIR % id
+		var path := (STAGE_DIR if id.begins_with("p15_") else DIR) % id
 		textures[id] = load(path) as Texture2D if ResourceLoader.exists(path) else null
 	return textures[id]
 
@@ -328,20 +353,39 @@ func sea_layers(side: String) -> Array:
 func sea_plate(side: String) -> String:
 	return sea_layers(side)[0]
 
+## The rain's fall speed (px/s) while it moves; 0 under Motion off, and 0 once it is frozen.
 func rain_speed() -> float:
-	if not motion:
+	if not motion or rain_frozen():
 		return 0.0
 	if _sever():
 		return RAIN_SEVER
 	return RAIN_SPEED.get(clampi(_stage_band(), 3, 7), 0.0)
 
+## True when the rain is drawn frozen: from P15 on, except for the first freeze_at seconds of
+## the beat, when it still falls.
+func rain_frozen() -> bool:
+	if not r.rain_frozen():
+		return false
+	return not (reveal_running() and reveal_t < freeze_at)
+
+## The rain's scroll offset now (px): where it froze, or where it has fallen to.
+func rain_offset() -> float:
+	if rain_frozen():
+		if not rain_caught:
+			# the first frozen frame: every streak stops exactly where it is
+			rain_off = time * _fall_speed()
+			rain_caught = true
+		return rain_off
+	return time * rain_speed()
+
 func reveal_running() -> bool:
 	return reveal_t >= 0.0 and reveal_t < reveal_len()
 
+## The beat runs to the end of the core's hold, plus the sea-glass line's fade.
 func reveal_len() -> float:
-	return LID_END + REST_FADE if motion else STILL_TIME
+	return hush_at + LINE_FADE
 
-## The standing plate view A shows from the reveal on ("" before it, at band 7 and after the
+## The stage overlay view A shows from the reveal on ("" before it, at band 7 and after the
 ## sever ending, which keep their own plates).
 func standing_plate() -> String:
 	if not r.state.reveal_seen or _sever():
@@ -350,32 +394,48 @@ func standing_plate() -> String:
 		"b7":
 			return ""
 		"b6":
-			return "surface_standing_b6"
-	return "surface_standing"
+			return SURFACE_PLATE + "_b6"
+	return SURFACE_PLATE
 
-## 0..1: how far the standing plate has come in (1 when settled).
+## 0..1: how far up the glass the overlay has come (1 when settled; 0 before the first line).
 func plate_k() -> float:
 	if standing_plate() == "":
 		return 0.0
-	if not reveal_running() or not motion:
+	if not reveal_running():
 		return 1.0
-	return smoothstep(RISE_END, RISE_END + PLATE_FADE, reveal_t)
-
-## 0..1 opacity of the resting lid along the glass's top edge (0 before the reveal).
-func lid_rest_k() -> float:
-	if not r.state.reveal_seen or _sever():
+	if reveal_t < freeze_at:
 		return 0.0
-	if not reveal_running() or not motion:
+	if not motion:
 		return 1.0
-	return clampf((reveal_t - LID_END) / REST_FADE, 0.0, 1.0)
+	return smoothstep(0.0, 1.0, (reveal_t - freeze_at) / RISE_TIME)
 
-## Where the crossing lid's lower rim is now (view A y), or -1 when it is not crossing. It enters
-## above the glass and leaves below the rail, so it crosses the whole glass once.
+## Where the lid band's centre is now (view A y), or -1 when no band is drawn. Motion on: it
+## enters wholly above the glass and leaves wholly below it, top to bottom, in LID_SWEEP. Motion
+## off: it stands at the glass's middle for LID_SWEEP.
 func lid_y() -> float:
-	if not reveal_running() or not motion or reveal_t < LID_START or reveal_t >= LID_END:
+	if r.state.reveal_seen == false or _sever() or not reveal_running() or reveal_t < lid_at \
+			or reveal_t >= lid_at + LID_SWEEP:
 		return -1.0
-	var k := smoothstep(0.0, 1.0, (reveal_t - LID_START) / LID_CROSS)
-	return lerpf(A_GLASS.position.y, A_GLASS.end.y + LID_H, k)
+	if not motion:
+		return A_GLASS.get_center().y
+	var k := (reveal_t - lid_at) / LID_SWEEP
+	return lerpf(A_GLASS.position.y - LID_H / 2.0, A_GLASS.end.y + LID_H / 2.0, k)
+
+## 0..1 opacity of the sea-glass line the lid leaves across the glass's middle: on once the
+## band's centre has passed the middle (Motion off: once the still band is gone), held to the
+## end of the hold, then faded.
+func lid_line_k() -> float:
+	if not reveal_running() or reveal_t < lid_at:
+		return 0.0
+	var mid := A_GLASS.get_center().y
+	var from := lid_at + LID_SWEEP
+	if motion:
+		from = lid_at + LID_SWEEP * inverse_lerp(A_GLASS.position.y - LID_H / 2.0, A_GLASS.end.y + LID_H / 2.0, mid)
+	if reveal_t < from:
+		return 0.0
+	if reveal_t < hush_at:
+		return 1.0
+	return 1.0 - clampf((reveal_t - hush_at) / LINE_FADE, 0.0, 1.0) if motion else 0.0
 
 ## deep_tone's duck (dB) `t` seconds after the lid_pass cue: 0 outside DEEP_DUCK_FROM..TO,
 ## DEEP_DUCK_DB inside, with linear ramps of DEEP_DUCK_RAMP at either end.
@@ -427,6 +487,10 @@ func tick(dt: float) -> void:
 	if reveal_t >= 0.0:
 		var was := reveal_running()
 		reveal_t += dt
+		_sync_beat()
+		rain_offset()
+		if was and reveal_t >= hush_at:
+			hushed = true
 		if was and not reveal_running():
 			_on_reveal_end()
 	if iris_t >= 0.0:
@@ -472,12 +536,50 @@ func tick(dt: float) -> void:
 
 func _on_reveal_end() -> void:
 	reveal_t = -1.0
+	beat_origin = -1.0
+
+## The beat's anchors: [variable, the line it waits for, seconds after that line].
+const BEAT_ANCHORS := [["freeze_at", 0, 0.0], ["lid_at", 3, 0.0], ["hush_at", 5, R09Sim.HOLD_BREATH_SECONDS]]
+
+## The core may hold the reveal's lines behind a story still being read, and the player may
+## bring a line up early: each beat follows its own line's time in the core's queue (the fx
+## delays are the fallback), and stops moving once that line is up.
+func _sync_beat() -> void:
+	if game == null or beat_origin < 0.0:
+		return
+	for a in BEAT_ANCHORS:
+		if beat_locked.has(a[0]):
+			continue
+		var text: String = R09Sim.REVEAL_LINES[a[1]][1]
+		var at := -1.0
+		if game.cur_story and game.cur_text == text:
+			at = game.cur_since
+			beat_locked[a[0]] = true
+		else:
+			for l in game.lines:
+				if l.story and l.text == text:
+					at = l.due
+					break
+		if at >= 0.0:
+			set(a[0], at - beat_origin + a[2])
+
+## The stage's fall speed with Motion on, frozen or not: what the rain was doing as it stopped.
+func _fall_speed() -> float:
+	if not motion:
+		return 0.0
+	if _sever():
+		return RAIN_SEVER
+	return RAIN_SPEED.get(clampi(_stage_band(), 3, 7), 0.0)
 
 func loop_targets() -> Dictionary:
 	var key := stage()
 	if r.ending() == "continue":
 		key = "b7"
 	var db: Dictionary = LOOP_DB.get(key, LOOP_DB["b3"])
+	if hushed and not _sever():
+		db = {"r09_pressure": float(db.get("r09_pressure", HUSH_PRESSURE_DB)) - HUSH_CUT,
+			"r09_glass_air": float(db.get("r09_glass_air", HUSH_AIR_DB))}
+	var trim: float = 0.0 if hushed else BED_TRIM.get(key, 0.0)
 	var in_close := r.is_closeup()
 	var duck := game != null and game.oneshot_playing(DUCK_IDS)
 	var out := {}
@@ -485,7 +587,7 @@ func loop_targets() -> Dictionary:
 		if not db.has(id):
 			out[id] = 0.0
 			continue
-		var v: float = db[id]
+		var v: float = db[id] + trim
 		if in_close and id != "r09_room":
 			v -= 4.0
 		if duck:
@@ -519,6 +621,19 @@ func play_fx(id: String, e: Dictionary) -> void:
 		"reveal_upright":
 			reveal_t = 0.0
 			hold_t = 0.0   # the reveal is the notice; no zoom on top of it
+			freeze_at = R09Sim.RAIN_FREEZE_AT
+			lid_at = R09Sim.LID_PASS_AT
+			hush_at = R09Sim.HOLD_BREATH_AT + R09Sim.HOLD_BREATH_SECONDS
+			hushed = false
+			rain_caught = false
+			beat_origin = time
+			beat_locked = {}
+		"rain_freeze":
+			freeze_at = float(e.get("delay", freeze_at))
+		"lid_pass":
+			lid_at = float(e.get("delay", lid_at))
+		"hold_breath":
+			hush_at = float(e.get("delay", R09Sim.HOLD_BREATH_AT)) + float(e.get("seconds", R09Sim.HOLD_BREATH_SECONDS))
 		"aim":
 			var n := clampi(int(e.get("aperture", r.state.aperture)), 1, 3)
 			knob_from = knob_angle()
@@ -604,6 +719,14 @@ func reset_presentation() -> void:
 	strip_t = -1.0
 	strip_wait = -1.0
 	lid_cue_t = -1.0
+	rain_off = 0.0
+	rain_caught = false
+	beat_origin = -1.0
+	beat_locked = {}
+	hushed = false
+	freeze_at = R09Sim.RAIN_FREEZE_AT
+	lid_at = R09Sim.LID_PASS_AT
+	hush_at = R09Sim.HOLD_BREATH_AT + R09Sim.HOLD_BREATH_SECONDS
 
 func redraw() -> void:
 	room.queue_redraw()
@@ -808,10 +931,10 @@ func _tile(c: CanvasItem, id: String, clip: Rect2, off: Vector2, a := 1.0) -> vo
 		y += ts.y
 
 ## Rain, scrolled down and clipped to `clip`. Bands 6-7 thin it by half so the surface shows.
+## From P15 on it hangs where it stopped (rain_offset()).
 func _rain(c: CanvasItem, clip: Rect2, a := 1.0) -> void:
 	var sparse := not _sever() and _stage_band() >= 6
-	var off := time * rain_speed() if rain_speed() > 0.0 else 0.0
-	_tile(c, "rain_sparse_r2" if sparse else "rain_tile", clip, Vector2(0, off), a)
+	_tile(c, "rain_sparse_r2" if sparse else "rain_tile", clip, Vector2(0, rain_offset()), a)
 
 ## The standing plane's layers for rows y0..y1 of `glass`: plate, whitecaps on end, reflections.
 func _surface_rows(c: CanvasItem, glass: Rect2, surf: String, refl: String, refl_a: float, crest_a: float,
@@ -848,11 +971,8 @@ func _draw_room() -> void:
 
 func _draw_view_a(c: CanvasItem) -> void:
 	_draw_sea_a(c)
-	# the standing plate carries its own rain, stopped 60 px above the rail
-	var tile_a := 1.0 - plate_k()
-	_rain(c, A_RAIN_SEVER if _sever() else A_RAIN, tile_a)
-	if tile_a > 0.0:
-		_beads(c, A_BEADS)
+	_rain(c, A_RAIN_SEVER if _sever() else A_RAIN)
+	_beads(c, A_BEADS)
 	_full(c, "a_rail_wet" if r.rail_wet() else "a_rail")
 	_full(c, "a_room_r2")
 	var la := lens_alpha()
@@ -887,78 +1007,47 @@ func _draw_view_a(c: CanvasItem) -> void:
 	_draw_diagram(c)
 	_tab(c, RAIL_TAB, "THE RAIL")
 
-## The sea behind view A's glass, or the standing-up of it while the reveal runs; then the lid.
+## The sea behind view A's glass; from the reveal's first line the stage overlay, coming up
+## the glass (Motion on) over the b3 storm she saw last; then the lid and its line.
 func _draw_sea_a(c: CanvasItem) -> void:
 	var plate := standing_plate()
-	if reveal_running() and motion and plate != "":
-		if reveal_t < RISE_END:
-			_draw_rise(c, smoothstep(0.0, 1.0, reveal_t / RISE_END))
-		else:
-			_band_of(c, "a_surf_b4_r2", 0.0, SURF_TOP)
-			_surface_rows(c, A_GLASS, "a_surf_b4_r2", "a_refl_b4_r2", 1.0, 0.8, SURF_TOP, SIZE.y)
-			_full(c, plate, plate_k())
-	elif plate != "":
+	var k := plate_k()
+	if plate != "" and k >= 1.0:
 		_full(c, plate)
+	elif plate != "":
+		_full(c, "a_sea_b3")
+		if k > 0.0:
+			var fy := lerpf(A_GLASS.end.y, A_GLASS.position.y, k)
+			_band_of(c, plate, fy, A_GLASS.end.y)
+			# the front: the horizon, standing up
+			c.draw_line(Vector2(A_GLASS.position.x, fy), Vector2(A_GLASS.end.x, fy), INK, 3.0)
 	else:
 		_draw_sea(c, "a")
+	var lk := lid_line_k()
+	if lk > 0.0:
+		var my := A_GLASS.get_center().y
+		c.draw_rect(Rect2(A_GLASS.position.x, my - LINE_W / 2.0, A_GLASS.size.x, LINE_W), Color(LINE_COL, lk))
 	var ly := lid_y()
 	if ly >= 0.0:
 		_lid_band(c, ly)
-	var rk := lid_rest_k()
-	if rk > 0.0:
-		_lid_band(c, A_GLASS.position.y + LID_REST, rk)
 
-## The standing-up, k 0..1: the b3 horizon rises to the surface's top edge; the sea under it
-## stretches upward (the whitecaps slide up in its wake) and turns into the standing plane, and
-## the reflections wipe in from the rail behind it.
-func _draw_rise(c: CanvasItem, k: float) -> void:
-	_full(c, "a_sea_b3")
-	var hy := lerpf(B3_HORIZON, SURF_TOP, k)
-	var t := _tex("a_sea_b3")
-	if t:
-		c.draw_texture_rect_region(t, Rect2(0, hy, SIZE.x, SURF_BOTTOM - hy),
-			Rect2(0, B3_HORIZON, SIZE.x, SURF_BOTTOM - B3_HORIZON))
-	var stand := smoothstep(0.25, 0.95, k)
-	_band_of(c, "a_surf_b4_r2", hy, SURF_BOTTOM, stand)
-	var drift := Vector2(0, -60.0 * (1.0 - k))
-	_tile(c, "vchop_tile_r2", Rect2(A_GLASS.position.x, hy, A_GLASS.size.x, SURF_BOTTOM - hy), drift, 0.8 * stand)
-	# the reflections, revealed by a front that climbs from the rail to the edge
-	var fy := lerpf(SURF_BOTTOM, hy, smoothstep(0.1, 1.0, k))
-	var feather := 24.0
-	_band_of(c, "a_refl_b4_r2", fy + feather, SURF_BOTTOM)
-	for i in 3:
-		var y0 := fy + feather * i / 3.0
-		_band_of(c, "a_refl_b4_r2", y0, y0 + feather / 3.0, (i + 1) / 4.0)
-	# the horizon itself: crisp, level, rising
-	c.draw_line(Vector2(A_GLASS.position.x, hy), Vector2(A_GLASS.end.x, hy), INK, 3.0)
-	c.draw_line(Vector2(A_GLASS.position.x, hy + 3.0), Vector2(A_GLASS.end.x, hy + 3.0), Color(PAPER_HI, 0.55), 1.6)
-
-## The lid: a flat dark navy band LID_H tall across the whole glass, its lower rim (a wet paper
-## line under an ink edge) at `y`; clipped to the glass.
-func _lid_band(c: CanvasItem, y: float, a := 1.0) -> void:
+## The lid: a flat ink-black band LID_H tall across the whole glass, centred on `y`; clipped to
+## the glass.
+func _lid_band(c: CanvasItem, y: float) -> void:
 	var g := A_GLASS
-	var band := Rect2(g.position.x, y - LID_H, g.size.x, LID_H).intersection(g)
-	if band.size.y <= 0.0:
-		return
-	c.draw_rect(band, Color(LID_COL, a))
-	for rim in [[y - 6.0, 3.0, INK], [y - 3.0, 3.0, PAPER_HI]]:
-		var rr := Rect2(g.position.x, rim[0], g.size.x, rim[1]).intersection(g)
-		if rr.size.y > 0.0:
-			c.draw_rect(rr, Color(rim[2], a * (0.9 if rim[2] == PAPER_HI else 1.0)))
+	var band := Rect2(g.position.x, y - LID_H / 2.0, g.size.x, LID_H).intersection(g)
+	if band.size.y > 0.0:
+		c.draw_rect(band, LID_COL)
 
-## The lid, inverted, through the lens: it climbs while the real one falls, rim on top.
+## The lid, inverted, through the lens: it climbs while the real one falls.
 func _lens_lid(c: CanvasItem) -> void:
 	var ly := lid_y()
 	if ly < 0.0:
 		return
-	var k := clampf((ly - SURF_TOP) / (SURF_BOTTOM - SURF_TOP), 0.0, 1.0)
+	var k := clampf((ly - A_GLASS.position.y) / A_GLASS.size.y, 0.0, 1.0)
 	var R := 198.0
-	var y := lerpf(LENS_C.y + R + 20.0, LENS_C.y - R - 40.0, k)
-	_chord(c, y + 4.0, y + 36.0, Color(STORM.darkened(0.25), 0.88))
-	for i in 4:
-		_chord(c, y + 36.0 + i * 6.0, y + 42.0 + i * 6.0, Color(STORM.darkened(0.25), 0.66 - i * 0.15))
-	_chord(c, y - 1.0, y + 4.0, Color(PAPER_HI, 0.92))
-	_chord(c, y - 3.0, y - 1.0, INK)
+	var y := lerpf(LENS_C.y + R + 20.0, LENS_C.y - R - 20.0, k)
+	_chord(c, y - 20.0, y + 20.0, Color(LID_COL, 0.85))
 
 const LENS_C := Vector2(724, 392)
 
