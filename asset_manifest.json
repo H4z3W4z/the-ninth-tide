@@ -1087,6 +1087,15 @@
       "source_svg": null
     },
     {
+      "id": "R02/photo_t1x_after",
+      "path": "assets/rooms/R02/photo_t1x_after.png",
+      "width": 528,
+      "height": 620,
+      "sha256": "16a4abc787089e362a12691cb688710da9f3e2526e3c419caace2527565997f0",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R02/receipt_fallen",
       "path": "assets/rooms/R02/receipt_fallen.png",
       "width": 1448,

@@ -184,7 +184,7 @@ const HINTS := {
 	"board": [
 		"Venn's letters belong on the comparison board in the office.",
 		"Follow the name on the contract to the inquiry clipping, and the sentence his letter quotes.",
-		"His letter says why he asked for me. The Board's form never did.",
+		"Three papers on the board share one name and one sentence: the contract, the inquiry clipping, his letter.",
 		"Thread contract addressee to dissent signatory to the quoted sentence, then stamp REQUESTED BY VENN.",
 	],
 	"service": [

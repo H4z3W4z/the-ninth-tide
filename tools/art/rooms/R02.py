@@ -1892,6 +1892,79 @@ def window_low_water(k: int) -> Image.Image:
 
 
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# T1X: the end card's print (fix pass p2)
+# ---------------------------------------------------------------------------
+PHOTO_WHITE = (232, 224, 204)  # e8e0cc, the figure in the window
+PHOTO_BRASS = (195, 153, 89)   # c39959, tarnished brass
+
+
+def photo_t1x_after(k: int) -> Image.Image:
+    """The approved 'after' print (assets/stages/photo_after.png, read, never written),
+    re-inked for the Tide I card: the figure in the window paper-white at 88 %, the lamp,
+    chair and desk in navy, the lamp's shade and the desk's edge in tarnished brass.
+    Pure per-pixel rules on fixed regions of the 528 x 620 print: no randomness."""
+    src = Image.open(ROOT / "assets/stages/photo_after.png").convert("RGB")
+    w, h = src.size
+    px = src.load()
+
+    def in_figure(x, y):
+        if 212 <= x <= 262 and 150 <= y <= 262:
+            return True   # the head, up in the dark sash
+        if 222 <= x <= 252 and 255 <= y <= 270:
+            return True   # the neck through the meeting rail
+        return 176 <= x <= 306 and 266 <= y <= 392
+
+    fig = Image.new("L", (w, h), 0)
+    fp = fig.load()
+    for y in range(140, 400):
+        for x in range(170, 312):
+            r, g, b = px[x, y]
+            arm = (x < 202 or x > 278) and y > 300
+            if (r + g + b) / 3 > 58 and r - b < (19 if arm else 12) and in_figure(x, y):
+                fp[x, y] = 255
+    fig = fig.filter(ImageFilter.MedianFilter(5)).filter(ImageFilter.MaxFilter(5))
+    fig = fig.filter(ImageFilter.GaussianBlur(0.8))
+
+    out = src.copy()
+    op = out.load()
+    fm = fig.load()
+    for y in range(h):
+        for x in range(w):
+            a = fm[x, y] / 255.0
+            if a <= 0.0:
+                continue
+            r, g, b = px[x, y]
+            v = 0.94 + 0.06 * ((r + g + b) / 3 - 150) / 60.0   # keep a breath of the grain
+            white = tuple(int(clamp(c * v / 255.0) * 255) for c in PHOTO_WHITE)
+            op[x, y] = tuple(int(round(lerp(o, n, 0.88 * a))) for o, n in zip((r, g, b), white))
+
+    def navy(lum):
+        f = 0.70 + 0.55 * clamp(lum / 110.0)
+        return tuple(int(c * f) for c in INK)
+
+    def brass(lum, lo, hi):
+        f = 0.62 + 0.38 * clamp((lum - lo) / max(1.0, hi - lo))
+        return tuple(int(c * f) for c in PHOTO_BRASS)
+
+    for y in range(300, 455):
+        for x in range(98, 432):
+            r, g, b = px[x, y]
+            lum = (r + g + b) / 3
+            shade = 124 <= x <= 170 and 308 <= y <= 346
+            lamp = 102 <= x <= 136 and 336 <= y <= 432
+            chair = 174 <= x <= 300 and 390 <= y <= 432
+            things = 348 <= x <= 426 and 412 <= y <= 432
+            desk = 428 <= y <= 453
+            if shade and lum < 118:
+                op[x, y] = brass(lum, 30, 118)
+            elif desk and y <= 431 and lum < 140:
+                op[x, y] = brass(lum, 40, 140)          # the desk's brass-bound edge
+            elif (lamp or chair or things) and lum < 92 or desk and lum < 120:
+                op[x, y] = navy(lum)
+    return out.convert("RGBA")
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     jobs = [
@@ -1946,6 +2019,8 @@ def main() -> None:
         ("window_tenth_piling", window_tenth_piling),
         ("tide_mark", tide_mark),
         ("window_low_water", window_low_water),
+        # fix pass p2 (appended: earlier seeds unchanged)
+        ("photo_t1x_after", photo_t1x_after),
     ]
     for k, (name, fn) in enumerate(jobs):
         im = fn(k)

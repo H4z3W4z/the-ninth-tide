@@ -5,6 +5,8 @@ extends "res://tests/rooms/room_test_base.gd"
 ## wiring with R02 mounted. Run after an import:
 ##   godot --headless --path . --script tests/rooms/R02_test.gd
 
+const R02V := preload("res://game/rooms/R02/R02_view.gd")
+
 ## A fresh game; the office sim inside it (the slice's OfficeSim.new()).
 func new_sim() -> R02Sim:
 	return GameSim.new().room("R02")
@@ -165,6 +167,10 @@ func run_tests() -> void:
 	test_p1_hint_tiers()
 	await test_p1_exit_hit_test()
 	await test_p1_threshold_scene_resume()
+	await test_p2_threshold_card()
+	await test_p2_log_handwriting_sync()
+	await test_p2_lamp_tint()
+	test_p2_board_hint()
 
 func test_full_playthrough() -> void:
 	var s := new_sim()
@@ -777,10 +783,11 @@ func test_scene_wiring() -> void:
 	check(scene.action_at(Vector2(1300, 500)) == "continue", "continue once ready, through the doorway")
 	check(scene.action_at(Vector2(700, 400)) == "", "elsewhere is nothing at the threshold")
 	scene.dispatch("continue")
-	check(scene.action_at(Vector2(700, 910)) == "", "Play again ignores the continue click")
+	check(scene.action_at(Vector2(700, 1000)) == "", "Play again ignores the continue click")
 	scene.room_view.end_t = 60.0
-	check(scene.action_at(Vector2(700, 910)) == "end_continue", "Go on once the card has finished")
-	check(scene.action_at(Vector2(700, 790)) == "", "the old button spot is never Go on")
+	check(scene.action_at(Vector2(700, 1000)) == "end_continue", "Go on once the card has finished")
+	check(scene.action_at(Vector2(700, 790)) == "" and scene.action_at(Vector2(700, 910)) == "",
+		"the old button spots are never Go on")
 	# Drawer open: watch and photo.
 	scene.room_jump("R02", 3)
 	scene.dispatch("drawer")
@@ -1468,7 +1475,7 @@ func test_end_scene() -> void:
 	scene.dispatch("continue")
 	check(scene.room_sim().view == "end", "scene: the end card")
 	scene.room_view.end_t = 1.0
-	check(scene.action_at(Vector2(700, 910)) == "", "no restart while the card writes")
+	check(scene.action_at(Vector2(700, 1000)) == "", "no restart while the card writes")
 	scene.room_view.end_t = 4.0
 	check(scene.room_view._end_row_writing(), "the log row writes itself from 3 s")
 	scene.room_view._tick_audio(0.1)
@@ -1481,15 +1488,15 @@ func test_end_scene() -> void:
 	check(is_equal_approx(sch.r2_start, sch.r1_done + 2.0) and is_equal_approx(sch.lines[0], sch.r2_done + 1.5)
 		and sch.lines.size() == scene.room_sim().end_lines().size(), "end-card schedule")
 	scene.room_view.end_t = sch.done - 0.1
-	check(scene.action_at(Vector2(700, 910)) == "", "no restart before the last line is in")
+	check(scene.action_at(Vector2(700, 1000)) == "", "no restart before the last line is in")
 	scene.room_view.end_t = sch.done + 0.1
-	check(scene.action_at(Vector2(700, 910)) == "end_continue" and scene.action_at(Vector2(700, 790)) == "",
+	check(scene.action_at(Vector2(700, 1000)) == "end_continue" and scene.action_at(Vector2(700, 790)) == "",
 		"Go on only on the button, once the card is done")
 	scene.room_sim().game.settings.motion = false
 	scene.room_view.end_t = 1.0
-	check(scene.action_at(Vector2(700, 910)) == "", "Motion off: the grace still applies")
+	check(scene.action_at(Vector2(700, 1000)) == "", "Motion off: the grace still applies")
 	scene.room_view.end_t = 1.6
-	check(scene.action_at(Vector2(700, 910)) == "end_continue", "Motion off: Go on after the grace")
+	check(scene.action_at(Vector2(700, 1000)) == "end_continue", "Motion off: Go on after the grace")
 	GameView.remove_saves(scene.save_path)
 	scene.queue_free()
 	await process_frame
@@ -3616,3 +3623,152 @@ func test_p1_threshold_scene_resume() -> void:
 		"scene: the doorway's first beat is queued again")
 	check(not v.continue_ready, "scene: she has to hold still again")
 	await free_scene(again)
+
+# ---------------------------------------------------------------------------
+# Fix p2: the Tide I card's print, the log's hand ahead of its subtitles, the lamp, P20 hint
+# ---------------------------------------------------------------------------
+## The threshold card: the print about 670 px tall on x = 724, one caption 40 px under it,
+## and no time stamp anywhere but in its own row.
+func test_p2_threshold_card() -> void:
+	var scene = new_scene("user://office_p2_card.json")
+	await process_frame
+	scene.room_jump("R02", 4)
+	scene.dispatch("door")
+	scene.room_view.continue_ready = true
+	scene.dispatch("continue")
+	var v = scene.room_view
+	check(scene.room_sim().view == "end", "p2: on the Tide I card")
+	var rect: Rect2 = v.end_photo_rect()
+	check(absf(rect.size.y - 670.0) <= 1.0 and absf(rect.get_center().x - 724.0) <= 0.5
+		and rect.position.y >= 0.0, "p2: the print is 670 px tall, centred on x = 724 (%s)" % rect)
+	var sch: Dictionary = v._end_schedule()
+	var times := [0.5, 2.0, sch.r1_start + 0.3, sch.r1_done + 0.5, sch.r2_start + 0.4, sch.done + 1.0]
+	var one_caption := true
+	var stray := []
+	var axis_ok := true
+	for t in times:
+		var n := 0
+		for e in v.end_card_texts(t):
+			if e.text == R02V.END_CAPTION:
+				n += 1
+				var cx: float = e.pos.x + e.width / 2.0
+				axis_ok = axis_ok and absf(cx - 724.0) <= 0.5 \
+					and absf(e.pos.y - 8.0 - (rect.end.y + 40.0)) <= 0.5
+			elif not e.kind.begins_with("row") and "19" in e.text:
+				stray.append([t, e.text])
+		one_caption = one_caption and n == 1
+	check(one_caption, "p2: the threshold card draws exactly one caption string at every beat")
+	check(axis_ok, "p2: the caption is centred 40 px under the print on its axis")
+	check(stray.is_empty(), "p2: no time stamp outside its row (%s)" % [stray])
+	# Nothing on the card overlaps the print, and Go on sits below the words.
+	var words_ok := true
+	for e in v.end_card_texts(sch.done + 1.0):
+		words_ok = words_ok and e.pos.y > rect.end.y and e.pos.y < v.END_BUTTON.position.y
+	check(words_ok and v.END_BUTTON.end.y <= 1086.0, "p2: caption, rows and lines between the print and Go on")
+	# Motion off shows the same final frame.
+	var final_on: Array = v.end_card_texts(sch.done + 1.0)
+	scene.room_sim().game.settings.motion = false
+	var t_off: float = v.end_t if v.motion else 1.0e6
+	var final_off: Array = v.end_card_texts(t_off)
+	var same := final_on.size() == final_off.size()
+	for i in mini(final_on.size(), final_off.size()):
+		same = same and final_on[i].text == final_off[i].text and final_on[i].pos == final_off[i].pos \
+			and final_on[i].get("n", 0) == final_off[i].get("n", 0) and final_on[i].a == final_off[i].a
+	check(same, "p2: Motion off shows the same final frame")
+	scene.room_sim().game.settings.motion = true
+	# The print itself: the figure in the window paper-white, the lamp and desk navy and brass.
+	var tex: Texture2D = v._end_print_tex("after")
+	check(tex != null and tex == v._tex("R02/photo_t1x_after"), "p2: the card uses the re-inked print")
+	if tex:
+		var img := tex.get_image()
+		var fig := img.get_pixel(240, 320)
+		var white := Color("e8e0cc")
+		# At >= 80 % over the plate, every channel lands within 20 % of the gap of white.
+		check(absf(fig.r - white.r) < 0.09 and absf(fig.g - white.g) < 0.09 and absf(fig.b - white.b) < 0.09,
+			"p2: the window figure reads paper-white (%s)" % fig.to_html(false))
+		var desk := img.get_pixel(300, 442)
+		check(desk.b > desk.r and desk.v < 0.3, "p2: the desk is navy (%s)" % desk.to_html(false))
+		var shade := img.get_pixel(150, 325)
+		check(shade.r > shade.b + 0.15 and shade.r <= Color("c39959").r + 0.01,
+			"p2: the lamp's shade is tarnished brass (%s)" % shade.to_html(false))
+	await free_scene(scene)
+
+## The log's hand finishes each line before the subtitle that reads it out.
+func test_p2_log_handwriting_sync() -> void:
+	var rows := [["", "", "", "Observer: A. Mercer", true], ["", "", "", "She reads this line.", true],
+		["", "", "", "She looks at the chair.", true], ["", "", "", "Observer located.", true]]
+	check(R02V.log_cue_row("\"She looks at the chair.\" I haven't looked at it yet.", rows) == 2
+		and R02V.log_cue_row("HW nine point nine. Nothing in forty years", rows) == 3
+		and R02V.log_cue_row("I check the date on it. Tomorrow.", rows) == -1,
+		"p2: a subtitle names the row it reads out")
+	check(is_equal_approx(R02V.reveal_rate(rows, 1, 0.0, []), R02V.REVEAL_CPS),
+		"p2: with nothing to read out the hand keeps its pace")
+	check(R02V.reveal_rate(rows, 1, 0.0, [[2, 2.4]]) > R02V.REVEAL_CPS, "p2: a close subtitle hurries the hand")
+	# In the scene: open the rewritten log, tick, and note each cue line's row as it shows.
+	var scene = new_scene("user://office_p2_log.json")
+	await process_frame
+	scene.room_jump("R02", 2)
+	scene.room_sim().state.prints_seen = true
+	tide1(scene.room_sim())
+	scene.dispatch("drawer")
+	for i in 4:
+		for n in [1, 8, 5, 2][i]:
+			scene.dispatch("dial_%d" % i)
+	scene.dispatch("try_drawer")
+	scene.dispatch("back")
+	scene.lines.clear()
+	scene.cur_text = ""
+	var v = scene.room_view
+	v.log_shown_hand = 1   # the first read wrote her name
+	v.reveal_n = 0.0
+	scene.dispatch("logbook")
+	check(scene.room_sim().state.log_rewritten, "p2: the log rewrites")
+	var hand: Array = v._in_hand_rows()
+	var seen := {}
+	var late := []
+	var t := 0.0
+	while t < 12.0:
+		var dt := 1.0 / 60.0
+		scene.time += dt
+		scene._tick_lines(dt)
+		v._tick_reveal(dt)
+		var j: int = R02V.log_cue_row(scene.cur_text, hand) if scene.cur_text != "" else -1
+		if j >= 0 and not seen.has(j):
+			seen[j] = true
+			var written: bool = v.log_shown_hand > j
+			if not written:
+				late.append([scene.cur_text, v.log_shown_hand, v.reveal_n])
+		t += dt
+	check(seen.has(2) and seen.has(3), "p2: both quoted rows were read out (%s)" % [seen.keys()])
+	check(late.is_empty(), "p2: every row is written before its subtitle shows (%s)" % [late])
+	# The player brings the chair line forward: its row is finished at once.
+	scene.dispatch("back")
+	scene.lines.clear()
+	scene.cur_text = ""
+	v.log_shown_hand = 1
+	v.reveal_n = 0.0
+	v.reveal_t = 0.0
+	scene.room_sim().local_view = "logbook"
+	scene.cur_text = "\"She looks at the chair.\" I haven't looked at it yet."
+	v._tick_reveal(1.0 / 60.0)
+	check(v.log_shown_hand >= 3, "p2: a subtitle brought forward finishes its row at once")
+	scene.cur_text = ""
+	await free_scene(scene)
+
+## The desk lamp's lit tint: never past tarnished brass, its glow at most 0.6 opaque.
+func test_p2_lamp_tint() -> void:
+	var brass := Color("c39959")
+	var col: Color = R02V.lamp_glow_color()
+	check(col.r <= brass.r + 1e-4 and col.g <= brass.g + 1e-4 and col.b <= brass.b + 1e-4,
+		"p2: the lamp's tint is clamped to tarnished brass (%s)" % col.to_html())
+	check(col.a <= 0.6 + 1e-4, "p2: the lamp's glow alpha is capped at 0.6")
+	var scene = new_scene("user://office_p2_lamp.json")
+	await process_frame
+	scene.room_jump("R02", 1)
+	check(scene.room_view.lamp_glow.color == col and scene.room_view.back_lamp.color == col,
+		"p2: both of the lamp's lights use the clamped tint")
+	await free_scene(scene)
+
+func test_p2_board_hint() -> void:
+	check(R02Sim.HINTS["board"][2] == "Three papers on the board share one name and one sentence: the contract, the inquiry clipping, his letter.",
+		"p2: P20 hint tier 3 names the three papers")
