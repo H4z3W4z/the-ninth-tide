@@ -42,6 +42,7 @@ func run_tests() -> void:
 	test_round_p2_plate_words()
 	test_round_p3_hints()
 	test_round_p3_overlay()
+	test_round_p4_office_hints()
 	test_geometry()
 	await view_checks(ROOM)
 	await test_view()
@@ -1059,7 +1060,7 @@ func test_objectives() -> void:
 	for n in expect:
 		var g := stage(n)
 		check(r3(g).objective() == expect[n], "stage %d objective %s (got %s)" % [n, expect[n], r3(g).objective()])
-		var tiers := 4 if expect[n] in ["register", "calibrate", "record", "plan"] else 3
+		var tiers := 4 if expect[n] in ["register", "office", "calibrate", "record", "plan"] else 3
 		check(r3(g).objective_text() != "" and R03Sim.HINTS[expect[n]].size() == tiers and r3(g).hint_tiers() == tiers,
 			"stage %d: text and %d hints" % [n, tiers])
 	var g := with_flags(["P01", "P03"], ROOM)
@@ -1113,9 +1114,9 @@ func test_round_p1_hints() -> void:
 	check("composite chart" in R03Sim.EVIDENCE_PLAN and "notebook" in R03Sim.EVIDENCE_PLAN, "p3: plan evidence is the composite in the notebook")
 	# Every other ladder keeps three tiers.
 	for o in R03Sim.HINTS:
-		var want := 4 if o in ["register", "calibrate", "record", "plan"] else 3
+		var want := 4 if o in ["register", "office", "calibrate", "record", "plan"] else 3
 		check(R03Sim.HINTS[o].size() == want, "p1: %s has %d tiers" % [o, want])
-	for n in [0, 2, 5, 7]:
+	for n in [0, 5, 7]:
 		check(r3(stage(n)).hint_tiers() == 3, "p1: stage %d has three tiers" % n)
 	# Dispatched in play: nudge, relationship, evidence, the core's confirmation, answer, then the answer again. Asking
 	# changes nothing in the room. The core walks all four tiers; hint_line has no bridge.
@@ -1173,6 +1174,24 @@ func test_round_p3_hints() -> void:
 	for w in ["BODY", "PLACE", "NAME", "FIX", "tile"]:
 		for i in 4:
 			check(not w in p.hint_line(i), "p3: plan tier %d no longer says %s" % [i, w])
+
+## Round p4: T1X's office ladder gains an evidence tier (index 2) before the answer.
+func test_round_p4_office_hints() -> void:
+	var r := r3(stage(2))
+	check(r.objective() == "office" and r.hint_tiers() == 4, "p4: office has four tiers")
+	check(r.hint_line(0) == "Something in the office has changed.", "p4: office tier 0 is the nudge")
+	check(r.hint_line(1) == "Venn's log is not finished with you.", "p4: office tier 1 is the relationship")
+	check(r.hint_line(2) == "His log ended with my name on the 18th. A record is only finished when nobody is still writing in it.",
+		"p4: office tier 2 is the evidence line, verbatim")
+	check(r.hint_line(2) == R03Sim.EVIDENCE_OFFICE, "p4: office tier 2 is EVIDENCE_OFFICE")
+	check(r.hint_line(3) == "Go back to the Intake Office and open the tide log." and r.hint_line(9) == r.hint_line(3),
+		"p4: office still ends on the answer")
+	var keys := {}
+	for i in 4:
+		keys[GameSim._hint_key(r.hint_line(i))] = true
+	check(keys.size() == 4, "p4: office's four tiers are different lines")
+	for w in ["Intake Office", "tide log", "open"]:
+		check(not w in R03Sim.EVIDENCE_OFFICE, "p4: office evidence doesn't say %s" % w)
 
 ## Round p3: the overlay is painted where the registered line crosses (sampled from the PNG).
 func test_round_p3_overlay() -> void:
