@@ -575,6 +575,14 @@ func play_p23() -> void:
 	_r10_base("catalogue")
 	_qd("model")
 	check(vault.local_view == "c_model" and vault.shutter_open(), "P23: the model's shutter is open")
+	# The terminals carry marks, not words; the two to join are the session log's margin marks,
+	# which the notebook kept from P17.
+	check(listen.has_seen("witness_procedure") and R04Sim.OBSERVATIONS.witness_procedure.find("solid triangle") >= 0
+		and R04Sim.OBSERVATIONS.witness_procedure.find("hollow circle") >= 0, "P23: the margin's two marks are in the notebook")
+	var marks := []
+	for t in ["input", "witness"]:
+		marks.append(R10Sim.TERMINAL_GLYPHS[t])
+	check(marks == R04Sim.MARGIN_MARKS, "P23: the triangle and the circle are the terminals to join")
 	_qd("t_input")
 	_qd("t_witness")
 	var ev := _qd("test")

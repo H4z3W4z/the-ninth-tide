@@ -1362,12 +1362,26 @@ func _draw_session_log(c: CanvasItem) -> void:
 	var y := 312.0
 	var hf := Ink.hand()
 	var row := 30
-	for note in R04Sim.MARGIN_NOTE:
-		for line in _wrap(note, hf, 16, 116):
+	for i in R04Sim.MARGIN_NOTE.size():
+		for line in _wrap(R04Sim.MARGIN_NOTE[i], hf, 16, 116):
 			Ink.handwriting(c, line, line.length(), Vector2(1292, y), 16, row, false, PENCIL)
 			y += 21.0
 			row += 1
+		if i == 0:
+			_margin_marks(c, Vector2(x, y + 6))
+			y += 24.0
 		y += 10.0
+
+## The rule's two marks under it, in pencil, joined by a stroke (R04Sim.MARGIN_MARKS): a solid
+## triangle and a hollow circle. R10's Index model carries the same two over two terminals.
+func _margin_marks(c: CanvasItem, at: Vector2) -> void:
+	var r := 9.0
+	var a := at + Vector2(-34, 0)
+	var b := at + Vector2(34, 0)
+	c.draw_line(a + Vector2(r + 3, 0), b - Vector2(r + 3, 0), PENCIL, 1.6)
+	c.draw_colored_polygon(PackedVector2Array([a + Vector2(0, -r), a + Vector2(r * 1.05, r * 0.8),
+		a + Vector2(-r * 1.05, r * 0.8)]), PENCIL)
+	c.draw_arc(b, r - 1.0, 0.0, TAU, 32, PENCIL, 2.0)
 
 # --- c_channels -----------------------------------------------------------------------------
 func _draw_channels(c: CanvasItem) -> void:

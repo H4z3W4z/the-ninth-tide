@@ -8098,6 +8098,60 @@
       "source_svg": null
     },
     {
+      "id": "a_cabinet_r3",
+      "path": "assets/stages/R10/a_cabinet_r3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "edcce07ad371036e838014c9153d24158fc02653802325dd88f198fc894992d6",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "cabinet_r3",
+      "path": "assets/stages/R10/cabinet_r3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "d5c2c08718e2f35e7f374d108dd2e9ce8e605e368140f5d18c4462f29ad56375",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "drawer_open_r3",
+      "path": "assets/stages/R10/drawer_open_r3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "04decade3c29702740fdd08d1129fc3717f42389a225bc044849306328a25bc8",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "staff_seep_r3",
+      "path": "assets/stages/R10/staff_seep_r3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "2764e2dc172dab1dde9a0dedca871f216b3ce4ecfe4d77586c939252d9b84410",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "staff_seep_r3_1",
+      "path": "assets/stages/R10/staff_seep_r3_1.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "548dde04e881479d100f79c0e5c2b12698bdba7e78d8f8421dfd232a424ea8e5",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "staff_seep_r3_2",
+      "path": "assets/stages/R10/staff_seep_r3_2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "fdd7d6fd8bf245426f9d7de357331be43bf18808b4347168650b2f365790b2f9",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "staff_shut",
       "path": "assets/stages/R10/staff_shut.png",
       "width": 1448,

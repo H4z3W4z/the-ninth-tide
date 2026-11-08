@@ -92,6 +92,9 @@ const MIX_COMBINED := "VENN / NORA: Leave the witness line... I was here."
 ## The pencil margin note on the session log, found after the separation (the view writes it).
 const MARGIN_NOTE := ["An automatic countersign closes a record. A human correction keeps it open.",
 	"Channel C is my station now. E.V."]
+## Under the rule, in pencil, two marks joined by a stroke: a solid triangle and a hollow circle.
+## The Index model in the vault (R10, P23) carries the same two over two of its terminals.
+const MARGIN_MARKS := ["triangle", "circle"]
 
 # --- P19: the dead channel --------------------------------------------------------------------
 const QUESTIONS := ["q_where", "q_whole", "q_need"]
@@ -145,7 +148,7 @@ const OBSERVATIONS := {
 	"mixer": "A two-track mixer: VENN on track 1, NORA on track 2, an offset slider from -3 to +3 and a centre guide.",
 	"session_spool": "A session spool is threaded on the mixer: SESSION, 18 OCT 1927. I didn't thread it.",
 	"bell_peaks": "Both tracks show one sharp bell peak with a bell mark. On track 2 it sits two steps right of the guide.",
-	"witness_procedure": "Venn: 'Leave the witness line open.' Nora: 'Tell them I was here.' Margin of the session log: an automatic countersign closes a record; a human correction keeps it open. The dead channel is Venn's station now.",
+	"witness_procedure": "Venn: 'Leave the witness line open.' Nora: 'Tell them I was here.' Margin of the session log: an automatic countersign closes a record; a human correction keeps it open. Under it, two pencil marks joined by a stroke: a solid triangle and a hollow circle. The dead channel is Venn's station now.",
 	"c_presence": "Channel C carries room tone now, from a room that isn't this one. Once, it drew breath.",
 	"venn_answers": "Where are they? VENN: 'Here. In the instruments. I kept them where they could still be reached. I never found how to let them out.' Are they still themselves? VENN: 'I don't know. I can't promise you they're whole. They answer. That's all I can tell you.' What do you need from me? VENN: 'If you break it, they end, every trace. If you don't, someone has to stay. Physically. Here. A witness, not a signature. Three days I have stood where you are standing. There is less of me each tide.' He kept them reachable. He can't promise they're whole. Breaking it ends them. Not breaking it needs someone to stay.",
 	"funnel_voice": "After channel C went dark, with the motor off, his voice came through the speaker funnel: 'You'll want to be angry with me. Be angry in the office. The board is there.'",
