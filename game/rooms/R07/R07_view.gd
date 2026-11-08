@@ -21,7 +21,23 @@ extends RoomView
 const DIR := "res://assets/rooms/R07/%s.png"
 ## Stage overlays (tools/art/rooms/R07.py "stage overlays"): dread while the puzzles are played.
 const STAGE_DIR := "res://assets/stages/R07/%s.png"
-const STAGE_IDS := ["b2_tidemark", "b2_tidemark_bench", "b4_lamp_pool", "b4_water_lean", "datum_water_r3"]
+const STAGE_IDS := ["b2_tidemark", "b2_tidemark_bench", "b4_lamp_pool", "b4_lamp_pool_cold", "b4_water_lean",
+	"datum_water_r3", "datum_water_sub", "r07_submerged_b3", "r07_submerged_b5"]
+## View A from band 3 / band 5 (not after sever): the room under a surface, in place of the stage
+## plate (tools/art/rooms/R07.py "r07_submerged"): the underside of a water surface across the
+## top 14%, the room below washed toward storm navy off the hotspot art, and one waterline at the
+## tank's lean through everything. Painted without the wall lamp, which a_lamp / a_lamp_low
+## redraw from band 2 anyway, so no lamp patch goes under them.
+const SUBMERGED_PLATES := {3: "r07_submerged_b3", 5: "r07_submerged_b5"}
+## Over a submerged plate the datum water's wash is storm navy, not pale sea-glass (same surface
+## line, same mask, same shift): the pale one would lift the room back out of the water.
+const DATUM_WASH_SUB := "datum_water_sub"
+## Band >= 5, view A: the surface is a look hotspot of its own, last in hit order, declared over
+## Rect2(0, 0, 1448, 140). The HUD keeps its own: the strip above y 80 (inventory, Back,
+## Notebook, Hint, menu) and the Plan button's column (x >= 1264), so the row the view hit-tests
+## is SURFACE_HIT, the part of the band the HUD leaves free.
+const SURFACE_HOTSPOT := ["surface_band", Rect2(0, 0, 1448, 140), "The surface"]
+const SURFACE_HIT := Rect2(0, 80, 1264, 60)
 ## Band >= 3, view A (R07Sim.datum_flooded()): the sea stands flat at the DATUM. Below the
 ## surface (y >= DATUM_SURFACE_Y) the room is laid again DATUM_SHIFT px to the right and washed
 ## sea-glass by datum_water_r3; where that PNG leaves the wash out (doors, tank, basin, socket,
@@ -113,7 +129,7 @@ const BALANCE_CONTROLS := [
 ]
 ## c_frame's fixed controls; the tray's loose sections are added per tray_sections().
 const FRAME_FIXED := [
-	["ref_card", Rect2(140, 100, 1170, 220), "Reference"],
+	["ref_card", Rect2(140, 100, 1170, 220), "Frame plate"],
 	["slot_0", Rect2(170, 370, 360, 200), "Slot 1"],
 	["slot_1", Rect2(545, 370, 360, 200), "Slot 2"],
 	["slot_2", Rect2(920, 370, 360, 200), "Slot 3"],
@@ -222,17 +238,16 @@ const HOLDER_SLIP := Rect2(1168, 104, 256, 196)
 # --- c_frame geometry ---------------------------------------------------------------------
 const SLOT_X := [170.0, 545.0, 920.0]
 const SECTION := Vector2(340, 160)
-const REF_TRACE_TOP := 168.0
-const REF_TRACE_BOTTOM := 268.0
+## The frame's own plate (the board at the top): blank but for its category, and, after a full
+## SEAL, the composite the frame printed from the slotted sections (R07Sim.frame_print). Her
+## trace itself is only on her work card (R05, by the range, and in the notebook).
+const PLATE_LABEL := Rect2(555, 136, 340, 48)
+const PLATE_RIM := Color8(116, 92, 50)        # BRASS_LO
+const PLATE_ENAMEL := Color8(228, 220, 200)   # ENAMEL
+const PLATE_EDGE := Color8(70, 68, 52)
+const PRINT_BASE := 282.0
+const PRINT_SCALE := Vector2(6.0, 2.6)
 const SEAL_DOWN_TIME := 0.2
-## Trace shapes in section-local coordinates: x 0..1 across, y up from the 0.2 baseline.
-const SHAPES := {
-	"short": [Vector2(0, 0.2), Vector2(0.10, 0.2), Vector2(0.22, 0.55), Vector2(0.32, 0.2),
-		Vector2(0.45, 0.2), Vector2(0.57, 0.55), Vector2(0.67, 0.2), Vector2(1, 0.2)],
-	"pause": [Vector2(0, 0.2), Vector2(1, 0.2)],
-	"long": [Vector2(0, 0.2), Vector2(0.05, 0.2), Vector2(0.75, 0.85), Vector2(0.95, 0.2), Vector2(1, 0.2)],
-}
-const REF_HEADING := "REFERENCE: N. BELL, KITCHEN WORK CARD, CALIBRATION 1927"
 ## The kitchen work card's trace (R05_view _draw_card_trace, card px, baseline y 95), cut into
 ## the three sections; the frame's sections show their piece at twice the card's scale.
 const CARD_BASE := 95.0
@@ -247,7 +262,6 @@ const CARD_PIECES := {
 }
 ## The hover label of every loose section (they carry no names).
 const SECTION_HOVER := "Trace section"
-const REF_UNSEEN := "(card not to hand: kitchen, by the range)"
 ## The fog's three breaths, synced to breath_hiss (tools/audio/rooms/R07.py BREATH_WINDOWS).
 const FOG_BLOOMS := [0.0, 0.55, 1.80]
 const FOG_BLOOM_LEN := 0.35
@@ -380,7 +394,13 @@ func stage_suffix() -> String:
 func plate_id() -> String:
 	if _side() == "b" and not _sever() and B_WATER_PLATES.has(_band()):
 		return B_WATER_PLATES[_band()]
+	if submerged():
+		return SUBMERGED_PLATES[5 if _band() >= 5 else 3]
 	return ("view_b" if _side() == "b" else "view_a") + stage_suffix()
+
+## True while view A stands under the surface (band >= 3, not after sever).
+func submerged() -> bool:
+	return _side() == "a" and not _sever() and _band() >= 3
 
 func _p(key: String) -> bool:
 	return bool(r.state.get(key, false))
@@ -791,6 +811,8 @@ func closeup_controls(cid: String) -> Array:
 func _controls() -> Array:
 	match _view():
 		"room":
+			if r.surface_shown() and submerged():
+				return HOTSPOTS + [[SURFACE_HOTSPOT[0], SURFACE_HIT, SURFACE_HOTSPOT[2]]]
 			return HOTSPOTS
 		"bench":
 			return BENCH_HOTSPOTS
@@ -836,7 +858,10 @@ func hover_at(p: Vector2) -> String:
 	return ""
 
 func label_for(id: String) -> String:
-	for table in [HOTSPOTS, BENCH_HOTSPOTS, RACK_CONTROLS, BALANCE_CONTROLS, FRAME_FIXED]:
+	for h in _controls():
+		if h[0] == id:
+			return h[2]
+	for table in [HOTSPOTS, BENCH_HOTSPOTS, RACK_CONTROLS, BALANCE_CONTROLS, FRAME_FIXED, [SURFACE_HOTSPOT]]:
 		for h in table:
 			if h[0] == id:
 				return h[2]
@@ -845,7 +870,7 @@ func label_for(id: String) -> String:
 	return ""
 
 func hotspot_rect(id: String) -> Rect2:
-	for table in [HOTSPOTS, BENCH_HOTSPOTS]:
+	for table in [HOTSPOTS, BENCH_HOTSPOTS, [SURFACE_HOTSPOT]]:
 		for h in table:
 			if h[0] == id:
 				return h[1]
@@ -1120,6 +1145,10 @@ func _draw_view_a(c: CanvasItem) -> void:
 	_on_plate(c, RECORDS_TAG, "RECORDS", 20)
 	_draw_basin_water(c)
 
+## The datum water layer for the plate under it.
+func datum_wash_id() -> String:
+	return DATUM_WASH_SUB if submerged() else "datum_water_r3"
+
 ## True while view A shows the sea standing at the datum (band >= 3, not after sever).
 func datum_water_on() -> bool:
 	return r.datum_flooded()
@@ -1129,7 +1158,7 @@ func datum_water_on() -> bool:
 func _datum_layers() -> Array:
 	var ids := [plate_id()]
 	var t := sea_tier()
-	if t >= 6:
+	if t >= 6 and not submerged():
 		ids.append("a_lamp_patch_s%d" % mini(_band(), 7))
 	for k in [2, 3, 4, 6, 7]:
 		if t >= k:
@@ -1149,7 +1178,7 @@ func _draw_datum_water(c: CanvasItem) -> void:
 	if not datum_water_on():
 		return
 	var ids := _datum_layers()
-	var key := ",".join(ids)
+	var key := ",".join(ids) + "|" + datum_wash_id()
 	if key != _datum_key:
 		_datum_key = key
 		_datum_tex = _compose_datum_water(ids)
@@ -1157,12 +1186,12 @@ func _draw_datum_water(c: CanvasItem) -> void:
 		c.draw_texture(_datum_tex, Vector2(0, DATUM_SURFACE_Y))
 	else:
 		# no image access (headless): the wash and the surface alone, unshifted
-		_full(c, "datum_water_r3")
+		_full(c, datum_wash_id())
 
 ## Below the surface: the layers flattened, shifted DATUM_SHIFT px where the wash falls, then
 ## washed; the unwashed pixels (the hotspot art) stay as they are. Built once per stage.
 func _compose_datum_water(ids: Array) -> Texture2D:
-	var wt := _tex("datum_water_r3")
+	var wt := _tex(datum_wash_id())
 	if wt == null:
 		return null
 	var area := Rect2i(0, DATUM_SURFACE_Y, int(SIZE.x), int(SIZE.y) - DATUM_SURFACE_Y)
@@ -1218,7 +1247,7 @@ func sea_tier() -> int:
 ## takes the painted lamp away; the lamp is redrawn above the overlays.
 func _draw_sea(c: CanvasItem, side: String) -> void:
 	var t := sea_tier()
-	if t >= 6:
+	if t >= 6 and not (side == "a" and submerged()):
 		_full(c, "%s_lamp_patch_s%d" % [side, mini(_band(), 7)])
 	for k in [2, 3, 4, 6, 7]:
 		if t >= k:
@@ -1242,7 +1271,7 @@ func stage_overlays() -> Array:
 		if b >= 2:
 			out.append("b2_tidemark_bench")
 		if b >= 4:
-			out.append("b4_lamp_pool")
+			out.append("b4_lamp_pool_cold")
 	return out
 
 func _draw_stage(c: CanvasItem, id: String) -> void:
@@ -1349,7 +1378,7 @@ func _draw_view_b(c: CanvasItem) -> void:
 	_full(c, plate_id())
 	_draw_sea(c, "b")
 	_draw_stage(c, "b2_tidemark_bench")
-	_draw_stage(c, "b4_lamp_pool")
+	_draw_stage(c, "b4_lamp_pool_cold")
 	if sea_tier() >= 6:
 		_full(c, "b_lamp_low")
 	_full(c, "b_stand_empty" if p14 else "b_frame")
@@ -1633,12 +1662,6 @@ func _draw_register(c: CanvasItem) -> void:
 		BRUISE)
 
 # --- c_frame ------------------------------------------------------------------------------
-func _trace_pts(shape: String, x0: float, x1: float, y_base: float, y_top: float) -> PackedVector2Array:
-	var pts := PackedVector2Array()
-	for q in SHAPES[shape]:
-		pts.append(Vector2(lerpf(x0, x1, q.x), lerpf(y_base, y_top, q.y)))
-	return pts
-
 func _section_rect(slot_x: float, y: float) -> Rect2:
 	return Rect2(slot_x + 10, y, SECTION.x, SECTION.y)
 
@@ -1667,18 +1690,42 @@ func section_pts(s: String, rect: Rect2) -> PackedVector2Array:
 		pts.append(o + Vector2((q.x - x0) * CARD_SCALE, (q.y - CARD_BASE) * CARD_SCALE))
 	return pts
 
+## The order printed on the frame's plate: the last full SEAL's, or hers once sealed; [] for none.
+func plate_print() -> Array:
+	if r.frame_print.size() == 3:
+		return r.frame_print
+	if r.state.p14_complete:
+		return R07Sim.SOLUTION_SLOTS
+	return []
+
+## The composite: the sections' pieces of the card trace (CARD_PIECES) joined end to end in
+## `order`, at PRINT_SCALE, centred on the plate, on PRINT_BASE.
+func print_pts(order: Array) -> PackedVector2Array:
+	var width := 0.0
+	for s in order:
+		width += CARD_PIECES[s][-1].x - CARD_PIECES[s][0].x
+	var x := 725.0 - width * PRINT_SCALE.x / 2.0
+	var pts := PackedVector2Array()
+	for s in order:
+		var piece: Array = CARD_PIECES[s]
+		for q in piece:
+			pts.append(Vector2(x + (q.x - piece[0].x) * PRINT_SCALE.x, PRINT_BASE + (q.y - CARD_BASE) * PRINT_SCALE.y))
+		x += (piece[-1].x - piece[0].x) * PRINT_SCALE.x
+	return pts
+
 func _draw_frame(c: CanvasItem) -> void:
 	var st: Dictionary = r.state
 	_full(c, "c_frame")
-	# the reference: her work card's trace, or a note that it is still in the kitchen
-	c.draw_string(narrow, Vector2(180, 146), REF_HEADING, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, INK)
-	if r.reference_seen():
-		for k in 3:
-			var x0: float = SLOT_X[k] + 16
-			c.draw_polyline(_trace_pts(R07Sim.SOLUTION_SLOTS[k], x0, x0 + SECTION.x - 12, REF_TRACE_BOTTOM,
-				REF_TRACE_TOP), INK, 3.0, true)
-	else:
-		_ctext(c, REF_UNSEEN, 725, 226, 22, INK, Ink.serif())
+	# the frame's plate: its category, and what it printed at the last full SEAL
+	# an enamel plate with a thin brass rim, as tools/art/rooms/R07.py plate() paints them
+	c.draw_rect(PLATE_LABEL.grow(3), PLATE_RIM)
+	c.draw_rect(PLATE_LABEL.grow(3), INK, false, 2.4)
+	c.draw_rect(PLATE_LABEL, PLATE_ENAMEL)
+	c.draw_rect(PLATE_LABEL, PLATE_EDGE, false, 1.4)
+	_on_plate(c, PLATE_LABEL, "CATEGORY: " + R07Sim.CATEGORY, 22)
+	var printed := plate_print()
+	if not printed.is_empty():
+		c.draw_polyline(print_pts(printed), INK, 3.0, true)
 	# the slots and what is in them
 	for k in 3:
 		var s: String = st.slots[k]
@@ -1686,8 +1733,6 @@ func _draw_frame(c: CanvasItem) -> void:
 			_draw_section(c, s, _section_rect(SLOT_X[k], 390), r.held == s)
 	for k in r.frame_miss:
 		_dashed_rect(c, Rect2(SLOT_X[k] - 4, 366, 368, 208), INK, 3.0)
-		if r.reference_seen():
-			_dashed_rect(c, Rect2(SLOT_X[k] + 4, 158, 352, 118), INK, 3.0)
 	# the tray
 	var tray := r.tray_sections()
 	for k in tray.size():

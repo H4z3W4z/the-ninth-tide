@@ -19,7 +19,8 @@ Writes, and only writes, assets/rooms/R07/*.png and assets/stages/R07/*.png:
   jar_*, c_jar_*, c_cradle, plumb, c_plumb, c_tag, c_beam, c_pan, c_tray, c_thumb,
   c_sample_{n,w,f}, c_card, c_pin, c_needle, c_key_down, c_lever_down, c_section,
   c_name_tab, c_strip, c_seal_down, c_frame_glass sprites (RGBA, exact sizes and pivots)
-  b2_tidemark, b2_tidemark_bench, b4_lamp_pool, b4_water_lean, datum_water_r3
+  b2_tidemark, b2_tidemark_bench, b4_lamp_pool, b4_water_lean, datum_water_r3,
+  b4_lamp_pool_cold, datum_water_sub, r07_submerged_b3, r07_submerged_b5
                       assets/stages/R07: dread while the puzzles are played (see "stage overlays")
   view_b_s3_v2, view_b_s4_v2   the bench plates at bands 3 and 4 with the cabinet tide mark
                       painted as clear water, not a salt strip (replace view_b_s3 / view_b_s4)
@@ -908,10 +909,11 @@ A_STREAK_AVOID = ((STAIR[0], STAIR[2]), (TANK[0] - 6, TANK[2] + 6), (SOCKET[0], 
                   (VAULT[0], VAULT[2]))
 
 
-def paint_view_a(rng, stage, lamp=True, objects=True):
-    """The tank wall plate. `lamp` False leaves the wall lamp out and `objects` False stops at the
-    bare wall (the sea overlays' masks and lamp patch); the defaults paint the approved plate,
-    stroke for stroke."""
+def paint_view_a(rng, stage, lamp=True, objects=True, pool=True):
+    """The tank wall plate. `lamp` False leaves the wall lamp out, `objects` False stops at the
+    bare wall (the sea overlays' masks and lamp patch) and `pool` False leaves out the lamp's
+    cream light (the submerged plates); the defaults paint the approved plate, stroke for
+    stroke."""
     p = Pen(W, H, rng, PAPER)
     srng = rng_for(700 + (0 if stage == "sever" else stage))
     shell(p, stage, A_FLOOR)
@@ -924,7 +926,9 @@ def paint_view_a(rng, stage, lamp=True, objects=True):
         for cx, cy, r in A_BLOOMS:
             bloom(p, cx, cy, r, brng, op)
         handprint(p, *A_HAND, s=1.0, op=op)
-    if stage != "sever":
+    if not pool:
+        pass
+    elif stage != "sever":
         lamp_pool(p, LAMP_A[0], LAMP_A[1] + 18, 170, 100, 0.36)
     else:
         lamp_pool(p, 724, 300, 700, 280, 0.18)
@@ -2829,8 +2833,9 @@ def paint_tidemark(side):
     return out
 
 
-def paint_lamp_pool():
-    """View B from band 4: wash, the lit hole round the bench, the dark right third, the pool."""
+def paint_lamp_pool(warm=True):
+    """View B from band 4: wash, the lit hole round the bench, the dark right third, the pool.
+    `warm` False leaves out the cream pool on the bench top (b4_lamp_pool_cold)."""
     rng = rng_for(920)
     wash = Image.new("L", (W, H), int(round(LAMP_WASH * 255)))
     hole = Image.new("L", (W, H), 0)
@@ -2852,6 +2857,8 @@ def paint_lamp_pool():
     edge.line([(POOL_EDGE_X, 112), (POOL_EDGE_X, H)], STORM, 2.0)
     e = edge.done()
     out.alpha_composite(_apply_mask(e, ImageChops.invert(obj)))
+    if not warm:
+        return out
     # the single warm pool on the bench top, under the shade
     pool = Pen(W, H, rng)
     pool.ell(PENDANT_B[0], 612, 250, 18, AMBER, None)
@@ -2944,11 +2951,11 @@ def _hotspot_art_alpha():
     return _cached(("hotspot_art", "a"), run)
 
 
-def paint_datum_water():
+def paint_datum_water(wash=DATUM_WASH, alpha=DATUM_WASH_ALPHA):
     below = Image.new("L", (W, H), 0)
     ImageDraw.Draw(below).rectangle((0, DATUM_SURF[1], W, H), fill=255)
     below = ImageChops.subtract(below, _hotspot_art_alpha())
-    out = _alpha_layer(DATUM_WASH, _scale_mask(below, DATUM_WASH_ALPHA))
+    out = _alpha_layer(wash, _scale_mask(below, alpha))
     p = Pen(W, H, rng_for(930))
     y0, y1 = DATUM_SURF
     p.rect(-4, y0, W + 4, y1, SEA_LINE, None)
@@ -2958,12 +2965,109 @@ def paint_datum_water():
     return out
 
 
+# r07_submerged_b3 / r07_submerged_b5   view A from band 3 / band 5, in place of the stage plate:
+#     the room under a surface. The stage plate (view_a_s3 / view_a_s5, seeded and grained as in
+#     ASSETS) painted without the wall lamp and its cream light (the view lays a_lamp / a_lamp_low
+#     over every view-A plate from band 2 anyway, so no lamp patch is needed), with
+#       - across the top SUB_BAND px the underside of a water surface: flat sea-glass, a ragged
+#         2-3 px navy lower contour and SUB_STRIPES slow matte caustic stripes (no glow, no blend);
+#       - below it everything but the hotspot art multiplied toward storm navy (SUB_WASH), so
+#         every door, the basin, tank, socket, rack and plate keep their full-ink contours;
+#       - one straight waterline across the whole room at the tank's lean (GRAVITY, -8 degrees:
+#         rising to the right), through the STAIR door, the basin, the tank, the jars and the
+#         RECORDS door: a 3 px navy meniscus, a 2 px pale sea-glass highlight over it, and the
+#         water side under it SUB_UNDER darker again.
+SUB_BAND = 152                          # the top 14% (y 0-152)
+SUB_SURFACE = (169, 200, 184)           # #a9c8b8
+SUB_CAUSTICS = ((143, 179, 166), (195, 216, 204))   # #8fb3a6, #c3d8cc
+SUB_STRIPES = 6
+# The card asked for 35% / 55%; measured in-game (1024x768, y 70-650) under the sea tiers, the
+# tide stain and the datum water that only reached 120 / 108 mean luma against a target of
+# 90-100 / 80-90, so the wash is 60% / 85% (it never touches the hotspot art).
+SUB_WASH = {3: 0.60, 5: 0.85}
+SUB_UNDER = 0.10
+SUB_LEAN_DEG = -8.0                     # R07Sim.GRAVITY_DEG: the tank's lean
+SUB_PIVOT = (724, 640)                  # the waterline passes here; at x 0 it is 101 px lower
+
+
+# datum_water_sub: datum_water_r3 exactly, but its wash storm navy at 30%, not #5f8f86 at 45%:
+#     over a submerged plate the pale wash would lift the room back out of the water. The view
+#     uses it in place of datum_water_r3 (and as the mask of the 6 px shift) while submerged.
+
+
+def sub_waterline_y(x):
+    return SUB_PIVOT[1] + math.tan(math.radians(SUB_LEAN_DEG)) * (x - SUB_PIVOT[0])
+
+
+def _multiply_toward(im, col, k, mask):
+    """`im` (RGB) multiplied toward `col` by `k` where the L `mask` is set."""
+    f = tuple(1.0 - k * (1.0 - c / 255.0) for c in col)
+    r, g, b = im.split()
+    dark = Image.merge("RGB", [ch.point(lambda v, m=m: int(round(v * m))) for ch, m in zip((r, g, b), f)])
+    return Image.composite(dark, im, mask)
+
+
+def paint_submerged(stage):
+    rng = rng_for(940 + stage)
+    base = grain(paint_view_a(rng_for(0), stage, lamp=False, pool=False), rng_for(1000))
+    im = base.convert("RGB")
+    # the wash below the surface band, off the hotspot art
+    below = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(below).rectangle((0, SUB_BAND, W, H), fill=255)
+    im = _multiply_toward(im, STORM, SUB_WASH[stage], ImageChops.subtract(below, _hotspot_art_alpha()))
+    # the water side of the waterline, 10% darker again (everything: it is all under it)
+    under = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(under).polygon([(-4, sub_waterline_y(-4)), (W + 4, sub_waterline_y(W + 4)),
+                                   (W + 4, H + 4), (-4, H + 4)], fill=255)
+    im = _multiply_toward(im, (0, 0, 0), SUB_UNDER, under)
+    p = Pen(W, H, rng)
+    # the meniscus: a pale highlight on the air side, then 3 px navy. The card asked for 1 px; at
+    # 1024x768 that is lost on the washed tiles, so it is 2 px (1.4 px in game)
+    xs = (-8, W + 8)
+    p.line([(x, sub_waterline_y(x) - 2.5) for x in xs], SUB_CAUSTICS[1], 2.0)
+    p.line([(x, sub_waterline_y(x)) for x in xs], INK, 3.0)
+    # the underside of the surface: a flat band, a ragged navy lower edge
+    edge = []
+    x = -8.0
+    while x <= W + 8:
+        edge.append((x, SUB_BAND - 3 + rng.uniform(-2.2, 2.2) + 1.6 * math.sin(x / 53.0)))
+        x += rng.uniform(9, 16)
+    edge.append((W + 8, SUB_BAND - 3))
+    p.poly([(-8, -8), (W + 8, -8)] + edge[::-1], SUB_SURFACE, None)
+    # slow caustic stripes, matte: wide gentle waves, alternating the two tones
+    for k in range(SUB_STRIPES):
+        cy = 16 + k * (SUB_BAND - 34) / (SUB_STRIPES - 1)
+        amp = rng.uniform(4, 8)
+        wl = rng.uniform(320, 520)
+        ph = rng.uniform(0, 6.283)
+        th0 = rng.uniform(5, 9)
+        tph = rng.uniform(0, 6.283)
+        upper, lower = [], []
+        x = -20.0
+        while x <= W + 20:
+            y = cy + amp * math.sin(x / wl * 6.283 + ph)
+            th = th0 * (0.55 + 0.45 * math.sin(x / 173.0 + tph))
+            upper.append((x, y - th / 2))
+            lower.append((x, y + th / 2))
+            x += 8
+        p.poly(upper + lower[::-1], SUB_CAUSTICS[k % 2], None)
+    p.line(edge, INK, 2.6)
+    over = p.done()
+    out = im.convert("RGBA")
+    out.alpha_composite(over)
+    return out.convert("RGB")
+
+
 STAGE_ASSETS = [  # name, painter: assets/stages/R07/<name>.png, RGBA, no grain
     ("b2_tidemark", lambda: paint_tidemark("a")),
     ("b2_tidemark_bench", lambda: paint_tidemark("b")),
     ("b4_lamp_pool", paint_lamp_pool),
     ("b4_water_lean", paint_water_lean),
     ("datum_water_r3", paint_datum_water),
+    ("b4_lamp_pool_cold", lambda: paint_lamp_pool(warm=False)),
+    ("datum_water_sub", lambda: paint_datum_water(STORM, 0.30)),
+    ("r07_submerged_b3", lambda: paint_submerged(3)),
+    ("r07_submerged_b5", lambda: paint_submerged(5)),
 ]
 
 
@@ -3070,7 +3174,8 @@ def main(argv):
         save(im, name, opaque)
     for name, fn in STAGE_ASSETS:
         if any(fnmatch.fnmatch(name, pat) for pat in pats):
-            save(fn(), name, False, STAGE_OUT)
+            im = fn()
+            save(im, name, im.mode == "RGB", STAGE_OUT)
 
 
 if __name__ == "__main__":

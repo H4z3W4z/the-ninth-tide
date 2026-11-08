@@ -8152,6 +8152,15 @@
       "source_svg": null
     },
     {
+      "id": "b4_lamp_pool_cold",
+      "path": "assets/stages/R07/b4_lamp_pool_cold.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "8c63c80daf68d03a5edc18634347c7eb90d9873a1f7a3cf7a4137d69dfb4e540",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "b4_water_lean",
       "path": "assets/stages/R07/b4_water_lean.png",
       "width": 1448,
@@ -8166,6 +8175,33 @@
       "width": 1448,
       "height": 1086,
       "sha256": "acc17b054c20ad1ecc8f553a24a9f1278595de7b90f4715ef45c36d25ed4e7ea",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "datum_water_sub",
+      "path": "assets/stages/R07/datum_water_sub.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "2f2f46f9c7d7917ce668593311b38265ba8f40c9b7404c7705c2895e9c98ec84",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r07_submerged_b3",
+      "path": "assets/stages/R07/r07_submerged_b3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "9002b083b5f536fe63086e2afd28fd5b0365bb88b7b48cffc70202b29a1a7dad",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r07_submerged_b5",
+      "path": "assets/stages/R07/r07_submerged_b5.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "3bfbb168bdb818b9de981dff9f3f1ed645189c8da42be231f9d157869578ab9b",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
