@@ -353,19 +353,21 @@ func play_p06() -> void:
 # ---------------------------------------------------------------------------
 # Tides III-V (wave 2: the station interior)
 # ---------------------------------------------------------------------------
-## R05 P07: nine bowls on their marks, the tally at nine, COMPARE; then Nora's book, her
+## R05 P07: the patched bowl by the door (the eight set themselves), the wheel at nine, COMPARE; then Nora's book, her
 ## work card and the service drawer's pantry half.
 func play_p07() -> void:
 	check(not g.exit_open("R05", "R07") and not g.exit_open("R05", "R08"), "P07: the hatch is shut")
 	_qd("bowl_stack")
 	check(kitchen.local_view == "c_table", "P07: the bowl stack opens the table")
-	for k in 9:
-		_qd("slot_%d" % R05Sim.RACK_HOME.find(R05Sim.SOLUTION[k]))
-		_qd("place_%d" % (k + 1))
-	var guard := 0
-	while int(kitchen.state.tally) != R05Sim.SOLUTION_TALLY and guard < 30:
-		_qd("tally_up" if int(kitchen.state.tally) < R05Sim.SOLUTION_TALLY else "tally_down")
-		guard += 1
+	# The eight initialled bowls set themselves on the first open; hers is the patched one.
+	check(kitchen.state.places.slice(0, 8) == R05Sim.SOLUTION.slice(0, 8), "P07: the eight set themselves")
+	_qd("slot_%d" % R05Sim.RACK_HOME.find("b_sq"))
+	_qd("place_%d" % R05Sim.DOOR_PLACE)
+	# The tally wheel starts at 0 and turns round: four notches back is nine.
+	check(int(kitchen.state.tally) == 0, "P07: the wheel starts at 0")
+	for i in 4:
+		_qd("tally_down")
+	check(int(kitchen.state.tally) == R05Sim.SOLUTION_TALLY, "P07: the wheel at nine")
 	var ev := _qd("compare")
 	check(g.flag("P07") and kitchen.has_seen("headcount_nine"), "P07: the table for nine")
 	check(not has_ev(ev, "fx", "tide"), "P07 does not end a tide")

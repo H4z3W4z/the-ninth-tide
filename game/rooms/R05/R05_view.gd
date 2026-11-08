@@ -149,6 +149,10 @@ const SFX_SOFT := ["compare_pull", "drawer_unlatch", "count_reset", "socket_jam"
 
 const LOOPS := ["r05_room", "r05_rain", "r05_rain_heavy", "r05_kettle", "r05_draught",
 	"r05_draught_breath", "r05_range"]
+## The file each loop plays: the 20 s level-walking beds (tools/audio/rooms/R05.py LOOPS_R2);
+## the kettle and the breath keep their originals (both are timed cycles).
+const LOOP_FILES := {"r05_room": "r05_room_r2", "r05_rain": "r05_rain_r2",
+	"r05_rain_heavy": "r05_rain_heavy_r2", "r05_draught": "r05_draught_r2", "r05_range": "r05_range_r2"}
 const LOOP_RATE := 0.11        # linear units / s
 const BREATH_LEN := 5.2        # r05_draught_breath: rises 0-0.35, 0.5-0.85, 1.6-3.6, then rest
 const FOG_DUCK := 0.3          # r05_room and r05_rain under the fog's creep
@@ -316,6 +320,7 @@ var fog_duck := 1.0
 var dup_open := false                # the close-up's front board swung open (presentation)
 var swing_v := 0.0
 var home_t0 := -1.0                  # the eight bowls setting themselves
+const HOME_FLIGHT := 0.42             # one bowl's slide, rack to place (s)
 var home_list: Array = []
 var glance_armed := {}               # glance id -> room-view rect, waiting for its cue
 var glance_id := ""
@@ -374,7 +379,7 @@ func _build_audio() -> void:
 	if game == null:
 		return
 	for id in LOOPS:
-		mixer.add_loop(id, game.load_audio(id))
+		mixer.add_loop(id, game.load_audio(LOOP_FILES.get(id, id)))
 
 # ---------------------------------------------------------------------------
 # state reads (presentation only)
@@ -1378,6 +1383,12 @@ func _draw_table(c: CanvasItem) -> void:
 	_tex_at(c, "c_tally_wheel", Vector2(1150, 620))
 	var n := str(int(r.state.tally))
 	_ctext(c, n, 1215, 684, 42, INK, serif)   # sized to the drum's white band
+	# the wheel's neighbouring faces, turning away above and below (it wraps: 0 sits under 12)
+	for side in [-1, 1]:
+		var face := R05Sim.tally_step(int(r.state.tally), side)
+		var chip := Rect2(1193, 632 if side < 0 else 688, 44, 16)
+		c.draw_rect(chip, Color(PAPER_HI, 0.55))
+		_ctext(c, str(face), chip.get_center().x, chip.end.y - 2, 15, Color(INK, 0.7), serif)
 	_ctext(c, "REGISTER", 1365, 640, 16, INK, narrow)
 	_ctext(c, str(R05Sim.REGISTER), 1365, 677, 44, INK, serif)
 	var flags: Dictionary = flags_shown
@@ -1395,8 +1406,9 @@ func _home_k(b: String) -> float:
 	var j := home_list.find(b)
 	if j < 0:
 		return -1.0
-	var t := time - home_t0 - R05Sim.HOME_STAGGER * j
-	var k := t / 0.3
+	# each lands on its own bowl_set (delay HOME_STAGGER * j), so the slide starts HOME_FLIGHT earlier
+	var t := time - home_t0 - (R05Sim.HOME_STAGGER * j - HOME_FLIGHT)
+	var k := t / HOME_FLIGHT
 	return clampf(k, 0.0, 1.0) if k < 1.0 else -1.0
 
 func _homing(b: String) -> bool:
@@ -1529,7 +1541,10 @@ func _draw_board(c: CanvasItem) -> void:
 			c.draw_rect(wr.grow(-2), NAVY, false, 1.0)
 			var key: String = {"f_count": "count", "f_name": "name", "f_status": "status"}[h[0]]
 			if str(a[key]) == "" and not st.p09_complete:
-				_ctext(c, "click to set", wr.get_center().x, wr.get_center().y + 5, 14, Color(PAPER, 0.45), narrow_plain)
+				# an empty ruled field: a pale rule 12 px above the bottom edge, a brass tick at its start
+				var ry := wr.end.y - 12.0
+				c.draw_line(Vector2(wr.position.x + 10, ry), Vector2(wr.end.x - 10, ry), Color(Ink.PAPER, 0.35), 2.0)
+				c.draw_line(Vector2(wr.position.x + 10, ry - 6), Vector2(wr.position.x + 10, ry), Ink.BRASS, 2.0)
 	if str(a.count) != "":
 		_tex_at(c, "c_tile_small", Vector2(325, 735))
 		_rect_text(c, str(a.count).replace("-", "−"), Rect2(325, 735, 140, 86), 34, INK, serif)

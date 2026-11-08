@@ -415,6 +415,110 @@ def r05_range() -> list[float]:
     return add(xs, lowpass(pops, 2400), 1.1)
 
 
+# ---------------------------------------------------------------- loops, round 2 (_r2)
+# The 4-7 s beds above were audibly short loops. The _r2 beds are 20 s, closed with
+# seamless(xs, 1.5), and ride a slow seeded level walk (0.75 + 0.25 * smooth_walk, knots
+# every 2.7 s, 1.3 s for the heavy rain) so the bed breathes instead of repeating. Same seeds as
+# the originals (the extra draws come after), same mastering; the originals stay untouched.
+
+BED_R2 = 20.0
+SEAM_R2 = 1.5
+
+
+def closed_bed_r2(fn) -> list[float]:
+    """Renders fn(n) for BED_R2 + SEAM_R2 and closes it with seamless(SEAM_R2): exactly BED_R2."""
+    xs = seamless(fn(n_of(BED_R2 + SEAM_R2)), SEAM_R2)
+    assert len(xs) == n_of(BED_R2)
+    return xs
+
+
+def level_walk(xs: list[float], rnd: random.Random, step_s: float = 2.7) -> list[float]:
+    """xs * (0.75 + 0.25 * smooth_walk): the walk is itself closed with seamless(SEAM_R2), so the
+    level at the loop point runs straight on and the seam never steps."""
+    n = len(xs)
+    walk = seamless(smooth_walk(n + n_of(SEAM_R2), rnd, step_s), SEAM_R2)
+    return [x * (0.75 + 0.25 * w) for x, w in zip(xs, walk)]
+
+
+def r05_room_r2() -> list[float]:
+    rnd = seed(1)
+
+    def bed(n):
+        low = unit(highpass(lowpass(lowpass(brown(n, rnd), 260), 260), 30))
+        air = unit(bandlimit(white(n, rnd), 220, 800))
+        walk = smooth_walk(n, rnd, 1.3)
+        return [(b + 0.4 * a) * (0.85 + 0.15 * w) for b, a, w in zip(low, air, walk)]
+
+    xs = closed_bed_r2(bed)
+    for at in (2.3, rnd.uniform(8.5, 10.5), rnd.uniform(15.0, 17.5)):   # three far creaks, uneven
+        creak = stick_slip(rnd, rnd.uniform(0.8, 1.1), lambda x: 70 + 25 * x,
+                           [(310, 5, 1.0), (760, 7, 0.5)], shape=lambda x: hump(x, 0.4))
+        mix_wrap(xs, unit(lowpass(creak, 900)), at, rnd.uniform(0.25, 0.38))
+    return level_walk(xs, rnd)
+
+
+def r05_rain_r2() -> list[float]:
+    rnd = seed(2)
+
+    def bed(n):
+        hiss = unit(bandlimit(white(n, rnd), 1400, 6500))
+        walk = smooth_walk(n, rnd, 0.9)
+        return [h * (0.9 + 0.1 * w) for h, w in zip(hiss, walk)]
+
+    xs = closed_bed_r2(bed)
+    d = unit(highpass(drops(len(xs), rnd, 140, 2200, 6500), 900))
+    return level_walk(add(scale(xs, 0.45), d, 1.0), rnd)
+
+
+def r05_rain_heavy_r2() -> list[float]:
+    rnd = seed(3)
+
+    def bed(n):
+        sheet = unit(bandlimit(white(n, rnd), 500, 4200))
+        run = unit(bandlimit(brown(n, rnd), 180, 900))
+        walk = smooth_walk(n, rnd, 0.6)
+        return [(s + 0.4 * r) * (0.75 + 0.25 * w) for s, r, w in zip(sheet, run, walk)]
+
+    xs = closed_bed_r2(bed)
+    d = unit(highpass(drops(len(xs), rnd, 420, 1500, 5200), 600))
+    return level_walk(add(xs, d, 0.6), rnd, 1.3)
+
+
+def r05_draught_r2() -> list[float]:
+    rnd = seed(5)
+
+    def bed(n):
+        low = unit(highpass(lowpass(lowpass(white(n, rnd), 320), 320), 50))
+        slat = unit(biquad_bp(white(n, rnd), 430, 9))
+        slat2 = unit(biquad_bp(white(n, rnd), 690, 11))
+        walk = smooth_walk(n, rnd, 0.8)
+        return [(a + 0.22 * s + 0.12 * s2) * (0.7 + 0.3 * w) for a, s, s2, w in zip(low, slat, slat2, walk)]
+
+    return level_walk(closed_bed_r2(bed), rnd)
+
+
+def r05_range_r2() -> list[float]:
+    rnd = seed(7)
+
+    def bed(n):
+        roar = unit(highpass(lowpass(lowpass(brown(n, rnd), 180), 180), 35))
+        flue = unit(bandlimit(white(n, rnd), 90, 320))
+        walk = smooth_walk(n, rnd, 0.7)
+        return [(r + 0.6 * f * (0.6 + 0.4 * w)) for r, f, w in zip(roar, flue, walk)]
+
+    xs = closed_bed_r2(bed)
+    pops = [0.0] * len(xs)
+    for _ in range(rnd.randint(90, 130)):                       # the same density, over 20 s
+        c = click(rnd, 0.03, [(rnd.uniform(900, 1800), 1.0, 0.004)], noise=0.8, noise_lp=2400)
+        mix_wrap(pops, c, rnd.uniform(0, BED_R2), rnd.uniform(0.2, 1.0))
+    for k in range(5):                                          # coals settling, one per 4 s window
+        at = 4.0 * k + rnd.uniform(0.4, 3.6)
+        settle = add(thock(rnd, 0.35, 95, 0.09, 500), lowpass(grain(rnd, 0.35, 700, 300, 1600,
+                                                                    lambda x: hump(x, 0.2)), 1600), 0.6)
+        mix_wrap(pops, unit(settle), at, 0.5)
+    return level_walk(add(xs, lowpass(pops, 2400), 1.1), rnd)
+
+
 # ---------------------------------------------------------------- one-shots: bowls, tally, drawer
 
 def bowl_lift() -> list[float]:
@@ -775,6 +879,9 @@ def towel_drip() -> list[float]:
 LOOPS = [("r05_room", r05_room), ("r05_rain", r05_rain), ("r05_rain_heavy", r05_rain_heavy),
          ("r05_kettle", r05_kettle), ("r05_draught", r05_draught),
          ("r05_draught_breath", r05_draught_breath), ("r05_range", r05_range)]
+LOOPS_R2 = [("r05_room_r2", r05_room_r2), ("r05_rain_r2", r05_rain_r2),
+            ("r05_rain_heavy_r2", r05_rain_heavy_r2), ("r05_draught_r2", r05_draught_r2),
+            ("r05_range_r2", r05_range_r2)]
 
 SHOTS = [("bowl_lift", bowl_lift), ("bowl_set", bowl_set), ("bowl_rack", bowl_rack),
          ("tally_click", tally_click), ("compare_pull", compare_pull), ("flag_flip", flag_flip),
@@ -829,7 +936,7 @@ def write_shot(name: str, xs: list[float]) -> None:
 
 def main() -> None:
     print(f"Writing to {OUT}")
-    for name, fn in LOOPS:
+    for name, fn in LOOPS + LOOPS_R2:
         write_loop(name, fn())
     for name, fn in SHOTS:
         write_shot(name, fn())
