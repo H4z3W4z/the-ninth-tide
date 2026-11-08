@@ -7423,6 +7423,15 @@
       "source_svg": null
     },
     {
+      "id": "R12/a_glass_r4",
+      "path": "assets/rooms/R12/a_glass_r4.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "c5684776821db0b117f67b6afe1a3e72bf55cf2f96aa6bc25906540e71325b71",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R12/a_lid_line",
       "path": "assets/rooms/R12/a_lid_line.png",
       "width": 448,
@@ -7639,6 +7648,15 @@
       "source_svg": null
     },
     {
+      "id": "R12/c_final_r4",
+      "path": "assets/rooms/R12/c_final_r4.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "765b416459edda18ea1b11f6b3c0b4232dfe3aebceffc96db4761af5eb322c69",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R12/c_frames",
       "path": "assets/rooms/R12/c_frames.png",
       "width": 1448,
@@ -7707,6 +7725,15 @@
       "width": 1448,
       "height": 1086,
       "sha256": "cb87e3d8895d736dd286d48b9f0e103fb588bb41efd19aeed492876d8784c401",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R12/c_routing_window_r4",
+      "path": "assets/rooms/R12/c_routing_window_r4.png",
+      "width": 120,
+      "height": 362,
+      "sha256": "ba5558cc8999a328339185f5eb5fa1a17889119a6d22f183fbd1865e3ff7d63f",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -7842,6 +7869,42 @@
       "width": 1448,
       "height": 1086,
       "sha256": "f4e9b4eb2af24d4b2d38ab558b66c349c7da51cda6221ebb582db4edea965305",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R12/eye_iris_r4",
+      "path": "assets/rooms/R12/eye_iris_r4.png",
+      "width": 252,
+      "height": 252,
+      "sha256": "4d2b6d94b62cdb9b56fee932fc531a8f0c5b172462c86b2b90d81056e6bd9f27",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R12/eye_iris_r4_s",
+      "path": "assets/rooms/R12/eye_iris_r4_s.png",
+      "width": 112,
+      "height": 112,
+      "sha256": "1bf1da8505c9f123ea2c94db84a03f9cafb62bc69f7bbc6a448e329964060670",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R12/eye_pupil_r4",
+      "path": "assets/rooms/R12/eye_pupil_r4.png",
+      "width": 61,
+      "height": 140,
+      "sha256": "779a6ca1c7bd75e0e9c61aa0ce3fb581cc74903aad731bf1e8c20afda7ba0d0b",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R12/eye_pupil_r4_s",
+      "path": "assets/rooms/R12/eye_pupil_r4_s.png",
+      "width": 33,
+      "height": 66,
+      "sha256": "9175cede18376030a767080610d176bff47d7296585dd93847dce94d1b1a68be",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -8494,6 +8557,15 @@
       "source_svg": null
     },
     {
+      "id": "continue_morning",
+      "path": "assets/stages/R12/continue_morning.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "5449324f2ff66c66094e984faf2bdddba2fe02ca99f0c792ce8ba86f66373095",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "end_a_card",
       "path": "assets/stages/R12/end_a_card.png",
       "width": 1448,
@@ -8526,6 +8598,15 @@
       "width": 1448,
       "height": 1086,
       "sha256": "2142db577256880e4840fef7e32170e21d73dbfeffac4921fb10a5a271a00d22",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "end_b_wide_4",
+      "path": "assets/stages/R12/end_b_wide_4.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "ce1bb72c9b98cc60ef2e39161abebe7b672f2e94829143234421266707fe8634",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },

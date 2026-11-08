@@ -39,10 +39,10 @@ const CONSEQUENCES := "If I break it, they're gone, all of them, and I go home. 
 const P26_TAIL := [CONSEQUENCES, "Behind me, in the window, something moved."]
 const SEVER_PREVIEW := ["PREVIEW. On the SEVER plate the eight subject lamps go out, one after another.",
 	"The witness feed lamp goes out last. The outer-door shutter turns to OPEN.",
-	"Then they all light again. It was only showing me. Behind me, the window is showing it too."]
+	"Then they all light again. It was only showing me. Above the panel, the window is showing it too."]
 const CONTINUE_PREVIEW := ["PREVIEW. On the CONTINUE plate the eight subject lamps stay lit.",
 	"The witness feed slides along its rail, from the terminal marked E.V. to the one marked A.M.",
-	"His lamp goes out. Mine comes on. Behind me, the window is showing it too."]
+	"His lamp goes out. Mine comes on. Above the panel, the window is showing it too."]
 const BLINK_LINE := "Outside, the surface closes once, all the way, and opens. On me."
 const EYE_DOOR := "The eye in the window isn't on the instrument. It's on the door I came in by."
 const ARRIVAL_STORY := [
@@ -65,8 +65,8 @@ const REF_HINTS := {
 		"For SEVER: FEED A, FEED B and E.V. into OPEN, then PREVIEW SEVER. For CONTINUE: E.V. into A.M. and A.M. into TERMINAL, then PREVIEW CONTINUE. Watch the window each time."],
 	"decide": ["Both choices are ready. The chamber is waiting for your hands.",
 		"The yoke goes across the feed contacts. The bridge goes in your terminal. Preview before you confirm.",
-		"The window showed me: SEVER puts out the eight lamps and the bowls; CONTINUE moves the feed to A.M. and empties his coat.",
-		"To leave: yoke on the contacts, preview, BREAK CONNECTION AND LEAVE. To stay: bridge in your terminal, preview, REMAIN AS WITNESS."],
+		"The plates showed me: SEVER puts out all eight lines and the feed; CONTINUE moves the feed from E.V. to A.M. The eye closed for one and opened for the other.",
+		"To leave: yoke on the contacts, preview, SEVER. To stay: bridge in your terminal, preview, CONTINUE."],
 	"finale": ["I've chosen. All that's left is to watch it happen.",
 		"Nothing in the chamber wants my hands any more.",
 		"The choice is made. The station is carrying it out.",
@@ -82,8 +82,9 @@ const CLICK_CONTINUE := ["cord_ev", "jack_am", "cord_am", "jack_terminal"]
 const PATCH_WRONG := "Not like that. He said what each one does."
 var P26_ACTIONS: Array = ["back", "back", "to_routing", "plate_sever"] + PATCH_SEVER + ["preview_sever"] \
 	+ PATCH_CONTINUE + ["preview_continue"]
-const P27_SEVER := ["back", "contacts", "tray", "contacts", "preview", "btn_sever"]
-const P27_CONTINUE := ["to_routing", "bridge_seat", "bridge_seat", "preview", "btn_continue"]
+## P27 with no third preview: the routing wall's previews count.
+const P27_SEVER := ["back", "contacts", "tray", "contacts", "btn_sever"]
+const P27_CONTINUE := ["to_routing", "bridge_seat", "bridge_seat", "btn_continue"]
 
 func run_tests() -> void:
 	skeleton_checks(ROOM, EXPECT_REQUIRES, OPEN_TIDE)
@@ -144,6 +145,7 @@ func run_tests() -> void:
 		await test_view_sever_wall()
 		await test_view_morning()
 		await test_view_page_turns()
+		await test_view_restore()
 	else:
 		print("SKIP: R12 view_checks: the R12 view does not yet declare rects for every sim hotspot (view team)")
 
@@ -815,8 +817,9 @@ func test_p26_patch() -> void:
 	play(g, ["patch:ev:open"])
 	check(r.patch_matches("sever") and not r.patch_matches("continue"), "the SEVER patch")
 	var ev := g.dispatch("preview_sever")
-	check(r.previewed("sever") and has_ev(ev, "fx", "window_preview") and fx(ev, "glance").get("target") == "window_sever"
-		and r.incomplete_route == "", "the SEVER patch rehearses SEVER and shows it in the window")
+	check(r.previewed("sever") and has_ev(ev, "fx", "window_preview") and not has_ev(ev, "fx", "glance")
+		and r.incomplete_route == "" and r.local_view == "c_routing",
+		"the SEVER patch rehearses SEVER, shows it in the window above the panel, and the close-up stays")
 	# CONTINUE needs E.V. into A.M. and A.M. into TERMINAL; the feeds may stay where they are
 	play(g, ["patch:ev:am"])
 	check(says(g.dispatch("preview_continue")) == PATCH_WRONG and not r.previewed("continue"), "A.M. not yet in TERMINAL")
@@ -881,19 +884,18 @@ func test_p26_previews() -> void:
 	check(story(ev) == SEVER_PREVIEW, "first SEVER preview (%s)" % [story(ev)])
 	check(sfx_list(ev) == [["preview_key", 0.0], ["preview_out", 0.3]] and fx(ev, "preview").get("route") == "sever", "SEVER preview sounds/fx")
 	check(fx(ev, "window_preview").get("route") == "sever", "the window shows the SEVER preview")
-	var gl := fx(ev, "glance")
-	check(gl.get("rect") == [474, 96, 500, 290] and gl.get("target") == "window_sever", "the glance goes to the window (SEVER)")
+	check(not has_ev(ev, "fx", "glance") and r.local_view == "c_routing", "no glance: the preview stays in the close-up (SEVER)")
 	check(r.has_seen("preview_sever") and r.previewed("sever"), "SEVER previewed and noted")
 	ev = g.dispatch("preview_sever")
 	check(says(ev) == "The eight go out. The feed goes out. The door opens. Every time." and story(ev).is_empty(), "repeat SEVER preview")
-	check(fx(ev, "glance").get("target") == "window_sever", "a repeat preview shows in the window again")
+	check(fx(ev, "window_preview").get("route") == "sever" and not has_ev(ev, "fx", "glance"), "a repeat preview shows in the window again")
 	check(r.state.previewed == ["sever"], "previewed once")
 	play(g, PATCH_CONTINUE)
 	ev = g.dispatch("preview_continue")
 	check(story(ev).slice(0, 3) == CONTINUE_PREVIEW, "first CONTINUE preview")
 	check(sfx_list(ev).slice(0, 2) == [["preview_key", 0.0], ["preview_move", 0.3]] and fx(ev, "preview").get("route") == "continue", "CONTINUE preview sounds/fx")
-	check(fx(ev, "window_preview").get("route") == "continue" and fx(ev, "glance").get("target") == "window_continue",
-		"the window shows the CONTINUE preview")
+	check(fx(ev, "window_preview").get("route") == "continue" and not has_ev(ev, "fx", "glance") and r.local_view == "c_routing",
+		"the window above the panel shows the CONTINUE preview; the close-up stays")
 	check(says(g.dispatch("preview_continue")) == "The eight stay lit. His lamp out, mine on.", "repeat CONTINUE preview")
 	check(says(g.dispatch("preview_sever")) == PATCH_WRONG, "after P26 a preview still needs its patch")
 	check(says(g.dispatch("look_sever")) == "SEVER. Subject lines one to eight, the witness feed, the outer door. Each with a lamp.", "look_sever")
@@ -947,14 +949,22 @@ func test_p26_checkpoint() -> void:
 ## the door on arrival, the chair at the P25 commit, the routing wall at each P26 preview. gaze()
 ## is a pure function of state, so a load puts it back exactly; flags alone floor it.
 func test_eye_gaze() -> void:
-	check(R12Sim.PUPIL_OFFSET == {"centre": [0, 0], "door": [0, 40], "chair": [-150, 12], "routing": [95, 40],
-		"final": [0, 60]}, "the five offsets: routing low enough to clear the conduit, final down at the switches")
+	check(R12Sim.PUPIL_OFFSET == {"centre": [0, 0], "door": [-22, 30], "chair": [-30, 22], "routing": [36, 10],
+		"final": [0, 34]}, "the five offsets: the pupil turns, the iris stays put")
+	for look in R12Sim.PUPIL_OFFSET:
+		var o: Array = R12Sim.PUPIL_OFFSET[look]
+		var m := Vector2(o[0], o[1]).length()
+		check(look == "centre" or (m >= R12Sim.PUPIL_MIN and m <= R12Sim.PUPIL_MAX),
+			"%s: the pupil moves 24..40 px toward it (%.1f)" % [look, m])
+	check(R12Sim.PUPIL_OFFSET.chair[0] < 0 and R12Sim.PUPIL_OFFSET.chair[1] > 0, "chair: down and left, at the chair")
+	check(R12Sim.PUPIL_OFFSET.routing[0] > 0, "routing: right, at the routing wall")
+	check(R12Sim.PUPIL_OFFSET.final[1] > 0, "final: down, at her hands")
 	check(R12Sim.LOOK_ORDER == ["centre", "door", "chair", "routing", "final"], "the looks, in order")
 	var g := _stair()
 	var r := r12(g)
 	check(r.gaze() == "centre" and r.pupil_offset() == Vector2.ZERO, "before she comes in: centred")
 	g.dispatch("go:R12")
-	check(r.gaze() == "door" and r.pupil_offset() == Vector2(0, 40), "arrival: the door")
+	check(r.gaze() == "door" and r.pupil_offset() == Vector2(-22, 30), "arrival: the door")
 	check(r12(roundtrip(g)).gaze() == "door", "the door survives a save")
 	var ev := []
 	for a in P25_ACTIONS:
@@ -962,7 +972,7 @@ func test_eye_gaze() -> void:
 	var looks := _fxs(ev, "eye_look")
 	check(looks.size() == 1 and looks[0].get("target") == "chair" and looks[0].get("from") == "door",
 		"P25 commit: eye_look chair (%s)" % [looks])
-	check(r.gaze() == "chair" and r.pupil_offset() == Vector2(-150, 12), "P25: toward the chair")
+	check(r.gaze() == "chair" and r.pupil_offset() == Vector2(-30, 22), "P25: toward the chair")
 	check(r12(roundtrip(g)).gaze() == "chair", "the chair survives a save")
 	# the refused routes before it never turn it
 	var h := _stair()
@@ -980,9 +990,9 @@ func test_eye_gaze() -> void:
 		if a == "preview_sever":
 			check(r.gaze() == "routing" and r12(roundtrip(g)).gaze() == "routing", "the first preview: routing, saved")
 	check(pv == ["routing", "routing"], "P26: eye_look routing on each preview (%s)" % [pv])
-	check(r.pupil_offset() == Vector2(95, 40), "P26: toward the routing wall")
+	check(r.pupil_offset() == Vector2(36, 10), "P26: toward the routing wall")
 	pv = []
-	play(g, ["back", "back", "to_routing", "plate_sever"])
+	play(g, ["back", "to_routing", "plate_sever"])
 	for x in _fxs(g.dispatch("preview_continue"), "eye_look"):
 		pv.append(x.get("target"))
 	check(pv == ["routing"], "a preview again: routing again")
@@ -990,7 +1000,7 @@ func test_eye_gaze() -> void:
 	play(g, ["back", "back", "to_routing"])
 	var fl := _fxs(g.dispatch("handle"), "eye_look")
 	check(r.local_view == "c_final" and fl.size() == 1 and fl[0].get("target") == "final" and fl[0].get("from") == "routing"
-		and r.gaze() == "final" and r.pupil_offset() == Vector2(0, 60), "c_final: the eye looks down at the switches (%s)" % [fl])
+		and r.gaze() == "final" and r.pupil_offset() == Vector2(0, 34), "c_final: the eye looks down at the switches (%s)" % [fl])
 	check(_fxs(g.dispatch("bridge_seat"), "eye_look").is_empty(), "inside c_final it stays put")
 	check(r.bridge_seated() and r.gaze() == "final" and r12(roundtrip(g)).gaze() == "final", "the bridge seated: still the switches, saved")
 	play(g, ["bridge_seat"])
@@ -1070,8 +1080,9 @@ func test_blinks() -> void:
 		n += _fxs(h.dispatch(a), "blink").size()
 	check(n == 2, "a straight run blinks twice (%d)" % n)
 
-## Each blink holds its breath with it; 'It's offering to sign for me.' holds 2.5 s; in the
-## SEVER ending the room holds its breath 1.5 s before someone clears their throat.
+## Each blink holds its breath with it; 'It's offering to sign for me.' holds 2.5 s; SEVER's
+## montage holds 2.0 s once the pen has lifted, before the terminal page; CONTINUE holds on the
+## wide page's 'It is looking at the one.' and on the kettle.
 func test_hold_breath() -> void:
 	var g := _stair()
 	var ev := g.dispatch("go:R12")
@@ -1093,33 +1104,37 @@ func test_hold_breath() -> void:
 		if e.type == "say":
 			says_at[e.text] = _d(e.delay)
 	check(says_at.get("It's offering to sign for me.") == 7.6, "the line is still at 7.6")
-	# SEVER, the throat
+	# SEVER, the montage: 2 s held after the last vignette settles, before the terminal page
 	var s := _jumped(5)
 	ev = s.dispatch("ending_next")
-	check(fx(ev, "ending").get("tableau") == "m_funnels", "SEVER step 1: the funnels")
+	check(fx(ev, "ending").get("tableau") == "m_montage", "SEVER step 1: the montage")
 	hb = _fxs(ev, "hold_breath")
-	var throat := -1.0
-	for x in sfx_list(ev):
-		if x[0] == "throat":
-			throat = x[1]
-	check(hb.size() == 1 and _d(hb[0].seconds) == 1.5 and _d(hb[0].delay) == _d(throat - 1.5) and hb[0].get("sfx") == "throat"
-		and _d(hb[0].get("lead")) == 1.5, "SEVER: 1.5 s held, 1.5 s before the throat at %s (%s)" % [throat, hb])
+	var last_settle := 0.0
+	for x in R12Sim.MONTAGE_SETTLES:
+		last_settle = maxf(last_settle, x[1])
+	check(hb.size() == 1 and _d(hb[0].seconds) == 2.0 and _d(hb[0].delay) > last_settle,
+		"SEVER: 2.0 s held after the pen lifts at %s (%s)" % [last_settle, hb])
 	# no other SEVER page holds its breath
 	var others := 0
-	for i in 11:
+	for i in 8:
 		others += _fxs(s.dispatch("ending_next"), "hold_breath").size()
-	check(others == 0, "only the throat page holds its breath")
+	check(others == 0, "only the montage holds its breath")
 	# CONTINUE: the kitchen page goes silent as its line goes up, so the end card comes in over silence
 	var c := _jumped(6)
 	var kettle_hb := []
+	var wide_hb := []
 	for i in 10:
 		ev = c.dispatch("ending_next")
 		var tab = fx(ev, "ending").get("tableau")
 		var h := _fxs(ev, "hold_breath")
 		if tab == "m_kettle":
 			kettle_hb = h
+		elif tab == "end_b_wide":
+			wide_hb = h
 		else:
 			check(h.is_empty(), "CONTINUE page %s: no held breath" % tab)
+	check(wide_hb.size() == 1 and wide_hb[0].get("line") == "It is looking at the one."
+		and _d(wide_hb[0].delay) == 5.4, "the wide page holds its breath on 'It is looking at the one.' (%s)" % [wide_hb])
 	check(kettle_hb.size() == 1 and _d(kettle_hb[0].seconds) == 3.0 and _d(kettle_hb[0].delay) == 0.0,
 		"the kettle page: hold_breath 3 s from its start (%s)" % [kettle_hb])
 
@@ -1210,7 +1225,7 @@ func test_p27_fittings() -> void:
 	check(says(ev) == "PREVIEW. The lit line moves from E.V. to A.M. on the panel. In the preview only."
 		and fx(ev, "final_preview").get("route") == "continue" and sfx_list(ev) == [["final_preview", 0.0], ["preview_move", 0.3]], "CONTINUE final preview")
 	check(says(g.dispatch("look_lamps")) == "The preview lamps. They only show. They don't do.", "look_lamps")
-	check(says(g.dispatch("look_handle")) == "The severance handle. It stays locked until BREAK CONNECTION AND LEAVE is pressed.", "look_handle")
+	check(says(g.dispatch("look_handle")) == "The severance handle. It stays locked until SEVER is pressed.", "look_handle")
 	# The yoke in hand leaves with the close-up.
 	play(g, ["bridge_seat", "tray", "back"])
 	check(not r.held_yoke() and r.yoke() == "tray", "back puts the yoke in its tray")
@@ -1221,11 +1236,17 @@ func test_p27_buttons() -> void:
 	var seen_before := JSON.stringify(g.value("endings_seen"))
 	check(says(g.dispatch("btn_sever")) == "The yoke isn't across the contacts.", "SEVER without the yoke")
 	check(says(g.dispatch("btn_continue")) == "The bridge isn't in my terminal.", "CONTINUE without the bridge")
+	# The routing wall's previews (P26) count here: no third preview is asked for.
+	check(r.route_previewed("sever") and r.route_previewed("continue") and r.final_preview() == "",
+		"both routes were previewed on the routing wall")
+	# 'Preview first.' only for a route never shown at all (a state P26 never leaves; forced here)
+	var saved_pv: Array = r.state.previewed.duplicate()
+	r.state.previewed = []
 	play(g, ["tray", "contacts"])
 	var ev := g.dispatch("btn_sever")
-	check(says(ev) == PREVIEW_FIRST and r.refused_button == "sever" and has_ev(ev, "sfx", "button_refuse"), "SEVER without a preview")
+	check(says(ev) == PREVIEW_FIRST and r.refused_button == "sever" and has_ev(ev, "sfx", "button_refuse"), "SEVER never shown")
 	play(g, ["contacts", "bridge_seat"])
-	check(says(g.dispatch("btn_continue")) == PREVIEW_FIRST and r.refused_button == "continue", "CONTINUE without a preview")
+	check(says(g.dispatch("btn_continue")) == PREVIEW_FIRST and r.refused_button == "continue", "CONTINUE never shown")
 	# A preview of the other route doesn't satisfy a button.
 	play(g, ["preview"])
 	check(r.final_preview() == "continue", "CONTINUE previewed")
@@ -1235,8 +1256,10 @@ func test_p27_buttons() -> void:
 	check(says(g.dispatch("btn_continue")) == PREVIEW_FIRST, "the SEVER preview doesn't arm CONTINUE")
 	check(not g.flag("P27") and g.value("ending_choice") == "" and JSON.stringify(g.value("endings_seen")) == seen_before
 		and r.local_view == "c_final" and r.chosen() == "", "nothing changes before a confirm")
-	# Commit SEVER.
-	play(g, ["bridge_seat", "tray", "contacts", "preview"])
+	r.state.previewed = saved_pv
+	# Commit SEVER: the yoke on, no third preview.
+	play(g, ["bridge_seat", "tray", "contacts"])
+	check(r.final_preview() == "", "no c_final preview taken")
 	ev = g.dispatch("btn_sever")
 	check(g.flag("P27") and r.chosen() == "sever" and r.local_view == "ending" and r.ending_step() == 0, "SEVER commits")
 	check(not has_ev(ev, "fx", "tide"), "P27: the tide holds, no card")
@@ -1276,7 +1299,7 @@ func test_endings_sever_and_replay() -> void:
 	var ev := play(g, P27_SEVER)
 	check(r.chosen() == "sever" and not has_ev(ev, "fx", "tide") and g.tide() == 9, "SEVER at tide IX: tide holds 9")
 	var tabs := ["c_sever_wall"]
-	for i in 12:
+	for i in 7:
 		ev = g.dispatch("ending_next")
 		check(g.view == "room" and r.local_view == "ending" and r.ending_step() == i + 1, "SEVER step %d" % (i + 1))
 		var e := fx(ev, "ending")
@@ -1288,12 +1311,12 @@ func test_endings_sever_and_replay() -> void:
 		tabs.append(e.get("tableau"))
 		check(says(g.dispatch("back")) == "" and r.local_view == "ending", "Back does nothing in the ending")
 		check(r.exit_block("R11") == "Not now. I've chosen.", "no leaving after the choice")
-	check(tabs == ["c_sever_wall", "m_funnels", "m_diaphragm", "m_jars", "m_spoon", "m_bed", "m_pen", "b_dark", "a_day",
+	check(tabs == ["c_sever_wall", "m_montage", "b_dark", "a_day",
 		"end_a_record", "end_a_jetty", "end_a_inquiry", "end_a_page"], "the SEVER tableaux (%s)" % [tabs])
 	check(story(ev) == ["The corrected page dries on the sill in ordinary daylight.",
 		"There's a small water stain at its corner. Nothing is reflected in it."], "the last SEVER page")
 	g.dispatch("ending_next")
-	check(g.view == "end" and g.value("ending_choice") == "sever" and "sever" in g.value("endings_seen"), "the 13th next finishes SEVER")
+	check(g.view == "end" and g.value("ending_choice") == "sever" and "sever" in g.value("endings_seen"), "the 8th next finishes SEVER")
 	ev = g.dispatch("return_decision")
 	check(g.view == "room" and g.state.room == ROOM and g.flag("P26") and not g.flag("P27") and g.value("ending_choice") == "",
 		"return to the decision")
@@ -1385,7 +1408,8 @@ func test_ending_saves() -> void:
 		"no leaving after a load either")
 	check(q.exit_block("R11") == "Not now. I've chosen.", "the stair stays shut after a load")
 	ev = t.dispatch("chair")
-	check(q.local_view == "ending" and q.ending_step() == 5 and story(ev) == ["In the bunk room the hollows in the mattresses rise, one by one, until the beds are only made."],
+	check(q.local_view == "ending" and q.ending_step() == 5 and story(ev) == ["At the jetty, on the morning water, a launch. Two stripes on its pennant.",
+		"Through its cabin window, its own cabin. Empty. Real."],
 		"a hotspot resumes at step 5 (%s)" % [story(ev)])
 	check(fx(ev, "ending").get("step") == 5 and JSON.stringify(t.to_dict()) == before, "resume changes nothing")
 	ev = t.dispatch("ending_next")
@@ -1427,15 +1451,34 @@ func test_ending_reload() -> void:
 
 ## The sounds and silences the endings are timed to.
 func test_ending_timings() -> void:
-	var funnels: Dictionary = R12Sim.ENDING_SEVER[1]
-	check(funnels.sfx == [["funnel_stop", 0.4], ["throat", 3.6]], "the throat clears at 3.6 s (%s)" % [funnels.sfx])
+	var montage: Dictionary = R12Sim.ENDING_SEVER[1]
+	check(montage.tableau == "m_montage" and montage.lines == [[0.0, "The funnels stop. The diaphragm doesn't take another. The jars go level. The spoon settles. The beds are only made. The pen lifts."]],
+		"SEVER's montage: the six captions are one typed line, verbatim")
+	check(R12Sim.MONTAGE_TABS == ["m_funnels", "m_diaphragm", "m_jars", "m_spoon", "m_bed", "m_pen"]
+		and montage.settles.size() == 6, "the montage's six rooms, each with its settle")
+	check(montage.breath == [{"seconds": 2.0, "delay": 6.4}], "then 2 s held before the terminal page")
+	check(R12Sim.ENDING_SEVER.size() == 8 and R12Sim.ENDING_SEVER[2].tableau == "b_dark"
+		and R12Sim.ENDING_SEVER[6].tableau == "end_a_inquiry", "the terminal page next; the inquiry page as it was")
+	# each vignette settles on its own event: a settle_N fx with its sound, at the same moment
+	var mg := _jumped(5)
+	var mev := mg.dispatch("ending_next")
+	var sounds := sfx_list(mev)
+	for i in 6:
+		var e := fx(mev, "settle_%d" % (i + 1))
+		var want: Array = montage.settles[i]
+		check(not e.is_empty() and _d(e.get("delay", -1.0)) == _d(want[1]) and e.get("tableau") == R12Sim.MONTAGE_TABS[i]
+			and sounds.has([want[0], _d(want[1])]), "vignette %d settles on settle_%d with %s at %s (%s)" % [i + 1, i + 1, want[0], want[1], e])
+		if i > 0:
+			check(want[1] > montage.settles[i - 1][1], "vignette %d settles after vignette %d" % [i + 1, i])
 	var morning: Dictionary = R12Sim.ENDING_CONTINUE[7]
 	check(morning.tableau == "a_morning" and morning.lines == [[0.0, "Morning reaches the windows."]],
 		"the morning page: only 'Morning reaches the windows.'")
 	var wide: Dictionary = R12Sim.ENDING_CONTINUE[8]
 	check(wide.tableau == "end_b_wide" and wide.lines == [[0.0, "The station does not go back to the shore."],
-		[2.8, "Out to the edge of the water, stations. Every window dark but one."]] and not wide.has("breath"),
-		"the wide page keeps its first two lines, no held breath")
+		[2.8, "Out to the edge of the water, stations. Every window dark but one."], [5.4, "It is looking at the one."]],
+		"the wide page keeps its two lines and adds one beat after them")
+	check(wide.breath == [{"seconds": 2.0, "delay": 5.4, "line": "It is looking at the one."}],
+		"the chamber holds its breath on 'It is looking at the one.', from its start")
 	var kettle: Dictionary = R12Sim.ENDING_CONTINUE[9]
 	check(kettle.tableau == "m_kettle" and kettle.lines == [[0.0, "The kitchen. Someone has put the kettle on."]]
 		and kettle.breath == [{"seconds": 3.0, "delay": 0.0}], "the kettle page after it: its line and its held breath")
@@ -1446,7 +1489,7 @@ func test_ending_timings() -> void:
 	for st in R12Sim.ENDING_CONTINUE:
 		for l in st.lines:
 			check(not "Far out in the dark" in l[1] and not "more windows than I can count" in l[1], "the old wide lines are gone")
-	check(R12Sim.end_still("continue") == "res://assets/stages/R12/end_b_card.png"
+	check(R12Sim.end_still("continue") == "res://assets/stages/R12/end_b_wide_4.png"
 		and R12Sim.end_still("sever") == "res://assets/stages/R12/end_a_card.png", "the end stills")
 	for still in [R12Sim.end_still("continue"), R12Sim.end_still("sever")]:
 		var tex: Texture2D = load(still)
@@ -1677,7 +1720,7 @@ func test_debug_jumps() -> void:
 		check(g.has_item(BRIDGE) == (not seated), "%s: the bridge is in hand or seated" % tag)
 		check(r.final_preview() == ("sever" if n in [3] else ("continue" if n in [4] else ("sever" if yoke_on else ("continue" if seated else "")))), "%s: preview" % tag)
 		check(r.chosen() == ({5: "sever", 7: "sever", 6: "continue", 8: "continue"}.get(n, "")), "%s: chosen" % tag)
-		check(r.ending_step() == ({7: 12, 8: 10}.get(n, 0)), "%s: ending step" % tag)
+		check(r.ending_step() == ({7: 7, 8: 10}.get(n, 0)), "%s: ending step" % tag)
 		check(r.local_view == ("ending" if n >= 5 else "room"), "%s: view" % tag)
 		var t := roundtrip(g)
 		check(JSON.stringify(t.to_dict()) == JSON.stringify(g.to_dict()), "%s: round-trips byte-identical" % tag)
@@ -1729,11 +1772,11 @@ func test_chain_actions() -> void:
 	var snap := JSON.stringify(g.checkpoint)
 	play(g, P27_SEVER)
 	check(g.flag("P27") and r.chosen() == "sever", "chain: P27 SEVER")
-	check(R12Sim.ENDING_SEVER.size() == 13 and R12Sim.ENDING_CONTINUE.size() == 11, "13 SEVER pages, 11 CONTINUE pages")
-	for i in 13:
+	check(R12Sim.ENDING_SEVER.size() == 8 and R12Sim.ENDING_CONTINUE.size() == 11, "8 SEVER pages, 11 CONTINUE pages")
+	for i in 8:
 		check(g.view == "room", "chain: SEVER step %d before the end" % i)
 		g.dispatch("ending_next")
-	check(g.view == "end" and g.value("ending_choice") == "sever", "chain: the 13th next finishes")
+	check(g.view == "end" and g.value("ending_choice") == "sever", "chain: the 8th next finishes")
 	g.dispatch("return_decision")
 	check(JSON.stringify(g.to_dict()) == snap or g.flag("P26"), "chain: back at the checkpoint")
 	play(g, P27_CONTINUE)
@@ -1743,16 +1786,16 @@ func test_chain_actions() -> void:
 	check(g.view == "end" and g.value("ending_choice") == "continue", "chain: the 11th next finishes")
 
 	check(sorted(g.value("endings_seen")) == ["continue", "sever"], "chain: both endings seen")
-	# The glance path: the core puts the close-up down with back until the room; the chain still works.
+	# From the room: the close-up put down with back until the room; the chain still works.
 	var h := game_at(9, ROOM)
 	play(h, P25_ACTIONS)
 	play(h, P26_ACTIONS)
 	for i in 4:
 		if r12(h).local_view != "room":
 			h.dispatch("back")
-	check(r12(h).local_view == "room", "after the glance the room is up")
-	play(h, P27_SEVER)
-	check(h.flag("P27") and r12(h).chosen() == "sever", "P27 from the room after the glance")
+	check(r12(h).local_view == "room", "the room is up")
+	play(h, ["to_routing"] + P27_SEVER.slice(1))
+	check(h.flag("P27") and r12(h).chosen() == "sever", "P27 from the room")
 
 # ---------------------------------------------------------------------------------------------
 # the view (game/rooms/R12/R12_view.gd) on the real game scene
@@ -1899,10 +1942,10 @@ func test_view_endings() -> void:
 func test_view_surface() -> void:
 	var view_script: Dictionary = load("res://game/rooms/R12/R12_view.gd").get_script_constant_map()
 	check(view_script.HOTSPOTS[1] == ["window", Rect2(474, 96, 500, 290), "Window"], "the window hotspot is unchanged")
-	check(ResourceLoader.exists("res://assets/rooms/R12/a_surface_wide.png")
-		and ResourceLoader.exists("res://assets/rooms/R12/a_surface_eye_r3.png")
-		and ResourceLoader.exists("res://assets/rooms/R12/a_pupil_r3.png")
-		and ResourceLoader.exists("res://assets/stages/R12/end_b_wide_3.png"), "the plates exist")
+	for f in ["a_glass_r4", "eye_iris_r4", "eye_pupil_r4", "eye_iris_r4_s", "eye_pupil_r4_s", "c_final_r4", "c_routing_window_r4"]:
+		check(ResourceLoader.exists("res://assets/rooms/R12/%s.png" % f), "%s exists" % f)
+	for f in ["continue_morning", "end_b_wide_4"]:
+		check(ResourceLoader.exists("res://assets/stages/R12/%s.png" % f), "stages/%s exists" % f)
 	var scene = await _scene_at(0, [])
 	var view = scene.room_view
 	var g: Rect2 = view_script.GLASS_IN
@@ -1911,26 +1954,35 @@ func test_view_surface() -> void:
 		for k in 5:
 			scene.time = 40.0 + 7.0 * k
 			check(view.blink_k() == 0.0 and is_equal_approx(view.lid_bottom(), g.position.y), "no blink, no lid (motion %s, t %d)" % [m, k])
-	var eye: Texture2D = load("res://assets/rooms/R12/a_surface_eye_r3.png")
-	# wide and tall enough that, at any look and x1.15, it still covers the whole water
-	for look in R12Sim.PUPIL_OFFSET:
-		var o: Array = R12Sim.PUPIL_OFFSET[look]
-		for sc in [1.0, 1.15]:
-			var size: Vector2 = eye.get_size() * sc
-			var rect := Rect2(view_script.EYE_C + Vector2(o[0], o[1]) - size / 2.0, size)
-			check(rect.encloses(g), "the eye covers the water looking at %s, x%s" % [look, sc])
-	var pupil: Texture2D = load("res://assets/rooms/R12/a_pupil_r3.png")
-	check(absf(pupil.get_size().x - 272.0) < 1.0 and absf(pupil.get_size().y - 82.0) < 1.0, "the slit pupil: 260 x 70 and its rim")
-	check(is_equal_approx(view.water_y(), 382.0), "s0: the water line low in the window")
-	check(is_equal_approx(view.eye_scale(), 1.0), "s0: the eye at its size")
+	# the iris: its sprite is the iris and its pad; it never moves, and at every stage it is whole
+	# in the water, clear of what hangs in front of the glass and above the water line
+	var iris: Texture2D = load("res://assets/rooms/R12/eye_iris_r4.png")
+	check(is_equal_approx(iris.get_size().x, 2.0 * (view_script.IRIS_R + view_script.EYE_PAD)), "the iris sprite: radius 120 and its pad")
+	var pupil: Texture2D = load("res://assets/rooms/R12/eye_pupil_r4.png")
+	check(absf(pupil.get_size().y - (view_script.PUPIL_H + 2.0 * view_script.EYE_PAD)) < 1.0, "the pupil sprite: 128 tall and its pad")
 	await free_scene(scene)
+	for n in 3:
+		var sn = await _scene_at(n, [])
+		var v = sn.room_view
+		var ir: Rect2 = v.iris_rect()
+		check(g.encloses(ir), "stage %d: the iris is whole in the water (%s)" % [n, ir])
+		check(ir.end.y < v.water_y(), "stage %d: the water line never crosses the iris (%s < %s)" % [n, ir.end.y, v.water_y()])
+		for hole in view_script.GLASS_HOLES:
+			check(not ir.intersects(hole), "stage %d: nothing hanging in front of the glass crosses the iris (%s)" % [n, hole])
+		for look in R12Sim.PUPIL_OFFSET:
+			var o: Array = R12Sim.PUPIL_OFFSET[look]
+			v.gaze_at = Vector2(o[0], o[1])
+			check(v.eye_centre() == view_script.EYE_C, "stage %d, %s: the iris stays put" % [n, look])
+			var pc: Vector2 = v.pupil_centre()
+			var half: float = view_script.PUPIL_H * v.eye_scale() / 2.0
+			check(ir.has_point(pc + Vector2(0, half - 1.0)) and ir.has_point(pc - Vector2(0, half - 1.0)),
+				"stage %d, %s: the pupil stays inside the iris" % [n, look])
+		await free_scene(sn)
 	var s1 = await _scene_at(1, [])
-	check(is_equal_approx(s1.room_view.water_y(), 302.0), "after P25: the water line 80 px higher")
-	check(is_equal_approx(s1.room_view.eye_scale(), 1.0), "after P25: the eye not yet closer")
+	check(is_equal_approx(s1.room_view.water_y(), 362.0), "after P25: the water line 20 px higher")
 	await free_scene(s1)
 	var s2 = await _scene_at(2, [])
-	check(is_equal_approx(s2.room_view.water_y(), 302.0) and is_equal_approx(s2.room_view.eye_scale(), 1.15),
-		"after P26: the eye x1.15")
+	check(is_equal_approx(s2.room_view.eye_scale(), 1.06), "after P26: the eye a little closer")
 	await free_scene(s2)
 
 ## The SEVER line-outs end in true silence; the wide CONTINUE page ducks its gap; the bed levels;
@@ -2074,6 +2126,12 @@ func test_view_caption_desync() -> void:
 		scene.cur_story = false
 		scene.time += 1.0
 		view.tick(0.0)
+		# SEVER's montage also waits for its six settles and its held breath
+		var mg := 0
+		while view.montage_waiting() and mg < 200:
+			check(view.action_at(Vector2(724, 543)) == "", "ending %d: the montage holds until it has settled and breathed" % n)
+			scene._process(0.1)
+			mg += 1
 		check(view.page_finished() and view.action_at(Vector2(724, 543)) == "ending_next", "ending %d: the finished page turns on a click" % n)
 		scene.click(Vector2(724, 543))
 		check(r.ending_step() == step + 1, "ending %d: and the click turns it" % n)
@@ -2086,31 +2144,31 @@ func test_view_eye() -> void:
 	for n in [0, 1, 2, 4]:
 		var scene = await _scene_at(n, [])
 		var want: Vector2 = scene.sim.room(ROOM).pupil_offset()
-		check(want == (Vector2(-150, 12) if n == 1 else (Vector2(95, 40) if n >= 2 else want)), "jump %d: the sim's look" % n)
+		check(want == (Vector2(-30, 22) if n == 1 else (Vector2(36, 10) if n >= 2 else want)), "jump %d: the sim's look" % n)
 		check(scene.room_view.gaze_at == want, "jump %d: the eye snapped to %s (%s)" % [n, want, scene.room_view.gaze_at])
 		await free_scene(scene)
 	# a preview turns it: 0.8 s eased in and out with Motion, at once without
 	var sc = await _scene_at(1, ["to_routing", "plate_sever"] + PATCH_SEVER)
 	var v = sc.room_view
 	sc.sim.settings.motion = true
-	check(v.gaze_at == Vector2(-150, 12), "P25: on the chair")
+	check(v.gaze_at == Vector2(-30, 22), "P25: on the chair")
 	sc.dispatch("preview_sever")
-	check(v.look_running() and v.gaze_at == Vector2(-150, 12), "the preview: the eye starts to turn")
+	check(v.look_running() and v.gaze_at == Vector2(-30, 22), "the preview: the pupil starts to turn")
 	var tl: float = sc.time
 	sc.time = tl + 0.4
 	v.tick(0.0)
-	check(v.gaze_at.x > -60.0 and v.gaze_at.x < 0.0, "half way at 0.4 s (%s)" % [v.gaze_at])
+	check(v.gaze_at.x > -10.0 and v.gaze_at.x < 16.0, "half way at 0.4 s (%s)" % [v.gaze_at])
 	sc.time = tl + 0.1
 	v.tick(0.0)
-	check(v.gaze_at.x < -130.0, "eased: slow out of the chair (%s)" % [v.gaze_at])
+	check(v.gaze_at.x < -25.0, "eased: slow out of the chair (%s)" % [v.gaze_at])
 	sc.time = tl + 0.81
 	v.tick(0.0)
-	check(v.gaze_at == Vector2(95, 40) and not v.look_running(), "and on the routing wall at 0.8 s")
+	check(v.gaze_at == Vector2(36, 10) and not v.look_running(), "and on the routing wall at 0.8 s")
 	await free_scene(sc)
 	var so = await _scene_at(1, ["to_routing", "plate_sever"] + PATCH_CONTINUE)
 	so.sim.settings.motion = false
 	so.dispatch("preview_continue")
-	check(so.room_view.gaze_at == Vector2(95, 40) and not so.room_view.look_running(), "Motion off: it is simply where it looks")
+	check(so.room_view.gaze_at == Vector2(36, 10) and not so.room_view.look_running(), "Motion off: it is simply where it looks")
 	await free_scene(so)
 	# arrival: it stays where it was until its line goes up, then turns to the door
 	var sa = new_scene("user://r12_view_test.json")
@@ -2123,7 +2181,7 @@ func test_view_eye() -> void:
 	check(va.gaze_at == Vector2.ZERO and va.look_waits.size() == 1, "arrival: centred, the turn waits for its line")
 	sa.cur_text = EYE_DOOR
 	va.tick(0.0)
-	check(va.gaze_at == Vector2(0, 40), "the line up: on the door")
+	check(va.gaze_at == Vector2(-22, 30), "the line up: on the door")
 	await free_scene(sa)
 	# the arrival blink
 	for m in [true, false]:
@@ -2154,76 +2212,122 @@ func test_view_eye() -> void:
 		check(view.blink_k() == 0.0 and not view.breath_held(), "motion %s: open again, breath back" % m)
 		await free_scene(scene)
 
-## P26's previews in the window: shown on the window glance, the SEVER lamps going out one by
-## one then the bowls, the CONTINUE feed moving to A.M. and the oilskin coming up; then gone.
+## P26's previews stay in the close-up: no glance, and the window above the panel shows them.
+## Its eye leans one step toward the plate each seated cord feeds (the sim's patch_lean()); a
+## completed SEVER preview closes it to a slit, a completed CONTINUE preview opens it wide; a
+## cord moved and it looks again. Eased with Motion, at once without. The surface draws back
+## when she next stands in the room.
 func test_view_window_preview() -> void:
-	for route in ["sever", "continue"]:
-		var scene = await _scene_at(1, ["to_routing", "plate_sever"] + (PATCH_SEVER if route == "sever" else PATCH_CONTINUE)
-			+ ["preview_" + route])
+	var vs: Dictionary = load("res://game/rooms/R12/R12_view.gd").get_script_constant_map()
+	# the window sits between the plates, above the panel, clear of every control
+	for h in vs.ROUTING_CONTROLS:
+		check(not vs.ROUTE_WIN.intersects(h[1]), "the routing window clear of %s" % h[0])
+	check(vs.ROUTE_WIN.end.y < 612.0, "the window above the patch panel")
+	for m in [false, true]:
+		var scene = await _scene_at(1, ["to_routing", "plate_sever"])
+		scene.sim.settings.motion = m
 		var view = scene.room_view
-		check(view.win_route == route and view.window_preview_a() == 0.0, "%s: waiting for the glance" % route)
-		check(scene.pending_glance.get("target") == "window_" + route, "%s: the glance is pending" % route)
-		check(not view.start_glance("window_" + route, Rect2(474, 96, 500, 290)), "%s: not from the close-up" % route)
+		var r: R12Sim = scene.sim.room(ROOM)
+		var settle := func() -> void:
+			for i in 40:
+				scene.time += 0.1
+				view.tick(0.1)
+		settle.call()
+		check(r.patch_lean() == 0 and view.strip_look.x == 0.0, "motion %s: every cord home, the eye straight" % m)
+		var want := 0
+		for a in PATCH_SEVER:
+			scene.dispatch(a)
+			want -= 1
+			settle.call()
+			check(r.patch_lean() == want and is_equal_approx(view.strip_look.x, want * vs.ROUTE_STEP),
+				"motion %s: %s: the pupil a step toward SEVER (%s)" % [m, a, view.strip_look])
+		scene.lines.clear()
+		scene.cur_text = ""
+		scene.cur_story = false
+		scene.dispatch("preview_sever")
+		check(r.local_view == "c_routing" and scene.pending_glance.is_empty(), "motion %s: the SEVER preview stays in the close-up" % m)
+		for i in 120:
+			scene.time += 0.1
+			view.tick(0.1)
+		check(view.strip_mood == "sever" and is_equal_approx(view.strip_open, vs.ROUTE_OPEN_SLIT),
+			"motion %s: the completed SEVER preview closes the eye to a slit (%s)" % [m, view.strip_open])
+		scene.dispatch("patch:ev:am")
+		settle.call()
+		check(view.strip_mood == "" and is_equal_approx(view.strip_open, vs.ROUTE_OPEN_REST)
+			and r.patch_lean() == -1, "motion %s: a cord moved: it opens and looks again (%s)" % [m, r.patch_lean()])
+		scene.dispatch("patch:am:terminal")
+		settle.call()
+		check(r.patch_lean() == 0, "motion %s: E.V. and A.M. lean it back toward CONTINUE" % m)
+		scene.lines.clear()
+		scene.cur_text = ""
+		scene.cur_story = false
+		scene.dispatch("preview_continue")
+		check(r.local_view == "c_routing" and scene.pending_glance.is_empty() and scene.sim.flag("P26"),
+			"motion %s: P26 in the close-up, no glance" % m)
+		for i in 120:
+			scene.time += 0.1
+			view.tick(0.1)
+		check(view.strip_mood == "continue" and is_equal_approx(view.strip_open, vs.ROUTE_OPEN_WIDE)
+			and is_equal_approx(view.strip_wk, vs.ROUTE_WK_WIDE), "motion %s: the completed CONTINUE preview opens it wide" % m)
+		# the surface draws back when she is next in the room
+		check(view.withdraw_pending, "motion %s: P26: the surface waits for the room" % m)
+		scene.lines.clear()
+		scene.cur_text = ""
+		scene.cur_story = false
 		for i in 2:
 			scene.dispatch("back")
-		check(scene.sim.room(ROOM).local_view == "room" and view.start_glance("window_" + route, Rect2(474, 96, 500, 290)),
-			"%s: the room shows the glance itself" % route)
-		scene.sim.settings.motion = true
-		var t0: float = scene.time
-		scene.time = t0 + 1.0
-		check(view.window_preview_a() > 0.99, "%s: up in the window" % route)
-		if route == "sever":
-			check(view.pupil_lamps() == [true, true], "sever: two lamps lit in the pupil")
-			scene.time = t0 + 1.2
-			check(view.window_lamps_out() == 1, "sever: the first portrait lamp out (%d)" % view.window_lamps_out())
-			scene.time = t0 + 3.0
-			check(view.pupil_lamps() == [false, true], "sever: one pupil lamp out (%s)" % [view.pupil_lamps()])
-			scene.time = t0 + 4.5
-			check(view.window_lamps_out() == 8, "sever: all eight out")
-			check(view.pupil_lamps() == [false, false], "sever: both pupil lamps out")
-		else:
-			check(view.window_feed()[0] == 0.0, "continue: the feed at E.V.")
-			check(view.pupil_lamps() == [true, true], "continue: his lamp and the kitchen's in the pupil")
-			scene.time = t0 + 4.6
-			check(view.window_feed() == [1.0, 1.0], "continue: the feed at A.M., the oilskin up")
-			check(view.pupil_lamps() == [false, true], "continue: his out, the kitchen's lit")
-		scene.time = t0 + 9.0
 		view.tick(0.0)
-		check(view.win_route == "" and view.window_preview_a() == 0.0, "%s: gone again" % route)
-		scene.sim.settings.motion = false
-		view.win_route = route
-		view.win_t0 = scene.time
-		scene.time += 4.0
-		check(view.window_preview_a() == 1.0 and (view.window_lamps_out() == 8 if route == "sever" else view.window_feed() == [1.0, 1.0]),
-			"%s: Motion off, the still state" % route)
+		check(r.local_view == "room" and not view.withdraw_pending and view.withdraw_t0 >= 0.0, "motion %s: in the room it draws back" % m)
 		await free_scene(scene)
-	# the completing preview also draws the surface back
-	var sc = await _scene_at(1, ["to_routing", "plate_sever"] + PATCH_SEVER + ["preview_sever"] + PATCH_CONTINUE
-		+ ["preview_continue"])
+	# the sim's lean: -3 (all SEVER) .. 2 (all CONTINUE), from the patch alone
+	var g := _routing_game()
+	play(g, PATCH_SEVER)
+	check(r12(g).patch_lean() == -3, "the SEVER patch leans three steps")
+	play(g, PATCH_CONTINUE)
+	check(r12(g).patch_lean() == 0, "E.V. moved to A.M., A.M. to TERMINAL: two back")
+	play(g, ["patch:feed_a:home", "patch:feed_b:home"])
+	check(r12(g).patch_lean() == 2, "the CONTINUE patch alone leans two")
+	play(g, ["patch:feed_a:terminal"])
+	check(r12(g).patch_lean() == 2, "a cord in a socket neither route uses doesn't lean it")
 
-	var v = sc.room_view
-	check(v.withdraw_pending, "P26: the surface waits for the glance to draw back")
-	for i in 2:
-		sc.dispatch("back")
-	v.start_glance("window_continue", Rect2(474, 96, 500, 290))
-	check(not v.withdraw_pending and v.withdraw_t0 >= 0.0 and v.win_route == "continue", "the glance: the preview and the withdrawal")
-	await free_scene(sc)
-
-## A held breath keyed to a sound starts `lead` s before it (the SEVER throat).
+## SEVER's montage: each vignette settles only on its own settle fx; the page holds (no 'Go on')
+## until all six have settled and the chamber has held its breath 2 s; then the terminal page.
 func test_view_hold_breath() -> void:
 	var scene = await _scene_at(5, [])
 	var view = scene.room_view
+	var vs: Dictionary = view.get_script().get_script_constant_map()
+	for i in 6:
+		check(vs.TIMED_FX.has("settle_%d" % (i + 1)), "settle_%d is held to its moment" % (i + 1))
 	scene.dispatch("ending_next")
-	check(view.breath_waits.size() == 1 and not view.breath_held(), "SEVER step 1: a breath waits for the throat")
-	view.on_sfx_pending("throat", 2.0)
-	check(not view.breath_held(), "2 s before the throat: not yet")
-	view.on_sfx_pending("throat", 1.5)
-	check(view.breath_held() and view.breath_waits.is_empty(), "1.5 s before: held")
+	check(view.cur_tab == "m_montage" and view.montage_settled() == 0, "the montage, nothing settled yet")
+	check(view.breath_waits.size() == 1 and not view.breath_held(), "a breath waits for the pen")
+	for k in range(1, 7):
+		view.play_fx("settle_%d" % k, {"delay": 0.0})
+		check(view.montage_settled() == k, "after settle_%d exactly %d settled" % [k, k])
+	check(view.montage_waiting(), "all six settled: still waiting for the held breath")
+	scene.time += 6.5
+	view.tick(0.0)
+	check(view.breath_held() and view.montage_waiting() and not view.captions_done(), "held: the page waits, no 'Go on'")
 	var lt: Dictionary = view.loop_targets()
 	check(lt.r12_hum == 0.0 and lt.r12_pressure_low == 0.0, "held: the chamber silent")
-	scene.time += 1.6
-	check(not view.breath_held(), "and let go after 1.5 s")
+	scene.time += 2.1
+	view.tick(0.0)
+	check(not view.breath_held() and not view.montage_waiting(), "and let go after 2 s: the page may turn")
 	await free_scene(scene)
+	# in real time: the six settle in order, each on its own event, then the terminal page
+	var rt = await _scene_at(5, [])
+	rt.dispatch("ending_next")
+	var rv = rt.room_view
+	var seen := []
+	for i in 400:
+		rt._process(0.05)
+		if seen.size() < rv.montage_settled():
+			seen.append(rv.montage_settled())
+		if rv.cont_visible():
+			break
+	check(seen == [1, 2, 3, 4, 5, 6], "in real time the six settle one at a time (%s)" % [seen])
+	check(rv.cont_visible() and not rv.breath_held(), "then, after the silence, 'Go on'")
+	await free_scene(rt)
 
 ## Legibility: the countersign plaque and the c_frames strip print every word of the strip in
 ## full (14 px floor, wrapped, never cut); card faces are at least 18 px.
@@ -2339,21 +2443,52 @@ func test_view_final() -> void:
 			check(h[1] == Rect2(o.position + Vector2(0, 120), o.size), "%s: the old rect shifted 120 px down (%s)" % [h[0], h[1]])
 	check(ids == R12Sim.FINAL_CONTROLS, "the c_final controls, in the sim's order")
 	check(vs.FINAL_STRIP == Rect2(0, 0, 1448, 300), "the eye's strip")
-	check(ResourceLoader.exists("res://assets/rooms/R12/c_final_r2.png"), "the r2 plate exists")
+	check(ResourceLoader.exists("res://assets/rooms/R12/c_final_r4.png"), "the r4 plate (lever plates) exists")
+	check(vs.BTN_TEXT == {"sever": "SEVER", "continue": "CONTINUE"}
+		and vs.BTN_CAPTION == {"sever": "The station is let go.", "continue": "The station is kept."}, "the plates' words and captions")
+	# the whole eye in the upper third, above the panels: nothing crosses it
+	var iris_r: float = vs.IRIS_R * vs.FINAL_EYE_SCALE
+	var panels_top: float = 140.0 + vs.FINAL_DY - 3.0
+	check(vs.FINAL_EYE_C.y - iris_r >= 0.0 and vs.FINAL_EYE_C.y + iris_r <= minf(1086.0 / 3.0, panels_top),
+		"the iris whole in the upper third, above the panels (%s, r %s)" % [vs.FINAL_EYE_C, iris_r])
 	var scene = await _scene_at(2, ["to_routing", "contacts"])
 	var view = scene.room_view
+	check(view.label_for("btn_sever") == "SEVER" and view.label_for("btn_continue") == "CONTINUE", "the hover labels")
 	scene.time += 1.0
 	view.tick(0.0)
-	check(scene.sim.room(ROOM).gaze() == "final" and view.gaze_at == Vector2(0, 60) or view.look_running(),
+	check(scene.sim.room(ROOM).gaze() == "final" and view.gaze_at == Vector2(0, 34) or view.look_running(),
 		"in c_final the eye turns down to the switches")
 	scene.time += 1.0
-	view.tick(0.0)
-	check(view.gaze_at == Vector2(0, 60), "and is there (%s)" % [view.gaze_at])
-	check(vs.FINAL_STRIP.has_point(view.final_pupil_centre()), "the pupil inside the strip (%s)" % [view.final_pupil_centre()])
+	view.tick(1.0)
+	check(view.gaze_at == Vector2(0, 34) and view.final_gaze.distance_to(Vector2(0, 34)) < 0.5, "and is there (%s)" % [view.final_gaze])
+	# a hovered lever: the pupil follows it (snapped with Motion off, eased with it); presentation only
+	var before := JSON.stringify(scene.sim.to_dict())
+	for m in [false, true]:
+		scene.sim.settings.motion = m
+		for lever in ["btn_sever", "btn_continue"]:
+			scene.hover_id = lever
+			view.tick(0.05)
+			if m:
+				check(view.final_gaze != vs.LEVER_LOOK[lever] and view.final_gaze.distance_to(vs.LEVER_LOOK[lever]) < 60.0,
+					"motion on: easing toward %s (%s)" % [lever, view.final_gaze])
+				for i in 30:
+					view.tick(0.05)
+			check(view.final_gaze.distance_to(vs.LEVER_LOOK[lever]) < 0.5, "motion %s: the pupil on %s (%s)" % [m, lever, view.final_gaze])
+			var pc: Vector2 = view.final_pupil_centre()
+			var half: float = vs.PUPIL_H * vs.FINAL_EYE_SCALE / 2.0
+			check(pc.y + half < panels_top and pc.distance_to(vs.FINAL_EYE_C) + 0.38 * half < iris_r,
+				"motion %s, %s: the pupil inside the iris, nothing across it" % [m, lever])
+		scene.hover_id = ""
+		for i in 40:
+			view.tick(0.05)
+		check(view.final_gaze.distance_to(Vector2(0, 34)) < 0.5, "motion %s: unhovered, back to the switches" % m)
+	check(JSON.stringify(scene.sim.to_dict()) == before and scene.sim.room(ROOM).gaze() == "final", "the hover changes nothing in the sim")
 	for route in R12Sim.ROUTES:
 		var band: Rect2 = view.knife_band(route)
+		var cap: Rect2 = view.caption_band(route)
 		var btn: Rect2 = view.control_rect("btn_" + route)
-		check(btn.encloses(band), "%s: its lettering band on its switch plate" % route)
+		check(btn.encloses(band) and btn.encloses(cap) and cap.position.y >= band.end.y - 2.0,
+			"%s: its word and, under it, its caption on its plate" % route)
 	await free_scene(scene)
 
 ## SEVER's first page: the frames wall, eight indicators each over 120 px across, every one on
@@ -2421,7 +2556,23 @@ func test_view_morning() -> void:
 		check(is_equal_approx(view.morning_k(), 0.5) if m else is_equal_approx(view.morning_k(), 1.0),
 			"motion %s: half way at 1 s / there at once (%s)" % [m, view.morning_k()])
 		check(vs_morning() == 0.25, "the wash is paper at 0.25")
+		# the morning plate comes in on 'Morning reaches the windows.', not before
+		view.morning_t0 = -1.0
+		view.page_spoke = false
+		scene.cur_text = ""
+		view.tick(0.0)
+		check(view.morning_swap_k() == 0.0, "motion %s: before the line, no morning plate" % m)
+		scene.cur_text = "Morning reaches the windows."
+		view.tick(0.0)
+		var ts: float = scene.time
+		check(view.morning_t0 >= 0.0, "motion %s: the line up starts the morning plate" % m)
+		scene.time = ts + 0.6
+		check((view.morning_swap_k() > 0.0 and view.morning_swap_k() < 1.0) if m else view.morning_swap_k() == 1.0,
+			"motion %s: coming in / there at once (%s)" % [m, view.morning_swap_k()])
+		scene.time = ts + 1.3
+		check(view.morning_swap_k() == 1.0, "motion %s: the morning plate up" % m)
 		await free_scene(scene)
+	check(ResourceLoader.exists("res://assets/stages/R12/continue_morning.png"), "the morning plate exists")
 
 func vs_morning() -> float:
 	return load("res://game/rooms/R12/R12_view.gd").get_script_constant_map().MORNING_WASH
@@ -2462,3 +2613,24 @@ func test_view_page_turns() -> void:
 				break
 		check(turned == n, "%s: every page turned by a click on the plate (%d of %d)" % [choice, turned, n])
 		await free_scene(scene)
+
+## Return to final decision after the SEVER end: the view keeps nothing of the ending's pages,
+## so CONTINUE draws nothing from SEVER.
+func test_view_restore() -> void:
+	var scene = await _scene_at(7, [])
+	var view = scene.room_view
+	var r: R12Sim = scene.sim.room(ROOM)
+	check(r.chosen() == "sever" and view.ending_page_id() == "end_a_page", "on SEVER's last page (%s)" % view.ending_page_id())
+	scene.dispatch("ending_next")
+	check(scene.sim.view == "end", "the SEVER end card")
+	scene.dispatch("return_decision")
+	view = scene.room_view
+	view.tick(0.0)
+	check(r.chosen() == "" and scene.sim.flag("P26") and not scene.sim.flag("P27"), "restored to the decision")
+	check(view.ending_page_id() == "" and view.prev_tab == "" and not view.page_spoke and not view.tab_done,
+		"the view's ending page id is empty after the restore (%s)" % view.ending_page_id())
+	for a in ["to_routing", "bridge_seat", "bridge_seat", "btn_continue"]:
+		scene.dispatch(a)
+	check(r.chosen() == "continue" and view.ending_page_id() == "c_continue" and view.prev_tab == "",
+		"CONTINUE starts on its own first page, nothing of SEVER behind it (%s, %s)" % [view.ending_page_id(), view.prev_tab])
+	await free_scene(scene)

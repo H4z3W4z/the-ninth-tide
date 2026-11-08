@@ -9,7 +9,7 @@ extends RoomSim
 ## wall), the close-ups "c_frames" (P25), "c_routing" (P26), "c_final" (P27) and "ending" (the
 ## ending tableaux, stepped by "ending_next"). Every view but "room" is a close-up for the core.
 ##
-## The eye in the window is driven from here too: where it looks (fx "eye_look" when it turns,
+## The eye in the window is driven from here too: where its pupil looks (fx "eye_look" when it turns,
 ## state.eye_look for a load; gaze() reads it), and the two blinks (fx "blink", each once per game,
 ## saved in state.blinks), each with a held breath (fx "hold_breath": the view silences the
 ## chamber for `seconds`).
@@ -120,10 +120,10 @@ const STRIP_DONE := ["NINTH OBSERVER LOCATED.", "AUTOMATIC COUNTERSIGN AVAILABLE
 const FRAMES_READ_ONLY := "It has its record of me. The frames won't open again."
 
 # ---------------------------------------------------------------------------------------------
-# P26: preview both routes. Each preview plays on the routing plate's lamps and then in the
-# window (the glance puts the close-up down): SEVER, the eight portrait lamps and the kitchen's
-# bowls going dark; CONTINUE, the witness feed moving to A.M. and Venn's empty oilskin. Both
-# previewed is P26.
+# P26: preview both routes. Each preview plays on the routing plate's lamps, and the window above
+# the panel shows it too: the close-up stays up (no glance), the eye in the narrow window there
+# follows the patch cords (patch_lean()), closes to a slit after SEVER and opens wide after
+# CONTINUE. Both previewed is P26, and each counts as the preview c_final asks for.
 # ---------------------------------------------------------------------------------------------
 const ROUTES := ["sever", "continue"]
 ## The patch field: each cord's plug rests in its own line ("home") or is patched into a socket.
@@ -147,10 +147,10 @@ const WINDOW_RECT := [474, 96, 500, 290]
 const PREVIEW_LINES := {
 	"sever": [[0.0, "PREVIEW. On the SEVER plate the eight subject lamps go out, one after another."],
 		[3.0, "The witness feed lamp goes out last. The outer-door shutter turns to OPEN."],
-		[5.6, "Then they all light again. It was only showing me. Behind me, the window is showing it too."]],
+		[5.6, "Then they all light again. It was only showing me. Above the panel, the window is showing it too."]],
 	"continue": [[0.0, "PREVIEW. On the CONTINUE plate the eight subject lamps stay lit."],
 		[2.8, "The witness feed slides along its rail, from the terminal marked E.V. to the one marked A.M."],
-		[5.6, "His lamp goes out. Mine comes on. Behind me, the window is showing it too."]],
+		[5.6, "His lamp goes out. Mine comes on. Above the panel, the window is showing it too."]],
 }
 const PREVIEW_AGAIN := {
 	"sever": "The eight go out. The feed goes out. The door opens. Every time.",
@@ -165,13 +165,16 @@ const P26_MOVED := "Behind me, in the window, something moved."
 # ---------------------------------------------------------------------------------------------
 # The eye: where the pupil looks, and the two blinks.
 # ---------------------------------------------------------------------------------------------
-## The eye's offset in the window, px, per look: "centre" before she has come in; "door" on her
-## arrival (the way she came in, below it); "chair" from the P25 commit; "routing" from the first
-## P26 preview (the routing wall, and her terminal on it, low enough to clear the conduit at
-## x ~976); "final" when the final panel opens (down, at the switches). "terminal" is the old name
-## of "routing", still accepted from a save.
-const PUPIL_OFFSET := {"centre": [0, 0], "door": [0, 40], "chair": [-150, 12], "routing": [95, 40],
-	"final": [0, 60]}
+## The pupil's offset in the iris, px, per look (the iris itself stays put, so nothing in the
+## room ever crosses it): "centre" before she has come in; "door" on her arrival (the way she came
+## in, down and left); "chair" from the P25 commit (down and left, at the chair); "routing" from
+## the first P26 preview (right, the routing wall); "final" when the final panel opens (down, at
+## her hands on the switches). Every turned look moves the pupil PUPIL_MIN..PUPIL_MAX px.
+## "terminal" is the old name of "routing", still accepted from a save.
+const PUPIL_OFFSET := {"centre": [0, 0], "door": [-22, 30], "chair": [-30, 22], "routing": [36, 10],
+	"final": [0, 34]}
+const PUPIL_MIN := 24.0
+const PUPIL_MAX := 40.0
 const LOOK_ORDER := ["centre", "door", "chair", "routing", "final"]
 const LOOK_ALIASES := {"terminal": "routing"}
 const EYE_DOOR_LINE := "The eye in the window isn't on the instrument. It's on the door I came in by."
@@ -193,6 +196,15 @@ const SIGN_BREATH := 2.5
 ## SEVER's first page is the frames wall (c_sever_wall): each line_out_N (a sound, and a timed fx
 ## at the same moment) puts out indicator N.
 const SEVER_LAST_LINE := "Eight names on brass. Nothing behind any of them now."
+## SEVER's montage: the six rooms in a 3 x 2 grid, in this order; each settles on its fx
+## settle_<i + 1> with its sound, [sound, delay].
+const MONTAGE := "m_montage"
+const MONTAGE_TABS := ["m_funnels", "m_diaphragm", "m_jars", "m_spoon", "m_bed", "m_pen"]
+const MONTAGE_SETTLES := [["funnel_stop", 0.6], ["breath_stop", 1.6], ["jar_level", 2.6], ["spoon_settle", 3.6],
+	["mattress_rise", 4.6], ["pen_lift", 5.6]]
+const MONTAGE_LINE := "The funnels stop. The diaphragm doesn't take another. The jars go level. The spoon settles. The beds are only made. The pen lifts."
+const MONTAGE_BREATH := 2.0
+const MONTAGE_BREATH_AT := 6.4
 const ENDING_SEVER := [
 	{"tableau": "c_sever_wall", "lines": [
 		[0.0, "I pull the handle. It is heavier than it looks, and then it isn't."],
@@ -203,29 +215,13 @@ const ENDING_SEVER := [
 		["line_out_4", 6.3], ["line_out_5", 8.0], ["line_out_6", 10.1], ["line_out_7", 12.6],
 		["line_out_8", 16.2]],
 	"change": ""},
-	{"tableau": "m_funnels", "lines": [
-		[0.0, "In the listening room the funnels stop hissing."],
-		[2.6, "In the quiet, for a moment, someone clears their throat."]],
-	"sfx": [["funnel_stop", 0.4], ["throat", 3.6]], "change": "funnel_stop",
-	# the room holds its breath 1.5 s before someone clears their throat in it
-	"breath": [{"seconds": 1.5, "delay": 2.1, "sfx": "throat", "lead": 1.5}]},
-	{"tableau": "m_diaphragm", "lines": [
-		[0.0, "In the machine room the diaphragm lets out its last breath against the bolts."],
-		[2.8, "It doesn't take another."]],
-	"sfx": [["breath_stop", 0.4]], "change": "breath_stop"},
-	{"tableau": "m_jars", "lines": [
-		[0.0, "In the laboratory the water in every jar goes level."]],
-	"sfx": [["jar_level", 0.3]], "change": "jar_level"},
-	{"tableau": "m_spoon", "lines": [
-		[0.0, "In the kitchen, his spoon settles into its dent."],
-		[2.4, "Nora's towel is just a towel."]],
-	"sfx": [["spoon_settle", 0.6]], "change": "spoon_settle"},
-	{"tableau": "m_bed", "lines": [
-		[0.0, "In the bunk room the hollows in the mattresses rise, one by one, until the beds are only made."]],
-	"sfx": [["mattress_rise", 0.4], ["mattress_rise", 1.4], ["mattress_rise", 2.4]], "change": "mattress_rise"},
-	{"tableau": "m_pen", "lines": [
-		[0.0, "In the chart room the pen lifts off the drum, and stays lifted."]],
-	"sfx": [["pen_lift", 0.5]], "change": "pen_lift"},
+	# the six rooms on one page (m_montage, a 3 x 2 grid): one typed line, and each vignette
+	# settles on its own event (fx settle_N with its sound, at the same moment), then the
+	# chamber holds its breath before the terminal page
+	{"tableau": MONTAGE, "lines": [
+		[0.0, MONTAGE_LINE]],
+	"sfx": [], "change": "", "settles": MONTAGE_SETTLES,
+	"breath": [{"seconds": MONTAGE_BREATH, "delay": MONTAGE_BREATH_AT}]},
 	{"tableau": "b_dark", "lines": [
 		[0.0, "VENN: \"All right.\""],
 		[2.6, "Only that. Then the terminal is a box with a lamp in it."]],
@@ -253,6 +249,10 @@ const ENDING_SEVER := [
 	"sfx": [["page_dry", 0.4], ["motif_human_a", 3.6]], "change": ""},
 ]
 const KETTLE_LINE := "The kitchen. Someone has put the kettle on."
+## CONTINUE's wide page: the eye is on the one lit window. The chamber holds its breath on the line.
+const WIDE_LOOK := "It is looking at the one."
+const WIDE_LOOK_AT := 5.4
+const WIDE_LOOK_BREATH := 2.0
 const ENDING_CONTINUE := [
 
 	{"tableau": "c_continue", "lines": [
@@ -289,8 +289,10 @@ const ENDING_CONTINUE := [
 	"sfx": [], "change": ""},
 	{"tableau": "end_b_wide", "lines": [
 		[0.0, "The station does not go back to the shore."],
-		[2.8, "Out to the edge of the water, stations. Every window dark but one."]],
-		"sfx": [], "change": ""},
+		[2.8, "Out to the edge of the water, stations. Every window dark but one."],
+		[WIDE_LOOK_AT, WIDE_LOOK]],
+		"sfx": [], "change": "",
+		"breath": [{"seconds": WIDE_LOOK_BREATH, "delay": WIDE_LOOK_AT, "line": WIDE_LOOK}]},
 	# the one lit window, close: the kitchen. The chamber falls silent as its line goes up.
 	{"tableau": "m_kettle", "lines": [
 		[0.0, KETTLE_LINE]],
@@ -304,10 +306,11 @@ const ENDING_CONTINUE := [
 ]
 const CHOSEN_LINE := "Not now. I've chosen."
 ## The still the end card shows for an ending, its subject kept above y 740 (the card's paper
-## panel starts at 760). CONTINUE: the kitchen's one lit window among the dark stations, under
-## the eye; SEVER: the corrected inquiry page, nine names in full, the refusal and her name, the
-## water stain at its corner. A missing key means no still.
-const END_STILL := {"continue": "res://assets/stages/R12/end_b_card.png",
+## panel starts at 760). CONTINUE: the wide plate itself (end_b_wide_4): the one lit window, Ada
+## seated in it, among the dark stations, and the eye fully in frame looking at it; SEVER: the
+## corrected inquiry page, nine names in full, the refusal and her name, the water stain at its
+## corner. A missing key means no still.
+const END_STILL := {"continue": "res://assets/stages/R12/end_b_wide_4.png",
 	"sever": "res://assets/stages/R12/end_a_card.png"}
 
 static func end_still(choice: String) -> String:
@@ -351,8 +354,8 @@ const OBSERVATIONS := {
 	"patch_field": "Under the routing plates, a patch field: cords from FEED A (subjects 1 to 4), FEED B (5 to 8), E.V. and A.M., and three sockets, OPEN, A.M. and TERMINAL. A PREVIEW only runs on a route patched the way it works.",
 	"route_incomplete": "A PREVIEW on the wrong patch lights ROUTE INCOMPLETE and shows nothing. Venn's answers say what each route does to each line.",
 	"ada_terminal": "My terminal: A. MERCER · WITNESS, with a seat shaped for the bridge from the model.",
-	"preview_sever": "SEVER, previewed: the eight subject lines go out one by one, then the witness feed. The outer door marker turns to OPEN. In the window, the eight portrait lamps and the kitchen's bowls went dark. Nothing in the preview comes back.",
-	"preview_continue": "CONTINUE, previewed: the eight subject lines stay lit. The witness feed moves from E.V.'s terminal to mine. His lamp goes out; mine comes on. In the window, his oilskin, empty.",
+	"preview_sever": "SEVER, previewed: the eight subject lines go out one by one, then the witness feed. The outer door marker turns to OPEN. In the window above the panel, the eye closed to a slit. Nothing in the preview comes back.",
+	"preview_continue": "CONTINUE, previewed: the eight subject lines stay lit. The witness feed moves from E.V.'s terminal to mine. His lamp goes out; mine comes on. In the window above the panel, the eye opened wide.",
 	"surface_blink": "Outside, the surface closed once, all the way, and opened. On me.",
 	"consequences": "If I break it, they're gone, all of them, and I go home. If I stay, they're kept, whatever they are, and Venn can stop. Nobody comes back either way.",
 	"seen_sever": "I have broken the line before. I remember the launch.",
@@ -385,8 +388,8 @@ const HINTS := {
 	"decide": [
 		"Both choices are ready. The chamber is waiting for your hands.",
 		"The yoke goes across the feed contacts. The bridge goes in your terminal. Preview before you confirm.",
-		"The window showed me: SEVER puts out the eight lamps and the bowls; CONTINUE moves the feed to A.M. and empties his coat.",
-		"To leave: yoke on the contacts, preview, BREAK CONNECTION AND LEAVE. To stay: bridge in your terminal, preview, REMAIN AS WITNESS.",
+		"The plates showed me: SEVER puts out all eight lines and the feed; CONTINUE moves the feed from E.V. to A.M. The eye closed for one and opened for the other.",
+		"To leave: yoke on the contacts, preview, SEVER. To stay: bridge in your terminal, preview, CONTINUE.",
 	],
 	"finale": [
 		"I've chosen. All that's left is to watch it happen.",
@@ -664,6 +667,21 @@ func cords_in(j: String) -> Array:
 		if state.patch[c] == j:
 			out.append(c)
 	return out
+
+## Where the cords lean the eye in the routing window: one step toward the CONTINUE plate (+1)
+## for each cord seated as CONTINUE has it, one toward the SEVER plate (-1) for each seated as
+## SEVER has it. -3..2; a pure function of the patch.
+func patch_lean() -> int:
+	var n := 0
+	for c in CORDS:
+		var j: String = state.patch[c]
+		if j == "home":
+			continue
+		if PATCH_ROUTES["sever"].get(c, "") == j:
+			n -= 1
+		elif PATCH_ROUTES["continue"].get(c, "") == j:
+			n += 1
+	return n
 
 ## True when the patch is what Venn's answers say route `r` does (PATCH_ROUTES).
 func patch_matches(r: String) -> bool:
@@ -1325,8 +1343,8 @@ func _patch(c: String, j: String, ev: Array) -> void:
 		_say(ev, _stop("%s into %s" % [CORD_LABEL[c], JACK_LABEL[j]]))
 
 ## A preview: only on its route's patch (else ROUTE INCOMPLETE, and nothing runs). The plate's
-## lamps run it (fx "preview"), then the window shows it (fx "window_preview" and the glance,
-## which puts the close-up down once her lines are read). The first time each route is shown
+## lamps run it (fx "preview") and the window above the panel shows it (fx "window_preview"): the
+## close-up stays up, so she can rehearse the other at once. The first time each route is shown
 ## she says what she sees; both rehearsed with a correct patch is P26.
 func _preview_route(r: String, ev: Array) -> void:
 	if not patch_matches(r):
@@ -1358,7 +1376,6 @@ func _preview_route(r: String, ev: Array) -> void:
 	if not p26_done() and "sever" in state.previewed and "continue" in state.previewed:
 		_complete_p26(ev)
 		solved = true
-	_fx(ev, "glance", {"rect": WINDOW_RECT.duplicate(), "target": "window_" + r})
 	if solved:
 		game.save_checkpoint()
 
@@ -1457,7 +1474,7 @@ func _final_control(action: String, ev: Array) -> void:
 			elif not yoke_on:
 				_sfx(ev, "button_refuse")
 				_say(ev, "The yoke isn't across the contacts.")
-			elif state.final_preview != "sever":
+			elif not route_previewed("sever"):
 				refused_button = "sever"
 				_sfx(ev, "button_refuse")
 				_say(ev, "Preview first.")
@@ -1470,7 +1487,7 @@ func _final_control(action: String, ev: Array) -> void:
 			elif not seated:
 				_sfx(ev, "button_refuse")
 				_say(ev, "The bridge isn't in my terminal.")
-			elif state.final_preview != "continue":
+			elif not route_previewed("continue"):
 				refused_button = "continue"
 				_sfx(ev, "button_refuse")
 				_say(ev, "Preview first.")
@@ -1479,7 +1496,12 @@ func _final_control(action: String, ev: Array) -> void:
 		"look_lamps":
 			_say(ev, "The preview lamps. They only show. They don't do.")
 		"look_handle":
-			_say(ev, "The severance handle. It stays locked until BREAK CONNECTION AND LEAVE is pressed.")
+			_say(ev, "The severance handle. It stays locked until SEVER is pressed.")
+
+## True when route `r` has been shown: on the routing wall (P26's preview, which counts here too)
+## or by c_final's PREVIEW with the fittings as they are now.
+func route_previewed(r: String) -> bool:
+	return r in state.previewed or state.final_preview == r
 
 func _bridge_seat(ev: Array) -> void:
 	if state.bridge_seated:
@@ -1521,6 +1543,11 @@ func _emit_step(ev: Array) -> void:
 			# the indicator goes out on its own sound: the view darkens it from this fx alone
 			_fx(ev, s[0], {"delay": s[1]})
 
+	var settles: Array = st.get("settles", [])
+	for i in settles.size():
+		# each vignette settles on its own event: its sound, and a timed fx at the same moment
+		_sfx(ev, settles[i][0], settles[i][1])
+		_fx(ev, "settle_%d" % (i + 1), {"delay": settles[i][1], "tableau": MONTAGE_TABS[i]})
 	for b in st.get("breath", []):
 		if b.has("sfx"):
 			_breath(ev, b.seconds, b.delay, {"sfx": b.sfx, "lead": b.lead})
