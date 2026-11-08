@@ -18,6 +18,8 @@ Writes, and only writes, assets/rooms/R09/*.png and assets/stages/R09/*.png:
                                   close-up sprites
   p15_surface_on_end*            fix p1 (ASSETS_P1), into assets/stages/R09/: the P15 stage overlay,
                                   the surface on end clipped to the gallery glass (seed 1509)
+  p15_wall_r4*, p15_rooms_r4*    fix p3 (ASSETS_P1): the standing sea as water on end, and its rooms
+                                  with this gallery's dials window in them (seeds 1511, 1510)
   surface_standing*, c_view_*_r3, c_rim_*
                                   fix pass w3 (see ASSETS_W3): the standing sea at a glance, and
                                   a bowl in every aperture with its rim under the lens
@@ -2982,6 +2984,172 @@ def paint_p15_rooms(rng, lighthouse_too=False):
     return im
 
 
+
+# ----------------------------------------------------------------------------- fix p3: the standing sea
+# assets/stages/R09/p15_wall_r4*.png: the plane of p15_plane_r3, now visibly water stood on end. Seven
+# horizontal sea-glass wave contours run across the navy (2 px, #6f9c94 at 0.6, period 140 px,
+# amplitude 6 px, each with its own seeded phase), broken off around every window of
+# p15_rooms_r4 so the lit rooms sit inside the water, and a pale crest runs along the top of the
+# glass (the nearest visible row to y 120: the soffit is opaque above y 162), its lip curling over
+# toward the viewer. assets/stages/R09/p15_rooms_r4*.png: the rooms of p15_rooms_r3 with the wet
+# laboratory's amber window replaced, at the size of the largest window (the vault, 132 x 58), by
+# this gallery seen from outside: the brass ring of the lens, the rail, and a small seated figure
+# at the bearing dials. The Ada window (the standing figure at the rail) stays as it was.
+WAVE_COL = (0x6F, 0x9C, 0x94)
+WAVE_A = 0.6
+WAVE_PERIOD, WAVE_AMP, WAVE_W, WAVE_N = 140.0, 6.0, 2.0, 7
+CREST_Y = 176                                # the crest's spine (top of the visible glass)
+CREST_COL = (204, 220, 208)                  # pale sea-glass paper
+DIALS_WINDOW = (1100, 296, 1232, 354)        # replaces the wet laboratory (1100, 300, 1214, 352)
+P15_WINDOWS_R4 = {k: v for k, v in P15_WINDOWS.items() if k != "wetlab"}
+P15_WINDOWS_R4["dials"] = DIALS_WINDOW + ("dials",)
+WAVE_GAP = 7                                 # contours stop this far short of a window
+
+
+def wave_rows():
+    x0, y0, x1, y1 = SURF_GLASS
+    step = (y1 - y0) / (WAVE_N + 1)
+    return [y0 + step * (i + 1) for i in range(WAVE_N)]
+
+
+def paint_p15_wall(rng, lighthouse_too=False):
+    p = Pen(W, H, rng)
+    x0, y0, x1, y1 = SURF_GLASS
+    p.rect(x0, y0, x1, y1, SURF_PLANE, None)
+    # the contours, on their own layer so the windows can cut them
+    waves = p.layer()
+    for wy in wave_rows():
+        phase = rng.uniform(0.0, 2.0 * math.pi)
+        pts = []
+        x = float(x0)
+        while x <= x1:
+            pts.append((x, wy + WAVE_AMP * math.sin(2.0 * math.pi * (x - x0) / WAVE_PERIOD + phase)))
+            x += 2.0
+        waves.line(pts, WAVE_COL, WAVE_W)
+    wins = dict(P15_WINDOWS_R4)
+    if lighthouse_too:
+        wins.pop("chart")
+    holes = [(a - WAVE_GAP, b - WAVE_GAP, c + WAVE_GAP, d + WAVE_GAP) for a, b, c, d, _ in wins.values()]
+    if lighthouse_too:
+        holes.append((944, 236, 1056, 446))
+    waves.cut(rect_mask((W, H), holes))
+    p.put(waves, WAVE_A)
+    # the crest: a pale spine along the top of the glass, the lip folding over toward us in
+    # hooks that hang down off it, a navy shadow under each
+    shadow = p.layer()
+    crest = p.layer()
+    spine = []
+    x = float(x0)
+    ph = rng.uniform(0.0, 2.0 * math.pi)
+    while x <= x1:
+        spine.append((x, CREST_Y + 3.0 * math.sin(2.0 * math.pi * (x - x0) / 230.0 + ph)))
+        x += 2.0
+    shadow.line([(a, b + 7) for a, b in spine], STORM_DK, 8.0)
+    crest.line(spine, CREST_COL, 4.0)
+    crest.line([(a, b - 3) for a, b in spine], mix(CREST_COL, PAPER_HI, 0.6), 1.4)
+    hx = x0 + rng.uniform(30, 70)
+    while hx < x1 - 40:
+        r0 = rng.uniform(9, 14)
+        cy = CREST_Y + 3.0 * math.sin(2.0 * math.pi * (hx - x0) / 230.0 + ph) + r0
+        # the lip rolls forward and down: three quarters of a turn, tightening
+        shadow.arc(hx + 3, cy + 5, r0, r0, 270, 180 + 360, STORM_DK, 6.0)
+        crest.arc(hx, cy, r0, r0, 270, 180 + 360, CREST_COL, 3.2)
+        crest.arc(hx - r0 * 0.35, cy + r0 * 0.1, r0 * 0.55, r0 * 0.55, 180, 360 + 60, CREST_COL, 2.2)
+        hx += rng.uniform(88, 132)
+    p.put_soft(shadow, 2, 0.55)
+    p.put(crest)
+    if lighthouse_too:
+        lighthouse(p, 1000, 240, 2.0, inv=True, white=mix(STORM_HI, PAPER, 0.38), band=STORM_DK,
+                   glass=mix(STORM, SEAGLASS, 0.3), ink=INK, lw=4.5)
+        ly = 240 + 2.0 * (432 - 330.5)
+        soft_disc(p, 1000, ly, 16, AMBER, 0.22, 6)
+        p.rect(995, ly - 6, 1005, ly + 6, ROOM_LIT_LO, INK, 2.0)
+    im = p.done()
+    clip = Image.new("L", im.size, 0)
+    ImageDraw.Draw(clip).rectangle((x0, y0, x1 - 1, y1 - 1), fill=255)
+    im.putalpha(ImageChops.multiply(im.getchannel("A"), clip))
+    return im
+
+
+def dials_window(p, halos, x0, y0, x1, y1):
+    """This gallery, seen from outside: the brass ring of the lens, the bearing dials on their
+    pedestal, a small figure seated at them, and the rail across the front. Flat silhouettes."""
+    halos.ell((x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) * 0.75, (y1 - y0) * 1.0, ROOM_LIT, None)
+    p.rect(x0, y0, x1, y1, ROOM_LIT, INK, 2.6)
+    fig = mix(INK, STORM_DK, 0.25)
+    # the lens: a brass ring, a pale cold disc in it
+    lx, ly, lr = x0 + 36, y0 + 25, 21
+    p.ell(lx, ly, lr - 5, lr - 5, mix(GALLERY_GLOW, ROOM_LIT, 0.35), None)
+    p.ring(lx, ly, lr - 5, lr, BRASS, INK, 1.6)
+    p.line([(lx - lr + 7, ly), (lx + lr - 7, ly)], mix(BRASS, INK, 0.35), 1.2)
+    # the dials: a pedestal and three round faces, brass-rimmed
+    dx0, dx1, dy = x0 + 92, x0 + 124, y0 + 22
+    p.rect(dx0, dy, dx1, dy + 12, BRASS_LO, INK, 1.6)
+    for k in range(3):
+        p.ell(dx0 + 6 + k * 10, dy + 6, 3.6, 3.6, PAPER_HI, INK, 1.2)
+    p.rect(dx0 + 12, dy + 12, dx0 + 20, y1 - 1, fig, None)          # the pedestal's stem
+    # the figure, seated, side on, leaning to the dials: head, bent back, arm to the faces
+    hx, hy = x0 + 80, y0 + 19
+    p.ell(hx, hy, 5.0, 5.6, fig, None)
+    p.poly([(hx - 7, hy + 6), (hx + 3, hy + 5), (hx + 9, hy + 13), (hx + 4, hy + 24),
+            (hx - 8, hy + 24)], fig, None)                              # shoulders and bent back
+    p.line([(hx + 4, hy + 10), (hx + 10, hy + 9), (dx0 - 1, dy + 5)], fig, 3.0)   # arm to the dials
+    p.poly([(hx - 9, hy + 23), (hx + 9, hy + 23), (hx + 9, hy + 27), (hx - 9, hy + 27)], fig, None)  # lap
+    p.line([(hx + 8, hy + 26), (hx + 9, y1 - 2)], fig, 3.0)             # shin
+    p.rect(hx - 11, hy + 27, hx + 1, hy + 30, fig, None)               # the stool's seat
+    p.line([(hx - 9, hy + 30), (hx - 9, y1 - 1)], fig, 2.0)
+    p.line([(hx - 1, hy + 30), (hx - 1, y1 - 1)], fig, 2.0)
+    # the rail across the front, and its posts
+    rail_y = y1 - 13
+    p.line([(x0 + 2, rail_y), (x1 - 2, rail_y)], INK, 3.2)
+    p.line([(x0 + 2, rail_y + 8), (x1 - 2, rail_y + 8)], INK, 1.8)
+    for x in (x0 + 12, (x0 + x1) / 2, x1 - 12):
+        p.line([(x, rail_y), (x, y1 - 1)], INK, 2.2)
+    p.rect(x0, y0, x1, y1, None, INK, 2.6)
+
+
+def paint_p15_rooms_r4(rng, lighthouse_too=False):
+    base = Pen(W, H, rng)
+    p = base.layer()
+    halos = base.layer()
+    wins = dict(P15_WINDOWS)
+    if lighthouse_too:
+        wins.pop("chart")
+    # the same draw order and draws as p15_rooms_r3, so every other window matches it exactly
+    for name, (x0, y0, x1, y1, kind) in wins.items():
+        if name == "wetlab":
+            sub = base.layer()
+            p15_window(sub, base.layer(), x0, y0, x1, y1, kind, rng)   # consumes the same rng
+            continue
+        p15_window(p, halos, x0, y0, x1, y1, kind, rng)
+    dials_window(p, halos, *DIALS_WINDOW)
+    ox0, oy0, ox1, oy1, _ = P15_WINDOWS["office"]
+    ox, oy = (ox0 + ox1) / 2 - 18, (oy0 + oy1) / 2 - 6
+    soft_disc(base, ox, oy, 52, AMBER, 0.5, 16)
+    soft_disc(p, ox, oy, 14, mix(AMBER, PAPER_HI, 0.5), 0.7, 5)
+    p.ell(ox, oy, 6.5, 6.5, OFFICE_POINT, None)
+    p.ell(ox, oy, 3.0, 3.0, (255, 246, 222), None)
+    gx0, gy0, gx1, gy1, _ = P15_WINDOWS["gallery"]
+    rail_y = gy1 - 18
+    fig = mix(INK, STORM_DK, 0.25)
+    cx = gx0 + (gx1 - gx0) * 0.46
+    p.ell(cx, gy0 + 17, 7.5, 8.5, fig, None)
+    p.poly([(cx - 5, gy0 + 23), (cx + 5, gy0 + 23), (cx + 6, gy0 + 28), (cx - 6, gy0 + 28)], fig, None)
+    p.poly([(cx - 16, gy0 + 34), (cx - 8, gy0 + 27), (cx + 8, gy0 + 27), (cx + 16, gy0 + 34),
+            (cx + 15, gy1 - 1), (cx - 15, gy1 - 1)], fig, None)
+    p.line([(gx0 + 2, rail_y), (gx1 - 2, rail_y)], INK, 3.2)
+    p.line([(gx0 + 2, rail_y + 9), (gx1 - 2, rail_y + 9)], INK, 1.8)
+    for x in (gx0 + 12, gx1 - 12):
+        p.line([(x, rail_y), (x, gy1 - 1)], INK, 2.2)
+    p.rect(gx0, gy0, gx1, gy1, None, INK, 2.6)
+    base.put_soft(halos, 9, 0.2)
+    base.put(p)
+    im = base.done()
+    clip = Image.new("L", im.size, 0)
+    ImageDraw.Draw(clip).rectangle((SURF_GLASS[0], SURF_GLASS[1], SURF_GLASS[2] - 1, SURF_GLASS[3] - 1), fill=255)
+    im.putalpha(ImageChops.multiply(im.getchannel("A"), clip))
+    return im
+
 ASSETS_P1 = [  # name, seed (random.Random(seed), not SEED + k), painter, opaque, grain; into STAGE_OUT
     ("p15_surface_on_end", 1509, paint_p15_surface_on_end, False, True),
     ("p15_surface_on_end_b6", 1509, lambda r: paint_p15_surface_on_end(r, True), False, True),
@@ -2990,6 +3158,11 @@ ASSETS_P1 = [  # name, seed (random.Random(seed), not SEED + k), painter, opaque
     ("p15_plane_r3_b6", 1509, lambda r: paint_p15_surface_on_end(r, True, False), False, True),
     ("p15_rooms_r3", 1510, paint_p15_rooms, False, True),
     ("p15_rooms_r3_b6", 1510, lambda r: paint_p15_rooms(r, True), False, True),
+    # fix p3: the plane as water on end (contours and a crest), and the rooms with this gallery in them
+    ("p15_wall_r4", 1511, paint_p15_wall, False, True),
+    ("p15_wall_r4_b6", 1511, lambda r: paint_p15_wall(r, True), False, True),
+    ("p15_rooms_r4", 1510, paint_p15_rooms_r4, False, True),
+    ("p15_rooms_r4_b6", 1510, lambda r: paint_p15_rooms_r4(r, True), False, True),
 ]
 
 

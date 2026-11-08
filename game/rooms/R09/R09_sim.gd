@@ -32,7 +32,7 @@ const EXITS := [
 	["R11", "Stair", []],
 ]
 ## View A ("room"), in hit order.
-const HOTSPOTS := ["lens", "aperture_1", "aperture_2", "aperture_3", "scope", "diagram", "to_rail"]
+const HOTSPOTS := ["lens", "aperture_1", "aperture_2", "aperture_3", "scope", "diagram", "to_rail", "lit_window"]
 ## View B ("rail"): a base view, not a close-up.
 const RAIL_HOTSPOTS := ["ruler", "pennant", "rail", "horizon", "glass", "to_lens"]
 const CLOSEUPS := ["c_scope", "c_ruler"]
@@ -46,6 +46,17 @@ const NO_SUBJECT := "NO SUBJECT ON BEARING."
 ## RECORD on STATION 3 before the lens: the bowl is there, but which bowl is not yet known.
 const UNCONFIRMED := "SUBJECT UNCONFIRMED: INSPECT"
 const UNCONFIRMED_LINE := "I can't tell from here which bowl it is."
+## The stale guard: these refusals are about a bowl not yet confirmed. Their say events carry
+## {"stale": STALE_ON_CONFIRM} and go stale the moment patch_confirmed is set: a line still
+## queued then is dropped and one on screen is released (the view does it, from stale_say()).
+const STALE_ON_CONFIRM := "patch_confirmed"
+## The lit window in the standing sea that is this gallery, seen from outside (fix p3).
+const DIALS_WINDOW_LINE := "One of the lit rooms is this one. Someone is at the dials. When I lift my hand, she doesn't."
+## The same spot of glass while there is no such window in it: rain on it before P15, none
+## once the bearing is recorded, the surface after the edge has gone (band 7).
+const GLASS_A_LINES := {"rain": "The glass. Rain running down the outside of it.",
+	"dry": "The glass. There's no rain on it any more.",
+	"surface": "The glass. Nothing past it but the surface."}
 ## When "Recorded." comes up after the RECORD key (s).
 const RECORD_FIRST_SAY := 0.5
 ## The lens on STATION 3: the only line that sets patch_confirmed.
@@ -140,6 +151,7 @@ const OBSERVATIONS := {
 	"ruler": "A boxwood rule on the lantern sill, inches in eighths, every mark scratched deeper by hand.",
 	"ruler_subdivisions": "Under the lens the rule's subdivisions keep going between the printed marks: tens inside tens, all scratched by hand. I stopped looking. They didn't stop.",
 	"rail_wet": "Rain on the rail at last. It beads and runs off, like rain.",
+	"dials_window": "One of the lit rooms in the standing sea is this gallery, seen from outside: the brass ring of the lens, the rail, and someone seated at the bearing dials. When I lift my hand, she doesn't.",
 }
 const OBJECTIVES := {
 	"wait_p14": "The scope's clamp is empty. Nora's frame is still being made on the laboratory bench.",
@@ -260,6 +272,16 @@ func current_notice() -> String:
 		return ""
 	return NOTICES[clampi(band(), 3, 7) - 3]
 
+## True while the standing sea carries the gallery's own lit window (view A): from the reveal,
+## at bands 4-6. The view's stage plate follows the same rule.
+func dials_window_shown() -> bool:
+	return state.reveal_seen and sea_stage() in ["b4", "b5", "b6"]
+
+## True when a say event's stale guard has tripped: it was a refusal about an unconfirmed bowl
+## and the bowl has since been confirmed (or the bearing recorded).
+func stale_say(text: String) -> bool:
+	return (state.patch_confirmed or state.p15_complete) and text in [UNCONFIRMED, UNCONFIRMED_LINE]
+
 func reveal_due() -> bool:
 	return state.p15_complete and not state.reveal_seen
 
@@ -331,6 +353,11 @@ func act(action: String, ev: Array) -> void:
 		local_view = "rail"
 		_rail(action, ev)
 
+## A say carrying the stale guard (STALE_ON_CONFIRM): see stale_say().
+func _say_guarded(ev: Array, text: String, delay: float) -> void:
+	_say(ev, text, delay)
+	ev[-1]["stale"] = STALE_ON_CONFIRM
+
 ## Says the sever line for `action` and returns true, if the sever ending has one.
 func _sever_line(action: String, ev: Array) -> bool:
 	if _sever() and SEVER_LINES.has(action):
@@ -375,6 +402,14 @@ func _room(action: String, ev: Array) -> void:
 		"diagram":
 			_say(ev, "A reference plate: '" + DIAGRAM_TEXT + "' The mark is two linked strokes, printed RELATION.")
 			_observe("diagram")
+		"lit_window":
+			if _sever():
+				_say(ev, SEVER_LINES.glass)
+			elif dials_window_shown():
+				_say(ev, DIALS_WINDOW_LINE)
+				_observe("dials_window")
+			else:
+				_say(ev, GLASS_A_LINES["surface" if state.reveal_seen else ("dry" if state.p15_complete else "rain")])
 		"to_rail":
 			local_view = "rail"
 			if not state.rail_seen:
@@ -571,8 +606,8 @@ func _record(ev: Array) -> void:
 		last_record = "nosubject"
 		if a == 3:
 			# The mess table is in the glass, but nothing says which bowl: inspect it first.
-			_say(ev, UNCONFIRMED, 0.5)
-			_say(ev, UNCONFIRMED_LINE, 1.8)
+			_say_guarded(ev, UNCONFIRMED, 0.5)
+			_say_guarded(ev, UNCONFIRMED_LINE, 1.8)
 		else:
 			_say(ev, NO_SUBJECT, 0.5)
 			_say(ev, MISS_LINES[a][int(state.record_miss) % 2], 1.8)

@@ -58,6 +58,12 @@ func run_tests() -> void:
 	await test_view_standing()
 	test_unconfirmed_station()
 	await test_refusal_flushed()
+	test_stale_guard_sim()
+	await test_stale_refusal()
+	await test_stale_refusal_on_screen()
+	await test_stale_refusal_in_chain()
+	test_dials_window()
+	await test_dials_window_view()
 	test_canonical_chain()
 	test_debug_jumps()
 	test_invariant_over_play()
@@ -806,22 +812,25 @@ func test_view_standing() -> void:
 	await process_frame
 	var v = scene.room_view
 	check(v.standing_plate() == "" and v.lens_alpha() == 1.0 and not v.rain_frozen(), "(vw) before P15: the old sea, the rain falling, lens at full")
+	check(v.rain_drawn() and v.loop_targets().get("r09_rain_glass", 0.0) > 0.0, "(vw) before P15: the rain layer and its bed")
 	for t in [6, 7, 8, 9]:
 		scene.tide_jump(t, ROOM)
 		await process_frame
 		v = scene.room_view
-		var want: String = {6: "p15_plane_r3", 7: "p15_plane_r3", 8: "p15_plane_r3_b6", 9: ""}[t]
+		var want: String = {6: "p15_wall_r4", 7: "p15_wall_r4", 8: "p15_wall_r4_b6", 9: ""}[t]
 		check(v.standing_plate() == want, "(vw) tide %d plate %s (got %s)" % [t, want, v.standing_plate()])
 		check(want == "" or ResourceLoader.exists("res://assets/stages/R09/%s.png" % want), "(vw) %s exists" % want)
 		check(want == "" or v._tex(want) != null, "(vw) %s loads" % want)
 		var rooms: String = v.rooms_plate()
-		check(rooms == want.replace("plane", "rooms") and (rooms == "" or v._tex(rooms) != null), "(vw) tide %d: the rooms overlay %s loads" % [t, rooms])
+		check(rooms == want.replace("wall", "rooms") and (rooms == "" or v._tex(rooms) != null), "(vw) tide %d: the rooms overlay %s loads" % [t, rooms])
 		check(want == "" or (v.lid_line_k() == 1.0 and v.surface_rain_alpha() == 0.0),
 			"(vw) tide %d: the lid line rests for good; no streaks over the surface" % t)
 		check(v.lens_alpha() == 0.35 and v.lid_y() < 0.0, "(vw) tide %d: no lid band, lens 0.35" % t)
 		check(v.plate_k() == (1.0 if want != "" else 0.0), "(vw) tide %d: plate settled" % t)
 		for m in [true, false]:
 			scene.sim.settings.motion = m
+			check(not v.rain_drawn(), "(vw) tide %d, Motion %s: no rain layer at all after P15" % [t, m])
+			check(v.loop_targets().get("r09_rain_glass", 0.0) == 0.0, "(vw) tide %d, Motion %s: r09_rain_glass is silent" % [t, m])
 			check(v.rain_frozen() and v.rain_speed() == 0.0, "(vw) tide %d, Motion %s: the rain is drawn frozen" % [t, m])
 			var o1: float = v.rain_offset()
 			scene.time += 3.7
@@ -871,7 +880,7 @@ func _beat_checks(scene, m: bool) -> void:
 	scene.time += 2.0
 	v.tick(0.5)
 	check(v.rain_offset() == o1, "(vb) %s: and stays exactly where it stopped" % tag)
-	check(v.standing_plate() == "p15_plane_r3" and v.rooms_plate() == "p15_rooms_r3", "(vb) %s: the surface on end from the line" % tag)
+	check(v.standing_plate() == "p15_wall_r4" and v.rooms_plate() == "p15_rooms_r4", "(vb) %s: the surface on end from the line" % tag)
 	if m:
 		check(v.plate_k() > 0.0 and v.plate_k() < 1.0, "(vb) Motion on: it comes up the glass")
 		check(v.surface_rain_alpha() > 0.0 and v.surface_rain_alpha() < 1.0, "(vb) Motion on: the streaks over it fading (%f)" % v.surface_rain_alpha())
@@ -936,7 +945,7 @@ func _beat_checks(scene, m: bool) -> void:
 	scene._reset_presentation()
 	await process_frame
 	v = scene.room_view
-	check(r9(scene.sim).state.reveal_seen and v.standing_plate() == "p15_plane_r3" and v.plate_k() == 1.0
+	check(r9(scene.sim).state.reveal_seen and v.standing_plate() == "p15_wall_r4" and v.plate_k() == 1.0
 		and v.lid_line_k() == 1.0 and v.rain_frozen() and v.rain_speed() == 0.0, "(vb) %s: a load after P15 keeps the overlay and the frozen rain" % tag)
 
 ## P0: RECORD on STATION 3 before the lens: SUBJECT UNCONFIRMED: INSPECT, and which bowl; on
@@ -1003,6 +1012,177 @@ func test_refusal_flushed() -> void:
 	check(not after.any(func(t): return t in refusals), "(rf) no refusal after the confirmation or 'Recorded.': %s" % [log])
 	check(log.size() >= 2 and log[log.size() - 2] == "It hasn't closed again."
 		and log[log.size() - 1] == R09Sim.REVEAL_LINES[6][1], "(rf) the reveal ends on 'It hasn't closed again.' and the window: %s" % [log])
+	await free_scene(scene)
+
+## Fix p3 P1: the refusal's say events carry the stale guard, which trips on the confirmation.
+func test_stale_guard_sim() -> void:
+	var g := mounted()
+	g.dispatch("sel_3")
+	var ev := g.dispatch("record")
+	var guarded := []
+	for e in ev:
+		if e.type == "say" and e.get("stale", "") == R09Sim.STALE_ON_CONFIRM:
+			guarded.append(e.text)
+	check(guarded == [R09Sim.UNCONFIRMED, R09Sim.UNCONFIRMED_LINE], "(sg) both refusal lines carry the stale guard: %s" % [guarded])
+	check(not r9(g).stale_say(R09Sim.UNCONFIRMED) and not r9(g).stale_say(R09Sim.UNCONFIRMED_LINE), "(sg) fresh before the lens")
+	play_lens(g)
+	check(r9(g).stale_say(R09Sim.UNCONFIRMED) and r9(g).stale_say(R09Sim.UNCONFIRMED_LINE)
+		and not r9(g).stale_say(R09Sim.PATCH_LINE) and not r9(g).stale_say(R09Sim.NO_SUBJECT), "(sg) stale once confirmed; nothing else is")
+	g.dispatch("sel_1")
+	g.dispatch("sel_3")
+	check(not r9(g).stale_say(R09Sim.UNCONFIRMED), "(sg) a new aim un-confirms: fresh again")
+
+## Drives the scene to STATION 3 with the frame mounted; returns the view.
+func _stale_scene(scene, settle := true) -> Variant:
+	scene.room_jump(ROOM, 2)
+	await process_frame
+	for i in 80:
+		scene._process(0.1)
+	for a in ["scope", "item:nora_frame", "mount", "sel_3"]:
+		scene.dispatch(a)
+	for i in (300 if settle else 0):   # STATION 3's first look plays out, so RECORD's lines keep their own times
+		if scene.lines.is_empty() and scene.cur_text == "":
+			break
+		scene._process(0.1)
+	scene.shown_log.clear()
+	return scene.room_view
+
+## Plays frames until the queue is empty, failing if a refusal becomes cur_text once the
+## confirmation has been on screen. Returns [confirmed seen, refusal after it].
+func _watch_refusal(scene, frames: int) -> Array:
+	var conf := false
+	var bad := []
+	for i in frames:
+		scene._process(0.05)
+		if scene.cur_text == R09Sim.PATCH_LINE:
+			conf = true
+		elif conf and scene.cur_text in [R09Sim.UNCONFIRMED, R09Sim.UNCONFIRMED_LINE] and not scene.cur_text in bad:
+			bad.append(scene.cur_text)
+	return [conf, bad]
+
+## Fix p3 P1: RECORD (refused), then the lens on the scope within 0.5 s, then RECORD: no
+## SUBJECT UNCONFIRMED line comes up after the confirmation line.
+func test_stale_refusal() -> void:
+	var scene = new_scene("user://room_test_R09_stale.json")
+	await process_frame
+	var v = await _stale_scene(scene)
+	scene.dispatch("record")
+	check(scene.lines.any(func(l): return l.text == R09Sim.UNCONFIRMED) or scene.cur_text == R09Sim.UNCONFIRMED,
+		"(st) the refusal is queued")
+	scene._process(0.2)
+	scene.dispatch("item:inspection_lens")
+	scene.dispatch("scope_view")   # 0.2 s after RECORD: the refusal is still due
+	check(r9(scene.sim).state.patch_confirmed, "(st) the lens confirms")
+	check(not scene.lines.any(func(l): return l.text in [R09Sim.UNCONFIRMED, R09Sim.UNCONFIRMED_LINE]),
+		"(st) the confirmation drops the queued refusal at once")
+	var w := _watch_refusal(scene, 120)
+	check(w[0] and w[1].is_empty(), "(st) the confirmation shows, and UNCONFIRMED never follows it: %s" % [w[1]])
+	scene.dispatch("record")
+	w = _watch_refusal(scene, 200)
+	check(scene.sim.flag("P15"), "(st) then RECORD solves it")
+	check(w[1].is_empty(), "(st) no refusal after RECORD either")
+	check(not scene.shown_log.slice(scene.shown_log.find(R09Sim.PATCH_LINE)).any(
+		func(t): return t in [R09Sim.UNCONFIRMED, R09Sim.UNCONFIRMED_LINE]), "(st) shown log: %s" % [scene.shown_log])
+	await free_scene(scene)
+
+## The refusal already on screen when the lens confirms: it is cleared, and its second line
+## never comes up.
+func test_stale_refusal_on_screen() -> void:
+	var scene = new_scene("user://room_test_R09_stale2.json")
+	await process_frame
+	var v = await _stale_scene(scene)
+	scene.dispatch("record")
+	for i in 14:
+		scene._process(0.05)   # 0.7 s: SUBJECT UNCONFIRMED is up, the second line still due
+	check(scene.cur_text == R09Sim.UNCONFIRMED, "(st2) the stamp line is on screen (%s)" % scene.cur_text)
+	scene.dispatch("item:inspection_lens")
+	scene.dispatch("scope_view")
+	check(scene.cur_text != R09Sim.UNCONFIRMED, "(st2) the confirmation clears it at once")
+	var w := _watch_refusal(scene, 160)
+	check(w[0] and w[1].is_empty(), "(st2) and nothing refused follows the confirmation: %s" % [w[1]])
+	check(not R09Sim.UNCONFIRMED_LINE in scene.shown_log, "(st2) the second line never showed: %s" % [scene.shown_log])
+	await free_scene(scene)
+
+## The fast hand inside a chain: RECORD while STATION 3's first look is still being told (the
+## core queues the refusal behind it), the lens 0.2 s later, RECORD once the confirmation is
+## up. The refusal never comes up after the lens has confirmed, so never after its line.
+func test_stale_refusal_in_chain() -> void:
+	var scene = new_scene("user://room_test_R09_stale3.json")
+	await process_frame
+	await _stale_scene(scene, false)
+	scene.dispatch("record")
+	scene._process(0.2)
+	scene.dispatch("item:inspection_lens")
+	scene.dispatch("scope_view")
+	var mark: int = scene.shown_log.size()
+	var conf := false
+	var bad := []
+	for i in 600:
+		scene._process(0.05)
+		conf = conf or scene.cur_text == R09Sim.PATCH_LINE
+		if conf and not scene.sim.flag("P15"):
+			scene.dispatch("record")
+		if scene.cur_text in [R09Sim.UNCONFIRMED, R09Sim.UNCONFIRMED_LINE] and not scene.cur_text in bad:
+			bad.append(scene.cur_text)
+	check(conf and scene.sim.flag("P15"), "(st3) confirmed, then recorded")
+	check(bad.is_empty() and not scene.shown_log.slice(mark).any(func(t): return t in [R09Sim.UNCONFIRMED, R09Sim.UNCONFIRMED_LINE]),
+		"(st3) no refusal shown once the lens confirmed: %s" % [scene.shown_log])
+	await free_scene(scene)
+
+## Fix p3 P2: the gallery's own window in the standing sea, and its look.
+func test_dials_window() -> void:
+	var g := ready_p15()
+	check(R09Sim.HOTSPOTS.slice(0, 7) == ["lens", "aperture_1", "aperture_2", "aperture_3", "scope", "diagram", "to_rail"]
+		and R09Sim.HOTSPOTS[-1] == "lit_window", "(dw) lit_window comes after every existing hotspot")
+	var ev := g.dispatch("lit_window")
+	check(says(ev) == R09Sim.GLASS_A_LINES.rain and not r9(g).has_seen("dials_window") and not r9(g).dials_window_shown(),
+		"(dw) before P15: rainy glass, no window")
+	g.dispatch("scope"); g.dispatch("item:nora_frame"); g.dispatch("mount"); g.dispatch("sel_3")
+	play_lens(g)
+	g.dispatch("record")
+	check(not r9(g).dials_window_shown(), "(dw) recorded, not yet seen: no window")
+	var gd := roundtrip(g)
+	gd.room(ROOM).local_view = "c_scope"
+	check(says(gd.dispatch("lit_window")) == R09Sim.GLASS_A_LINES.dry and not r9(gd).state.reveal_seen,
+		"(dw) recorded, from the scope straight to that glass: no rain on it, no window yet")
+	g.dispatch("back")
+	check(r9(g).dials_window_shown(), "(dw) the sea stood up: the window is in it")
+	ev = g.dispatch("lit_window")
+	check(says(ev) == R09Sim.DIALS_WINDOW_LINE and r9(g).has_seen("dials_window") and r9(g).local_view == "room",
+		"(dw) her look: %s" % says(ev))
+	check(R09Sim.DIALS_WINDOW_LINE == "One of the lit rooms is this one. Someone is at the dials. When I lift my hand, she doesn't.",
+		"(dw) the line as written")
+	for t in [6, 7, 8]:
+		var gt := game_at(t, "R09")
+		check(r9(gt).dials_window_shown() and says(gt.dispatch("lit_window")) == R09Sim.DIALS_WINDOW_LINE, "(dw) tide %d: the window" % t)
+	var g9 := game_at(9, "R09")
+	check(not r9(g9).dials_window_shown() and says(g9.dispatch("lit_window")) == R09Sim.GLASS_A_LINES.surface, "(dw) band 7: no window")
+	g9.state.ending = "sever"
+	check(r9(g9).ending() == "sever" and says(g9.dispatch("lit_window")) == R09Sim.SEVER_LINES.glass, "(dw) sever: grey water")
+
+## The view: the window's hotspot sits over the painted window, view A only, labelled by state.
+func test_dials_window_view() -> void:
+	var scene = new_scene("user://room_test_R09_dials.json")
+	await process_frame
+	scene.tide_jump(5, ROOM)
+	await process_frame
+	var v = scene.room_view
+	var rect: Rect2 = v.hotspot_rect("lit_window")
+	check(rect.encloses(Rect2(1100, 296, 132, 58)), "(dv) the rect covers the painted window (1100..1232 x 296..354)")
+	check(v.HOTSPOTS[-1][0] == "lit_window" and v.HOTSPOTS.size() == 8, "(dv) last in view A's hit order")
+	for h in v.HOTSPOTS.slice(0, 7):
+		check(not h[1].intersects(rect), "(dv) clear of %s" % h[0])
+	check(v.label_for("lit_window") == "Glass" and scene.action_at(rect.get_center()) == "lit_window", "(dv) before P15: glass")
+	for t in [6, 8]:
+		scene.tide_jump(t, ROOM)
+		await process_frame
+		v = scene.room_view
+		check(v.rooms_plate().begins_with("p15_rooms_r4") and v._tex(v.rooms_plate()) != null, "(dv) tide %d: the r4 rooms" % t)
+		check(v.label_for("lit_window") == "Lit window" and scene.action_at(rect.get_center()) == "lit_window",
+			"(dv) tide %d: the window answers in view A" % t)
+		scene.dispatch("to_rail")
+		check(scene.action_at(rect.get_center()) != "lit_window", "(dv) tide %d: not in view B" % t)
+		check(not v.rain_drawn() and v.loop_targets().get("r09_rain_glass", 0.0) == 0.0, "(dv) tide %d: view B, no rain" % t)
 	await free_scene(scene)
 
 func test_canonical_chain() -> void:

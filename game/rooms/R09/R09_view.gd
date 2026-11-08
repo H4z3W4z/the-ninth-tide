@@ -41,6 +41,13 @@ extends RoomView
 ##        hold ends the room's bed is only r09_pressure, 6 dB under its level, and r09_glass_air,
 ##        until she leaves R09.
 ## The plates replace the old standing plate for the beat and for good after it.
+## Fix p3: the stage plate is now `p15_wall_r4` (`_b6`): the same plane with seven sea-glass
+## wave contours across it, broken off around every window, and a pale crest along the top of
+## the glass curling over toward her; the rooms are `p15_rooms_r4` (`_b6`), where the wet
+## laboratory's window has become this gallery seen from outside (the lens's brass ring, the
+## rail, someone seated at the bearing dials), with its own look hotspot (lit_window). From
+## P15 on no rain is drawn at all (rain_drawn(); the timing below survives for the beat's
+## clock) and the r09_rain_glass bed is silent; only the sever ending brings rain back.
 
 const DIR := "res://assets/rooms/R09/%s.png"
 
@@ -62,6 +69,9 @@ const HOTSPOTS := [
 	["scope", Rect2(70, 520, 410, 200), "Scope"],
 	["diagram", Rect2(1030, 652, 340, 230), "Reference plate"],
 	["to_rail", Rect2(600, 836, 248, 64), "The rail"],
+	# fix p3: the gallery's own lit window in the standing sea (p15_rooms_r4, 1100..1232 x
+	# 296..354), padded to a 64 px target. Before the reveal it is a stretch of rainy glass.
+	["lit_window", Rect2(1096, 292, 140, 66), "Lit window"],
 ]
 ## View B, the rail side (a base view, not a close-up).
 const RAIL_HOTSPOTS := [
@@ -212,8 +222,8 @@ const ZOOM_WORD := ["×1", "×10", "×100", "×1000"]
 
 # --- the reveal (fx reveal_upright) -------------------------------------------------------
 const STAGE_DIR := "res://assets/stages/R09/%s.png"
-const SURFACE_PLATE := "p15_plane_r3"
-const ROOMS_PLATE := "p15_rooms_r3"
+const SURFACE_PLATE := "p15_wall_r4"
+const ROOMS_PLATE := "p15_rooms_r4"
 ## The whitecaps on end over the standing plane: opacity and sideways drift (px/s; still with
 ## Motion off).
 const P15_CHOP_A := 0.40
@@ -377,6 +387,12 @@ func rain_speed() -> float:
 		return RAIN_SEVER
 	return RAIN_SPEED.get(clampi(_stage_band(), 3, 7), 0.0)
 
+## False from P15 on (fix p3): the sea has stood up and there is no rain layer at all, in either
+## view and either Motion setting, frozen streaks included. The sever ending brings it back
+## (ordinary rain, onto the rail).
+func rain_drawn() -> bool:
+	return _sever() or not r.state.p15_complete
+
 ## True when the rain is drawn frozen: from P15 on, except for the first freeze_at seconds of
 ## the beat, when it still falls.
 func rain_frozen() -> bool:
@@ -518,6 +534,7 @@ func frame_in_clamp() -> bool:
 # frame
 # ---------------------------------------------------------------------------
 func tick(dt: float) -> void:
+	drop_stale_lines()
 	if hold_t > 0.0:
 		hold_t = maxf(0.0, hold_t - dt)
 	var zt := 1.0 if hold_t > 0.0 and motion and not r.is_closeup() else 0.0
@@ -621,6 +638,9 @@ func loop_targets() -> Dictionary:
 	if hushed and not _sever():
 		db = {"r09_pressure": float(db.get("r09_pressure", HUSH_PRESSURE_DB)) - HUSH_CUT,
 			"r09_glass_air": float(db.get("r09_glass_air", HUSH_AIR_DB))}
+	if not rain_drawn():
+		db = db.duplicate()
+		db.erase("r09_rain_glass")   # no rain on the glass, so no rain sound on it either
 	var trim: float = 0.0 if hushed else BED_TRIM.get(key, 0.0)
 	var in_close := r.is_closeup()
 	var duck := game != null and game.oneshot_playing(DUCK_IDS)
@@ -656,6 +676,7 @@ func _tick_audio(dt: float) -> void:
 # hooks
 # ---------------------------------------------------------------------------
 func play_fx(id: String, e: Dictionary) -> void:
+	drop_stale_lines()
 	if id.begins_with("notice_"):
 		_start_hold(id.substr(7))
 		return
@@ -695,6 +716,22 @@ func play_fx(id: String, e: Dictionary) -> void:
 			eject_wait = 0.0
 			eject_t = -1.0
 	redraw()
+
+## The stale guard (R09Sim.stale_say): once the lens has confirmed the bowl, a refusal about an
+## unconfirmed one that the core still holds is dropped from the queue, and one on screen is
+## cleared, so SUBJECT UNCONFIRMED never comes up after the confirmation. Runs on every sim
+## fx (lens_patch is the confirmation's own), on every click the room sees and every frame.
+func drop_stale_lines() -> void:
+	if game == null or not (r.state.patch_confirmed or r.state.p15_complete):
+		return
+	var stale := func(l): return r.stale_say(str(l.text))
+	if game.lines.any(stale):
+		game.lines = game.lines.filter(func(l): return not stale.call(l))
+	if game.cur_text != "" and r.stale_say(game.cur_text):
+		game.cur_text = ""
+		game.cur_story = false
+		game.cur_hold = 0.0
+		game.subtitle.text = ""
 
 ## The refusals RECORD BEARING prints before the bearing is confirmed.
 static func refusal_lines() -> Array:
@@ -850,6 +887,7 @@ func _controls() -> Array:
 	return closeup_controls(_view())
 
 func consume_click(_p: Vector2) -> bool:
+	drop_stale_lines()
 	if hold_t > 0.0:
 		hold_t = 0.0
 		return true
@@ -869,6 +907,8 @@ func hover_at(p: Vector2) -> String:
 func label_for(id: String) -> String:
 	if id == "ruler":
 		return "Ruler" if r.state.p15_complete else "Sill"
+	if id == "lit_window" and not r.dials_window_shown():
+		return "Glass"
 	for table in [HOTSPOTS, RAIL_HOTSPOTS, SCOPE_CONTROLS, RULER_CONTROLS]:
 		for h in table:
 			if h[0] == id:
@@ -1022,6 +1062,8 @@ func _tile(c: CanvasItem, id: String, clip: Rect2, off: Vector2, a := 1.0) -> vo
 ## Rain, scrolled down and clipped to `clip`. Bands 6-7 thin it by half so the surface shows.
 ## From P15 on it hangs where it stopped (rain_offset()).
 func _rain(c: CanvasItem, clip: Rect2, a := 1.0) -> void:
+	if not rain_drawn():
+		return
 	var sparse := not _sever() and _stage_band() >= 6
 	_tile(c, "rain_sparse_r2" if sparse else "rain_tile", clip, Vector2(0, rain_offset()), a)
 
