@@ -750,6 +750,10 @@ func _flush_for_reveal(click: int) -> void:
 	for p in game.pending_sfx:
 		if int(p[2]) == click:
 			p[1] -= late
+	# The core times hold_breath itself (pending_fx): it comes back with its line.
+	for p in game.pending_fx:
+		if int(p[2]) == click:
+			p[1] = maxf(0.0, p[1] - late)
 
 func on_sfx(id: String) -> void:
 	match id:

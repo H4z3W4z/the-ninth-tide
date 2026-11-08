@@ -535,7 +535,7 @@ func _tick_fx(dt: float) -> void:
 			pending_fx.remove_at(i)
 	due.sort_custom(func(a, b): return a[1] < b[1])
 	for p in due:
-		_play_fx(_fx_now(p[0]), p[1])
+		_play_fx(_fx_now(p[0]), p[1], true)
 
 ## A timed fx as it is delivered: its delay spent (a view that times its own reveal from
 ## e.delay sees 0, as for an fx that came untimed).
@@ -1031,6 +1031,10 @@ func play_events(ev: Array, chain_was := false) -> void:
 				var d := float(e.get("delay", 0.0))
 				if d > 0.0 and fx_timed_by_core(str(e.id)):
 					pending_fx.append([e, d + offset, beat_id])
+					if str(e.id) in CORE_TIMED_FX and room_view:
+						# The room still hears it as the sim said it (delay intact), for a view
+						# whose own stillness keys off the same beat (R08, R09, R12).
+						room_view.play_fx(e.id, e)
 				else:
 					_play_fx(e)
 	_settle_card_offer()
@@ -1078,7 +1082,7 @@ func _settle_card_offer() -> void:
 	else:
 		tide_card_t = 99.0
 ## `late` (<= 0): how far past its moment a timed fx is delivered (hold_breath backdates).
-func _play_fx(e: Dictionary, late := 0.0) -> void:
+func _play_fx(e: Dictionary, late := 0.0, from_queue := false) -> void:
 	match e.id:
 		"travel":
 			# A new room (play_events has already cleared the old room's lines and sounds).
@@ -1092,6 +1096,8 @@ func _play_fx(e: Dictionary, late := 0.0) -> void:
 			# A tide card still waiting keeps waiting: for the arrival chain to end.
 		"hold_breath":
 			hold_breath(float(e.get("seconds", 0.0)), time + minf(late, 0.0))
+			if not from_queue and room_view:
+				room_view.play_fx(e.id, e)   # untimed: the room hears it now, too
 		"tide":
 			# The card waits for the reveal that earned it (_tick_tide_card), after the room
 			# has had the chance to take it over (_settle_card_offer).

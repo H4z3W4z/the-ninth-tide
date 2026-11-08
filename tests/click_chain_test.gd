@@ -23,6 +23,9 @@ extends SceneTree
 
 const STEP := 0.1
 const WAIT_MAX := 15.0
+## A held click waits for the whole chain: R12's CONTINUE preview (blinks and held breaths)
+## plays ~15.2 s of story after the click.
+const HELD_MAX := 30.0
 const GRID := 12
 const SAVE := "user://click_chain_test.json"
 
@@ -244,7 +247,7 @@ func qd(action: String) -> Array:
 			return A.last_events
 		if A.pending_action == action or A.pending_travel == action:
 			var held := 0.0
-			while A.click_id == id0 and held < WAIT_MAX and (A.pending_action == action or A.pending_travel == action):
+			while A.click_id == id0 and held < HELD_MAX and (A.pending_action == action or A.pending_travel == action):
 				wait(STEP)
 				held += STEP
 			if A.click_id != id0:

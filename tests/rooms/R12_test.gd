@@ -1324,7 +1324,7 @@ func test_objectives_hints() -> void:
 	# The hint ladder climbs in play and always reaches the solution.
 	var h := fresh()
 	var lines := []
-	for i in (4 if R12Sim.core_reads_tiers() else 3):
+	for i in (5 if R12Sim.core_reads_tiers() else 3):   # core p1: a confirmation before the last tier
 		lines.append(says(h.dispatch("hint")))
 	check(lines.back() == frames_hint3(h) and lines[0] == REF_HINTS.frames[0], "the frames ladder in play ends in the solution (%s)" % [lines])
 	check(frames_hint3(h) == "The true cards: the MOVEMENT card reading 'Turned the zero wheel. Opened the hatch. Looked down the stair.' to BODY; 'Ninth position. Centre of the station outline.' to PLACE; 'Requested by E. Venn.' to NAME. Then the switch to WITNESS, and ROUTE.",

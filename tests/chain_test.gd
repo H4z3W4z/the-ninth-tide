@@ -829,6 +829,7 @@ func _endings() -> void:
 	check(g.flag("P26") and not g.flag("P27") and g.value("ending_choice") == "" and g.state.room == "R12",
 		"replay returns to the P26 decision")
 	check(g.has_item("witness_bridge"), "replay: the bridge is back in hand")
+	_r12_room()   # the checkpoint is taken at the second preview, on the routing wall
 	for a in ["to_routing", "bridge_seat", "bridge_seat", "preview"]:
 		_qd(a)
 	_qd("btn_continue")

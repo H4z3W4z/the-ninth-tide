@@ -997,8 +997,21 @@ func test_view_hold_breath() -> void:
 	for l in scene.lines:
 		if l.text == R08Sim.REVEAL_LAST_SAY:
 			last_due = l.due
-	check(v.hb_wait > 0.0 and absf((scene.time + v.hb_wait) - last_due) < 0.1,
-		"PUMP arms the held breath for the last line (in %f, line at %f)" % [v.hb_wait, last_due - scene.time])
+	# Core p1: hold_breath is a core timed fx (CORE_TIMED_FX): the core holds it in
+	# pending_fx and hands it to the view (play_fx) at its moment, the last line's.
+	var fx_in := -1.0
+	for p in scene.pending_fx:
+		if p[0].get("id", "") == "hold_breath":
+			fx_in = float(p[1])
+	var armed: float = fx_in if fx_in > 0.0 else float(v.hb_wait)
+	check(armed > 0.0 and absf((scene.time + armed) - last_due) < 0.1,
+		"PUMP arms the held breath for the last line (in %f, line at %f)" % [armed, last_due - scene.time])
+	# ... and the view's own hold starts when the core delivers it.
+	for i in 200:
+		if v.hb_t >= 0.0 or v.hold_breath_silent():
+			break
+		scene._process(0.1)
+	check(v.hb_t >= 0.0 or v.hold_breath_silent(), "the view's held breath runs once the core delivers it")
 	await free_scene(scene)
 
 func _scene_at(n: int) -> Node:

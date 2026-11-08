@@ -389,11 +389,16 @@ func test_hints() -> void:
 		# Core w3: the ladder toward an unvisited room opens with a where-step, a visited one with
 		# that room's own first line; either way it is the core's ladder, not the jetty's.
 		var away_first: String = g._elsewhere_ladder(away)[0] if away != "" else ""
+		# Core p1: the ladder as said is the room's tiers with a confirmation before the last.
+		var said := []
+		for lvl in r01(g).hint_tiers():
+			said.append(r01(g).hint_line(lvl))
+		said = GameSim.with_confirmation(said)
 		for lvl in 3:
 			check(r01(g).hint_line(lvl) == R01Sim.HINTS[o][lvl], "17: %s hint %d" % [o, lvl])
 			var ev := g.dispatch("hint")
 			if away == "":
-				check(says(ev) == R01Sim.HINTS[o][lvl], "17: %s hint %d dispatched" % [o, lvl])
+				check(says(ev) == said[lvl], "17: %s hint %d dispatched (got '%s')" % [o, lvl, says(ev)])
 			elif lvl == 0:
 				check(says(ev) == away_first and says(ev) != R01Sim.HINTS[o][0],
 					"17: %s hint points to %s (got '%s')" % [o, away, says(ev)])
@@ -983,6 +988,14 @@ func test_view_p1_exits() -> void:
 	check(scene.action_at(tab.get_center()) == "go:R02" and not v.consume_click(tab.get_center()),
 		"P1x: the tab is the core's during the hold")
 	scene.click(tab.get_center())
+	# Core p1 (pending_travel): one click commits; with story still queued the rest plays
+	# quickly and she goes 0.6 s after the last line, with no second click.
+	check(scene.sim.state.room == "R02" or scene.pending_travel == "go:R02",
+		"P1x: one click on the Office tab ends the hold and commits to travel")
+	for i in 120:
+		if scene.sim.state.room == "R02":
+			break
+		scene._process(0.1)
 	check(scene.sim.state.room == "R02", "P1x: one click on the Office tab ends the hold and travels")
 	# After the P06 reveal: one click on the Office tab travels.
 	scene.room_jump(ROOM, 2)

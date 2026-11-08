@@ -429,7 +429,10 @@ sudden sounds"; it holds until `seconds` after it began, then the beds come back
 current targets over 1.2 s. One-shots scheduled during the hold still play (the knock, the
 throat). Overlapping holds run to the later end. It is presentation only: never saved, and
 cleared by travel, the title and the end card. Time it to the line it belongs to with the same
-delay as that line.
+delay as that line. Your view also hears it once, as the sim said it: `play_fx("hold_breath", e)`
+at dispatch with `delay` intact (R08, R09 and R12 key their own stillness off it); the core does
+not call it again when its own duck begins. A view that pulls a reveal's lines back to the sim's
+times (R08's `_flush_for_reveal`) moves that click's `game.pending_fx` with them.
 
 **Hint tiers.** `RoomSim.hint_tiers()` is 3, or 4 when `HINTS[objective()]` lists four lines
 (override it if your `hint_line()` builds a fourth tier). `hint_line(level)` is asked for

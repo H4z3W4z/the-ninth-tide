@@ -1129,7 +1129,11 @@ func test_objectives_hints() -> void:
 	# The core climbs to the fourth tier once it reads hint_tiers(); until then it holds at the third.
 	var core_tiers := "hint_tiers" in (load("res://game/core/game_sim.gd") as Script).source_code
 	var fourth := says(g.dispatch("hint"))
-	check(fourth == (REF_HINTS.p07[3] if core_tiers else REF_HINTS.p07[2]), "hint: the fourth press (%s)" % fourth)
+	if core_tiers:
+		# Core p1: a confirmation before the last tier; the next press says the solution.
+		check(fourth == GameSim.HINT_CONFIRM, "hint: the fourth press asks first (%s)" % fourth)
+		fourth = says(g.dispatch("hint"))
+	check(fourth == (REF_HINTS.p07[3] if core_tiers else REF_HINTS.p07[2]), "hint: the solution press (%s)" % fourth)
 	solve_p07(g)
 	order.append(r.objective())
 	g.dispatch("service_drawer")

@@ -291,9 +291,11 @@ func test_hints_progress() -> void:
 	var h3 := says(s.dispatch("hint"))
 	var h4 := says(s.dispatch("hint"))
 	var h5 := says(s.dispatch("hint"))
-	check(h1 != h2 and h2 != h3 and h3 != h4 and h4 == h5, "hints escalate through four tiers and cap at the solution")
+	var h6 := says(s.dispatch("hint"))
+	# Core p1: a confirmation before the last tier.
+	check(h1 != h2 and h2 != h3 and h4 == GameSim.HINT_CONFIRM and h5 == h6, "hints escalate through four tiers and cap at the solution")
 	check(h3 == R02Sim.HINTS["lamp"][2] and "spare B" in h3, "the lamp's evidence tier: his log's spare B")
-	check("bridge B" in h4 and h4 == "Open the lamp. Switch the supply OFF, select straight bridge B, tap the terminals, then switch ON.",
+	check("bridge B" in h5 and h5 == "Open the lamp. Switch the supply OFF, select straight bridge B, tap the terminals, then switch ON.",
 		"final lamp hint gives the solution, unchanged")
 	s.debug_jump(1)
 	check(says(s.dispatch("hint")) == R02Sim.HINTS["log"][0], "hints reset for the new objective")
@@ -1307,9 +1309,10 @@ func test_scheduler() -> void:
 		"a click during the chain advances it and does not open the drawer")
 	advance(scene, 0.5)
 	scene.click(Vector2(908, 865))
-	check(scene.room_sim().view == "room" and not scene.chain_active(), "the next click releases the last line")
-	scene.click(Vector2(908, 865))
-	check(scene.room_sim().view == "drawer", "...and the one after it opens the drawer")
+	# Core p1 (pending_action): with only the last line up, the click finishes it and acts in
+	# the same press.
+	check(scene.room_sim().view == "drawer" and not scene.chain_active(),
+		"the next click releases the last line and opens the drawer in the same press")
 	for i in 4:
 		for n in [1, 8, 5, 2][i]:
 			scene.dispatch("dial_%d" % i)
@@ -3297,9 +3300,9 @@ func test_w2_fair_report() -> void:
 		"the report ladder: three steps, the chart as it is now, then the answer")
 	s.game.state.hint.level = 0
 	var lines := []
-	for i in 3:
+	for i in 4:
 		lines.append(says(s.dispatch("hint")))
-	check(lines[1] == h[1] and lines[2] == h[2], "the report hints play in order")
+	check(lines[1] == h[1] and lines[2] == GameSim.HINT_CONFIRM and lines[3] == h[2], "the report hints play in order")
 	# Before the report (no wet seat): no tenth in the window, the old line; after filing, the
 	# chart no longer gives the report line.
 	var e := new_sim()
@@ -3536,9 +3539,10 @@ func test_p1_hint_tiers() -> void:
 	s.dispatch("puddle")
 	check(s.objective() == "drawer" and s.hint_tiers() == 4, "the drawer ladder has four rungs")
 	var got := []
-	for i in 5:
+	for i in 6:
 		got.append(says(s.dispatch("hint")))
-	check(got.slice(0, 4) == R02Sim.HINTS["drawer"] and got[4] == got[3], "the Hint climbs all four, then holds the solution")
+	check(got.slice(0, 3) == R02Sim.HINTS["drawer"].slice(0, 3) and got[3] == GameSim.HINT_CONFIRM
+		and got[4] == R02Sim.HINTS["drawer"][3] and got[5] == got[4], "the Hint climbs all four, then holds the solution")
 	check(got[2] == "The barometer was mended at a minute. So was the lamp.", "the evidence rung before the code")
 	var c := new_sim()
 	c.debug_jump(4)

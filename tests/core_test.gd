@@ -707,7 +707,7 @@ func test_objective_elsewhere() -> void:
 	# She has been in the office: no where-step (Now: names it), and none of its own
 	# "Something ... has changed." tiers; straight to its ladder.
 	var want := []
-	for lv in 3:
+	for lv in g.room("R02").hint_tiers():
 		var l: String = g.room("R02").hint_line(lv)
 		if not GameSim._changed_line(l) and not l in want:
 			want.append(l)
