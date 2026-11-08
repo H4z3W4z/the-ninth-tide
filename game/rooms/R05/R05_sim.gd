@@ -40,7 +40,7 @@ const LEDGER_CONTROLS := ["page_prev", "page_next", "left_page", "right_page"]
 const BOARD_CONTROLS := ["tile_0", "tile_1", "tile_2", "tile_3", "tile_4", "tile_5", "tile_6",
 	"tile_7", "tile_8", "tile_9", "f_count", "f_name", "f_status", "count_down", "count_up",
 	"look_count", "socket_pantry", "socket_bunk", "socket_turn", "seal_1", "seal_2", "seal_3",
-	"stamp", "look_rule"]
+	"stamp", "look_rule", "look_rubbing"]
 ## Only after P09: the copy of the second board.
 const BOARD_CONTROLS_AFTER := ["look_duplicate"]
 
@@ -107,6 +107,13 @@ const BOARD_NAMES := ["ROOK, S. — Director", "BELL, N. — Cook", "IVES, T. �
 	"LUSK, M. — Draughtswoman", "PRYCE, O. — Boatman", "DOANE, C. — Recordist",
 	"HART, S. — Engine-man", "TULL, A. — Lab. assistant"]
 const RULE_TEXT := "Amendments must preserve the original entry and name the missing person. Stamp with the amending officer's seal."
+## The placard's last line: whose correction it is (the missing person's own, so his seal).
+const RULE_OWN_HAND := "The missing person may amend in his own hand."
+## The rubbing pinned beside the placard (assets/stages/R05/p09_venn_rubbing.png): Venn's seal.
+const RUBBING_LABEL := "E. VENN · seal, rubbed"
+const RUBBING_LINE := "Pinned beside it, a rubbing of a seal. Three cuts. Pencilled under it: E. VENN."
+## The work card's stamp, on the card, in her line and in the notebook (P13 reads the specimen).
+const CARD_STAMP := "CALIBRATION 18 OCT 1927 · SPECIMEN 27-11"
 const DUPLICATE_LINE := "Eight retained. One witnessing."
 const REJECT_TAPE := "REJECTED: UNVERIFIABLE CORRECTION. ORIGINAL ENTRY MUST STAND."
 ## The stamped strip under TULL on the front board after P09 (red-brown stamp ink).
@@ -177,11 +184,11 @@ const OBSERVATIONS := {
 	"headcount_nine": "Nine at supper on 18 Oct 1927. Eight signed. The ninth bowl had no name; Nora mended it with a square patch. Her note: the ninth was Venn. He is not on Rook's register.",
 	"drawer_rod": "The service drawer is latched from inside. A brass rod runs from its back through the wall toward the mess table.",
 	"drawer_note": "In the service drawer, with the pantry half of a brass token, a note in Nora's hand: 'E.V. ate. Rook says he did not. I count bowls, not opinions. — N.B.'",
-	"nora_work_card": "Nora Bell's kitchen work card, on a nail by the range, stamped CALIBRATION 18 OCT 1927. A trace of her breathing, drawn as one pressed line.",
+	"nora_work_card": "Nora Bell's kitchen work card, on a nail by the range, stamped CALIBRATION 18 OCT 1927 · SPECIMEN 27-11. A trace of her breathing, drawn as one pressed line.",
 	"menu_objections": "Rook's typed menu, week 41: 'Nutritionally sufficient. Ration per head: 1 issue. — S.R.' Nora pencilled under it: 'Sufficient for what. Ives says the barley is like eating a map. Pryce has been at sea all day and you have given him a biscuit with an opinion. I will make soup. — N.B.'",
 	"kettle_tick": "A kettle on the shelf above the range, not on it, ticking like metal cooling. Cold to the touch.",
 	"shift_board": "The shift board: SHIFT REGISTER, 18 OCT 1927, S. ROOK, DIRECTOR. Eight names in his hand: Rook, Bell, Ives, Lusk, Pryce, Doane, Hart, Tull. PRESENT: 8.",
-	"amendment_rule": "The shift board's placard: 'Amendments must preserve the original entry and name the missing person. Stamp with the amending officer's seal.' Corrections append; they never overwrite. Name the missing person.",
+	"amendment_rule": "The shift board's placard: 'Amendments must preserve the original entry and name the missing person. Stamp with the amending officer's seal. The missing person may amend in his own hand.' Corrections append; they never overwrite. Name the missing person. Pinned beside it, a rubbing of Venn's seal: three cuts.",
 	"name_tiles": "The amendment's name tiles: BELL, DOANE, HART, IVES, LUSK, MERCER, PRYCE, ROOK, TULL, VENN. The MERCER tile is newer brass than the rest.",
 	"seal_selector": "The seal selector: one cut, KITCHEN, N.B.; two cuts, DIRECTOR, S.R.; three cuts, UNASSIGNED.",
 	"eight_retained": "Behind the shift board, a second board in the same hand: 'Eight retained. One witnessing.'",
@@ -213,6 +220,7 @@ const HINTS := {
 	"p07": [
 		"Nora counted meals, not employees.",
 		"Two places have no initials. Nora's book says who sits by the door; the bunk room's calendar says who had the watch.",
+		"Nora's margin: 'Whoever has the night watch sits by the door.' The bunk room calendar gives the 18th to Venn. His bowl is the unsigned one with the square patch.",
 		"The eight named bowls set themselves. Put the unsigned patched bowl at the blank place by the door: the night watch sat there, and Venn had the 18th. Tally 9, COMPARE.",
 	],
 	"p07_drawer": [
@@ -228,6 +236,7 @@ const HINTS := {
 	"p09": [
 		"The kitchen's shift board wants both halves of the token and a correction.",
 		"The rule says keep the original and add the missing person. Nora's book and Venn's seal say who.",
+		"Nora served nine; eight signed. Her drawer note: 'E.V. ate.' The placard lets the missing person amend in his own hand, and the rubbing beside it is Venn's seal: three cuts.",
 		"Fit both halves. Leave 8 alone. Add +1 / VENN / present. Seal selector to three cuts, then stamp.",
 	],
 	"done": [
@@ -277,6 +286,11 @@ func objective() -> String:
 	if not game.flag("P08"):
 		return "wait_p08"
 	return "p09"
+
+## How many rungs the current objective's Hint ladder has: P07 and P09 carry an evidence tier
+## (nudge, relationship, evidence, solution); the rest keep three.
+func hint_tiers() -> int:
+	return c("HINTS", {}).get(objective(), []).size()
 
 func notebook_intrusion() -> String:
 	if band() >= 6 and ending() == "":
@@ -654,7 +668,7 @@ func _kitchen(action: String, ev: Array) -> void:
 	match action:
 		"work_card":
 			_observe("nora_work_card")
-			_say(ev, "A work card, stamped CALIBRATION 18 OCT 1927. A trace of her breathing.")
+			_say(ev, "A work card, stamped %s. A trace of her breathing." % CARD_STAMP)
 			if b >= 5 and e == "":
 				_say(ev, "It's lifting on its nail in that rhythm. The draught is steady. The card isn't.", 2.0)
 				_observe("card_breath")
@@ -1072,7 +1086,10 @@ func _service_board(action: String, ev: Array) -> void:
 			_sfx(ev, "seal_click")
 			_observe("seal_selector")
 		"look_rule":
-			_say(ev, RULE_TEXT)
+			_say(ev, RULE_TEXT + " " + RULE_OWN_HAND)
+			_observe("amendment_rule")
+		"look_rubbing":
+			_say(ev, RUBBING_LINE)
 			_observe("amendment_rule")
 		"stamp":
 			_stamp(ev)

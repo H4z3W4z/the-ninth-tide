@@ -13,9 +13,11 @@ const OPEN_TIDE := 3
 const REF_HINTS := {
 	"p07": ["Nora counted meals, not employees.",
 		"Two places have no initials. Nora's book says who sits by the door; the bunk room's calendar says who had the watch.",
+		"Nora's margin: 'Whoever has the night watch sits by the door.' The bunk room calendar gives the 18th to Venn. His bowl is the unsigned one with the square patch.",
 		"The eight named bowls set themselves. Put the unsigned patched bowl at the blank place by the door: the night watch sat there, and Venn had the 18th. Tally 9, COMPARE."],
 	"p09": ["The kitchen's shift board wants both halves of the token and a correction.",
 		"The rule says keep the original and add the missing person. Nora's book and Venn's seal say who.",
+		"Nora served nine; eight signed. Her drawer note: 'E.V. ate.' The placard lets the missing person amend in his own hand, and the rubbing beside it is Venn's seal: three cuts.",
 		"Fit both halves. Leave 8 alone. Add +1 / VENN / present. Seal selector to three cuts, then stamp."],
 	"p07_drawer": ["Something let go in the kitchen when the table agreed.",
 		"A brass rod runs from the service drawer back toward the mess table.",
@@ -44,6 +46,10 @@ const NAME_LINE := "The amendment has to name the person. Nora's note names him.
 const NOTICE_A := {4: "inward", 5: "soup", 6: "chair", 7: "chair", 8: "towel", 9: "towel"}
 const NOTICE_B := {4: "", 5: "", 6: "", 7: "card_breath", 8: "fog_wiped", 9: "warm_range"}
 const KITCHEN_MAX_Y := 914.0
+const CARD_STAMP := "CALIBRATION 18 OCT 1927 · SPECIMEN 27-11"
+const OWN_HAND := "The missing person may amend in his own hand."
+## Ladders with an evidence tier: nudge, relationship, evidence, solution.
+const EVIDENCE_TIERS := ["p07", "p09"]
 
 func run_tests() -> void:
 	skeleton_checks(ROOM, EXPECT_REQUIRES, OPEN_TIDE)
@@ -796,7 +802,13 @@ func test_p09_refusals() -> void:
 	f.dispatch("count_down")
 	check(says(f.dispatch("count_up")) == "" and says(f.dispatch("count_down")) == "", "the count line once")
 	check(says(f.dispatch("look_count")) == "PRESENT: 8. In his hand.", "his eight")
-	check(says(f.dispatch("look_rule")) == R05Sim.RULE_TEXT, "the rule")
+	check(says(f.dispatch("look_rule")) == R05Sim.RULE_TEXT + " " + OWN_HAND, "the rule, and whose correction it is")
+	check(R05Sim.RULE_OWN_HAND == OWN_HAND, "the placard's own-hand line")
+	var rub := says(f.dispatch("look_rubbing"))
+	check(rub == "Pinned beside it, a rubbing of a seal. Three cuts. Pencilled under it: E. VENN.", "the rubbing (%s)" % rub)
+	check(OWN_HAND in R05Sim.OBSERVATIONS.amendment_rule and "three cuts" in R05Sim.OBSERVATIONS.amendment_rule,
+		"the notebook's placard keeps the own-hand line and the rubbing")
+	check(ResourceLoader.exists("res://assets/stages/R05/p09_venn_rubbing.png"), "the rubbing is painted")
 	f.dispatch("seal_2")
 	check(int(r5(f).state.seal) == 2 and r5(f).has_seen("seal_selector"), "the seal selector")
 	# Without P07 and P08 the count can't be corrected.
@@ -933,7 +945,9 @@ func test_evidence_ids() -> void:
 	g.dispatch("back")
 	ev = g.dispatch("work_card")
 	check(g.has_seen(ROOM, "nora_work_card"), "nora_work_card on the first look")
-	check(says(ev) == "A work card, stamped CALIBRATION 18 OCT 1927. A trace of her breathing.", "the work card line")
+	check(says(ev) == "A work card, stamped %s. A trace of her breathing." % CARD_STAMP, "the work card line")
+	check(R05Sim.CARD_STAMP == CARD_STAMP, "the card's stamp names the specimen")
+	check(CARD_STAMP in R05Sim.OBSERVATIONS.nora_work_card, "the notebook keeps the specimen number")
 	for id in ["nora_work_card", "card_breath"]:
 		var o: String = R05Sim.OBSERVATIONS[id].to_lower()
 		check(not "two short" in o and not "one long" in o and not "pause" in o, "%s: no transcript of the rhythm" % id)
@@ -1110,7 +1124,12 @@ func test_objectives_hints() -> void:
 	order.append(r.objective())
 	check(says(g.dispatch("hint")) == REF_HINTS.p07[0], "hint: the nudge")
 	g.dispatch("hint")
-	check(says(g.dispatch("hint")) == REF_HINTS.p07[2], "hint: the solution")
+	check(says(g.dispatch("hint")) == REF_HINTS.p07[2], "hint: the evidence tier")
+	check(r.hint_tiers() == 4 and r.hint_line(3) == REF_HINTS.p07[3], "P07's ladder has four tiers, the solution last")
+	# The core climbs to the fourth tier once it reads hint_tiers(); until then it holds at the third.
+	var core_tiers := "hint_tiers" in (load("res://game/core/game_sim.gd") as Script).source_code
+	var fourth := says(g.dispatch("hint"))
+	check(fourth == (REF_HINTS.p07[3] if core_tiers else REF_HINTS.p07[2]), "hint: the fourth press (%s)" % fourth)
 	solve_p07(g)
 	order.append(r.objective())
 	g.dispatch("service_drawer")
@@ -1124,8 +1143,14 @@ func test_objectives_hints() -> void:
 	order.append(r.objective())
 	check(order == ["p07", "p07_drawer", "wait_p08", "p09", "done"], "objective order %s" % [order])
 	for k in REF_HINTS:
-		for lvl in 3:
+		var tiers := 4 if k in EVIDENCE_TIERS else 3
+		check(REF_HINTS[k].size() == tiers, "ladder %s has %d tiers" % [k, tiers])
+		for lvl in tiers:
 			check(REF_HINTS[k][lvl] in R05Sim.HINTS[k], "hint %s %d" % [k, lvl])
+	check(r.hint_tiers() == 3, "the done ladder keeps three tiers")
+	var p09 := ready_p09()
+	check(r5(p09).objective() == "p09" and r5(p09).hint_tiers() == 4, "P09's ladder has four tiers")
+	check(r5(p09).hint_line(2) == REF_HINTS.p09[2] and r5(p09).hint_line(3) == REF_HINTS.p09[3], "P09: evidence, then solution")
 	check(r.objective_text() == "The board is amended. The hatch is open.", "done text")
 
 # ---------------------------------------------------------------------------------------------
