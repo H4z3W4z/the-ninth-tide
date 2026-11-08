@@ -116,20 +116,26 @@ const OBJECTIVES := {
 	"after": "The service key fits the office's service door.",
 	"done": "The jetty has nothing more for me.",
 }
+## P06's evidence tier: what the notebook and the placard already say, short of the answer.
+const EVIDENCE_INSPECT := "The contract's launch flies two stripes; this one flies three. And I can't certify what I haven't looked into."
+const EVIDENCE_SIGNAL := "My notebook: three stripes on its pennant, the contract's launch has two. The placard's third rule is for a mismatched vessel."
 const HINTS := {
 	"explore": [
 		"Nothing out here needs me yet. Something may come in later.",
 		"The contract says the collection launch answers the departure signal.",
 		"Restore the departure signal in the chart room. Then come back to the jetty.",
 	],
+	# P06 has four tiers (hint_tiers()): a nudge, the relationship, the evidence, the answer.
 	"inspect": [
 		"The boat at the jetty doesn't match something you've read.",
 		"Compare its pennant with the launch on the contract. Its lit window wants a closer look.",
+		EVIDENCE_INSPECT,
 		"Use the inspection lens on the boat's window. Then set UNVERIFIED RETURN on the mooring panel and ring bell 2.",
 	],
 	"signal": [
 		"The boat at the jetty doesn't match something you've read.",
 		"Compare its pennant with the launch on the contract, then follow the mooring panel's placard.",
+		EVIDENCE_SIGNAL,
 		"Set UNVERIFIED RETURN on the mooring panel and ring bell 2.",
 	],
 	"capsule": [
@@ -304,6 +310,10 @@ func _bell(s: String, ev: Array) -> void:
 	match s:
 		"s1":
 			_observe("bell")
+			if not has_seen("sea_out"):
+				# The view lays the drained flats (p06_flats) from this line for the rest of
+				# the tide: it reads has_seen("sea_out"), so a revisit or a load shows them too.
+				_fx(ev, "flats")
 			_observe("sea_out")
 			_say(ev, "The sea's gone out to the horizon. The water round the bell hasn't. It stands there, level, on its own.")
 		"s2":
@@ -722,6 +732,10 @@ func objective() -> String:
 
 func hint_frozen() -> bool:
 	return false
+
+## P06's ladders have four tiers (an evidence tier before the answer); the rest have three.
+func hint_tiers() -> int:
+	return 4 if HINTS.get(objective(), []).size() >= 4 else 3
 
 # ---------------------------------------------------------------------------
 # persistence

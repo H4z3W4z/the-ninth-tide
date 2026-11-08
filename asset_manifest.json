@@ -7963,6 +7963,15 @@
       "source_svg": null
     },
     {
+      "id": "p06_flats",
+      "path": "assets/stages/R01/p06_flats.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "c3288748213b1aecc8fb4a2174a6368ee35f6840aed17e6bcbc400b5a12845aa",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "away_coat",
       "path": "assets/stages/away_coat.png",
       "width": 1448,
