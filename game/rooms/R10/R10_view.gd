@@ -20,7 +20,7 @@ const DIR := "res://assets/rooms/R10/%s.png"
 const STAGE_DIR := "res://assets/stages/R10/%s.png"
 ## The overlays that live in assets/stages/R10/ (new stage art; the room's own plates stay put).
 const STAGE_IDS := ["vault_grade", "cabinet_r3", "staff_seep_r3", "staff_seep_r3_1", "staff_seep_r3_2",
-	"drawer_open_r3", "a_cabinet_r3"]
+	"drawer_open_r3", "a_cabinet_r3", "r10_flood_b6", "r10_flood_b6_a"]
 ## The STAFF drawer is always drawn shut (cabinet_r3, ring pulls). Out of its seam a hard
 ## sea-glass stripe runs up to the ceiling, at aperture width 0, 1, 2 (each step wider).
 const STAFF_SEEPS := ["staff_seep_r3", "staff_seep_r3_1", "staff_seep_r3_2"]
@@ -40,6 +40,12 @@ const FLOOD_KEEP_A := Vector2(0, 0)
 const FLOOD_KEEP_B := Vector2(820, 1180)
 ## From this band the back shelving is graded toward storm navy (vault_grade).
 const GRADE_BAND := 6
+## From this band the water stands in the room: everything under FLOOD_Y washed toward storm
+## navy, labels re-stroked (R10.py r10_flood_b6 for view B, r10_flood_b6_a for view A).
+const FLOOD_PLATE_BAND := 6
+const FLOOD_PLATES := {"a": "r10_flood_b6_a", "b": "r10_flood_b6"}
+## The waterline's meniscus: 3 px storm navy under a 1 px pale sea-glass highlight (as R02).
+const MENISCUS_HI := Color("a9c8b8")
 
 const PAPER := Color("ded4ba")
 const PAPER_HI := Color("e8e1cf")
@@ -986,7 +992,8 @@ func back_visible() -> bool:
 	return r.is_closeup()
 
 func esc_action() -> String:
-	return "back" if r.is_closeup() else "menu"
+	# Esc steps back from a close-up and from the catalogue wall; the menu opens only from view A.
+	return "back" if r.is_closeup() or r.local_view == "catalogue" else "menu"
 
 func exits_active() -> bool:
 	return not r.is_closeup()
@@ -1043,8 +1050,17 @@ func action_at(p: Vector2) -> String:
 		return ""
 	for h in _controls():
 		if h[1].has_point(p):
+			if h[0] == "folders" and r.game.selected_item != "":
+				return folder_spine_at(p)
 			return h[0]
 	return ""
+
+## With an item in hand, the folder cabinet on the catalogue wall answers by spine: its three
+## columns (under the BODY, PLACE, NAME plates) are the three folders, so the item goes straight in.
+func folder_spine_at(p: Vector2) -> String:
+	var rect: Rect2 = hotspot_rect("folders")
+	var k := clampi(int((p.x - rect.position.x) / (rect.size.x / 3.0)), 0, 2)
+	return ["fold_body", "fold_place", "fold_name"][k]
 
 func hover_at(p: Vector2) -> String:
 	return action_at(p)
@@ -1195,6 +1211,7 @@ func _draw_view_a(c: CanvasItem) -> void:
 			_full(c, id)
 	if flooded():
 		_draw_reflection_a(c, ov)
+	_draw_flood_plate(c, "a")
 	# the wall clock: stopped at 22:00
 	_clock_hands(c, CLOCK_C, "22:00", 30.0, 46.0, 9.0, 6.0, INK)
 	c.draw_circle(CLOCK_C, 4.0, BRASS)
@@ -1248,9 +1265,19 @@ func _draw_flood_line(c: CanvasItem, keep: Vector2) -> void:
 	for span in [Vector2(0, keep.x), Vector2(keep.y, 1448)]:
 		if span.y <= span.x:
 			continue
-		c.draw_line(Vector2(span.x, FLOOD_Y), Vector2(span.y, FLOOD_Y), Color(PAPER_HI, 0.9), 4.0)
-		c.draw_line(Vector2(span.x, FLOOD_Y + 2.5), Vector2(span.y, FLOOD_Y + 2.5), FLOOD_LINE, 3.0)
-		c.draw_line(Vector2(span.x, FLOOD_Y + 4.5), Vector2(span.y, FLOOD_Y + 4.5), INK, 1.4)
+		# the meniscus: a 1 px pale sea-glass highlight over a 3 px storm-navy contour
+		c.draw_line(Vector2(span.x, FLOOD_Y - 2.0), Vector2(span.y, FLOOD_Y - 2.0), MENISCUS_HI, 1.0)
+		c.draw_line(Vector2(span.x, FLOOD_Y + 0.5), Vector2(span.y, FLOOD_Y + 0.5), STORM, 3.0)
+
+## The flood plate's id for view `side` ("a" or "b"), or "" below FLOOD_PLATE_BAND.
+func flood_plate_id(side: String) -> String:
+	return FLOOD_PLATES[side] if r.band() >= FLOOD_PLATE_BAND else ""
+
+## The water standing in the room, under the waterline and every label the view writes.
+func _draw_flood_plate(c: CanvasItem, side: String) -> void:
+	var id := flood_plate_id(side)
+	if id != "":
+		_full(c, id)
 
 func _draw_deep_lamp(c: CanvasItem) -> void:
 	c.draw_circle(DEEP_LAMP, 5.0, Color(AMBER, 0.35))
@@ -1329,6 +1356,7 @@ func _draw_view_b(c: CanvasItem) -> void:
 			_full(c, id, k, Vector2(0, -DRAWER_SLIDE_PX * (1.0 - k)))
 		else:
 			_full(c, id)
+	_draw_flood_plate(c, "b")
 	if flooded():
 		# under the labels, and broken where the folder cabinet's spine plates stand (R10.py
 		# paints its tide line round them too)

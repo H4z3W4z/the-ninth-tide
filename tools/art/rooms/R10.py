@@ -2637,6 +2637,85 @@ def paint_a_cabinet_r3(rng):
     return p
 
 
+# ----------------------------------------------------------------------------- the flood, band 6
+#
+# From band 6 (round p3) the water below the dead-level line reads as water standing in the
+# room: everything under FLOOD_Y, to the boards, is washed toward storm navy at 40%, flat, no
+# gradient. On the line, a 3 px ragged navy meniscus with a 1 px paler sea-glass highlight over
+# it (R02's hard tide line, in this room's colours). The label plates under the water are
+# re-stroked at full ink after the wash, so every label stays exact and legible. STAFF's plate is
+# already above the line (STAFF_PLATE y1 420 < 512): the one drawer they built above the water.
+FLOOD_Y = TIDE_Y
+FLOOD_WASH = 0.40
+MENISCUS_HI = (169, 200, 184)          # #A9C8B8
+SPINE_BAND = (820, 490, 1180, 534)     # view B: the spine plates the line breaks round
+
+
+def meniscus(p, rng, keep_out=()):
+    """The waterline: a 3 px ragged navy contour with a 1 px pale sea-glass highlight above."""
+    lay = p.layer()
+    pts = ragged(rng, -4, W + 4, FLOOD_Y + 0.5, 1.4, step=9, waves=2)
+    lay.line(pts, STORM, 3.0)
+    lay.line([(x, y - 2.5) for x, y in pts], MENISCUS_HI, 1.0)
+    m = rect_mask([(-4, 0, W + 4, H)])
+    if keep_out:
+        m = ImageChops.subtract(m, rect_mask(list(keep_out)))
+    p.put(lay, 1.0, mask=m)
+
+
+def flood_wash(p, keep_out=()):
+    lay = p.layer(STORM)
+    lay.rect(-4, FLOOD_Y, W + 4, FLOOR_Y, STORM, None, 0)
+    m = rect_mask([(-4, FLOOD_Y, W + 4, FLOOR_Y)])
+    if keep_out:
+        m = ImageChops.subtract(m, rect_mask(list(keep_out)))
+    p.put(lay, FLOOD_WASH, mask=m)
+
+
+def paint_flood_b6_b(rng):
+    """View B overlay, band 6 on: the catalogue wall under the water, its drawer labels kept."""
+    p = Pen(W, H, rng)
+    flood_wash(p, keep_out=[SPINE_BAND])
+    # the chest's small drawer plates below the line, re-stroked (the same geometry as chest())
+    for ry0, ry1 in ROWS:
+        if ry0 + 11 < FLOOD_Y:
+            continue
+        for k in range(len(COLS) - 1):
+            cx0, cx1 = COLS[k], COLS[k + 1]
+            if ry0 == VENN[1] and cx1 <= COLS[2]:
+                continue
+            cx = (cx0 + cx1) / 2
+            pw = min(48, (cx1 - cx0) * 0.5)
+            oak_plate(p, cx - pw / 2, ry0 + 11, cx + pw / 2, ry0 + 25)
+    venn_plate(p)
+    for k in range(3):
+        oak_plate(p, 830 + 120 * k, 500, 930 + 120 * k, 526)
+    # the archive boxes' plates (archive_boxes() positions, from the same seed)
+    brng = rng_for(640)
+    y = FLOOR_Y
+    for w, h in ((176, 78), (164, 72), (170, 70)):
+        x0 = 1226 + brng.uniform(-6, 6)
+        if y - h + 26 >= FLOOD_Y:
+            oak_plate(p, x0 + w / 2 - 30, y - h + 26, x0 + w / 2 + 30, y - h + 42)
+        y -= h
+    meniscus(p, rng_for(1101), keep_out=[SPINE_BAND])
+    return p
+
+
+def paint_flood_b6_a(rng):
+    """View A overlay, band 6 on: the shelves wall under the water, its drawer labels kept."""
+    p = Pen(W, H, rng)
+    flood_wash(p)
+    x0, y0, x1, _ = CAB
+    oak_plate(p, (x0 + x1) / 2 - 42, y0 + 40, (x0 + x1) / 2 + 42, y0 + 64)
+    dx, dy = DESK[0], DESK[1]
+    for k in range(2):
+        dx0 = dx + 30 + k * 176 + (8 if k else 0)
+        oak_plate(p, dx0 + 56, dy + 40, dx0 + 100, dy + 52)
+    meniscus(p, rng_for(1102))
+    return p
+
+
 ASSETS = [  # name, seed index, painter, opaque, grain
     ("view_a", 0, lambda r: paint_view_a(r, 4), True, True),
     ("view_a_s5", 0, lambda r: paint_view_a(r, 5), True, True),
@@ -2713,6 +2792,9 @@ STAGE_ASSETS = [  # name, seed index, painter, opaque, grain -> assets/stages/R1
     ("staff_seep_r3_2", 99, lambda r: paint_staff_seep(r, 2), False, False),
     ("drawer_open_r3", 100, paint_drawer_open_r3, False, False),
     ("a_cabinet_r3", 101, paint_a_cabinet_r3, False, True),
+    # round p3: the flood from band 6, view B (the catalogue wall) and view A (the shelves)
+    ("r10_flood_b6", 102, paint_flood_b6_b, False, False),
+    ("r10_flood_b6_a", 103, paint_flood_b6_a, False, False),
 ]
 
 

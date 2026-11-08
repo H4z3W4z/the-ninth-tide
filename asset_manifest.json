@@ -8323,6 +8323,24 @@
       "source_svg": null
     },
     {
+      "id": "r10_flood_b6",
+      "path": "assets/stages/R10/r10_flood_b6.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "6f1ff4a84881a8b753f9423e8c72a5fe7aa53f410453f5b436393c82643516b6",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r10_flood_b6_a",
+      "path": "assets/stages/R10/r10_flood_b6_a.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "b6074990b8e9554ac03ed8458edc3878bae540538e8b8745e4bf809589837761",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "staff_seep_r3",
       "path": "assets/stages/R10/staff_seep_r3.png",
       "width": 1448,

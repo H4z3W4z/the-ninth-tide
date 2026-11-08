@@ -37,6 +37,11 @@ const CLIP_DONE := "Clipped. Frames one to sixteen, unbroken."
 const REGISTERED := "The cover's registered to the edge. It won't slide until the edge is clipped."
 const HOLDS := "Clipped. It holds."
 const RECORDS_BACK := "I take Nora's records back with me."
+const ECHO := "Footsteps. Mine. What the recorder took down of me, done again, in the order I did it. Nobody is there."
+const ECHO_OBS := "In the archive I heard my own recorded movements played back to me, in the order I made them. Nobody was walking."
+const STAFF_FLOODED := "The water stands at the same height in every room. The STAFF drawer is the only one they built above it."
+const NEED_FOLDERS := "I'll need to open the folders first."
+const NEED_MODEL := "I'll need to open the model first."
 
 func run_tests() -> void:
 	skeleton_checks(ROOM, EXPECT_REQUIRES, OPEN_TIDE)
@@ -83,6 +88,11 @@ func run_tests() -> void:
 	test_flag_adoption()
 	test_malformed_saves()
 	test_chain_scripts()
+	test_echo_trace()
+	test_flood_plate()
+	test_items_from_catalogue()
+	test_now_after_p16()
+	await test_esc_catalogue()
 	await test_view_presentation()
 	await test_view_p18_staging()
 	await test_view_copy_slam()
@@ -1032,7 +1042,8 @@ func test_notices() -> void:
 		check(count_ev(ev, "fx", "notice_" + n) == 1 and r.has_seen(n), "notice %s plays (got %s)" % [n, says(ev)])
 		if n == "ninth_photo":
 			# band 5: the flood line first (story, once), then the notice after it, also story
-			check(says(ev) == R10Sim.FLOOD_LINE + " | " + R10Sim.NOTICE_LINES[n] and r.has_seen("flood")
+			# (P16 set since the last visit: the echo plays first, once)
+			check(says(ev) == ECHO + " | " + R10Sim.FLOOD_LINE + " | " + R10Sim.NOTICE_LINES[n] and r.has_seen("flood")
 				and r.state.flood_seen, "band 5: the flood, then %s (got %s)" % [n, says(ev)])
 			check(ev.filter(func(e): return e.type == "say").all(func(e): return e.get("story", false)),
 				"band 5: both lines are story")
@@ -1140,10 +1151,10 @@ func test_catalogue_objects() -> void:
 	g = game_at(9, ROOM)
 	g.dispatch("to_catalogue")
 	check(says(use(g, "witness_bridge", "tray")) == "I know what the tray is for now. No.", "bridge on the tray")
-	check(says(g.dispatch("staff_drawer")) == "Wider again. Still running up.", "STAFF at band 7")
+	check(says(g.dispatch("staff_drawer")) == STAFF_FLOODED and r10(g).has_seen("aperture_wide"), "STAFF at band 7")
 	g = model_game()
 	play(g, ["t_input", "t_witness", "test", "back"])
-	check(says(g.dispatch("staff_drawer")) == "Wider than it was. I didn't see it change.", "STAFF after P23")
+	check(says(g.dispatch("staff_drawer")) == STAFF_FLOODED, "STAFF after P23 (band 6)")
 
 func test_room_objects() -> void:
 	var g := fresh()
@@ -1568,3 +1579,189 @@ func test_view_copy_slam() -> void:
 	check(not t2[1].flooded(), "band 4: no flood")
 	await free_scene(t2[0])
 
+
+# ---------------------------------------------------------------------------------------------
+# round p3
+# ---------------------------------------------------------------------------------------------
+func _echo_count(ev: Array) -> int:
+	return count_ev(ev, "fx", "echo_trace")
+
+func _echo_event(ev: Array) -> Dictionary:
+	for e in ev:
+		if e.type == "fx" and e.get("id", "") == "echo_trace":
+			return e
+	return {}
+
+func _echo_say(ev: Array) -> Dictionary:
+	for e in ev:
+		if e.type == "say" and e.text == ECHO:
+			return e
+	return {}
+
+## The echo: once, on the first return after P16, her P05 trace played back in order.
+func test_echo_trace() -> void:
+	check(R10Sim.OBSERVATIONS.get("echo", "") == ECHO_OBS, "echo observation verbatim")
+	var g := game_at(6, ROOM)
+	var r := r10(g)
+	g.state.p05_trace = ["lamp_mended", "log_read", "drawer_opened", "held_still"]
+	var want: Array = ["lamp_mended", "log_read", "drawer_opened"]
+	# before P16: leaving and coming back plays nothing
+	g.dispatch("go:R07")
+	var ev := g.dispatch("go:R10")
+	check(g.state.room == ROOM and _echo_count(ev) == 0 and not r.state.echo_heard, "no echo before P16")
+	# the arrival during which P16 is solved: nothing
+	ev = solve_p16(g)
+	check(_echo_count(ev) == 0 and not r.state.echo_heard, "no echo on the arrival that solves P16")
+	g.dispatch("back")
+	g.dispatch("go:R07")
+	ev = g.dispatch("go:R10")
+	check(_echo_count(ev) == 1, "echo on the first return after P16 (got %s)" % says(ev))
+	var e := _echo_event(ev)
+	check(JSON.stringify(e.get("moves", [])) == JSON.stringify(want), "echo moves = p05_trace[0..3) (got %s)" % [e.get("moves")])
+	var line := _echo_say(ev)
+	check(not line.is_empty() and is_equal_approx(float(line.delay), 6.4) and line.story, "echo line at 6.4 s, story")
+	check(ev.find(e) < ev.find(line), "the fx comes before its line")
+	check(r.state.echo_heard and r.has_seen("echo"), "echo heard and observed")
+	# the notice and flood come after the echo, not instead of it
+	g.dispatch("go:R07")
+	ev = g.dispatch("go:R10")
+	check(_echo_count(ev) == 0 and _echo_say(ev).is_empty(), "the second return plays no echo")
+	# a save round-trips echo_heard, and a reload after it never re-fires
+	var t := roundtrip(g)
+	check(r10(t).state.echo_heard, "echo_heard survives a save")
+	t.dispatch("go:R07")
+	ev = t.dispatch("go:R10")
+	check(_echo_count(ev) == 0, "reload: no second echo")
+	# a save from before the echo (P16 done, not yet heard) still plays it once
+	var g2 := game_at(6, ROOM)
+	solve_p16(g2)
+	g2.dispatch("back")
+	g2.dispatch("go:R07")
+	var t2 := roundtrip(g2)
+	check(not r10(t2).state.echo_heard, "saved before the echo: not heard")
+	check(_echo_count(t2.dispatch("go:R10")) == 1, "the reload plays it once")
+	check(_echo_count(t2.dispatch("go:R07") + t2.dispatch("go:R10")) == 0, "then never again")
+	# reconciled: echo_heard without P16 is dropped
+	var bad := load_with({"echo_heard": true})
+	check(not bad.state.echo_heard, "echo_heard without P16 is dropped")
+	# no frozen trace: the last three movement events
+	var g3 := game_at(6, ROOM)
+	solve_p16(g3)
+	g3.dispatch("back")
+	g3.dispatch("go:R07")
+	g3.state.p05_trace = []
+	g3.state.movement_events = ["lamp_mended", "log_read", "drawer_opened", "held_still"]
+	e = _echo_event(g3.dispatch("go:R10"))
+	check(JSON.stringify(e.get("moves", [])) == JSON.stringify(["log_read", "drawer_opened", "held_still"]),
+		"no trace: the last three movement events (got %s)" % [e.get("moves")])
+
+## Band 6 on: the flood plates in both views and the STAFF line.
+func test_flood_plate() -> void:
+	for id in ["r10_flood_b6", "r10_flood_b6_a"]:
+		check(id in RV.STAGE_IDS and ResourceLoader.exists(RV.STAGE_DIR % id), "%s is stage art" % id)
+	var py: String = FileAccess.get_file_as_string("res://tools/art/rooms/R10.py")
+	check(py.find("(\"r10_flood_b6\"") >= 0 and py.find("(\"r10_flood_b6_a\"") >= 0, "the flood plates have painter entries")
+	var img := Image.load_from_file(ProjectSettings.globalize_path("res://assets/stages/R10/r10_flood_b6.png"))
+	check(img.get_width() == 1448 and img.get_height() == 1086, "flood plate at native size")
+	# above the line clear, below it washed; STAFF's plate clear of the water
+	check(img.get_pixel(300, 300).a == 0.0 and img.get_pixel(300, 860).a > 0.3, "the wash is under the line only")
+	check(img.get_pixel(530, 406).a == 0.0, "the STAFF plate sits above the water")
+	for t in [6, 7, 8, 9]:
+		var g := game_at(t, ROOM)
+		var b := r10(g).band()
+		var v: Node = RV.new()
+		v.sim = r10(g)
+		var want := "r10_flood_b6" if b >= 6 else ""
+		check(v.flood_plate_id("b") == want and v.flood_plate_id("a") == ("r10_flood_b6_a" if b >= 6 else ""),
+			"tide %d (band %d): flood plates %s" % [t, b, want])
+		v.free()
+		g.dispatch("to_catalogue")
+		r10(g).state.staff_open = true
+		for o in ["staff_aperture", "staff_label"]:
+			g.observe(ROOM, o)
+		var line := says(g.dispatch("staff_drawer"))
+		if b >= 6:
+			check(line == STAFF_FLOODED, "band %d: the STAFF line (got %s)" % [b, line])
+		else:
+			check(line != STAFF_FLOODED, "band %d: no flood STAFF line" % b)
+
+## An item from the catalogue wall on a folder spine or the model opens it and is used there.
+func test_items_from_catalogue() -> void:
+	var g := folders_game()
+	g.dispatch("back")
+	var r := r10(g)
+	check(r.local_view == "catalogue", "at the catalogue wall")
+	var ev := use(g, "nora_frame", "fold_body")
+	check(r.local_view == "c_folders" and r.state.filed.BODY == "nora_frame" and not g.has_item("nora_frame"),
+		"the frame on BODY from the catalogue files it in one action (got %s)" % says(ev))
+	check(says(ev).find("In BODY.") >= 0 and says(ev).find("I'll need") < 0, "and says so")
+	g.dispatch("back")
+	check(g.has_item("nora_frame"), "back from the folders: records return")
+	# the cabinet itself with a record: opens, and the record needs a folder
+	ev = use(g, "nora_frame", "folders")
+	check(r.local_view == "c_folders" and says(ev).ends_with(NEED_FOLDERS) and g.has_item("nora_frame"),
+		"the frame on the cabinet: opens, then the folders line (got %s)" % says(ev))
+	g.dispatch("back")
+	g.give("inspection_lens")
+	ev = use(g, "inspection_lens", "fold_name")
+	check(r.local_view == "c_folders" and says(ev).ends_with(NEED_FOLDERS), "the lens on a folder: the folders line, never the generic refusal (got %s)" % says(ev))
+	# the model
+	var m := game_at(8, ROOM)
+	m.dispatch("to_catalogue")
+	if not m.has_item("amended_nora_card"):
+		m.give("amended_nora_card")
+	r = r10(m)
+	ev = use(m, "amended_nora_card", "model")
+	check(r.local_view == "c_model" and says(ev).find(R10Sim.AMENDED_ON_MODEL) >= 0,
+		"the amended card on the model from the catalogue works (got %s)" % says(ev))
+	m.dispatch("back")
+	ev = use(m, "chart_clips", "model") if m.has_item("chart_clips") else use(m, "pencil", "model")
+	check(r.local_view == "c_model" and says(ev).ends_with(NEED_MODEL), "another item on the model: the model line (got %s)" % says(ev))
+	# shutter shut (tide VII): the card on the model says so
+	var w := game_at(7, ROOM)
+	w.dispatch("to_catalogue")
+	w.give("amended_nora_card")
+	ev = use(w, "amended_nora_card", "model")
+	check(says(ev).ends_with(NEED_MODEL), "shutter shut: the model line")
+	# the view: with an item in hand the cabinet answers by spine
+	var v: Node = RV.new()
+	v.sim = r10(g)
+	g.dispatch("back")
+	check(r10(g).local_view == "catalogue", "back at the wall")
+	g.selected_item = "nora_frame"
+	var cab: Rect2 = v.hotspot_rect("folders")
+	var ids := []
+	for k in 3:
+		ids.append(v.action_at(Vector2(cab.position.x + cab.size.x * (k + 0.5) / 3.0, cab.get_center().y)))
+	check(ids == ["fold_body", "fold_place", "fold_name"], "item in hand: the cabinet's spines (got %s)" % [ids])
+	g.selected_item = ""
+	check(v.action_at(cab.get_center()) == "folders", "empty hand: the cabinet")
+	v.free()
+
+## Esc from the catalogue wall steps back to the shelves; the menu only from view A.
+func test_esc_catalogue() -> void:
+	var g := fresh()
+	var r := r10(g)
+	var v: Node = RV.new()
+	v.sim = r
+	check(v.esc_action() == "menu", "view A: Esc is the menu")
+	g.dispatch("to_catalogue")
+	check(r.local_view == "catalogue" and v.esc_action() == "back", "catalogue: Esc is back")
+	g.dispatch(v.esc_action())
+	check(r.local_view == "room" and g.view == "room", "back from the catalogue goes to the shelves")
+	g.dispatch("to_catalogue")
+	g.dispatch("folders")
+	check(v.esc_action() == "back", "a close-up: Esc is back")
+	v.free()
+
+## Right after P16 (P17 not done) "Now:" stays in the vault with P18.
+func test_now_after_p16() -> void:
+	var g := game_at(6, ROOM)
+	solve_p16(g)
+	check(g.flag("P16") and not g.flag("P17"), "P16 done, P17 not")
+	for step in ["", "back", "to_catalogue"]:
+		if step != "":
+			g.dispatch(step)
+		var now := g.objective_text()
+		check(now == REF_OBJ["p18"], "after P16 (%s): Now names P18 (got %s)" % [step, now])
+		check(now.find("Listening") < 0, "after P16: not sent to R04")
