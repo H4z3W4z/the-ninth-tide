@@ -13,6 +13,13 @@ extends RoomView
 ## schematic and line of writing is drawn here with Ink's fonts.
 
 const DIR := "res://assets/rooms/R12/%s.png"
+## Plates that have a newer page (new files, never overwrites): the ending page table reads these.
+const PAGE_TEX := {
+	"end_a_record": "res://assets/stages/R12/r12_sever_office.png",
+	"end_b_terminal": "res://assets/stages/R12/r12_continue_terminal.png",
+	"end_b_field": "res://assets/stages/R12/end_b_wide_2.png",
+	"c_routing": "res://assets/rooms/R12/c_routing_preview.png",
+}
 
 # ---------------------------------------------------------------------------------------------
 # hit tables ([id, rect, label]; first match wins)
@@ -65,20 +72,12 @@ const FRAMES_CONTROLS := [
 	["switch", Rect2(1110, 700, 300, 120), "Switch: WITNESS / COPY"],
 	["route", Rect2(1110, 840, 300, 130), "ROUTE"],
 ]
-## The consequence cards' rows are built per frame (a card's rect follows the card).
 const ROUTING_CONTROLS := [
 	["look_sever", Rect2(110, 100, 540, 360), "SEVER plate"],
 	["look_continue", Rect2(798, 100, 540, 360), "CONTINUE plate"],
-	["preview_sever", Rect2(260, 470, 240, 90), "PREVIEW"],
-	["preview_continue", Rect2(948, 470, 240, 90), "PREVIEW"],
-	["slot_sever", Rect2(140, 590, 420, 150), "SEVER card slot"],
-	["slot_continue", Rect2(888, 590, 420, 150), "CONTINUE card slot"],
-	["confirm", Rect2(604, 590, 240, 150), "CONFIRM UNDERSTANDING"],
+	["preview_sever", Rect2(260, 470, 240, 90), "PREVIEW SEVER"],
+	["preview_continue", Rect2(948, 470, 240, 90), "PREVIEW CONTINUE"],
 ]
-const CC_WELLS := {
-	"cc_restored": Rect2(64, 790, 310, 160), "cc_remains": Rect2(394, 790, 310, 160),
-	"cc_returns": Rect2(724, 790, 310, 160), "cc_ends": Rect2(1054, 790, 310, 160),
-}
 const FINAL_CONTROLS := [
 	["contacts", Rect2(100, 140, 440, 260), "Feed contacts"],
 	["look_lamps", Rect2(560, 140, 328, 260), "Preview lamps"],
@@ -159,12 +158,34 @@ const GLASS_HOLES := [
 	Rect2(247, 0, 7, 104), Rect2(232, 100, 36, 22), Rect2(230, 112, 40, 44),  # the caged lamp
 	Rect2(884, 398, 192, 40),                                                # the column's capital
 ]
-## The lid: a stark dark band across the whole pane. With Motion it slides top to bottom over
-## LID_RUN once every LID_PERIOD; still, it holds with its top a third of the way down.
+## The lid: a stark dark band the full width of the window. It comes down only when the sim
+## blinks (twice a game): closing over BLINK_CLOSE, held shut BLINK_HOLD, opening over BLINK_OPEN.
+## With Motion off it is simply shut for the whole blink, then gone.
 const LID_COLOR := Color("141d29")
-const LID_H := 70.0
-const LID_RUN := 6.0
-const LID_PERIOD := 20.0
+const LID_EDGE := Color("a9c8b8")
+const BLINK_CLOSE := 0.5
+const BLINK_HOLD := 0.35
+const BLINK_OPEN := 0.65
+const BLINK_TIME := BLINK_CLOSE + BLINK_HOLD + BLINK_OPEN
+## The eye overlay (a_surface_eye.png, GLASS_IN-sized), moved by R12Sim.pupil_offset().
+const GAZE_SPEED := 30.0        # px/s with Motion; still, it is simply where it looks
+## A held breath: the chamber's loops go silent over BREATH_OUT, come back over BREATH_IN.
+const BREATH_OUT := 0.15
+const BREATH_IN := 0.8
+const BREATH_IN_SOFT := 1.6
+## The previews in the window (P26): a_prev_*.png, GLASS_IN-sized; positions match
+## tools/art/rooms/R12.py PREV_*. Times are seconds after the glance.
+const PREV_FRAME_X := [112, 200, 288, 376, 464, 552, 640, 728]
+const PREV_LAMP_Y := 30.0
+const PREV_RAIL := [120.0, 640.0, 150.0]
+const PREV_IN := 0.6
+const PREV_LAMP_AT := 1.0        # the first portrait lamp goes out
+const PREV_LAMP_STEP := 0.45
+const PREV_BOWLS_AT := 5.0
+const PREV_FEED := [1.0, 3.5]    # the feed slides E.V. -> A.M.
+const PREV_COAT := [3.5, 4.5]    # the oilskin comes up
+const PREV_HOLD := 7.0
+const PREV_OUT := 0.8
 ## After P26: the margin of darker water inside the glass edge (storm navy at 0.85).
 const MARGIN_W := 40.0
 const MARGIN_COLOR := Color(0x22 / 255.0, 0x30 / 255.0, 0x3a / 255.0, 0.85)
@@ -186,7 +207,6 @@ const FELT := Color("30463f")
 const STRIP_RECT := Rect2(1122, 612, 236, 56)
 const SWITCH_AT := Vector2(1110, 700)
 const ROUTE_AT := Vector2(1110, 840)
-const SLOTS := {"sever": Vector2(140, 590), "continue": Vector2(888, 590)}
 const BTN_X := {"sever": 100.0, "continue": 748.0}
 const BTN_TEXT := {"sever": "BREAK CONNECTION AND LEAVE", "continue": "REMAIN AS WITNESS"}
 const FINAL_LAMPS_Y := [200.0, 270.0]
@@ -216,8 +236,8 @@ const TERM_LINES := [
 const COVER_STRIP := "LOCAL SURVEY: ONE OF…"
 const COVER_LINE := "Nora Bell took her tea without sugar. Begin there."
 const COVER_LINE_ROWS := ["Nora Bell took her tea without sugar.", "Begin there."]
-## The kitchen's window in end_b_field (tools/art/rooms/R12.py FIELD_LIT_AT).
-const FIELD_GLOW := Vector2(724, 573)
+## The kitchen's window in end_b_wide_2 (tools/art/rooms/R12.py wide2_lit_at()).
+const FIELD_GLOW := Vector2(723.5, 643)
 ## The ending's 'click to continue' mark, bottom right above the subtitles.
 const CONT_RECT := Rect2(1262, 940, 150, 40)
 const CONT_HZ := 0.5
@@ -244,8 +264,6 @@ var slide_t0 := -1.0
 var terminal_pending := false  # P25: the terminal lamp waits for terminal_on
 var shutters_pending := false  # P25: the routing shutters wait for shutters_open
 var shutters_t0 := -1.0
-var covers_pending := false    # P26: the slot covers wait for slots_close
-var covers_t0 := -1.0
 var lamp_t0 := -1.0            # a refused ROUTE lit a category plate
 var strip_queue := []          # lines a strip_print fx is typing
 var strip_starts := []         # time each queued line began typing
@@ -276,6 +294,14 @@ var page_spoke := false        # the page's first line has gone up (ends SEVER's
 var wide_second := false       # CONTINUE's wide page: its second line has gone up
 var wide_second_t := -1.0
 var cont_t0 := -1.0            # the 'continue' mark appeared (-1 = not yet)
+# --- the eye ----------------------------------------------------------------------------------
+var gaze_at := Vector2.ZERO    # the pupil's drawn offset, easing toward r.pupil_offset()
+var blink_waits := []          # [{line, due}] blinks the sim has asked for, waiting for their line
+var blink_t0 := -1.0           # the lid's clock (-1 = no blink)
+var breath_waits := []         # [{seconds, line|sfx+lead|due}] held breaths waiting to start
+var breath_until := -1.0       # the chamber is silent until this time
+var win_route := ""            # the preview the window shows ("" = none)
+var win_t0 := -1.0             # its clock (-1 = waiting for the glance)
 
 func _ready() -> void:
 	var layer := CanvasLayer.new()
@@ -307,7 +333,7 @@ func _ready() -> void:
 
 func _tex(id: String) -> Texture2D:
 	if not textures.has(id):
-		var path := DIR % id
+		var path: String = PAGE_TEX.get(id, DIR % id)
 		textures[id] = load(path) as Texture2D if ResourceLoader.exists(path) else null
 	return textures[id]
 
@@ -367,6 +393,7 @@ func tick(dt: float) -> void:
 			pv_route = ""
 	if slide_pending and _now() - slide_t0 > 3.0 and slide_t0 >= 0.0:
 		slide_pending = false
+	_tick_eye(dt)
 	if _in_ending() and cur_change != "" and change_t0 < 0.0 and not tab_done and game != null \
 			and _now() - tab_t0 > 0.5 and not game.chain_active():
 		change_t0 = _now()
@@ -381,6 +408,48 @@ func tick(dt: float) -> void:
 	close.visible = _view() in ["c_frames", "c_routing", "c_final"]
 	_tick_audio(dt)
 	redraw()
+
+## The eye: the pupil eases to where the sim says it looks; a waiting blink or held breath
+## starts when its line goes up (or its sound is `lead` s off); the window's preview runs out.
+func _tick_eye(dt: float) -> void:
+	var target := r.pupil_offset()
+	gaze_at = gaze_at.move_toward(target, GAZE_SPEED * dt) if motion else target
+	var cur: String = game.cur_text if game != null else ""
+	for i in range(blink_waits.size() - 1, -1, -1):
+		var w: Dictionary = blink_waits[i]
+		if (w.line != "" and cur == w.line) or _now() >= w.due:
+			blink_waits.remove_at(i)
+			blink_t0 = _now()
+	for i in range(breath_waits.size() - 1, -1, -1):
+		var w: Dictionary = breath_waits[i]
+		if (w.line != "" and cur == w.line) or _now() >= w.due:
+			breath_waits.remove_at(i)
+			_hold_breath(w.seconds)
+	if win_route != "" and win_t0 >= 0.0 and _now() - win_t0 > PREV_HOLD + PREV_OUT:
+		win_route = ""
+		win_t0 = -1.0
+
+func _hold_breath(seconds: float) -> void:
+	breath_until = maxf(breath_until, _now() + seconds)
+
+## True while the chamber holds its breath: every loop at 0.
+func breath_held() -> bool:
+	return breath_until >= 0.0 and _now() < breath_until
+
+## 0..1, how far the lid is down (0 when no blink is running).
+func blink_k() -> float:
+	if blink_t0 < 0.0:
+		return 0.0
+	var e := _now() - blink_t0
+	if e < 0.0 or e >= BLINK_TIME:
+		return 0.0
+	if not motion:
+		return 1.0
+	if e < BLINK_CLOSE:
+		return smoothstep(0.0, 1.0, e / BLINK_CLOSE)
+	if e < BLINK_CLOSE + BLINK_HOLD:
+		return 1.0
+	return 1.0 - smoothstep(0.0, 1.0, (e - BLINK_CLOSE - BLINK_HOLD) / BLINK_OPEN)
 
 ## The ending's own clock: which of the page's lines have gone up, and the 'continue' mark once
 ## the page has finished (its lines read, its sounds played). Unanswered, the mark turns the
@@ -413,6 +482,15 @@ func page_finished() -> bool:
 	if not tab_done and (cur_step != r.ending_step() or _now() - tab_t0 < 0.5):
 		return false
 	return not game.chain_active() and game.lines.is_empty() and game.pending_sfx.is_empty()
+
+## Every line of the page on show has gone up and been read (its sounds may still be playing,
+## e.g. SEVER's last line-outs): a click may turn the page without leaving a caption behind.
+func captions_done() -> bool:
+	if not _in_ending() or game == null:
+		return false
+	if not tab_done and (cur_step != r.ending_step() or _now() - tab_t0 < 0.5):
+		return false
+	return not game.chain_active() and game.lines.is_empty()
 
 func cont_visible() -> bool:
 	return cont_t0 >= 0.0
@@ -464,7 +542,7 @@ func loop_targets() -> Dictionary:
 	}
 	var choice := r.chosen()
 	if choice == "":
-		return t
+		return _breath_targets(t)
 	var step := r.ending_step()
 	if choice == "sever":
 		var out := lines_out if step == 0 and not tab_done else 8
@@ -486,6 +564,12 @@ func loop_targets() -> Dictionary:
 			for id in R12_LOOPS:
 				t[id] = 0.0
 			t["end_wide"] = _lin(WIDE_DUCK_DB) if wide_duck() else _lin(-14.0)
+	return _breath_targets(t)
+
+func _breath_targets(t: Dictionary) -> Dictionary:
+	if breath_held():
+		for id in t:
+			t[id] = 0.0
 	return t
 
 ## SEVER: from the moment the eighth line goes out until the next page's first line types,
@@ -521,6 +605,13 @@ func loop_rates() -> Dictionary:
 					rates[id] = _lin(PRESSURE_DB) / LINE_OUT_FADE
 		if wide_duck() or (cur_tab == "end_b_wide" and wide_second and _now() - wide_second_t < 1.0):
 			rates["end_wide"] = _lin(-14.0) / 0.3
+	# a held breath: out at once, back slowly (slower still with Soften sudden sounds)
+	if breath_held():
+		for id in LOOPS:
+			rates[id] = _lin(-6.0) / BREATH_OUT
+	elif breath_until >= 0.0 and _now() - breath_until < BREATH_IN_SOFT:
+		for id in LOOPS:
+			rates[id] = minf(rates[id], _lin(-8.0) / (BREATH_IN_SOFT if soft_audio else BREATH_IN))
 	return rates
 
 func _tick_audio(dt: float) -> void:
@@ -554,20 +645,39 @@ func play_fx(id: String, e: Dictionary) -> void:
 			pv_route = str(e.get("route", ""))
 			pv_t0 = -1.0
 			pv_since = _now()
-		"mismatch":
-			pv_route = ""
-		"slots_close":
-			covers_pending = true
-			covers_t0 = -1.0
+		"window_preview":
+			# shown in the window when the glance puts the close-up down
+			win_route = str(e.get("route", ""))
+			win_t0 = -1.0
+		"surface_withdraw":
 			withdraw_pending = true
 			withdraw_t0 = -1.0
+		"blink":
+			blink_waits.append({"line": str(e.get("line", "")), "due": _now() + float(e.get("delay", 0.0)) + 30.0})
+		"hold_breath":
+			var secs := float(e.get("seconds", 1.5))
+			if str(e.get("sfx", "")) != "":
+				breath_waits.append({"line": "", "due": INF, "sfx": str(e.sfx), "lead": float(e.get("lead", 0.0)),
+					"seconds": secs})
+			else:
+				breath_waits.append({"line": str(e.get("line", "")), "seconds": secs,
+					"due": _now() + float(e.get("delay", 0.0)) + (30.0 if str(e.get("line", "")) != "" else 0.0)})
 		"yoke_fit", "bridge_seat":
 			fit_what = id
 			fit_t0 = _now()
 		"ending":
 			_start_step(int(e.get("step", 0)), str(e.get("tableau", "")), str(e.get("change", "")))
 
+## A held breath keyed to a sound starts `lead` s before it plays.
+func on_sfx_pending(id: String, left: float) -> void:
+	for i in range(breath_waits.size() - 1, -1, -1):
+		var w: Dictionary = breath_waits[i]
+		if str(w.get("sfx", "")) == id and left <= float(w.lead):
+			breath_waits.remove_at(i)
+			_hold_breath(w.seconds)
+
 func on_sfx(id: String) -> void:
+	on_sfx_pending(id, 0.0)
 	match id:
 		"strip_type":
 			if strip_starts.size() < strip_queue.size():
@@ -587,10 +697,6 @@ func on_sfx(id: String) -> void:
 		"preview_out", "preview_move":
 			if pv_route != "" and pv_t0 < 0.0:
 				pv_t0 = _now()
-		"slots_close":
-			if covers_pending:
-				covers_pending = false
-				covers_t0 = _now()
 		"inquiry_pen":
 			if cur_tab == "end_a_inquiry" and pen_t0.size() < 2:
 				pen_t0.append(_now())
@@ -642,11 +748,18 @@ func _start_step(step: int, tab: String, change: String) -> void:
 	wide_second_t = -1.0
 	cont_t0 = -1.0
 
+## The window's glance (P26): the preview it was asked to show, and the surface drawing back
+## with it once P26 is done. The room shows both itself.
 func start_glance(target: String, _rect: Rect2) -> bool:
-	if target != "window" or _view() != "room":
+	if not target.begins_with("window") or _view() != "room":
 		return false
-	withdraw_pending = false
-	withdraw_t0 = _now()
+	var route := target.substr(7) if target.begins_with("window_") else ""
+	if route in R12Sim.ROUTES:
+		win_route = route
+		win_t0 = _now()
+	if withdraw_pending:
+		withdraw_pending = false
+		withdraw_t0 = _now()
 	return true
 
 func consume_click(_p: Vector2) -> bool:
@@ -665,8 +778,6 @@ func apply_instantly() -> void:
 	terminal_pending = false
 	shutters_pending = false
 	shutters_t0 = -1.0
-	covers_pending = false
-	covers_t0 = -1.0
 	lamp_t0 = -1.0
 	_strip_clear()
 	pv_route = ""
@@ -679,6 +790,14 @@ func apply_instantly() -> void:
 	page_spoke = false
 	wide_second = false
 	wide_second_t = -1.0
+	blink_waits = []
+	blink_t0 = -1.0
+	breath_waits = []
+	breath_until = -1.0
+	win_route = ""
+	win_t0 = -1.0
+	if r != null:
+		gaze_at = r.pupil_offset()
 	if r != null and r.chosen() != "":
 		cur_tab = r.tableau()
 		cur_step = r.ending_step()
@@ -733,26 +852,17 @@ func closeup_controls(v: String) -> Array:
 		"c_frames":
 			return FRAMES_CONTROLS
 		"c_routing":
-			var out := ROUTING_CONTROLS.duplicate()
-			for cid in R12Sim.CC_IDS:
-				out.append([cid, _cc_rect(cid), "Card"])
-			return out
+			return ROUTING_CONTROLS
 		"c_final":
 			return FINAL_CONTROLS
 	return []
 
-## Where consequence card `cid` lies: its tray well, or the slot it is in.
-func _cc_rect(cid: String) -> Rect2:
-	if r != null:
-		var rt := r.routes()
-		for route in R12Sim.ROUTES:
-			if rt[route] == cid:
-				return Rect2(SLOTS[route], Vector2(420, 150))
-	return CC_WELLS[cid]
-
+## In the ending a click turns the page only once the page is done (or its mark is up);
+## before that it returns "" and the core's click advances her lines instead, so the caption
+## never runs ahead of, or behind, the plate it belongs to.
 func action_at(p: Vector2) -> String:
 	if _in_ending():
-		return "ending_next"
+		return "ending_next" if page_finished() or cont_visible() or captions_done() else ""
 	for h in closeup_controls(_view()):
 		if h[1].has_point(p):
 			return h[0]
@@ -881,12 +991,15 @@ func _draw_view_a(c: CanvasItem, tab: String) -> void:
 		"a_sit", "a_morning":
 			# it stays drawn back from the glass; the morning never reaches the water
 			_full(c, "a_surface_wide")
+			_draw_eye(c)
 			_draw_margin(c, 1.0)
 		_:
 			_full(c, "a_surface_wide")
+			_draw_eye(c)
 			if s >= 2:
 				_draw_margin(c, _withdraw_k())
 	if tab == "":
+		_draw_window_preview(c)
 		_draw_lid(c)
 	# the stage marks on the chamber itself: the tide line rising up the wainscot, the gauge's
 	# bowed bezel (S2), the seat pressed hollow (S1+)
@@ -912,25 +1025,110 @@ func _withdraw_k() -> float:
 		return 0.0
 	return _k(withdraw_t0, WITHDRAW_TIME) if withdraw_t0 >= 0.0 else 1.0
 
-## Where the lid band's top edge is now (y), or NAN while it waits between passes. With Motion
-## it slides from just above the water to just below it over LID_RUN, once every LID_PERIOD;
-## still, its top holds a third of the way down the glass.
-func lid_top() -> float:
-	if not motion:
-		return GLASS_IN.position.y + GLASS_IN.size.y / 3.0
-	var ph := fposmod(time, LID_PERIOD)
-	if ph > LID_RUN:
-		return NAN
-	return lerpf(GLASS_IN.position.y - LID_H, GLASS_IN.end.y, ph / LID_RUN)
+## The lid's lower edge now (y): the top of the water when open, its bottom when shut.
+func lid_bottom() -> float:
+	return lerpf(GLASS_IN.position.y, GLASS_IN.end.y, blink_k())
 
-## The lid: a stark dark band across the full width of the glass, clipped to it. Gone once the
-## surface has drawn back (P26).
+## The blink: a stark dark lid the full width of the window, coming down from the top of the
+## glass to its sill and going back up, its edge a sea-glass line. Only while the sim blinks.
 func _draw_lid(c: CanvasItem) -> void:
-	var a := 1.0 - _withdraw_k()
-	var y := lid_top()
-	if a <= 0.0 or is_nan(y):
+	var k := blink_k()
+	if k <= 0.0:
 		return
-	_glass_rect(c, Rect2(GLASS_IN.position.x, y, GLASS_IN.size.x, LID_H), Color(LID_COLOR, a))
+	var y := lid_bottom()
+	var g := GLASS_IN
+	_glass_rect(c, Rect2(g.position.x, g.position.y, g.size.x, y - g.position.y), LID_COLOR)
+	if k < 1.0:
+		_glass_rect(c, Rect2(g.position.x, y - 3.0, g.size.x, 3.0), LID_EDGE)
+
+## The eye: a_surface_eye at its gaze offset, clipped to the water, the room in front of it.
+func _draw_eye(c: CanvasItem) -> void:
+	_glass_tex(c, _tex("a_surface_eye"), GLASS_IN.position + gaze_at)
+
+## Draws `t` with its corner at `at`, clipped to the water and cut round what hangs in front.
+func _glass_tex(c: CanvasItem, t: Texture2D, at: Vector2, a := 1.0) -> void:
+	if t == null or a <= 0.0:
+		return
+	for p in _glass_parts(Rect2(at, t.get_size())):
+		c.draw_texture_rect_region(t, p, Rect2(p.position - at, p.size), Color(1, 1, 1, a))
+
+## `rect` within the water, less the holes, as rectangles.
+func _glass_parts(rect: Rect2) -> Array:
+	var parts := [rect.intersection(GLASS_IN)]
+	for hole in GLASS_HOLES:
+		var next := []
+		for p in parts:
+			next.append_array(_minus(p, hole))
+		parts = next
+	return parts.filter(func(p: Rect2) -> bool: return p.size.x > 0.0 and p.size.y > 0.0)
+
+## 0..1 alpha of the window's preview (in, held, out), 0 when none is showing.
+func window_preview_a() -> float:
+	if win_route == "" or win_t0 < 0.0:
+		return 0.0
+	var e := _now() - win_t0
+	if e < 0.0 or e > PREV_HOLD + PREV_OUT:
+		return 0.0
+	if not motion:
+		return 1.0
+	return clampf(e / PREV_IN, 0.0, 1.0) * clampf((PREV_HOLD + PREV_OUT - e) / PREV_OUT, 0.0, 1.0)
+
+## How many of the eight portrait lamps are out in the SEVER preview (all at once, still).
+func window_lamps_out() -> int:
+	if win_route != "sever" or win_t0 < 0.0:
+		return 0
+	var e := _now() - win_t0
+	if not motion:
+		return 8 if e >= PREV_HOLD * 0.4 else 0
+	return clampi(int(floor((e - PREV_LAMP_AT) / PREV_LAMP_STEP)) + 1, 0, 8)
+
+## The CONTINUE preview: [feed 0..1 from E.V. to A.M., oilskin alpha 0..1].
+func window_feed() -> Array:
+	if win_route != "continue" or win_t0 < 0.0:
+		return [0.0, 0.0]
+	var e := _now() - win_t0
+	if not motion:
+		return [1.0, 1.0] if e >= PREV_HOLD * 0.4 else [0.0, 0.0]
+	return [clampf((e - PREV_FEED[0]) / (PREV_FEED[1] - PREV_FEED[0]), 0.0, 1.0),
+		clampf((e - PREV_COAT[0]) / (PREV_COAT[1] - PREV_COAT[0]), 0.0, 1.0)]
+
+## The preview in the window: flat overlays over the eye, the lamps and the feed drawn here.
+func _draw_window_preview(c: CanvasItem) -> void:
+	var a := window_preview_a()
+	if a <= 0.0:
+		return
+	var o := GLASS_IN.position
+	var f := Ink.serif()
+	if win_route == "sever":
+		var out := window_lamps_out()
+		var e := _now() - win_t0
+		var dark := (not motion and out >= 8) or (motion and e >= PREV_BOWLS_AT)
+		var dk := 1.0 if not motion else clampf((e - PREV_BOWLS_AT) / 0.8, 0.0, 1.0)
+		_glass_tex(c, _tex("a_prev_sever_lit"), o, a * (1.0 - dk if dark else 1.0))
+		# each portrait goes dark under its own lamp, one by one
+		var dt := _tex("a_prev_sever_dark")
+		if dt:
+			for i in out:
+				var col := Rect2(o + Vector2(PREV_FRAME_X[i] - 40, 0), Vector2(80, 128))
+				for p in _glass_parts(col):
+					c.draw_texture_rect_region(dt, p, Rect2(p.position - o, p.size), Color(1, 1, 1, a))
+			if dark:
+				_glass_tex(c, dt, o, a * dk)
+	else:
+		var fd := window_feed()
+		_glass_tex(c, _tex("a_prev_feed"), o, a)
+		var y: float = o.y + PREV_RAIL[2]
+		var ev_x: float = o.x + PREV_RAIL[0]
+		var am_x: float = o.x + PREV_RAIL[1]
+		_lamp(c, Vector2(ev_x, y), fd[0] < 1.0, 0.9)
+		_lamp(c, Vector2(am_x, y), fd[0] >= 1.0, 0.9)
+		var sx := lerpf(ev_x + 26, am_x - 26, fd[0])
+		var sr := Rect2(sx - 8, y - 11, 16, 22)
+		c.draw_rect(sr, Color(BRASS, a))
+		c.draw_rect(sr, Color(INK, a), false, 1.5)
+		_rtext(c, "E.V.", Rect2(ev_x - 34, y + 26, 68, 24), 15, Color(INK, a), f)
+		_rtext(c, "A.M.", Rect2(am_x - 34, y + 26, 68, 24), 15, Color(INK, a), f)
+		_glass_tex(c, _tex("a_prev_oilskin"), o, a * fd[1])
 
 ## The margin of darker water inside the glass edge, faded in by k.
 func _draw_margin(c: CanvasItem, k: float) -> void:
@@ -1084,11 +1282,6 @@ func _draw_view_c(c: CanvasItem, tab: String) -> void:
 	if s >= 1:
 		_draw_schematic(c, "sever", Rect2(140, 140, 480, 250), false, st)
 		_draw_schematic(c, "continue", Rect2(828, 140, 480, 250), false, ct)
-	if s < 2:
-		# the four consequence cards stand in the holder until they are sealed into the plates
-		for i in R12Sim.CC_IDS.size():
-			if r.cc_in_tray(R12Sim.CC_IDS[i]) or r.held_cc() == R12Sim.CC_IDS[i]:
-				_sprite(c, "cc_card", Vector2(499 + 120 * i, 578), 1.0, 0.3)
 	if s == 0 or shutters_pending or (shutters_t0 >= 0.0 and _k(shutters_t0, SHUTTER_TIME) < 1.0):
 		var k := 0.0 if s == 0 or shutters_pending else _k(shutters_t0, SHUTTER_TIME)
 		var t := _tex("c_shutters_closed")
@@ -1206,14 +1399,6 @@ func _draw_schematic(c: CanvasItem, route: String, panel: Rect2, big: bool, d: D
 	var door := "OPEN" if d.door else "SHUT"
 	var dw := _tw(door, rs, f)
 	_ltext(c, door, x0 + w - 30 - dw, row_y[2], rs, INK, f)
-	# a CONFIRM mismatch: the named row underlined, with a square at its left
-	var mm: Dictionary = r.last_mismatch
-	if not mm.is_empty() and str(mm.get("plate", "")) == route:
-		var row := int(mm.get("row", 0))
-		var tw := _tw(labels[row], rs, f)
-		var uy: float = row_y[row] + 6
-		c.draw_rect(Rect2(lx, uy, tw, 4), BRUISE)
-		_square(c, Vector2(lx - 14, row_y[row] - rs * 0.36), 10.0, BRUISE)
 
 # ---------------------------------------------------------------------------------------------
 # layer 5: the close-ups
@@ -1356,10 +1541,11 @@ func _draw_strip(c: CanvasItem) -> void:
 		var line: String = rows[rows.size() - n + i]
 		_ltext(c, line, STRIP_RECT.position.x + 6, STRIP_RECT.position.y + 24 + 22 * i, 15, INK, f)
 
+## c_routing (P26): the two plates and their PREVIEW keys on c_routing_preview (no card slots,
+## no tray, no CONFIRM). A preview runs on the plate's lamps, then in the window.
 func _draw_c_routing(c: CanvasItem) -> void:
 	_full(c, "c_routing")
 	var f := Ink.serif()
-	var sealed := _stage() >= 2
 	_draw_schematic(c, "sever", Rect2(110, 100, 540, 360), true, _plate_state("sever", ""))
 	_draw_schematic(c, "continue", Rect2(798, 100, 540, 360), true, _plate_state("continue", ""))
 	for route in R12Sim.ROUTES:
@@ -1367,51 +1553,9 @@ func _draw_c_routing(c: CanvasItem) -> void:
 		var lr := Rect2(key.position.x + 40, key.end.y - 4, 160, 22)
 		_plate(c, lr)
 		_rtext(c, "PREVIEW", lr, 14, INK, f)
-	# CONFIRM UNDERSTANDING
-	var br := Rect2(616, 628, 216, 74)
-	_plate(c, br)
-	_ctext(c, "CONFIRM", br.get_center().x, br.position.y + 32, 20, INK, f)
-	_ctext(c, "UNDERSTANDING", br.get_center().x, br.position.y + 60, 20, INK, f)
-	# the consequence cards
-	var rt := r.routes()
-	for route in R12Sim.ROUTES:
-		var cid: String = rt[route]
-		if cid != "":
-			# seated in the slot's well, under the brass lip: centred, top edge tucked 2 px under
-			# the lip, the bottom cut at the well's floor
-			var at: Vector2 = SLOTS[route] + Vector2(60, 22)
-			var floor_y: float = SLOTS[route].y + 130.0
-			if sealed:
-				# the covers close over them; their top edges show
-				at.y -= 56.0 * (0.0 if covers_pending else (_k(covers_t0, COVERS_TIME) if covers_t0 >= 0.0 else 1.0))
-			_cc(c, cid, at, floor_y)
-	if sealed:
-		var k := 0.0 if covers_pending else (_k(covers_t0, COVERS_TIME) if covers_t0 >= 0.0 else 1.0)
-		_full(c, "c_routing_closed", k)
-	for cid in R12Sim.CC_IDS:
-		if r.held_cc() == cid:
-			var at: Vector2 = CC_WELLS[cid].position + Vector2(5, 5)
-			if motion:
-				c.draw_rect(Rect2(at + Vector2(8, 10 - LIFT), Vector2(300, 150)), SHADOW)
-				_cc(c, cid, at - Vector2(0, LIFT))
-			else:
-				_cc(c, cid, at)
-				c.draw_rect(Rect2(at, Vector2(300, 150)).grow(1.5), BRASS, false, 3.0)
-		elif r.cc_in_tray(cid):
-			_cc(c, cid, CC_WELLS[cid].position + Vector2(5, 5))
-
-func _cc(c: CanvasItem, cid: String, at: Vector2, floor_y := -1.0) -> void:
-	var t := _tex("cc_card")
-	if t and floor_y > at.y:
-		var h := minf(t.get_size().y, floor_y - at.y)
-		c.draw_texture_rect_region(t, Rect2(at, Vector2(t.get_size().x, h)), Rect2(Vector2.ZERO, Vector2(t.get_size().x, h)))
-	else:
-		_sprite(c, "cc_card", at)
-	var f := Ink.serif()
-	var y := at.y + 38
-	for line in _wrap(R12Sim.CC_TEXT[cid], 270, 17, f):
-		_ltext(c, line, at.x + 15, y, 17, INK, f)
-		y += 25.0
+		if r.previewed(route):
+			# a small brass tick on the key's plate once she has watched it
+			_square(c, Vector2(lr.end.x - 12, lr.get_center().y), 6.0, BRASS_HI)
 
 func _draw_c_final(c: CanvasItem) -> void:
 	_full(c, "c_final")

@@ -335,7 +335,7 @@ The quality template. View A is the approved plate (desk, window, map, stove, ho
 **Base views (3):**
 - **A, the chair:** the chair facing the instrument, armatures ending at the parts of a seated body, the window: the surface, so close it has no edge.
 - **B, the record frames:** eight closed staff indicators, three frames BODY / PLACE / NAME, the open witness terminal, Ada's three cards in a rack, the COPY port.
-- **C, the routing wall:** routing plates SEVER and CONTINUE with preview lamps, consequence cards, the severance handle, the yoke tray (severance yoke), the witness bridge seat in Ada's terminal.
+- **C, the routing wall:** routing plates SEVER and CONTINUE with preview lamps and PREVIEW keys (P26 shows each route in the window; the card holder stands empty), the severance handle, the yoke tray (severance yoke), the witness bridge seat in Ada's terminal.
 
 **Close-ups (3):** `c_frames` (P25), `c_routing` (P26), `c_final` (P27).
 

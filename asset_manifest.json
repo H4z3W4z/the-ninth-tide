@@ -7387,6 +7387,42 @@
       "source_svg": null
     },
     {
+      "id": "R12/a_prev_feed",
+      "path": "assets/rooms/R12/a_prev_feed.png",
+      "width": 1024,
+      "height": 320,
+      "sha256": "74d60e6b0d544b54a55b662762a444255479bf0865f4330e98b783736a701859",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R12/a_prev_oilskin",
+      "path": "assets/rooms/R12/a_prev_oilskin.png",
+      "width": 1024,
+      "height": 320,
+      "sha256": "297489f3c4a493e5d4ba8e4fd02328e19c8e01335c2a5d8e2844a9d68205cb24",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R12/a_prev_sever_dark",
+      "path": "assets/rooms/R12/a_prev_sever_dark.png",
+      "width": 1024,
+      "height": 320,
+      "sha256": "eecf71de82f578073b979dbf77aed519cb072b79ccf624b2198e3e99c75d46a7",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R12/a_prev_sever_lit",
+      "path": "assets/rooms/R12/a_prev_sever_lit.png",
+      "width": 1024,
+      "height": 320,
+      "sha256": "4742424fe00bb84a910508f36f751f8d124c5a6cb38df2766d9f414b3d8d4648",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R12/a_stain_1",
       "path": "assets/rooms/R12/a_stain_1.png",
       "width": 1448,
@@ -7410,6 +7446,15 @@
       "width": 1448,
       "height": 1086,
       "sha256": "ce32f8db398b8f672ac317b5e6186368f6a4ac8fe2fb15aa0d9a06db1705ba6d",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R12/a_surface_eye",
+      "path": "assets/rooms/R12/a_surface_eye.png",
+      "width": 1024,
+      "height": 320,
+      "sha256": "6dd53862cdd697b1fb492b58ce30dda0e3cf7f2889bacdcad6dec5c9c578f2ae",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -7572,6 +7617,15 @@
       "width": 1448,
       "height": 1086,
       "sha256": "29826a9106fa227b0deb0218eff4d1b38b019fdb1a1ec9d60ea45440fffa4bce",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R12/c_routing_preview",
+      "path": "assets/rooms/R12/c_routing_preview.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "cb87e3d8895d736dd286d48b9f0e103fb588bb41efd19aeed492876d8784c401",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -7959,6 +8013,33 @@
       "width": 420,
       "height": 140,
       "sha256": "7aa3748be0a4ac34d5aea7dee3f1f70451e6a57c43cf9ed6a416165c5fcffa82",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "end_b_wide_2",
+      "path": "assets/stages/R12/end_b_wide_2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "f61ea630d4251b0d1f501cd493fc3afe7ce051b074b8f5085f94b92ff9d52aee",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r12_continue_terminal",
+      "path": "assets/stages/R12/r12_continue_terminal.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "37e9ac163029b03dc10c87adf9c02d6d46b599e755b3cded22df62ba19803e90",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r12_sever_office",
+      "path": "assets/stages/R12/r12_sever_office.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "0a9e55de362d1940027147a9f32d18597a97c4e4fc166000e70d366df7f8f6f4",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },

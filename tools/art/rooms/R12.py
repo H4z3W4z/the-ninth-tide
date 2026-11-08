@@ -49,6 +49,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 OUT = os.path.join(ROOT, "assets", "rooms", "R12")
+STAGES_OUT = os.path.join(ROOT, "assets", "stages", "R12")
 W, H = 1448, 1086
 SS = 2
 SEED = 1931_12_00
@@ -331,6 +332,9 @@ def save(im, name, opaque):
         a = im.getchannel("A")
         im.paste((0, 0, 0, 0), mask=a.point(lambda v: 255 if v == 0 else 0))
     path = os.path.join(OUT, name + ".png")
+    if name.startswith("stages/"):   # ending pages: assets/stages/R12/<name>.png (new files only)
+        path = os.path.join(STAGES_OUT, name[len("stages/"):] + ".png")
+        os.makedirs(STAGES_OUT, exist_ok=True)
     im.save(path, optimize=False, compress_level=9)
     print("  wrote", os.path.relpath(path, ROOT), im.size, im.mode)
 
@@ -3231,6 +3235,403 @@ def paint_end_b_field(rng):
     return im
 
 
+# ============================================================================ fix p1: the eye, previews, ending pages
+# Everything below writes NEW files only (assets/rooms/R12/a_surface_eye.png, c_routing_preview.png,
+# a_prev_*.png and assets/stages/R12/*.png); the approved plates above are untouched.
+
+GLASS_IN = (212, 98, 1024, 320)          # x, y, w, h: the water inside the pane (R12_view.gd GLASS_IN)
+# The eye: centred over the wide plate's painted pupil, so the old one never shows past the new
+# iris at any gaze offset (R12_view.gd moves this overlay by R12Sim.PUPIL_OFFSET, at most 40 px).
+EYE_C = (792, 280)                       # canvas coordinates
+EYE_IRIS_R = 156
+EYE_PUPIL_R = 54
+EYE_RIM = (0xA9, 0xC8, 0xB8)             # sea-glass rim, 4 px
+EYE_PUPIL = (0x07, 0x0B, 0x0F)           # flat near-black
+EYE_WIN = (0xD2, 0xAA, 0x66)             # a lit station window, 3 x 2 px
+EYE_FIELD = mix(SEAGLASS, STORM, 0.52)   # the iris: flat, a step under the surface round it
+EYE_RINGS = ((140, 40), (118, 32), (98, 25), (80, 19))   # (radius, stations): receding inward
+
+
+def paint_surface_eye(rng):
+    """The eye in the window, GLASS_IN-sized (1024 x 320): a flat iris with a 4 px sea-glass rim,
+    four rings of tiny lit station windows drawing in toward a flat near-black pupil, one brass
+    catchlight. Transparent outside the iris. Every station it holds is lit."""
+    gx, gy, gw, gh = GLASS_IN
+    cx, cy = EYE_C[0] - gx, EYE_C[1] - gy
+    p = Pen(gw, gh, rng)
+    p.ell(cx, cy, EYE_IRIS_R, EYE_IRIS_R, EYE_FIELD, None)
+    # each ring a step darker toward the pupil, with a thin navy waterline under its stations
+    for k, (r, n) in enumerate(EYE_RINGS):
+        p.ell(cx, cy, r + 8, r + 8, mix(EYE_FIELD, STORM, 0.12 + 0.12 * k), None)
+        p.arc(cx, cy, r, r, 0, 360, mix(INK, STORM, 0.3), 1.6)
+    p.ell(cx, cy, EYE_PUPIL_R, EYE_PUPIL_R, EYE_PUPIL, None)
+    p.ell(cx, cy, EYE_IRIS_R - 2, EYE_IRIS_R - 2, None, EYE_RIM, 4.0)
+    im = p.done()
+    # the stations, crisp at 1x: a small navy body on each ring's line, its window lit
+    d = ImageDraw.Draw(im)
+    for k, (r, n) in enumerate(EYE_RINGS):
+        ph = rng.uniform(0, math.tau)
+        body = 7 - k                          # 7, 6, 5, 4 px: further rings, smaller stations
+        for i in range(n):
+            a = ph + math.tau * (i + rng.uniform(-0.28, 0.28)) / n
+            x = cx + r * math.cos(a)
+            y = cy + r * math.sin(a)
+            bx, by = int(round(x - body / 2)), int(round(y - body))
+            d.rectangle((bx, by, bx + body - 1, by + body - 2), fill=rgba(mix(STORM, BLACK, 0.3)))
+            wx, wy = int(round(x - 1.5)), int(round(y - body + 2))
+            d.rectangle((wx, wy, wx + 2, wy + 1), fill=rgba(EYE_WIN))
+    # one brass catchlight on the pupil's upper left
+    q = Pen(gw, gh, rng)
+    q.ell(cx - 24, cy - 26, 9, 6, BRASS_HI, None)
+    im.alpha_composite(q.done())
+    return im
+
+
+# ----------------------------------------------------------------------------- P26 previews
+def paint_c_routing_preview(rng):
+    """c_routing for 'preview both routes': the two plates and their PREVIEW keys only. No card
+    slots, no consequence tray, no CONFIRM button: the window shows what each route does."""
+    p = Pen(W, H, rng)
+    closeup_ground(p, rng)
+    for x0 in (110, 798):
+        sh = p.layer()
+        sh.rect(x0 - 10, 90, x0 + 550, 604, BLACK, None)
+        p.put_soft(sh, 12, 0.3)
+        p.rect(x0 - 20, 80, x0 + 560, 600, BRASS, INK, 3.2, 6)
+        p.line([(x0 - 15, 595), (x0 - 15, 85), (x0 + 555, 85)], BRASS_HI, 2.4)
+        p.line([(x0 - 14, 595), (x0 + 555, 595), (x0 + 555, 86)], BRASS_DK, 2.4)
+        lay = p.layer()
+        for _ in range(14):
+            x = rng.uniform(x0, x0 + 540)
+            lay.rect(x, rng.uniform(100, 480), x + rng.uniform(5, 10), 590, VERD, None, r=3)
+        p.put_soft(lay, 3, 0.3, mask=poly_mask((W, H), [(x0 - 20, 80), (x0 + 560, 80), (x0 + 560, 600), (x0 - 20, 600)]))
+        enamel_plate(p, x0, 100, x0 + 540, 460)
+        for (sx, sy) in ((x0 - 6, 94), (x0 + 546, 94), (x0 - 6, 586), (x0 + 546, 586)):
+            screw(p, sx, sy, 4.4)
+    for (kx, ky) in ((260, 470), (948, 470)):
+        p.rect(kx, ky, kx + 240, ky + 90, BRASS_LO, INK, 2.6, 44)
+        cx, cy = kx + 120, ky + 45
+        p.ell(cx, cy, 36, 36, BRASS, INK, 2.6)
+        p.arc(cx, cy, 31, 31, 200, 290, BRASS_HI, 2.2)
+        p.ell(cx, cy, 12, 12, BRASS_DK, None)
+        for sx in (kx + 26, kx + 214):
+            screw(p, sx, cy, 4.4)
+    # a riveted iron band under the plates where the tray was: bare, nothing to hand
+    p.rect(40, 700, 1408, 740, IRON, INK, 2.6, 4)
+    p.line([(46, 704), (1402, 704)], IRON_HI, 1.6)
+    for x in range(70, 1400, 90):
+        rivet(p, x, 720, 3.0, IRON_HI)
+    return p
+
+
+# The previews in the window, each GLASS_IN-sized (local coordinates, origin at GLASS_IN's corner).
+# R12_view.gd draws the lamps' state over them, so the painted portraits and bowls stay registered.
+PREV_FRAME_X = [112 + 88 * i for i in range(8)]   # portrait centres
+PREV_FRAME_Y = (46, 118)                          # portrait top, bottom
+PREV_LAMP_Y = 30
+PREV_BOWL_X = [100 + 80 * i for i in range(9)]
+PREV_SHELF_Y = 236
+
+
+def _prev_pen(rng):
+    return Pen(GLASS_IN[2], GLASS_IN[3], rng)
+
+
+def paint_prev_sever(rng, lit):
+    """SEVER, shown in the window: the eight portrait frames with their lamps, and a strip of the
+    kitchen's bowls on their shelf. `lit`: lamps burning and the bowls in warm light; else dark."""
+    p = _prev_pen(rng)
+    sitter = mix(STORM, BLACK, 0.2)
+    for i, x in enumerate(PREV_FRAME_X):
+        y0, y1 = PREV_FRAME_Y
+        p.rect(x - 28, y0, x + 28, y1, BRASS if lit else BRASS_DK, INK, 2.4, 2)
+        p.rect(x - 21, y0 + 7, x + 21, y1 - 7, PAPER if lit else mix(PAPER_LO, STORM, 0.55), INK, 1.8)
+        # a head-and-shoulders sitter, flat
+        p.ell(x, y0 + 30, 9, 11, sitter, None)
+        p.poly([(x - 17, y1 - 7), (x - 14, y0 + 50), (x, y0 + 43), (x + 14, y0 + 50), (x + 17, y1 - 7)], sitter, None)
+        # its lamp above, on a short bracket
+        p.line([(x, PREV_LAMP_Y + 8), (x, y0)], INK, 2)
+        if lit:
+            glow(p, x, PREV_LAMP_Y, 26, AMBER_HI, 0.5)
+            p.ell(x, PREV_LAMP_Y, 7, 7, AMBER, INK, 1.6)
+            p.ell(x - 1.5, PREV_LAMP_Y - 1.5, 3.5, 3.5, AMBER_HI, None)
+        else:
+            p.ell(x, PREV_LAMP_Y, 7, 7, GLASS_DEAD, INK, 1.6)
+    # the shelf of bowls
+    if lit:
+        lay = p.layer()
+        lay.rect(60, PREV_SHELF_Y - 46, 780, PREV_SHELF_Y + 4, AMBER_HI, None)
+        p.put_soft(lay, 14, 0.28)
+    p.rect(60, PREV_SHELF_Y, 780, PREV_SHELF_Y + 10, TIMBER if lit else TIMBER_DK, INK, 2.2, 2)
+    for x in PREV_BOWL_X:
+        body = ENAMEL if lit else mix(ENAMEL_LO, STORM, 0.6)
+        p.poly([(x - 26, PREV_SHELF_Y - 26), (x + 26, PREV_SHELF_Y - 26), (x + 18, PREV_SHELF_Y - 6),
+                (x + 10, PREV_SHELF_Y), (x - 10, PREV_SHELF_Y), (x - 18, PREV_SHELF_Y - 6)], body, INK, 2.0)
+        p.line([(x - 24, PREV_SHELF_Y - 22), (x + 24, PREV_SHELF_Y - 22)], SEAGLASS if lit else STORM, 2.4)
+        if lit:
+            p.line([(x - 8, PREV_SHELF_Y - 34), (x - 4, PREV_SHELF_Y - 44), (x - 8, PREV_SHELF_Y - 54)], PAPER_HI, 1.6)
+    return p
+
+
+PREV_RAIL = (120, 640, 150)               # x0, x1, y: the witness feed's rail (E.V. left, A.M. right)
+PREV_COAT_X = 900                         # the oilskin's centre line, right of the conduit
+
+
+def paint_prev_feed(rng):
+    """CONTINUE, shown in the window: the witness feed's rail between two lamp sockets, each with a
+    blank enamel label (the view writes E.V. and A.M. and draws the lamps and the moving feed)."""
+    p = _prev_pen(rng)
+    x0, x1, y = PREV_RAIL
+    p.rect(x0 - 40, y - 34, x1 + 40, y + 60, mix(STORM, BULK, 0.5), INK, 2.6, 4)
+    p.rect(x0, y - 4, x1, y + 4, BRASS_LO, INK, 1.8, 2)
+    for x in (x0, x1):
+        p.ell(x, y, 18, 18, BRASS, INK, 2.2)
+        p.ell(x, y, 12, 12, GLASS_DEAD, INK, 1.6)
+        enamel_plate(p, x - 34, y + 26, x + 34, y + 50)
+    return p
+
+
+def paint_prev_oilskin(rng):
+    """CONTINUE: Venn's oilskin on its hook in the window, empty. The hood open on nothing, the
+    front hanging open on a dark inside, the sleeves flat."""
+    p = _prev_pen(rng)
+    cx = PREV_COAT_X
+    coat = mix(SOOT, STORM, 0.45)
+    hollow = mix(BLACK, STORM, 0.25)
+    p.rect(cx - 6, 8, cx + 6, 22, BRASS, INK, 1.6, 2)                         # the hook
+    p.poly([(cx, 20), (cx - 46, 44), (cx - 62, 110), (cx - 70, 300), (cx + 70, 300), (cx + 62, 110), (cx + 46, 44)],
+           coat, INK, 2.6)
+    p.poly([(cx - 62, 110), (cx - 84, 270), (cx - 64, 278), (cx - 50, 130)], mix(coat, INK, 0.2), INK, 2.0)
+    p.poly([(cx + 62, 110), (cx + 84, 270), (cx + 64, 278), (cx + 50, 130)], mix(coat, INK, 0.2), INK, 2.0)
+    # the hood, open toward us, nobody in it
+    p.ell(cx, 46, 30, 30, coat, INK, 2.4)
+    p.ell(cx, 50, 20, 22, hollow, INK, 1.8)
+    # the open front: a long dark gap where a body would be
+    p.poly([(cx - 10, 76), (cx + 10, 76), (cx + 26, 300), (cx - 26, 300)], hollow, INK, 2.0)
+    for (dx, dy) in ((-40, 312), (14, 318)):
+        p.ell(cx + dx, dy, 2.5, 4, mix(SEAGLASS_HI, PAPER_HI, 0.4), None)
+    return p
+
+
+# ----------------------------------------------------------------------------- ending pages
+HAND_BROWN = (138, 112, 90)              # matte restrained brown, her hand
+SLEEVE_BROWN = TIMBER                    # her sleeve, a step darker
+
+
+def _crop_filter(m, size):
+    bb = m.getbbox()
+    if not bb:
+        return m
+    pad = size
+    box = (max(0, bb[0] - pad), max(0, bb[1] - pad), min(m.size[0], bb[2] + pad), min(m.size[1], bb[3] + pad))
+    out = Image.new("L", m.size, 0)
+    out.paste(m.crop(box).filter(ImageFilter.MaxFilter(size)), box[:2])
+    return out
+
+
+def brown_hand(p, sleeve_from, wrist, ang, k=1.0, arm_w=64, lift=0.0, ink_w=3.0):
+    """Her hand and sleeve in matte restrained brown with navy ink contours, the sleeve coming in
+    from `sleeve_from` (below the bottom edge) to the wrist. Returns the 1x coverage mask."""
+    hand = hand_mask((p.w, p.h), wrist, wrist, ang, k=k, arm_w=arm_w * 0.82, lift=lift)
+    ring = _crop_filter(hand, 2 * int(ink_w * SS) + 1)
+    stamp(p, ring, INK)
+    stamp(p, hand, HAND_BROWN)
+    # the sleeve: a tapering band from off the bottom edge to just past the wrist, cuff inked
+    dx, dy = wrist[0] - sleeve_from[0], wrist[1] - sleeve_from[1]
+    L = math.hypot(dx, dy)
+    ux, uy = dx / L, dy / L
+    nx, ny = -uy, ux
+    end = (wrist[0] - ux * 6 * k, wrist[1] - uy * 6 * k)
+    w0, w1 = arm_w * 0.62, arm_w * 0.5
+    pts = [(sleeve_from[0] + nx * w0, sleeve_from[1] + ny * w0), (end[0] + nx * w1, end[1] + ny * w1),
+           (end[0] - nx * w1, end[1] - ny * w1), (sleeve_from[0] - nx * w0, sleeve_from[1] - ny * w0)]
+    p.poly(pts, SLEEVE_BROWN, INK, ink_w)
+    cuff = (end[0] - ux * 22 * k, end[1] - uy * 22 * k)
+    p.line([(cuff[0] + nx * w1 * 1.02, cuff[1] + ny * w1 * 1.02), (cuff[0] - nx * w1 * 1.02, cuff[1] - ny * w1 * 1.02)], INK, 2.2)
+    m = Image.new("L", (p.w * SS, p.h * SS), 0)
+    ImageDraw.Draw(m).polygon([(x * SS, y * SS) for x, y in pts], fill=255)
+    return ImageChops.lighter(m, ring).resize((p.w, p.h), Image.NEAREST)
+
+
+def grey_daylight(im):
+    """The office in grey daylight: half its colour gone, lifted toward an overcast grey."""
+    rgb = im.convert("RGB")
+    grey = rgb.convert("L").convert("RGB")
+    out = Image.blend(rgb, grey, 0.45)
+    return Image.blend(out, Image.new("RGB", rgb.size, (196, 202, 200)), 0.14)
+
+
+OFFICE_PLATE = os.path.join(ROOT, "assets", "backgrounds", "office_arrival.png")
+DESK_TOP = 724                           # the office desk's top edge in the approved elevation
+
+
+def paint_sever_office(rng):
+    """SEVER, page 09: the approved R02 elevation (composited, not redrawn) in grey daylight, the
+    wet coat drooping on the seventh hook where it always hung; on the desk the corrected record is
+    lifted half off the blotter by her hand, and a pencil on it is already writing."""
+    base = grey_daylight(Image.open(OFFICE_PLATE)).convert("RGBA")
+    p = Pen(W, H, rng)
+    # the record: a sheet rising from its corner on the desk, tilted back toward her hand
+    bl = (330, DESK_TOP)
+    ang = math.radians(25)
+    wv = (200 * math.cos(ang), -200 * math.sin(ang))
+    hv = (-150 * math.sin(ang), -150 * math.cos(ang))
+    def at(u, v):
+        return (bl[0] + wv[0] * u + hv[0] * v, bl[1] + wv[1] * u + hv[1] * v)
+    sh = p.layer()
+    sh.poly([at(0.02, -0.02), at(1.04, -0.02), at(1.04, 0.9), at(0.02, 0.9)], BLACK, None)
+    p.put_soft(sh, 6, 0.25)
+    p.poly([at(0, 0), at(1, 0), at(1, 1), at(0, 1)], PAPER_HI, INK, 2.4)
+    for j in range(7):
+        v = 0.82 - j * 0.1
+        p.line([at(0.08, v), at(0.88 if j % 3 else 0.6, v)], mix(PAPER, INK, 0.45), 1.6)
+    # the pencil, upright on the page, its fresh line trailing from the point
+    tip = at(0.42, 0.14)
+    line = [at(0.08, 0.14)]
+    for s in range(1, 14):
+        u = 0.08 + 0.34 * s / 13
+        line.append(at(u, 0.14 + 0.025 * math.sin(s * 1.9)))
+    p.line(line, PENCIL_GREY, 2.0)
+    top = (tip[0] + 34, tip[1] - 118)
+    strap(p, [(tip[0] + 6, tip[1] - 20), top], 14, AMBER, INK, 2.0, hi=AMBER_HI)
+    p.poly([(tip[0] + 6 - 7, tip[1] - 20 + 2), (tip[0] + 6 + 7, tip[1] - 20 - 2), tip], PAPER, INK, 1.6)
+    p.ell(tip[0] + 1, tip[1] - 4, 2.2, 2.2, SOOT, None)
+    p.rect(top[0] - 6, top[1] - 14, top[0] + 10, top[1] + 2, mix(PAPER, INK, 0.3), INK, 1.4)
+    # her hand under the lifted edge, from the bottom of the frame
+    mask = brown_hand(p, (650, 1140), (566, 676), -124, k=0.9, arm_w=72, lift=0.55)
+    base.alpha_composite(p.done())
+    return base, mask
+
+
+PENCIL_GREY = (85, 88, 94)
+
+
+def paint_continue_terminal(rng):
+    """CONTINUE, pages 04 and 06: end_b_terminal's strip and lamp exactly as before, without the
+    black arm: her hand in from the bottom edge, holding the pencil to the strip."""
+    p = Pen(W, H, rng, IRON)
+    lay = p.layer()
+    for _ in range(30):
+        lay.ell(rng.uniform(0, W), rng.uniform(0, H), rng.uniform(100, 260), rng.uniform(60, 140), IRON_HI, None)
+    p.put_soft(lay, 50, 0.35)
+    p.rect(60, 120, 1388, 960, mix(IRON, BULK, 0.4), INK, 3, 10)
+    p.line([(70, 130), (1378, 130)], IRON_HI, 2)
+    for (sx, sy) in ((84, 144), (1364, 144), (84, 936), (1364, 936)):
+        screw(p, sx, sy, 6)
+    p.rect(176, 276, 1272, 300, BLACK, INK, 2.4, 3)
+    p.rect(160, 262, 1288, 278, BRASS, INK, 2.4, 3)
+    p.rect(200, 300, 1248, 520, PAPER_HI, INK, 2.6)
+    for y in (350, 400, 450):
+        p.line([(220, y), (1228, y)], mix(PAPER, SEAGLASS, 0.3), 1.2)
+    sh = p.layer()
+    sh.rect(200, 300, 1248, 318, BLACK, None)
+    p.put_soft(sh, 6, 0.35, mask=poly_mask((W, H), [(200, 300), (1248, 300), (1248, 520), (200, 520)]))
+    lamp_socket(p, 1180, 240, 16, lit=True)
+    enamel_plate(p, 1220, 228, 1300, 252)
+    # her hand, in from the bottom edge, the pencil in it, its point at the strip's lower margin
+    mask = brown_hand(p, (1230, 1140), (1112, 690), -128, k=0.95, arm_w=72, lift=0.7)
+    tip = (1052, 512)
+    back = (1136, 618)
+    strap(p, [(tip[0] + 10, tip[1] + 14), back], 15, AMBER, INK, 2.0, hi=AMBER_HI)
+    p.poly([(tip[0] + 10 - 7, tip[1] + 14 + 5), (tip[0] + 10 + 7, tip[1] + 14 - 5), tip], PAPER, INK, 1.6)
+    p.ell(tip[0] + 2, tip[1] + 3, 2.4, 2.4, SOOT, None)
+    p.rect(back[0] - 6, back[1] - 6, back[0] + 14, back[1] + 14, mix(PAPER, INK, 0.3), INK, 1.4)
+    return p, mask
+
+
+# ----------------------------------------------------------------------------- CONTINUE, the last wide
+WIDE2_SKY_TOP = (0x5E, 0x72, 0x7C)
+WIDE2_SKY_LOW = (0x7A, 0x8C, 0x90)
+WIDE2_SEA_FAR = (0x4C, 0x5E, 0x68)
+WIDE2_SEA_NEAR = (0x34, 0x44, 0x50)
+WIDE2_SIL = (0x1E, 0x2A, 0x36)            # every unlit station: flat navy
+WIDE2_WIN = (0x34, 0x42, 0x4E)            # its dead window
+WIDE2_LIT = (0xF2, 0xD0, 0x8A)            # the kitchen: the brightest point in the frame
+WIDE2_HOR = 430
+WIDE2_ROWS = 7
+WIDE2_HOME = (724, 690, 64)              # foot centre x, foot y, box width: the kitchen station
+
+
+def wide2_layout(rng):
+    """Stations in WIDE2_ROWS rows from the horizon to the foreground: [(cx, base, w)], back first.
+    Fewer and larger than the old field, so each reads as a station at 1024x768."""
+    out = []
+    sizes = [16.0 * (1.42 ** i) for i in range(WIDE2_ROWS)]          # 16 .. ~131 px
+    ys = [lerp(WIDE2_HOR + 14, 1060, (i / (WIDE2_ROWS - 1)) ** 1.25) for i in range(WIDE2_ROWS)]
+    hx, hy, hw = WIDE2_HOME
+    for i in range(WIDE2_ROWS):
+        s, y = sizes[i], ys[i]
+        step = s * rng.uniform(2.1, 2.5)
+        x = -s + rng.uniform(0, step)
+        while x < W + s:
+            cx = x + rng.uniform(-0.2, 0.2) * step
+            base = y + rng.uniform(-0.25, 0.25) * s
+            w = s * rng.uniform(0.92, 1.08)
+            clear = abs(cx - hx) > hw * 1.1 + w * 0.7 or abs(base - hy) > hw * 1.5 + w
+            if clear:
+                out.append((cx, base, w))
+            x += step
+    return out
+
+
+def paint_end_b_wide_2(rng):
+    """CONTINUE's last wide plate, lit for the eye: a pale overcast night sky and a mid-navy sea,
+    the stations as stark flat navy silhouettes in rows back to the horizon, every window dead but
+    one, the kitchen's, the brightest point in the frame. The ring eye stays in the sky, faint."""
+    p = Pen(W, H, rng)
+    p.vgrad(-4, -4, W + 4, WIDE2_HOR, WIDE2_SKY_TOP, WIDE2_SKY_LOW)
+    p.vgrad(-4, WIDE2_HOR, W + 4, H + 4, WIDE2_SEA_FAR, WIDE2_SEA_NEAR)
+    eye = p.layer()
+    ec = (690, -120)
+    for k, (s, col) in enumerate(((1.0, mix(WIDE2_SKY_TOP, STORM, 0.25)), (0.78, mix(WIDE2_SKY_TOP, STORM, 0.4)),
+                                  (0.56, mix(WIDE2_SKY_TOP, STORM, 0.55)))):
+        eye.ell(ec[0], ec[1] + 40 * k, 520 * s, 520 * s, col, INK, 2.6)
+    eye.ell(ec[0], ec[1] + 150, 120, 120, mix(STORM, BLACK, 0.3), INK, 2.6)
+    p.put(eye, 0.55, mask=poly_mask((W, H), [(0, 0), (W, 0), (W, WIDE2_HOR), (0, WIDE2_HOR)]))
+    p.line([(-4, WIDE2_HOR), (W + 4, WIDE2_HOR)], INK, 2.2)
+    chop = p.layer()
+    for _ in range(70):
+        x, y = rng.uniform(-20, W), rng.uniform(WIDE2_HOR + 10, H)
+        L = rng.uniform(20, 70) * (0.4 + (y - WIDE2_HOR) / 500)
+        chop.line([(x, y), (x + L * 0.5, y - 3), (x + L, y)], mix(WIDE2_SEA_FAR, SEAGLASS_HI, 0.3), 1.6)
+    p.put(chop, 0.45)
+    im = grain(p.done(), rng_for(12090), amp=3, mottle=3, speck=4).convert("RGB")
+    d = ImageDraw.Draw(im)
+    stations = wide2_layout(random.Random(SEED + 12091))
+    hx, hy, hw = WIDE2_HOME
+    home_drawn = False
+    for cx, base, w in stations:
+        if not home_drawn and base > hy:
+            win, _ = station_shape(d, hx, hy, hw, WIDE2_SIL, WIDE2_WIN, lit=WIDE2_LIT)
+            home_drawn = True
+        station_shape(d, cx, base, w, WIDE2_SIL, WIDE2_WIN)
+    if not home_drawn:
+        station_shape(d, hx, hy, hw, WIDE2_SIL, WIDE2_WIN, lit=WIDE2_LIT)
+    return im
+
+
+def wide2_lit_at():
+    """The kitchen window's centre in end_b_wide_2 (R12_view.gd WIDE2_GLOW matches it)."""
+    d = ImageDraw.Draw(Image.new("RGB", (W, H)))
+    hx, hy, hw = WIDE2_HOME
+    win, _ = station_shape(d, hx, hy, hw, WIDE2_SIL, WIDE2_WIN, lit=WIDE2_LIT)
+    return ((win[0] + win[2]) / 2, (win[1] + win[3]) / 2)
+
+
+def checked_hand(painter, limit=1 / 6):
+    """A page painted with brown_hand: asserts the sleeve and hand cover at most `limit` of the
+    frame and enter from the bottom edge only (they touch no other edge)."""
+    def run(rng):
+        res, mask = painter(rng)
+        im = res.done() if isinstance(res, Pen) else res
+        cover = sum(1 for v in mask.getdata() if v > 127)
+        assert cover <= W * H * limit, "hand covers %d px, over 1/%d of the frame" % (cover, round(1 / limit))
+        bb = mask.getbbox()
+        assert bb[3] >= H and bb[0] > 0 and bb[2] < W and bb[1] > 0, "the hand enters from the bottom edge only %s" % (bb,)
+        return im
+    return run
+
+
 # ============================================================================ registry
 def opaque_grain(k, painter):
     return lambda rng: grain(painter(rng).done(), rng_for(1000 + k))
@@ -3311,6 +3712,17 @@ ASSETS = [  # name, seed index, painter, opaque
     ("cover_sheet", 707, paint_cover_sheet, False),
     ("a_surface_wide", 25, paint_surface_wide, False),
     ("end_b_field", 708, paint_end_b_field, True),
+    # fix p1: new files only
+    ("a_surface_eye", 1209, paint_surface_eye, False),
+    ("c_routing_preview", 1210, lambda r: grain(paint_c_routing_preview(r).done(), rng_for(2410)), True),
+    ("a_prev_sever_lit", 1211, lambda r: paint_prev_sever(r, True), False),
+    ("a_prev_sever_dark", 1211, lambda r: paint_prev_sever(r, False), False),
+    ("a_prev_feed", 1212, paint_prev_feed, False),
+    ("a_prev_oilskin", 1213, paint_prev_oilskin, False),
+    ("stages/r12_sever_office", 1214, checked_hand(paint_sever_office), True),
+    ("stages/r12_continue_terminal", 1215,
+     checked_hand(lambda r: (lambda res: (grain(res[0].done(), rng_for(2415)), res[1]))(paint_continue_terminal(r))), True),
+    ("stages/end_b_wide_2", 1216, paint_end_b_wide_2, True),
 ]
 
 

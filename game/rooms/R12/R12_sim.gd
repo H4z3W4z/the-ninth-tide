@@ -8,6 +8,10 @@ extends RoomSim
 ## Views: "room" (A, the chair wall), "frames" (B, the record wall), "routing" (C, the routing
 ## wall), the close-ups "c_frames" (P25), "c_routing" (P26), "c_final" (P27) and "ending" (the
 ## ending tableaux, stepped by "ending_next"). Every view but "room" is a close-up for the core.
+##
+## The eye in the window is driven from here too: where its pupil looks (gaze(), a pure function
+## of the flags), and the two blinks (fx "blink", each once per game, saved in state.blinks), each
+## with a held breath (fx "hold_breath": the view silences the chamber for `seconds`).
 
 const ID := "R12"
 const TITLE := "Observation Chamber"
@@ -35,8 +39,8 @@ const ROUTING_HOTSPOTS := ["plate_sever", "plate_continue", "cards", "handle", "
 const FRAMES_CONTROLS := ["f_body", "f_place", "f_name", "look_body", "look_place", "look_name",
 	"rack_position_b", "rack_trace_a", "rack_identity", "rack_trace", "rack_identity_b", "rack_trace_b",
 	"rack_position", "look_strip", "switch", "route"]
-const ROUTING_CONTROLS := ["look_sever", "look_continue", "preview_sever", "preview_continue",
-	"slot_sever", "slot_continue", "confirm", "cc_restored", "cc_remains", "cc_returns", "cc_ends"]
+## P26 is 'preview both routes': the plates' looks and PREVIEW keys. No cards, no CONFIRM.
+const ROUTING_CONTROLS := ["look_sever", "look_continue", "preview_sever", "preview_continue"]
 const FINAL_CONTROLS := ["contacts", "look_lamps", "bridge_seat", "tray", "preview", "look_handle",
 	"btn_sever", "btn_continue"]
 const ENDING_CONTROLS := ["ending_next"]
@@ -109,33 +113,49 @@ const STRIP_DONE := ["NINTH OBSERVER LOCATED.", "AUTOMATIC COUNTERSIGN AVAILABLE
 const FRAMES_READ_ONLY := "It has its record of me. The frames won't open again."
 
 # ---------------------------------------------------------------------------------------------
-# P26: the consequence cards
+# P26: preview both routes. Each preview plays on the routing plate's lamps and then in the
+# window (the glance puts the close-up down): SEVER, the eight portrait lamps and the kitchen's
+# bowls going dark; CONTINUE, the witness feed moving to A.M. and Venn's empty oilskin. Both
+# previewed is P26.
 # ---------------------------------------------------------------------------------------------
 const ROUTES := ["sever", "continue"]
-## The tray, left to right.
-const CC_IDS := ["cc_restored", "cc_remains", "cc_returns", "cc_ends"]
-const CC_TEXT := {
-	"cc_ends": "Connection ends. Retained traces become inaccessible. Ada can leave.",
-	"cc_remains": "Ada remains as witness. Traces stay accessible. Venn's duty ends.",
-	"cc_restored": "Traces are restored to life.",
-	"cc_returns": "Venn returns.",
-}
-const SOLUTION_ROUTES := {"sever": "cc_ends", "continue": "cc_remains"}
-## The refusal for a wrong card in a plate: [line, lamp row].
-const MISMATCH := {
-	"sever": {
-		"cc_restored": ["Nothing in the preview comes back to life.", 0],
-		"cc_returns": ["The preview doesn't bring him back. His line goes out with the other eight.", 1],
-		"cc_remains": ["The preview doesn't keep anything. All eight lines go out, and the door opens.", 0],
-	},
-	"continue": {
-		"cc_restored": ["Nothing in the preview comes back to life.", 0],
-		"cc_returns": ["The preview doesn't bring him back. It moves his line to me.", 1],
-		"cc_ends": ["The preview doesn't end anything but his line. The eight stay lit, and the line comes to me.", 0],
-	},
-}
-const ROUTING_SEALED := "Both cards are sealed in. I know what each one does."
+const ROUTING_SEALED := "I've seen both. I know what each one does."
 const ROUTING_LATER := "Not until I know exactly what each one does."
+const WINDOW_RECT := [474, 96, 500, 290]
+## The preview lines: [delay, text] the first time; one feedback line after.
+const PREVIEW_LINES := {
+	"sever": [[0.0, "PREVIEW. On the SEVER plate the eight subject lamps go out, one after another."],
+		[3.0, "The witness feed lamp goes out last. The outer-door shutter turns to OPEN."],
+		[5.6, "Then they all light again. It was only showing me. Behind me, the window is showing it too."]],
+	"continue": [[0.0, "PREVIEW. On the CONTINUE plate the eight subject lamps stay lit."],
+		[2.8, "The witness feed slides along its rail, from the terminal marked E.V. to the one marked A.M."],
+		[5.6, "His lamp goes out. Mine comes on. Behind me, the window is showing it too."]],
+}
+const PREVIEW_AGAIN := {
+	"sever": "The eight go out. The feed goes out. The door opens. Every time.",
+	"continue": "The eight stay lit. His lamp out, mine on.",
+}
+const PREVIEW_SOUND := {"sever": "preview_out", "continue": "preview_move"}
+## After both: her line (the notebook's consequences), then the surface draws back.
+const P26_SAY_AT := 8.4
+const P26_MOVED_AT := 11.2
+const P26_MOVED := "Behind me, in the window, something moved."
+
+# ---------------------------------------------------------------------------------------------
+# The eye: where the pupil looks, and the two blinks.
+# ---------------------------------------------------------------------------------------------
+## The pupil's offset in the window, px, per gaze: centred until P25; toward the chair once
+## P25 is set; toward her terminal once the bridge is seated in it (P26 done).
+const PUPIL_OFFSET := {"centre": [0, 0], "chair": [-40, 0], "terminal": [40, 0]}
+const BLINK_IDS := ["arrival", "located"]
+const BLINK_SECONDS := 1.5
+const ARRIVAL_BLINK_AT := 9.0
+const ARRIVAL_BLINK := "Outside, the surface closes once, all the way, and opens. On me."
+const LOCATED_AT := 2.6
+const LOCATED_LINE := "The strip types, slowly: NINTH OBSERVER LOCATED."
+const SIGN_AT := 7.6
+const SIGN_LINE := "It's offering to sign for me."
+const SIGN_BREATH := 2.5
 
 # ---------------------------------------------------------------------------------------------
 # Endings: steps of {tableau, lines [[delay, text]], sfx [[id, delay]], change}. `change` is
@@ -153,7 +173,9 @@ const ENDING_SEVER := [
 	{"tableau": "m_funnels", "lines": [
 		[0.0, "In the listening room the funnels stop hissing."],
 		[2.6, "In the quiet, for a moment, someone clears their throat."]],
-	"sfx": [["funnel_stop", 0.4], ["throat", 3.6]], "change": "funnel_stop"},
+	"sfx": [["funnel_stop", 0.4], ["throat", 3.6]], "change": "funnel_stop",
+	# the room holds its breath 1.5 s before someone clears their throat in it
+	"breath": [{"seconds": 1.5, "delay": 2.1, "sfx": "throat", "lead": 1.5}]},
 	{"tableau": "m_diaphragm", "lines": [
 		[0.0, "In the machine room the diaphragm lets out its last breath against the bolts."],
 		[2.8, "It doesn't take another."]],
@@ -262,7 +284,7 @@ const OBSERVATIONS := {
 	"armatures_lowered": "After the record was routed, the head cup came down to my height.",
 	"surface": "Outside the chamber window, the surface fills the glass. No edge. No reflection of the room.",
 	"surface_lid": "A line crosses the surface slowly, top to bottom, like a lid. It is looking at the chair.",
-	"surface_withdrew": "When I confirmed what each route does, the surface drew back from the window. A margin of darker water at the edge. The only time it has moved away.",
+	"surface_withdrew": "When I had seen what each route does, the surface drew back from the window. A margin of darker water at the edge. The only time it has moved away.",
 	"pressure": "The pressure gauge is marked in tides. Its needle rests on IX, trembling.",
 	"indicators": "Eight shuttered indicators: ROOK, BELL, IVES, LUSK, PRYCE, DOANE, HART, TULL. Each hums on its own note. Closed.",
 	"shutters_turned": "After the record was routed, the eight shutters turned a little toward my terminal.",
@@ -286,8 +308,9 @@ const OBSERVATIONS := {
 	"yoke": "A severance yoke in a tray on the routing wall, always there.",
 	"feed_contacts": "Two feed contacts: FEED A, subjects 1 to 4; FEED B, subjects 5 to 8.",
 	"ada_terminal": "My terminal: A. MERCER · WITNESS, with a seat shaped for the bridge from the model.",
-	"preview_sever": "SEVER, previewed: the eight subject lines go out one by one, then the witness feed. The outer door marker turns to OPEN. Nothing in the preview comes back.",
-	"preview_continue": "CONTINUE, previewed: the eight subject lines stay lit. The witness feed moves from E.V.'s terminal to mine. His lamp goes out; mine comes on.",
+	"preview_sever": "SEVER, previewed: the eight subject lines go out one by one, then the witness feed. The outer door marker turns to OPEN. In the window, the eight portrait lamps and the kitchen's bowls went dark. Nothing in the preview comes back.",
+	"preview_continue": "CONTINUE, previewed: the eight subject lines stay lit. The witness feed moves from E.V.'s terminal to mine. His lamp goes out; mine comes on. In the window, his oilskin, empty.",
+	"surface_blink": "Outside, the surface closed once, all the way, and opened. On me.",
 	"consequences": "If I break it, they're gone, all of them, and I go home. If I stay, they're kept, whatever they are, and Venn can stop. Nobody comes back either way.",
 	"seen_sever": "I have broken the line before. I remember the launch.",
 	"seen_continue": "I have stayed before. I remember the first correction.",
@@ -299,23 +322,31 @@ const OBJECTIVES := {
 	"finale": "See it through.",
 	"done_chamber": "It's done.",
 }
+## Four tiers each: where to look, the relationship, the evidence (what she has already seen or
+## read that answers it), the explicit solution. hint_tiers() tells the core; under a core that
+## still climbs three tiers, hint_line() skips the evidence tier so the solution stays reachable.
+const HINT_TIERS := 4
 const HINTS := {
 	"frames": [
 		"The chamber wants a record of you.",
 		"Your movements are a body record, your position is a place, your contract is your name. Route as the model showed.",
+		"It's all in the notebook: the recorder's record of my last three moves, the ninth position on the station model, and who asked for me on my contract.",
 		"Trace to BODY, position to PLACE, identity to NAME, switch to WITNESS, then ROUTE.",
-	],   # hint_line() spells the third step out card by card
+	],   # hint_at() spells the last step out card by card
 	"routing": [
 		"Before choosing, make sure you know what each choice does.",
-		"Preview each route and match it to what Venn said and what the model showed.",
-		"SEVER: connection ends, traces lost, you leave. CONTINUE: you stay as witness, traces kept, Venn's duty ends.",
+		"Each plate has a PREVIEW key. Press it, then watch the window.",
+		"Venn said breaking the line ends every trace. The witness test said someone must remain. The previews show what that means.",
+		"Press PREVIEW on the SEVER plate and PREVIEW on the CONTINUE plate, and watch the window each time.",
 	],
 	"decide": [
 		"Both choices are ready. The chamber is waiting for your hands.",
 		"The yoke goes across the feed contacts. The bridge goes in your terminal. Preview before you confirm.",
+		"The window showed me: SEVER puts out the eight lamps and the bowls; CONTINUE moves the feed to A.M. and empties his coat.",
 		"To leave: yoke on the contacts, preview, BREAK CONNECTION AND LEAVE. To stay: bridge in your terminal, preview, REMAIN AS WITNESS.",
 	],
 	"finale": [
+		"I've chosen. All that's left is to watch it happen.",
 		"I've chosen. All that's left is to watch it happen.",
 		"I've chosen. All that's left is to watch it happen.",
 		"I've chosen. All that's left is to watch it happen.",
@@ -326,10 +357,7 @@ const HINTS := {
 # transient presentation-facing state: never saved; cleared by back() and on load
 # ---------------------------------------------------------------------------------------------
 var _held_card := ""
-var _held_cc := ""
 var _held_yoke := false
-## {} or {"plate": "sever"|"continue", "row": 0|1}: the last CONFIRM mismatch lamp.
-var last_mismatch := {}
 ## The frame whose category plate lit on the last refused ROUTE, or "".
 var last_lamp_frame := ""
 ## The P27 button last refused with "Preview first.", or "".
@@ -338,17 +366,15 @@ var refused_button := ""
 func initial_state() -> Dictionary:
 	return {
 		"frames": {"body": "", "place": "", "name": ""}, "switch": "copy", "p25_complete": false,
-		"routes": {"sever": "", "continue": ""}, "previewed": [], "p26_complete": false,
+		"previewed": [], "p26_complete": false,
 		"yoke": "tray", "bridge_seated": false, "final_preview": "", "chosen": "",
 		"p27_complete": false, "ending_step": 0, "noticed": [], "window_looks": 0,
-		"armature_looks": 0, "opened": [],
+		"armature_looks": 0, "opened": [], "blinks": [],
 	}
 
 func _clear_transient() -> void:
 	_held_card = ""
-	_held_cc = ""
 	_held_yoke = false
-	last_mismatch = {}
 	last_lamp_frame = ""
 	refused_button = ""
 
@@ -373,7 +399,6 @@ func load_state(d: Variant) -> void:
 		if d.get(k) is bool:
 			state[k] = d[k]
 	state.frames = _load_slots(d.get("frames"), FRAME_IDS, CARD_IDS)
-	state.routes = _load_slots(d.get("routes"), ROUTES, CC_IDS)
 	if d.get("switch") in ["copy", "witness"]:
 		state.switch = d.switch
 	if d.get("previewed") is Array:
@@ -388,6 +413,9 @@ func load_state(d: Variant) -> void:
 		state.chosen = d.chosen
 	state.noticed = _load_ids(d.get("noticed"), NOTICED_IDS)
 	state.opened = _load_ids(d.get("opened"), OPENED_IDS)
+	state.blinks = _load_ids(d.get("blinks"), BLINK_IDS)
+	if "arrival" in state.noticed:
+		_spend_blink("arrival")
 	for k in ["window_looks", "armature_looks"]:
 		if _all_whole([d.get(k)]):
 			state[k] = clampi(int(d[k]), 0, 99)
@@ -402,10 +430,8 @@ func load_state(d: Variant) -> void:
 	if state.chosen != "":
 		local_view = V_ENDING   # harmless; the core resets it, reconcile() puts it back
 	if state.p25_complete:
-		state.frames = SOLUTION_FRAMES.duplicate()
-		state.switch = "witness"
+		_set_p25_state()
 	if state.p26_complete:
-		state.routes = SOLUTION_ROUTES.duplicate()
 		state.previewed = ["sever", "continue"]
 	else:
 		state.yoke = "tray"
@@ -464,15 +490,20 @@ func reconcile() -> void:
 	if state.chosen != "":
 		local_view = V_ENDING
 
+## P25 done: the solution in the frames, and the located blink spent (it plays at the commit).
 func _set_p25_state() -> void:
 	state.p25_complete = true
 	state.frames = SOLUTION_FRAMES.duplicate()
 	state.switch = "witness"
+	_spend_blink("located")
 
 func _set_p26_state() -> void:
 	state.p26_complete = true
-	state.routes = SOLUTION_ROUTES.duplicate()
 	state.previewed = ["sever", "continue"]
+
+func _spend_blink(id: String) -> void:
+	if not id in state.blinks:
+		state.blinks.append(id)
 
 ## The bridge is always somewhere she can reach once the stair door has opened: in her pocket or
 ## seated in her terminal, never both, never neither. Returns true if it handed the bridge back.
@@ -514,19 +545,12 @@ func switch() -> String:
 func held_card() -> String:
 	return _held_card
 
-func held_cc() -> String:
-	return _held_cc
-
 func held_yoke() -> bool:
 	return _held_yoke
 
 ## True while the card sits in the rack (not in a frame, not in her hand).
 func card_in_rack(cid: String) -> bool:
 	return cid in CARD_IDS and not cid in state.frames.values() and _held_card != cid
-
-## True while the consequence card sits in the tray (not in a slot, not in her hand).
-func cc_in_tray(cid: String) -> bool:
-	return cid in CC_IDS and not cid in state.routes.values() and _held_cc != cid
 
 func strip_lines() -> Array:
 	if p25_done():
@@ -604,9 +628,6 @@ func card_text(cid: String) -> Array:
 		return _move_lines(movement_of(cid))
 	return [CARD_TEXT[cid]] if CARD_TEXT.has(cid) else []
 
-func routes() -> Dictionary:
-	return state.routes.duplicate()
-
 func previewed(route: String) -> bool:
 	return route in state.previewed
 
@@ -639,6 +660,41 @@ func tableau() -> String:
 func endings_seen() -> Array:
 	return game.value("endings_seen")
 
+## Where the eye in the window looks: "centre" before P25, "chair" once P25 is set, "terminal"
+## once P26 is done and the bridge is seated in her terminal (and through the CONTINUE ending).
+func gaze() -> String:
+	if p26_done() and (state.bridge_seated or state.chosen == "continue"):
+		return "terminal"
+	if p25_done():
+		return "chair"
+	return "centre"
+
+## The pupil's offset in px for gaze(): a pure function of the flags and the fitted bridge.
+func pupil_offset() -> Vector2:
+	var o: Array = PUPIL_OFFSET[gaze()]
+	return Vector2(o[0], o[1])
+
+func blinks() -> Array:
+	return state.blinks.duplicate()
+
+## A blink of the surface, once per game: the fx (the view sweeps the lid when `line` goes up)
+## and the held breath with it. No-op if this blink has played.
+func _blink(ev: Array, id: String, delay: float, line: String) -> void:
+	if id in state.blinks:
+		return
+	state.blinks.append(id)
+	_observe("surface_blink")
+	_fx(ev, "blink", {"which": id, "delay": delay, "line": line})
+	_breath(ev, BLINK_SECONDS, delay, {"line": line})
+
+## {fx hold_breath seconds, delay}: the view silences the chamber for `seconds`, starting when
+## the anchor's line goes up ("line") or `lead` s before its sound ("sfx"), else at `delay`.
+func _breath(ev: Array, seconds: float, delay: float, anchor := {}) -> void:
+	var extra := {"seconds": seconds, "delay": delay}
+	for k in anchor:
+		extra[k] = anchor[k]
+	_fx(ev, "hold_breath", extra)
+
 # ---------------------------------------------------------------------------------------------
 # arrival, exits, back
 # ---------------------------------------------------------------------------------------------
@@ -654,9 +710,11 @@ func arrive(ev: Array, first: bool) -> void:
 		_say(ev, "Every arm of the instrument ends where a part of a seated person would be. Head. Hands. Feet.", 2.4, true)
 		_say(ev, "Through the left arch, a wall of frames. One of them already has a name on it.", 5.0, true)
 		_say(ev, "Mine.", 7.2, true)
+		_say(ev, ARRIVAL_BLINK, ARRIVAL_BLINK_AT, true)
+		_blink(ev, "arrival", ARRIVAL_BLINK_AT, ARRIVAL_BLINK)
 	if gave:
 		if chain:
-			_say(ev, "The bridge is in my pocket. The door gave it back.", 9.2, true)
+			_say(ev, "The bridge is in my pocket. The door gave it back.", 11.4, true)
 		else:
 			_say(ev, "The bridge is in my pocket. The door gave it back.")
 
@@ -680,16 +738,43 @@ func back(_ev: Array) -> void:
 func hint_frozen() -> bool:
 	return local_view == V_ENDING
 
-## P25's third step names each true card by what is printed on it.
+## P25's last step names each true card by what is printed on it.
 const HINT_FRAMES_3 := "The true cards: %s to BODY; 'Ninth position. Centre of the station outline.' to PLACE; 'Requested by E. Venn.' to NAME. Then the switch to WITNESS, and ROUTE."
-func hint_line(level: int) -> String:
-	if objective() == "frames" and level >= 2:
+
+## The ladder's length for the core: location, relationship, evidence, solution.
+func hint_tiers() -> int:
+	return HINT_TIERS
+
+## True when the core climbs hint_tiers() tiers (its RoomSim declares hint_tiers()); a core that
+## climbs three asks for levels 0..2 only, and then the evidence tier is skipped.
+static func core_reads_tiers() -> bool:
+	var base: Script = load("res://game/core/room_sim.gd")
+	for m in base.get_script_method_list():
+		if m.name == "hint_tiers":
+			return true
+	return false
+
+## The ladder tier the core's `level` stands for.
+static func hint_tier(level: int) -> int:
+	if core_reads_tiers():
+		return clampi(level, 0, HINT_TIERS - 1)
+	return [0, 1, 3][clampi(level, 0, 2)]
+
+## The line of tier `tier` (0..3) for the current objective; the solution spelled out for P25.
+func hint_at(tier: int) -> String:
+	if objective() == "frames" and tier >= 3:
 		var moves := body_card_lines()
 		moves.pop_back()
 		var body := "the MOVEMENT card reading '" + " ".join(moves) + "'" if not moves.is_empty() \
 			else "the MOVEMENT card that is my own departure record"
 		return HINT_FRAMES_3 % body
-	return super.hint_line(level)
+	var ladder: Array = HINTS.get(objective(), [])
+	if ladder.is_empty():
+		return super.hint_line(0)
+	return ladder[clampi(tier, 0, ladder.size() - 1)]
+
+func hint_line(level: int) -> String:
+	return hint_at(hint_tier(level))
 
 ## Where a loaded game stands in this room (the core's resume hook): in the ending once she
 ## has chosen, else the room.
@@ -983,10 +1068,12 @@ func _route(ev: Array) -> void:
 	_fx(ev, "frames_slide")
 	_fx(ev, "strip_print", {"lines": STRIP_DONE.duplicate(), "delays": [2.6, 5.4]})
 	_fx(ev, "terminal_lit")
+	_blink(ev, "located", LOCATED_AT, LOCATED_LINE)
+	_breath(ev, SIGN_BREATH, SIGN_AT, {"line": SIGN_LINE})
 	for l in [[0.0, "The key turns. All three frames slide back into the wall together, like drawers into a desk."],
-			[2.6, "The strip types, slowly: NINTH OBSERVER LOCATED."],
+			[LOCATED_AT, LOCATED_LINE],
 			[5.4, "Then: AUTOMATIC COUNTERSIGN AVAILABLE."],
-			[7.6, "It's offering to sign for me."],
+			[SIGN_AT, SIGN_LINE],
 			[9.6, "The terminal lights. Through its grille, small and close, his voice."],
 			[11.8, "VENN: \"Don't let it sign for you.\""],
 			[14.4, "That was the last of him it had. The lamp stays on."],
@@ -1001,7 +1088,7 @@ func _routing_wall(action: String, ev: Array) -> void:
 				_observe("routing_plates")
 				_say(ev, "Two plates behind brass shutters: SEVER and CONTINUE. The shutters are locked. A tag: ROUTE A RECORD FIRST.")
 			"cards":
-				_say(ev, "A holder of four cards, behind the same shutter.")
+				_say(ev, "A holder for four cards, behind the same shutter. All four places are empty.")
 			"handle":
 				_say(ev, "The severance handle, locked in its housing.")
 			"yoke_tray":
@@ -1022,7 +1109,7 @@ func _routing_wall(action: String, ev: Array) -> void:
 		if p26_done():
 			_say(ev, ROUTING_SEALED)
 		elif first:
-			_say(ev, "Two plates, SEVER and CONTINUE, each with a PREVIEW key and a card slot. Four cards in the tray. A button: CONFIRM UNDERSTANDING.")
+			_say(ev, "Two plates, SEVER and CONTINUE, each with a PREVIEW key. Nothing to sign, nothing to slot. It only wants me to watch.")
 		else:
 			_say(ev, "The routing plates.")
 		return
@@ -1032,111 +1119,52 @@ func _routing_wall(action: String, ev: Array) -> void:
 	_open_final(ev)
 
 # ----- c_routing (P26) ------------------------------------------------------------------------
-func _slot_of(cid: String) -> String:
-	for r in ROUTES:
-		if state.routes[r] == cid:
-			return r
-	return ""
-
 func _routing_control(action: String, ev: Array) -> void:
-	if p26_done():
-		_say(ev, ROUTING_SEALED)
-		return
-	if action in CC_IDS:
-		if _slot_of(action) != "":
-			_say(ev, "That card's in a plate.")
-		elif _held_cc == action:
-			_held_cc = ""
-			_sfx(ev, "cc_return")
-			_say(ev, "Back in the tray.")
-		else:
-			_held_cc = action
-			_sfx(ev, "cc_lift")
-			_say(ev, "'" + CC_TEXT[action] + "'")
-		return
 	match action:
-		"slot_sever", "slot_continue":
-			var r := action.substr(5)
-			if _held_cc != "":
-				state.routes[r] = _held_cc
-				_held_cc = ""
-				last_mismatch = {}
-				_sfx(ev, "cc_seat")
-				_say(ev, "Into the %s slot." % r.to_upper())
-			elif state.routes[r] != "":
-				state.routes[r] = ""
-				last_mismatch = {}
-				_sfx(ev, "cc_return")
-				_say(ev, "Back in the tray.")
-			else:
-				_say(ev, "An empty card slot.")
 		"preview_sever":
-			_preview_route("sever", "preview_out", [
-				[0.0, "PREVIEW. On the SEVER plate the eight subject lamps go out, one after another."],
-				[3.0, "The witness feed lamp goes out last. The outer-door shutter turns to OPEN."],
-				[5.6, "Then they all light again. It was only showing me."]],
-				"The eight go out. The feed goes out. The door opens. Every time.", ev)
+			_preview_route("sever", ev)
 		"preview_continue":
-			_preview_route("continue", "preview_move", [
-				[0.0, "PREVIEW. On the CONTINUE plate the eight subject lamps stay lit."],
-				[2.8, "The witness feed slides along its rail, from the terminal marked E.V. to the one marked A.M."],
-				[5.6, "His lamp goes out. Mine comes on. The eight don't change."]],
-				"The eight stay lit. His lamp out, mine on.", ev)
+			_preview_route("continue", ev)
 		"look_sever":
 			_say(ev, "SEVER. Subject lines one to eight, the witness feed, the outer door. Each with a lamp.")
 		"look_continue":
 			_say(ev, "CONTINUE. Subject lines one to eight, the witness feed from E.V. to A.M., the outer door.")
-		"confirm":
-			_confirm(ev)
 
-func _preview_route(r: String, sound: String, first_lines: Array, repeat: String, ev: Array) -> void:
+## A preview: the plate's lamps run it (fx "preview"), then the window shows it (fx
+## "window_preview" and the glance, which puts the close-up down once her lines are read).
+## The first time each route is shown she says what she sees; both shown is P26.
+func _preview_route(r: String, ev: Array) -> void:
+	var first: bool = not has_seen("preview_" + r)
 	if not r in state.previewed:
 		state.previewed.append(r)
 	_sfx(ev, "preview_key")
-	_sfx(ev, sound, 0.3)
+	_sfx(ev, PREVIEW_SOUND[r], 0.3)
 	_fx(ev, "preview", {"route": r})
-	if not has_seen("preview_" + r):
+	_fx(ev, "window_preview", {"route": r})
+	if first:
 		_observe("preview_" + r)
-		for l in first_lines:
+		for l in PREVIEW_LINES[r]:
 			_say(ev, l[1], l[0], true)
 	else:
-		_say(ev, repeat)
+		_say(ev, PREVIEW_AGAIN[r])
+	var solved := false
+	if not p26_done() and "sever" in state.previewed and "continue" in state.previewed:
+		_complete_p26(ev)
+		solved = true
+	_fx(ev, "glance", {"rect": WINDOW_RECT.duplicate(), "target": "window_" + r})
+	if solved:
+		game.save_checkpoint()
 
-func _confirm(ev: Array) -> void:
-	if not ("sever" in state.previewed and "continue" in state.previewed):
-		_sfx(ev, "confirm_refuse")
-		_say(ev, "CONFIRM UNDERSTANDING won't press. A tag on it: PREVIEW EACH ROUTE.")
-		return
-	if state.routes.sever == "" or state.routes["continue"] == "":
-		_sfx(ev, "confirm_refuse")
-		_say(ev, "Each plate needs a card before I can say I understand it.")
-		return
-	for r in ROUTES:
-		var card: String = state.routes[r]
-		if card != SOLUTION_ROUTES[r]:
-			var m: Array = MISMATCH[r][card]
-			last_mismatch = {"plate": r, "row": m[1]}
-			_sfx(ev, "mismatch_lamp")
-			_fx(ev, "mismatch", {"plate": r, "row": m[1]})
-			_say(ev, m[0])
-			return
-	state.p26_complete = true
+func _complete_p26(ev: Array) -> void:
+	_set_p26_state()
 	_clear_transient()
 	game.solve("P26", ev)
 	_observe("consequences")
 	_observe("surface_withdrew")
-	_sfx(ev, "confirm_stamp", 0.0)
-	_sfx(ev, "slots_close", 0.6)
-	_sfx(ev, "surface_withdraw", 10.4)
-	_fx(ev, "slots_close")
-	for l in [[0.0, "CONFIRM UNDERSTANDING. The two cards drop into the plates, and the slots close over them."],
-			[2.8, "If I break it, they're gone, all of them, and I go home."],
-			[5.6, "If I stay, they're kept, whatever they are, and Venn can stop."],
-			[8.2, "Nobody comes back either way."],
-			[10.4, "Behind me, in the window, something moved."]]:
-		_say(ev, l[1], l[0], true)
-	_fx(ev, "glance", {"rect": [474, 96, 500, 290], "target": "window"})
-	game.save_checkpoint()
+	_say(ev, OBSERVATIONS.consequences, P26_SAY_AT, true)
+	_say(ev, P26_MOVED, P26_MOVED_AT, true)
+	_sfx(ev, "surface_withdraw", P26_MOVED_AT)
+	_fx(ev, "surface_withdraw")
 
 # ----- c_final (P27) --------------------------------------------------------------------------
 func _open_final(ev: Array) -> void:
@@ -1280,6 +1308,8 @@ func _emit_step(ev: Array) -> void:
 		_say(ev, l[1], l[0], true)
 	for s in st.sfx:
 		_sfx(ev, s[0], s[1])
+	for b in st.get("breath", []):
+		_breath(ev, b.seconds, b.delay, {"sfx": b.sfx, "lead": b.lead})
 	_fx(ev, "ending", {"choice": state.chosen, "step": state.ending_step, "tableau": st.tableau,
 		"change": st.change})
 
@@ -1336,6 +1366,7 @@ func debug_jump(n: int) -> void:
 	var ev: Array = []
 	if n >= 1:
 		state.noticed = ["arrival"]
+		_spend_blink("arrival")
 		_set_p25_state()
 		game.solve("P25", ev)
 	if n >= 2:
