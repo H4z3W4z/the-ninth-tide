@@ -95,6 +95,15 @@ const MARGIN_NOTE := ["An automatic countersign closes a record. A human correct
 ## Under the rule, in pencil, two marks joined by a stroke: a solid triangle and a hollow circle.
 ## The Index model in the vault (R10, P23) carries the same two over two of its terminals.
 const MARGIN_MARKS := ["triangle", "circle"]
+## The marks' own notebook entry (evidence for P23), filed with the separation.
+const MARGIN_MARKS_LINE := "Session log margin: a triangle and a hollow circle, in Venn's pencil."
+## The sync bell is heard, never drawn: one 1.2 kHz strike per track (sfx "mix_bell"), on a film
+## frame. The spool's frame ticks run every FRAME_S seconds from PLAY (tick n at n * FRAME_S).
+## Venn's bell falls on BELL_FRAME.venn; Nora's on BELL_FRAME.nora plus the slider's offset, so at
+## OFFSET_SOLUTION both fall on the same frame. Each enabled track strikes its own bell.
+const FRAME_S := 0.5
+const BELL_FRAME := {"venn": 2, "nora": 4}
+const MIX_MOTOR_OFF := "Motor's off — on the channel board."
 
 # --- P19: the dead channel --------------------------------------------------------------------
 const QUESTIONS := ["q_where", "q_whole", "q_need"]
@@ -120,6 +129,8 @@ const PROCEDURE := "Address a witness on a quiet line."
 const ROOK_DICTATION := ["ROOK (channel C, 1927): Session of the eighteenth of October. Eight present.",
 	"ROOK (channel C, 1927): The instruments are recording. Witness station C is vacant."]
 const LINE_OCCUPIED := "The line is occupied."
+## WITNESS on a quiet line (motor off, A and B closed, C open) before anyone can be on it.
+const LINE_QUIET := "The line is quiet. Nobody is on it yet."
 ## WITNESS with A or B open: the P17 session voices bleed onto C.
 const LINE_CROWDED := "Two other voices on the line. His can't get through them."
 ## The board's status tape after a failed WITNESS.
@@ -157,7 +168,10 @@ const OBSERVATIONS := {
 	"speaker": "A brass speaker funnel above the board, the only funnel that faces into the room.",
 	"mixer": "A two-track mixer: VENN on track 1, NORA on track 2, an offset slider from -3 to +3 and a centre guide.",
 	"session_spool": "A session spool is threaded on the mixer: SESSION, 18 OCT 1927. I didn't thread it.",
-	"bell_peaks": "Both tracks show one sharp bell peak with a bell mark. On track 2 it sits two steps right of the guide.",
+	"bell_peaks": "Neither trace marks the bell. Whatever syncs the two tracks has to be heard, one track at a time.",
+	"bell_venn": "Track 1, VENN, played: the bell strikes on frame 2 of the film.",
+	"bell_nora": "Track 2, NORA, played: with the slider at 0 the bell strikes on frame 4. Each step of the slider moves it one frame.",
+	"margin_marks": MARGIN_MARKS_LINE,
 	"witness_procedure": "Venn: 'Leave the witness line open.' Nora: 'Tell them I was here.' Margin of the session log: an automatic countersign closes a record; a human correction keeps it open. Under it, two pencil marks joined by a stroke: a solid triangle and a hollow circle. The dead channel is Venn's station now.",
 	"c_presence": "Channel C carries room tone now, from a room that isn't this one. Once, it drew breath.",
 	"venn_answers": "Where are they? VENN: 'Here. In the instruments. I kept them where they could still be reached. I never found how to let them out.' Are they still themselves? VENN: 'I don't know. I can't promise you they're whole. They answer. That's all I can tell you.' What do you need from me? VENN: 'If you break it, they end, every trace. If you don't, someone has to stay. Physically. Here. A witness, not a signature. Three days I have stood where you are standing. There is less of me each tide.' He kept them reachable. He can't promise they're whole. Breaking it ends them. Not breaking it needs someone to stay.",
@@ -194,6 +208,7 @@ const HINTS := {
 	"p17": [
 		"The listening room's mixer has two voices on top of each other.",
 		"Both tracks have a bell in them. The contact sheet says the bell is the sync.",
+		"The contact sheet's edge says where the bell falls against the film. Listen to each track alone.",
 		"Track 2 offset to -2, then play VENN alone and NORA alone.",
 	],
 	"wait_p18": [
@@ -244,7 +259,7 @@ func initial_state() -> Dictionary:
 		"asked": [], "p19_complete": false, "notices": [], "printer_q_seen": false,
 	}
 
-## P02 and P19 carry a fourth tier (what the notebook already holds) before the solution; the
+## P02, P17 and P19 carry a fourth tier (what the notebook already holds) before the solution; the
 ## core asks before giving the last. Same rule as RoomSim.hint_tiers(): four lines, four tiers.
 func hint_tiers() -> int:
 	return 4 if HINTS.get(objective(), []).size() >= 4 else 3
@@ -600,7 +615,7 @@ func _board(action: String, ev: Array) -> void:
 			local_view = "c_mixer"
 			if not has_seen("session_spool"):
 				_say(ev, "There's a spool threaded now. SESSION, 18 OCT 1927. I didn't thread it.", 0.0, true)
-				_say(ev, "Both tracks have a bell mark. They don't line up.", 2.2, true)
+				_say(ev, "Nothing on either trace marks a bell. I'd have to listen for it.", 2.2, true)
 				_observe("mixer")
 				_observe("session_spool")
 				_observe("bell_peaks")
@@ -733,6 +748,20 @@ func _play_recording(ev: Array) -> void:
 # ---------------------------------------------------------------------------------------------
 # P17: c_mixer
 # ---------------------------------------------------------------------------------------------
+## The frame track `who` ("venn" or "nora") strikes its bell on at the current offset.
+func bell_frame(who: String) -> int:
+	return int(BELL_FRAME[who]) + (int(state.offset) if who == "nora" else 0)
+
+## One heard strike per enabled track, on its frame, captioned for anyone who can't hear it.
+func _bells(ev: Array) -> void:
+	for t in [["venn", "1, VENN"], ["nora", "2, NORA"]]:
+		if not state[t[0] + "_on"]:
+			continue
+		var f := bell_frame(t[0])
+		_sfx(ev, "mix_bell", f * FRAME_S)
+		_say(ev, "[TRK %s: a bell, on frame %d]" % [t[1], f], f * FRAME_S, true)
+		_observe("bell_" + t[0])
+
 func _mixer(action: String, ev: Array) -> bool:
 	match action:
 		"off_left", "off_right":
@@ -759,7 +788,7 @@ func _mixer(action: String, ev: Array) -> bool:
 func _play_mix(ev: Array) -> void:
 	mix_result = ""
 	if not state.motor_on:
-		_say(ev, "The motor's off. The board's switch.")
+		_say(ev, MIX_MOTOR_OFF)
 		return
 	if not game.has_item("contact_sheet"):
 		_say(ev, "I'd want the contact sheet in front of me for this.")
@@ -772,28 +801,33 @@ func _play_mix(ev: Array) -> void:
 		mix_result = "overlap"
 		_sfx(ev, "mix_overlap")
 		_say(ev, "The bells don't land together.")
+		_bells(ev)
 		return
 	if state.venn_on and state.nora_on:
 		mix_result = "combined"
 		_sfx(ev, "mix_combined")
 		_say(ev, MIX_COMBINED, 0.0, true)
+		_bells(ev)
 		_say(ev, "His voice starts it. Hers finishes it.", 2.4, true)
 		state.heard_combined = true
 		return
 	mix_result = "venn" if state.venn_on else "nora"
 	_sfx(ev, "mix_" + mix_result)
 	_say(ev, MIX_LINES[mix_result], 0.0, true)
+	_bells(ev)
 	state["heard_" + mix_result] = true
 	if state.heard_venn and state.heard_nora and not state.p17_complete:
 		state.p17_complete = true
 		game.solve("P17", ev)
 		_observe("witness_procedure")
+		_observe("margin_marks")
 		_mark_notice("c_presence")
 		_fx(ev, "c_presence")
 		_say(ev, "Two people. One sentence between them.", 2.4, true)
 		_say(ev, "Pencil in the margin of the session log.", 4.6, true)
 		_say(ev, "'%s'" % MARGIN_NOTE[0], 6.8, true)
 		_say(ev, "And under it, in his hand: '%s'" % MARGIN_NOTE[1], 9.6, true)
+		_say(ev, MARGIN_MARKS_LINE, 12.4, true)
 
 # ---------------------------------------------------------------------------------------------
 # P19: c_channels
@@ -852,6 +886,12 @@ func _witness(ev: Array) -> void:
 		_say(ev, MIX_OVERLAP[1], 1.6, true)
 		_say(ev, LINE_CROWDED, 4.4, true)
 		_observe("line_crowded")
+		return
+	if not ready and state.ch_open.C and not state.motor_on and not state.ch_open.A \
+			and not state.ch_open.B:
+		# the right procedure, too early: the line is quiet because nobody is on it yet
+		_sfx(ev, "witness_key")
+		_say(ev, LINE_QUIET)
 		return
 	if not state.ch_open.C or not ready:
 		_sfx(ev, "witness_key")
@@ -1020,7 +1060,8 @@ func debug_prepare(t: int) -> void:
 	if t >= 7:
 		_set_p17_done()
 		state.c_breath_heard = true
-		for o in ["mixer", "session_spool", "bell_peaks", "witness_procedure", "c_presence"]:
+		for o in ["mixer", "session_spool", "bell_peaks", "bell_venn", "bell_nora", "witness_procedure",
+				"margin_marks", "c_presence"]:
 			_observe(o)
 	if t >= 8:
 		state.motor_on = false
@@ -1064,7 +1105,8 @@ func debug_jump(n: int) -> void:
 			game.give("contact_sheet", [])
 		if n >= 3:
 			_set_p17_done()
-			for o in ["mixer", "session_spool", "bell_peaks", "witness_procedure", "c_presence"]:
+			for o in ["mixer", "session_spool", "bell_peaks", "bell_venn", "bell_nora", "witness_procedure",
+				"margin_marks", "c_presence"]:
 				_observe(o)
 			_mark_notice("c_presence")
 		if n >= 4:

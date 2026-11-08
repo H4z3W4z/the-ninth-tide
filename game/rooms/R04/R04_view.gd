@@ -86,7 +86,7 @@ const SFX_DB := {"throat_clear": -10.0, "motor_click": -12.0, "band_seat": -8.0,
 	"band_click": -10.0, "needle_down": -8.0, "needle_skip": -6.0, "wax_fragment_1": -8.0,
 	"wax_fragment_2": -8.0, "recording_p02": -4.0, "cylinder_coast": -9.0, "printer_chatter": -12.0,
 	"slider_step": -12.0, "toggle_channel": -11.0, "mix_overlap": -6.0, "mix_combined": -4.0,
-	"mix_venn": -4.0, "mix_nora": -4.0, "breath_c": -9.0, "switch_motor": -8.0, "key_channel": -9.0,
+	"mix_venn": -4.0, "mix_nora": -4.0, "mix_bell": -5.0, "breath_c": -9.0, "switch_motor": -8.0, "key_channel": -9.0,
 	"witness_key": -7.0, "reject_buzz": -9.0, "relay_on": -11.0, "relay_off": -7.0,
 	"venn_answer_where": -4.0, "venn_answer_whole": -4.0, "venn_answer_need": -4.0, "venn_funnel": -3.0,
 	"rook_dictation": -5.0}
@@ -94,6 +94,11 @@ const SFX_SOFT := ["needle_skip", "reject_buzz", "relay_off", "venn_funnel"]
 ## The funnel voice must still be heard: it is only taken down 8 dB.
 const SFX_SOFT_CUT := {"venn_funnel": 8.0}
 
+## The room tone per weather band. Band 3 (every funnel gone quiet) and band 5 stay low; band 4
+## (Tide VI), band 6 (Tide VIII) and band 7 (Tide IX) sit with the house's other rooms.
+const ROOM_TONE_DB := [-3.0, -3.0, -3.0, -7.0, -2.5, -7.0, -0.5, -0.5]
+## The wall's pressure bed: it starts building at band 6 (Tide VIII), before the plaster bulges.
+const PRESSURE_DB := [-20.0, -16.0]
 const LOOPS := ["r04_room", "r04_motor", "r04_leak_wind", "r04_leak_rain", "r04_c_tone", "r04_pressure"]
 ## Voices the room ducks its loops under (8 dB).
 const DUCK_IDS := ["recording_p02", "mix_overlap", "mix_combined", "mix_venn", "mix_nora",
@@ -454,7 +459,7 @@ func loop_targets() -> Dictionary:
 	var b := _band()
 	var ending := r.ending()
 	var db := {}
-	db["r04_room"] = -3.0 if b <= 2 else (-7.0 if b <= 6 else -5.0)
+	db["r04_room"] = ROOM_TONE_DB[clampi(b, 0, 7)]
 	if ending == "":
 		if r.state.motor_on:
 			db["r04_motor"] = -14.0
@@ -465,8 +470,8 @@ func loop_targets() -> Dictionary:
 			db["r04_leak_rain"] = -21.0
 		if r.state.p17_complete and not r.state.p19_complete:
 			db["r04_c_tone"] = -18.0 if _view() in ["c_channels", "board"] else -24.0
-		if b == 7:
-			db["r04_pressure"] = -18.0
+		if b >= 6:
+			db["r04_pressure"] = PRESSURE_DB[b - 6]
 	var duck := game != null and game.oneshot_playing(DUCK_IDS)
 	var out := {}
 	for id in LOOPS:
@@ -992,24 +997,18 @@ func _draw_view_b(c: CanvasItem) -> void:
 	_ctext(c, "WITNESS", 1050, 585, 17, INK, narrow)
 	_plate(c, Rect2(14, 650, 84, 26), "FUNNELS", 15)
 
-## The session spool before the bells are aligned: two traces, the second bell off the guide.
+## The session spool on the board: two pen traces. The sync bell is heard, never drawn, so
+## neither trace marks it; track 2 slides with the offset.
 func _draw_b_traces(c: CanvasItem) -> void:
 	var off := int(r.state.offset)
 	var gx := 730.0
 	for lane in 2:
 		var base := 718.0 if lane == 0 else 756.0
-		var shift := 0.0 if lane == 0 else 35.0 * (off + 2)
-		var peak := gx + shift
+		var shift := 0.0 if lane == 0 else 35.0 * off
 		var pts := PackedVector2Array()
 		var x := 474.0
-		var i := 0
+		var i := int(roundf(-shift / 6.0)) + 600
 		while x <= 986.0:
-			if absf(x - peak) < 8.0:
-				pts.append(Vector2(peak - 6, base))
-				pts.append(Vector2(peak, base - 24))
-				pts.append(Vector2(peak + 6, base + 3))
-				x = peak + 10.0
-				continue
 			pts.append(Vector2(x, base + (wave[(i + lane * 37) % wave.size()] - 0.5) * 6.0))
 			x += 6.0
 			i += 1
@@ -1267,40 +1266,23 @@ func _draw_arm(c: CanvasItem) -> void:
 	c.draw_set_transform_matrix(Transform2D.IDENTITY)
 
 # --- c_mixer --------------------------------------------------------------------------------
-func _bell(c: CanvasItem, top: Vector2, col: Color) -> void:
-	var pts := PackedVector2Array()
-	for p in [Vector2(-2, 0), Vector2(2, 0), Vector2(6, 3), Vector2(7, 9), Vector2(8, 14), Vector2(11, 17),
-			Vector2(-11, 17), Vector2(-8, 14), Vector2(-7, 9), Vector2(-6, 3), Vector2(-2, 0)]:
-		pts.append(top + p)
-	c.draw_polyline(pts, col, 2.0, true)
-	c.draw_circle(top + Vector2(0, 20), 2.5, col)
-
-## One lane of the strip chart: a continuous ink pen trace, the bell an inked spike.
+## One lane of the strip chart: a continuous ink pen trace that slides with the offset. The
+## sync bell is heard only (R04Sim.BELL_FRAME, sfx "mix_bell"): nothing on the trace marks it.
 func _draw_lane(c: CanvasItem, lane: int, shift: float, on: bool) -> void:
 	var cy: float = LANE_Y[lane]
 	var col := INK if on else Color(INK, 0.28)
-	var peak := GUIDE_X + (0.0 if lane == 0 else STEP_PX * 2.0) + shift
 	var pts := PackedVector2Array()
-	var spiked := false
 	var i := 0
 	var x := WIN_X0 + 4.0 + shift
 	while x < WIN_X1:
 		if x >= WIN_X0 + 2.0:
-			if absf(x - peak) <= 7.0:
-				if not spiked:
-					pts.append_array(PackedVector2Array([Vector2(peak - 5, cy), Vector2(peak, cy - 58),
-						Vector2(peak + 4, cy + 22), Vector2(peak + 8, cy)]))
-					spiked = true
-			else:
-				var amp := 6.0 + 30.0 * wave[(i + lane * 53) % wave.size()] * (0.55 + 0.45 * sin(i * 0.21 + lane))
-				pts.append(Vector2(x, cy - amp))
-				pts.append(Vector2(x + 3.0, cy + amp * 0.85))
+			var amp := 6.0 + 30.0 * wave[(i + lane * 53) % wave.size()] * (0.55 + 0.45 * sin(i * 0.21 + lane))
+			pts.append(Vector2(x, cy - amp))
+			pts.append(Vector2(x + 3.0, cy + amp * 0.85))
 		x += 6.0
 		i += 1
 	if pts.size() > 1:
 		c.draw_polyline(pts, col, 2.0, true)
-	if peak > WIN_X0 and peak < WIN_X1:
-		_bell(c, Vector2(peak, cy - 80), col)
 
 func _draw_mixer(c: CanvasItem) -> void:
 	_full(c, "c_mixer")
@@ -1442,6 +1424,9 @@ func _draw_channels(c: CanvasItem) -> void:
 	# the session log: her questions in pencil once the line is open; an asked one is struck
 	# through, and a struck line is still clicked to hear its answer again
 	_text(c, "SESSION LOG  ·  WITNESS, CHANNEL C", Vector2(LOG_TEXT_X, LOG_HEAD_Y), 15, Color(INK, 0.7), narrow)
+	if r.state.p17_complete:
+		# Venn's two pencil marks in the log's right margin, as on the 1927 session log (P23)
+		_margin_marks(c, Vector2(1160, LOG_HEAD_Y - 5))
 	if not _questions_live():
 		return
 	var hf := Ink.hand()

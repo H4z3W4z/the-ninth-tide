@@ -42,6 +42,7 @@ func run_tests() -> void:
 	test_p02_save_load()
 	test_malformed_saves()
 	test_p17()
+	test_p17_bells()
 	test_p19_switches()
 	test_p19_questions()
 	test_p19_save_load()
@@ -76,6 +77,13 @@ func flags_upto(n: int) -> Array:
 	for i in range(1, n + 1):
 		out.append("P%02d" % i)
 	return out
+
+func count_sfx(ev: Array, id: String) -> int:
+	var n := 0
+	for e in ev:
+		if e.type == "sfx" and e.id == id:
+			n += 1
+	return n
 
 func snapshot(g: GameSim) -> String:
 	return JSON.stringify([g.state.flags, g.state.inventory, g.state.notebook, g.state.movement_events])
@@ -440,8 +448,9 @@ func test_p17() -> void:
 			check(tr.mix_result == "combined" and "VENN / NORA: Leave the witness line... I was here." in says(ev),
 				"offset -2: one sentence, two voices")
 		else:
-			check(tr.mix_result == "overlap" and says(ev) == "The bells don't land together." and tr.mix_transcript().size() == 2,
+			check(tr.mix_result == "overlap" and says(ev).begins_with("The bells don't land together.") and tr.mix_transcript().size() == 2,
 				"offset %d: the bells don't land together" % o)
+			check(count_sfx(ev, "mix_bell") == 2, "offset %d: both tracks strike their bells" % o)
 		for solo in [[true, false], [false, true]]:
 			set_solo(t, solo[0], solo[1])
 			t.dispatch("play")
@@ -464,8 +473,8 @@ func test_p17() -> void:
 		check("c_presence" in tr.state.notices and has_ev(cev, "fx", "c_presence"), "channel C gets its presence")
 		var nb := snapshot(t)
 		var rev := t.dispatch("play")
-		check(snapshot(t) == nb and says(rev) == ("NORA: Tell them I was here." if first_venn else "VENN: Leave the witness line open."),
-			"a repeat solo replays its line only")
+		check(snapshot(t) == nb and says(rev).split(" | ")[0] == ("NORA: Tell them I was here." if first_venn else "VENN: Leave the witness line open.")
+			and says(rev).split(" | ").size() == 2 and "[TRK" in says(rev), "a repeat solo replays its line and its bell only")
 		set_solo(t, true, true)
 		t.dispatch("play")
 		check(snapshot(t) == nb, "a repeat combined play adds nothing")
@@ -497,7 +506,8 @@ func test_p17() -> void:
 	var mo := mixer_game()
 	check(says(mo.dispatch("look_sheet")) == "Sync: bell.", "the sheet's note")
 	r04(mo).state.motor_on = false
-	check(says(mo.dispatch("play")) == "The motor's off. The board's switch.", "motor off")
+	check(says(mo.dispatch("play")) == "Motor's off — on the channel board." and R04Sim.MIX_MOTOR_OFF == "Motor's off — on the channel board.",
+		"motor off")
 	# Heard flags survive a misaligned play.
 	var h := mixer_game()
 	var hr := r04(h)
@@ -519,6 +529,55 @@ func test_p17() -> void:
 	ev = u.dispatch("mixer")
 	check(r04(u).local_view == "c_mixer" and says(ev) == "Sync: bell. There's a bell on both tracks." and u.has_item("contact_sheet"),
 		"the contact sheet on the mixer opens it and stays in hand")
+
+## P4 fix: the sync bell is heard only. One mix_bell strike per enabled track, on its frame;
+## Venn's never moves, Nora's moves one frame per slider step and meets his only at -2. Each
+## strike is captioned and filed. The waveforms carry no bell glyph or spike.
+func test_p17_bells() -> void:
+	check(R04Sim.FRAME_S > 0.0 and R04Sim.BELL_FRAME.nora + R04Sim.OFFSET_SOLUTION == R04Sim.BELL_FRAME.venn,
+		"bells: the frames meet only at the solution offset")
+	for o in range(-3, 4):
+		for solo in [[true, false], [false, true]]:
+			var g := mixer_game()
+			var r := r04(g)
+			set_offset(g, o)
+			set_solo(g, solo[0], solo[1])
+			var ev := g.dispatch("play")
+			var who := "venn" if solo[0] else "nora"
+			var frame: int = R04Sim.BELL_FRAME[who] + (o if who == "nora" else 0)
+			var strikes := []
+			for e in ev:
+				if e.type == "sfx" and e.id == "mix_bell":
+					strikes.append(e.delay)
+			check(strikes.size() == 1 and is_equal_approx(strikes[0], frame * R04Sim.FRAME_S),
+				"bells: %s alone at offset %d strikes once, on frame %d (%s)" % [who, o, frame, strikes])
+			check(frame >= 1 and frame <= 7, "bells: frame %d is on the film" % frame)
+			check(("on frame %d]" % frame) in says(ev), "bells: %s at offset %d is captioned" % [who, o])
+			check(r.has_seen("bell_" + who) and not r.has_seen("bell_" + ("nora" if who == "venn" else "venn")),
+				"bells: %s's bell is filed" % who)
+	var b := mixer_game()
+	r04(b).state.motor_on = false
+	check(count_sfx(b.dispatch("play"), "mix_bell") == 0, "bells: no strike with the motor off")
+	var n := mixer_game()
+	set_solo(n, false, false)
+	check(count_sfx(n.dispatch("play"), "mix_bell") == 0, "bells: no strike with both tracks off")
+	for k in ["bell_peaks", "bell_venn", "bell_nora"]:
+		var o: String = R04Sim.OBSERVATIONS[k]
+		check(not "-2" in o and not "two steps" in o and not "bell mark" in o, "bells: %s gives no offset" % k)
+	for h in R04Sim.HINTS.p17.slice(0, 3):
+		check(not "-2" in h, "bells: only the last P17 tier names -2")
+	# the separation files the margin's two marks as their own entry
+	var m := mixer_game()
+	set_offset(m, -2)
+	set_solo(m, true, false)
+	m.dispatch("play")
+	set_solo(m, false, true)
+	var ev := m.dispatch("play")
+	check(m.flag("P17") and r04(m).has_seen("margin_marks")
+		and R04Sim.OBSERVATIONS.margin_marks == "Session log margin: a triangle and a hollow circle, in Venn's pencil."
+		and "Session log margin: a triangle and a hollow circle, in Venn's pencil." in says(ev),
+		"the margin marks are filed in the notebook, verbatim")
+	check(R04Sim.MARGIN_MARKS == ["triangle", "circle"], "the margin marks are R10's triangle and circle")
 
 # ---------------------------------------------------------------------------------------------
 # (g) P19
@@ -563,8 +622,23 @@ func test_p19_switches() -> void:
 		check(r.state.witness_open == (not motor and not a and not b and cc), "%s: opens only isolated" % label)
 		check(not g.flag("P19"), "%s: WITNESS alone doesn't solve P19" % label)
 	var no18 := channels_game(flags_upto(17))
-	check(says(open_witness(no18)) == "The key clicks. Nothing answers." and not r04(no18).state.witness_open,
-		"without P18 nothing answers")
+	check(says(open_witness(no18)) == "The line is quiet. Nobody is on it yet." and not r04(no18).state.witness_open
+		and R04Sim.LINE_QUIET == "The line is quiet. Nobody is on it yet.", "the right procedure before P18: a quiet line")
+	# Too early, any wrong configuration keeps the plain click.
+	for code in 15:
+		var e := channels_game(flags_upto(17))
+		var er := r04(e)
+		var want := [code & 1 != 0, code & 2 != 0, code & 4 != 0, code & 8 == 0]   # motor, A, B, C closed
+		if er.state.motor_on != want[0]: e.dispatch("motor")
+		if er.state.ch_open.A != want[1]: e.dispatch("key_a")
+		if er.state.ch_open.B != want[2]: e.dispatch("key_b")
+		if er.state.ch_open.C != (not want[3]): e.dispatch("key_c")
+		var correct: bool = not want[0] and not want[1] and not want[2] and not want[3]
+		check(correct or says(e.dispatch("witness")) == "The key clicks. Nothing answers.",
+			"too early, wrong switches %s: nothing answers" % [want])
+	var none := channels_game(flags_upto(16))
+	check(says(open_witness(none)) == R04Sim.LINE_QUIET and not r04(none).has_seen("line_occupied"),
+		"before P17 too the right switches find a quiet line")
 	var g := channels_game(ready)
 	var r := r04(g)
 	open_witness(g)
@@ -872,12 +946,17 @@ func test_items_objectives_hints() -> void:
 		"after P02: away until P16")
 	var m := mixer_game()
 	check(r04(m).objective() == "p17", "objective: P17")
-	check(r04(m).hint_tiers() == 3, "P17 has three hint tiers")
+	check(r04(m).hint_tiers() == 4, "P17 has four hint tiers")
 	check(r04(m).hint_line(1) == "Both tracks have a bell in them. The contact sheet says the bell is the sync.",
 		"P17's relationship tier names the two bells and the contact sheet")
-	check(r04(m).hint_line(2) == "Track 2 offset to -2, then play VENN alone and NORA alone.", "P17's last tier is the solution")
-	check(r04(m).hint_line(0) != r04(m).hint_line(1) and r04(m).hint_line(1) != r04(m).hint_line(2)
-		and r04(m).hint_line(0) != r04(m).hint_line(2), "P17's three tiers all differ")
+	check(r04(m).hint_line(2) == "The contact sheet's edge says where the bell falls against the film. Listen to each track alone.",
+		"P17's evidence tier points at the contact sheet and the ear")
+	check(not "-2" in r04(m).hint_line(2), "P17's evidence tier does not give the offset")
+	check(r04(m).hint_line(3) == "Track 2 offset to -2, then play VENN alone and NORA alone.", "P17's last tier is the solution")
+	var p17_tiers := []
+	for i in 4:
+		check(not r04(m).hint_line(i) in p17_tiers, "P17's four tiers all differ (%d)" % i)
+		p17_tiers.append(r04(m).hint_line(i))
 	check(not "-2" in r04(m).hint_line(1) and not "alone" in r04(m).hint_line(1), "P17's tier 2 does not give the solution")
 	set_offset(m, -2)
 	set_solo(m, true, false)
@@ -897,7 +976,7 @@ func test_items_objectives_hints() -> void:
 		m.dispatch(q)
 	check(r04(m).objective() == "done" and r04(m).objective_text() == "The board is quiet.", "objective: done")
 	for k in R04Sim.HINTS:
-		var n := 4 if k in ["p02", "p19"] else 3
+		var n := 4 if k in ["p02", "p17", "p19"] else 3
 		check(R04Sim.OBJECTIVES.has(k) and R04Sim.HINTS[k].size() == n, "hint ladder %s has %d levels" % [k, n])
 	check(r04(m).hint_tiers() == 3, "the done ladder has three tiers")
 
@@ -956,6 +1035,8 @@ func test_view_scene() -> void:
 	if v == null:
 		await free_scene(scene)
 		return
+	check(not v.has_method("_bell"), "view: the waveforms draw no bell glyph (the bell is heard only)")
+	check(v.SFX_DB.has("mix_bell") and not "mix_bell" in v.SFX_SOFT, "view: the bell strike has its level")
 	# view A, then view B: the board's hotspots answer only on the board
 	check(v.exits_active() and not v.back_visible() and v.esc_action() == "menu", "view: room shows exits, no Back")
 	scene.dispatch("to_board")
