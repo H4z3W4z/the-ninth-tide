@@ -872,6 +872,13 @@ func test_items_objectives_hints() -> void:
 		"after P02: away until P16")
 	var m := mixer_game()
 	check(r04(m).objective() == "p17", "objective: P17")
+	check(r04(m).hint_tiers() == 3, "P17 has three hint tiers")
+	check(r04(m).hint_line(1) == "Both tracks have a bell in them. The contact sheet says the bell is the sync.",
+		"P17's relationship tier names the two bells and the contact sheet")
+	check(r04(m).hint_line(2) == "Track 2 offset to -2, then play VENN alone and NORA alone.", "P17's last tier is the solution")
+	check(r04(m).hint_line(0) != r04(m).hint_line(1) and r04(m).hint_line(1) != r04(m).hint_line(2)
+		and r04(m).hint_line(0) != r04(m).hint_line(2), "P17's three tiers all differ")
+	check(not "-2" in r04(m).hint_line(1) and not "alone" in r04(m).hint_line(1), "P17's tier 2 does not give the solution")
 	set_offset(m, -2)
 	set_solo(m, true, false)
 	m.dispatch("play")

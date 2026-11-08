@@ -193,7 +193,7 @@ const HINTS := {
 	],
 	"p17": [
 		"The listening room's mixer has two voices on top of each other.",
-		"The contact sheet says the bell is the sync. Line the two bells up, then listen to each voice alone.",
+		"Both tracks have a bell in them. The contact sheet says the bell is the sync.",
 		"Track 2 offset to -2, then play VENN alone and NORA alone.",
 	],
 	"wait_p18": [
