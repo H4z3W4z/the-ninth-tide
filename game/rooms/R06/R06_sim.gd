@@ -126,6 +126,9 @@ const APPEND_REFUSALS := {
 const PENCIL := "pencil"
 const NO_PENCIL := "Corrections are in the amending officer's hand. Mine."
 const AMEND_LINE := "REPAIRED CUP, NORA BELL"
+## Any item on the empty EVIDENCE rest (the pencil most of all) that has no line of its own: the
+## rest is filled from the notebook by clicking it, never by handing it a thing. Not consumed.
+const EVIDENCE_REST_ITEM := "The EVIDENCE rest wants a document, not a pencil. It takes what I give it from the notebook."
 ## Glances: a look across the room at something that just changed, as {id, rect, view}. Rects are
 ## in the room view's native canvas; view is the wall they are on ("room" A, "curtain" B).
 const GLANCES := {
@@ -590,6 +593,9 @@ func use_item(item: String, target: String, ev: Array) -> bool:
 			if target == "curtain" and curtain_shape():
 				_say(ev, "The shape is on the front of the cloth. There's no light behind it to cast it.")
 				return true
+	if target == "rest_evidence" and not state.sketch_on_rest:
+		_say(ev, EVIDENCE_REST_ITEM)
+		return true
 	return false
 
 # ---------------------------------------------------------------------------------------------

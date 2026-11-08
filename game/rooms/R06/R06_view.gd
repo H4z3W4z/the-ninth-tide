@@ -939,6 +939,8 @@ func _draw_slope(c: CanvasItem) -> void:
 		if r.amendment_written():
 			_draw_amendment(c)
 			_draw_card_ring(c)
+	if evidence_slot_visible():
+		_draw_dashed_rect(c, EVIDENCE_SLOT, Color(PAPER_HI, 0.5), 2.0, 14.0)
 	if st.sketch_on_rest:
 		var sk := _tex("c_sketch")
 		if sk:
@@ -977,6 +979,18 @@ func _draw_slope(c: CanvasItem) -> void:
 
 ## A small engraved name plate under drum `cx`: cream card stock in a navy rule, like RECORD and
 ## EVIDENCE above, so FINDING / OBJECT / OWNER read at a glance.
+## The empty EVIDENCE rest's faint dashed outline: a place where a document goes, so the bare
+## felt reads as a click target. Gone once the sketch lies there.
+const EVIDENCE_SLOT := Rect2(840, 232, 418, 344)
+
+func evidence_slot_visible() -> bool:
+	return r != null and not r.state.sketch_on_rest
+
+func _draw_dashed_rect(c: CanvasItem, rect: Rect2, col: Color, width: float, dash: float) -> void:
+	var p := [rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)]
+	for i in 4:
+		c.draw_dashed_line(p[i], p[(i + 1) % 4], col, width, dash, true)
+
 func wheel_plate_rect(i: int) -> Rect2:
 	var w: Array = WHEEL_X[i]
 	var cx: float = (w[0] + w[1]) / 2.0
