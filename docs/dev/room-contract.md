@@ -109,8 +109,11 @@ The core holds it until the story chain has played out, then puts any close-up d
 sim's own `back` (at most four times, so it stays deterministic) and calls the view's
 `start_glance(target, rect)`. Return `true` if your view shows the reward itself (a
 zoom, a light, the thing moving); the default `false` lets the core draw four storm-navy
-corner brackets round `rect` for 2.5 s (eased in with Motion on, simply there with it off).
-A glance waiting for its chain is dropped on travel, the title and a new game.
+corner brackets round `rect` for 2.5 s (eased in and faded out over the last 0.4 s with
+Motion on, simply there with it off). A glance waiting for its chain is dropped on travel,
+the title and a new game; brackets on show are cleared by travel, the notebook opening and
+a close-up opening, so no bracket outlives the view it pointed into. A view that draws its
+own glance ring should clear it on the same three.
 
 **The tide card waits for the reveal.** `game.solve()`'s `{fx: "tide"}` no longer puts the
 card up at once: it waits until the room view shows no close-up, no story line is queued or
@@ -143,7 +146,7 @@ report), `on_core_return(from, ev)` (back from the notebook or menu), `hint_froz
 | `game.record_move(id)` | record one of the twelve whitelisted movement events (`flags.md` §3, `GameSim.MOVES`) when its action succeeds. Consecutive duplicates collapse; the last 8 are kept. Anything else is refused. `GameSim.move_text(id)` is the recorder's printed line. |
 | `game.freeze_p05_trace()` | R03 only, at P05's RECORD: stores the last three movement events as `p05_trace`, once; later calls return the stored value |
 | `game.value(id)` | the cards' non-bool values: `"p05_trace"`, `"movement_events"`, `"ending_choice"` (`""`, `"sever"`, `"continue"`), `"endings_seen"` (saved with the settings; survives New game). Returns copies. |
-| `game.finish("sever" \| "continue")`, `game.save_checkpoint()` | R12 only: sets `ending_choice`, shows the end card; the pre-ending checkpoint |
+| `game.finish("sever" \| "continue")`, `game.save_checkpoint()` | R12 only: sets `ending_choice`, shows the end card; the pre-ending checkpoint. The card draws `ENDINGS[id].still`, a list tried in order (R12's `assets/stages/R12/r12_sever_office_r2.png` / `end_b_wide_3.png` first, then the earlier plates), at full strength under a paper panel in the lower band (y 760) |
 
 ### Tide-state hooks
 
@@ -155,7 +158,11 @@ dread comes from what is clearly seen being wrong, not from darkness.
 ### Inventory use
 
 Select-item-then-target is handled by the core: the player clicks an inventory slot
-(`"item:<id>"`), then a hotspot. The core then calls `use_item(item, target, ev)` instead of
+(`"item:<id>"`), then a hotspot. While an item is in hand the core draws a paper banner in
+the HUD band, `Using: <short or name>   (Esc or right-click to put away)`, at (24, 78);
+nothing is attached to the pointer. Esc and the right button send the core action
+`"disarm"` (sets `selected_item` to `""`, says nothing); Esc falls through to its usual
+behaviour (`esc_action()`, the menu) only when nothing is in hand. The core then calls `use_item(item, target, ev)` instead of
 `act()`. Return `true` if you handled it (say the consequence, `game.take()` consumed parts,
 `_observe()` the installed record); return `false` and the core says the generic refusal and
 keeps the item. Prefer a specific, relevant observation for wrong targets in your room (GDD §6):
@@ -164,6 +171,13 @@ handle them and return `true`. Nothing essential may be destroyed by a wrong use
 The bar holds any number of items: up to six show as they are; past six, five show a page with a
 pager (`▸ 2/3`) in the sixth slot. Paging is presentation only (never saved, never sent to the
 sim); selecting an item keeps its page on show.
+
+**Ghost slots.** An item taken from her while a close-up is open (`is_closeup()`) keeps its
+slot as an empty ghost (a 1 px storm-navy dashed outline, action `""`, not clickable), so the
+slots of the items she has left never move under the pointer while she seats parts one by
+one; new items go on the end. The bar compacts when the close-up closes or on travel. An
+inventory click within 0.3 s of the bar changing is ignored (`GameView.INV_GUARD`).
+`GameView.bar_items()` is the bar as drawn (`""` for a ghost).
 
 **Spent items are filed.** `GameSim.ITEM_RETIRES_AFTER` lists items whose last use is a puzzle
 (chart clips after P16, the contact sheet after P17 and P18, Venn's correspondence after P20,
@@ -183,6 +197,13 @@ A page that outgrows the smallest layout (17 px, two columns) turns into numbere
 (`◂ p 2/3 ▸`); the notebook opens on the page holding the newest entry.
 
 ### Hint ladder
+
+The Hint's reply is not a subtitle: the core puts it on a small paper card under the Hint
+button (right edge x = 1358, top y = 82, at most 520 px wide, her hand at 20 px) for
+max(min_read + 1.5 s, 3 s) or until the next click anywhere; each press replaces it at
+once, so the card always answers this press (the confirmation and the last tier too). It
+is never queued behind a chain. Tests read it with `game.hint_card_text()` (and
+`game.hint_log`).
 
 `objective()` returns the current objective id. `HINTS[objective]` holds three levels: a location
 nudge, the relationship to consider, the explicit solution (or four: `hint_tiers()` returns 4
@@ -253,9 +274,12 @@ should only skip your arrival hold goes in `consume_click(p)`: the core calls it
 click it did not take itself (after the HUD, Back and the exits), before `action_at`; return
 `true` to use the click up.
 
-**Clicks are never eaten.** Back, the inventory, every control of an open close-up, and the
-notebook's tabs and page turners always act: during a story chain the chain advances and the
-click acts, in the same press (what the action says waits after the chain). Exits, plan rows
+**Clicks are never eaten.** Back, every control of an open close-up, and the notebook's tabs
+and page turners always act: during a story chain the chain advances and the click acts, in
+the same press (what the action says waits after the chain). The HUD (Hint, Notebook, Plan,
+menu) and every inventory slot act on the press itself: they never advance or wait on a
+playing chain and never become `pending_action`; the chain keeps playing underneath (the
+pause menu holds it where it is until Resume). Exits, plan rows
 and room hotspots during a chain follow the rules in section 8 (the reveal is read where it
 was said; a hotspot acts in the press, or when the chain ends). Only a click on empty space or
 the subtitle bar is spent advancing a chain and nothing else. An exit or
@@ -269,9 +293,11 @@ test's pointer mode simulates a pointer through them (and `game.hover(p)`), head
 **Presentation hooks.** `back_label()` is the Back button's text (default `"Back"`).
 `exit_arrow(to_rid)` points an exit tab: `""` (by the side of the screen the tab sits on),
 `"left"` (`◂ X`), `"right"` (`X ▸`) or `"down"` (`▾ X`). Hover labels are placed by the core:
-for a close-up control, or a hotspot taller than 120 px, the label sits just above the rect
-(else below it, else in the row above the subtitles), never over the clue it names; the
-core finds the rect with `control_rect(id)`, which reads your `closeup_controls(view)` and
+every label is anchored to its target's rect, not the pointer: centred just above it, else
+just below it when above would rise into the HUD band, else in the row above the
+subtitles, never over the clue it names, never above y = 80 and never on the tide card
+while it is up. The hover clears when a close-up opens, on travel and when the pointer
+leaves every rect. The core finds the rect with `control_rect(id)`, which reads your `closeup_controls(view)` and
 `_controls()` rows if you have them, then `hotspot_rect(id)`. Inventory slot labels (`short`,
 else `name`) are 14 characters at most (`tests/core_test.gd`).
 Draw with `Ink` (`game/core/ink.gd`): palette, fonts, `button`, `text`, `wrapped`, `handwriting`.
@@ -286,7 +312,12 @@ One-shots come from sim `sfx` events; list levels in `SFX_DB`, the sudden ones i
 rates, dt)` each frame with targets computed from state. Respect `motion` (Motion & flicker) and
 `soft_audio`; every flicker and animation needs a still alternative. Every `LoopMixer` under your
 view is a "bed" for `hold_breath` (section 8): the core sets its `duck` gain; never write
-`duck` yourself.
+`duck` yourself. The core also sets each bed's `trim` from `GameView.ROOM_TRIM_DB`
+(R01 -3, R02 -3, R03 -2, R04 +2, R07 +2, R10 +3, R11 +4, R12 +6 dB; others 0), on top of
+your targets; it never touches one-shots and fades out with the duck, so a held breath ducks
+every room to the same floor. Mix your targets as before; the trim is the loudness ladder
+`tests/core_test.gd` checks (from Tide IV no room's bed is quieter than the opening rooms
+less 3 dB, and no bed is ever empty: silence comes only from `hold_breath`).
 
 ## 4. Tests (`tests/rooms/<rid>_test.gd`)
 
@@ -442,9 +473,11 @@ confirmation is skipped when the last tier repeats the one before it. `state.hin
 counts presses along that sequence and is clamped to 0..4 on load.
 
 **Exits during a reveal (`pending_travel`).** An exit tab or plan row clicked while story lines
-of a chain are still queued does not travel at once: the rest of the chain is re-timed to
-play 0.6 s apart (the line on screen first, the beat's timed sounds and fx moved with their
-lines), and she goes 0.6 s after the last of them went up. A second exit click meanwhile goes
+of a chain are still queued does not travel at once: the rest of the chain is rushed where
+it was said (the line on screen first, the beat's timed sounds and fx moved with their
+lines), each line held `max(0.6 s, min_read(text) * BACKLOG_SQUEEZE)` (0.6), the last two
+story lines at their full `min_read`, and she goes once the last has had its hold. The exit
+tab shows pressed meanwhile. A second exit click meanwhile goes
 at once and drops what is left (it is not lost: your `_observe` notes were written by the
 commit). On any travel every queued and on-screen line, timed sound and timed fx of the old
 room is cleared, so the new room's arrival line is always the first thing said there. A
@@ -453,8 +486,11 @@ reveal readable on its own; never put the reward only in a line after a 6 s dela
 
 **Hotspots during a chain (`pending_action`).** With only the line on screen left, a click on a
 room hotspot finishes that line and acts in the same press. With more of the chain queued,
-the click advances the chain and the hotspot acts when the chain ends (a later hotspot click
-replaces it; a change of view or room drops it). `consume_click(p)` still sees every click
+the click rushes the rest of the chain like an exit does (every line held at least
+`max(0.6 s, min_read * BACKLOG_SQUEEZE)`), the hotspot shows pressed, and it acts when the
+chain ends (a later hotspot click replaces it; a change of view or room drops it). A second
+click on the same waiting hotspot acts at once; the chain's lines still all play, ahead of
+what the action says. Story lines are never dropped or interleaved. `consume_click(p)` still sees every click
 first (R02's photograph during the drawer chain only advances).
 
 **The tide card.** It never starts over a close-up, while a story line is queued or held,
@@ -463,6 +499,13 @@ second. It shows for 2.2 s at `GameView.TIDE_CARD_RECT` (40, 840, 560, 110), low
 `TIDE_CARD_UPPER_RECT` (40, 110, 560, 110) when the low one would cover an exit tab or the
 glance. Keep the lower-left third of your room free of anything the player must read in the
 two seconds after a tide changes, or take the card over from `play_fx` (R01).
+
+**"Now:" through the Plan.** When the plan is hers and the objective's room
+(`game.objective_room()`) is 3 or more open exits away (`game.hops(from, to)`, BFS over
+`EXITS` with `exit_open`), the notebook's "Now:" line ends ` (Plan)`, a link that opens the
+plan with that room's pin pulsing (or the visited room nearest it). The first time she walks
+a trip of 3 or more exits with the plan unlocked, she says once (a feedback line after the
+arrival): "The plan in my notebook knows the way. Quicker than my feet." (`settings.plan_nudged`).
 
 **The Plan button** sits in its own slot, `GameView.PLAN_BUTTON` (1272, 80, 154, 40), under Hint
 and the menu, in the room view only. Keep room hotspots out of it (`core_test` lists the known

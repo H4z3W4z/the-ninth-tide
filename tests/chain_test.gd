@@ -116,6 +116,7 @@ func run_tests() -> void:
 	_check_reach("")
 	var tide := 1
 	var band := 0
+	var notes: Array = []   # every notebook note seen so far (QA p2 nbmono, folded in)
 	for step in GRAPH:
 		var pid: String = step[0]
 		var rid: String = step[1]
@@ -124,6 +125,7 @@ func run_tests() -> void:
 		check(not _done(pid), "%s not done before its step" % pid)
 		_walk_to(rid)
 		check(g.state.room == rid, "%s: walked to %s by open exits (at %s)" % [pid, rid, g.state.room])
+		notes = _check_notes(notes, pid + " (arriving)")
 		if step_hook.is_valid():
 			await step_hook.call(pid, rid, "at")
 		if pid in PLAYED:
@@ -137,6 +139,7 @@ func run_tests() -> void:
 			if pid == "P26":
 				g.save_checkpoint()
 		check(_done(pid), "%s committed" % pid)
+		notes = _check_notes(notes, pid)
 		if step_hook.is_valid():
 			await step_hook.call(pid, rid, "done")
 		tide = TIDE_AFTER.get(pid, tide)
@@ -785,6 +788,23 @@ func _done(pid: String) -> bool:
 	if pid == "P03a":
 		return _done_p03a()
 	return g.flag(pid)
+
+## Notebook evidence never disappears: every note seen before (each room's observations and
+## the items filed after their last use) is still there, so the count never falls. Returns
+## the notes now.
+func _check_notes(before: Array, after: String) -> Array:
+	var now: Array = []
+	for rid in g.order:
+		var r: RoomSim = g.room(rid)
+		for id in r.c("OBSERVATIONS", {}):
+			if r.has_seen(id):
+				now.append(rid + "." + id)
+	for item in g.retired():
+		now.append("filed:" + item)
+	for k in before:
+		check(k in now, "after %s: the note %s is still in the notebook" % [after, k])
+	check(now.size() >= before.size(), "after %s: the notebook never shrinks (%d -> %d)" % [after, before.size(), now.size()])
+	return now
 
 func _walk_to(rid: String) -> void:
 	for hop in _path(g, g.state.room, rid):
