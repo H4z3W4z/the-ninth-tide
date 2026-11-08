@@ -204,6 +204,12 @@ const TILT_BAND := 7         # gate landing: the plane tilts in the standing wat
 const CAUSTIC_BAND := 5      # lower landing: a slow caustic band under the glass floor
 const THRESHOLD_BAND := 6    # lower landing: cold light under the lower door
 const GHOST_BAND := 5        # c_gate: a second faint needle resting on 2
+## Band 6+, the late wash: the wall at the glass shelf soaked from sage to storm navy, a
+## sea-glass waterline stain on the shelf line, dark drip ticks off it. Lower landing:
+## b6_wash (the office floor's underside down to the dado); gate landing: b6_wash_L1 (above
+## the horizontal pane's line). Each is its plate repainted under its objects, so every
+## contour on it stays at full ink; drawn straight over the plate, under everything else.
+const WASH_BAND := 6
 ## Where the far-side marks stand (beyond the water, inside the gateway), in the jamb's order reversed.
 const FAR_MARKS := {"circle": Vector2(588, 610), "linked": Vector2(588, 712), "bracket": Vector2(588, 820)}
 
@@ -291,9 +297,10 @@ func _load_textures() -> void:
 			var t := load(path) as Texture2D
 			if t:
 				textures[n] = t
-	var slab := load("res://assets/stages/R11/p12_water_slab.png") as Texture2D
-	if slab:
-		textures["p12_water_slab"] = slab
+	for n in ["p12_water_slab", "b6_wash", "b6_wash_L1"]:
+		var st := load("res://assets/stages/R11/%s.png" % n) as Texture2D
+		if st:
+			textures[n] = st
 
 func _tex(id: String) -> Texture2D:
 	return textures.get(id)
@@ -341,6 +348,10 @@ func tick(dt: float) -> void:
 	if r11 == null:
 		return
 	shade.color = _shade_color()
+	if paused():
+		# The menu is over the room: the cut and the hold stand where they are until Resume.
+		_tick_audio(dt)
+		return
 	_tick_hold(dt)
 	clock = fmod(clock + dt, BELL_LOOP)
 	if cut != "":
@@ -435,6 +446,10 @@ func _tick_shutter(dt: float) -> void:
 	else:
 		shutter_k = maxf(want, shutter_k - dt / SHUTTER_LIFT)
 
+## True while the menu stands over this room (the core holds the line chain the same way).
+func paused() -> bool:
+	return game != null and game.chain_paused()
+
 func holding() -> bool:
 	return hold_id != ""
 
@@ -473,9 +488,11 @@ func audio_targets() -> Dictionary:
 func back_visible() -> bool:
 	return r11.is_closeup() and cut == ""
 
+## Esc always reaches the menu: during a hold or a cut it opens the menu (tick() stops the
+## cut's and the hold's clocks while it is up, so Resume carries on from there), never Back.
 func esc_action() -> String:
 	if holding() or cut_playing():
-		return ""
+		return "menu"
 	return "back" if r11.is_closeup() else "menu"
 
 func chain_gates() -> bool:
@@ -766,6 +783,8 @@ func _placeholder(list: Array) -> void:
 func _draw_l1() -> void:
 	if not _plate("L1_base"):
 		_placeholder(HOTSPOTS)
+	if wash_shown():
+		_plate("b6_wash_L1")
 	var n := r11.tide_lines()
 	if n > 0:
 		_plate("L1_tide_%d" % n)
@@ -791,6 +810,10 @@ func _draw_l1() -> void:
 	_draw_l1_plates()
 	_draw_l1_lever()
 	_draw_l1_placard()
+
+## The late wash on both landings' walls (state only: the weather band).
+func wash_shown() -> bool:
+	return _band() >= WASH_BAND
 
 ## The horizontal pane: before P12 the whole gateway (wet navy steps above it, bone-dry ones
 ## below, one hard sea-glass slab between); after it, the slab alone over the standing water,
@@ -1003,6 +1026,8 @@ func _draw_l1_placard() -> void:
 func _draw_l2() -> void:
 	if not _plate("L2_base"):
 		_placeholder(L2_HOTSPOTS)
+	if wash_shown():
+		_plate("b6_wash")
 	_plate("stairwell_fill")
 	if _band() >= CAUSTIC_BAND:
 		_draw_floor_caustics()
