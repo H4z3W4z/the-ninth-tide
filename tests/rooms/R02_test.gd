@@ -171,6 +171,10 @@ func run_tests() -> void:
 	await test_p2_log_handwriting_sync()
 	await test_p2_lamp_tint()
 	test_p2_board_hint()
+	test_p4_report_row_misses()
+	test_p4_threshold_sea()
+	await test_p4_threshold_view()
+	await test_p4_turn_signpost()
 
 func test_full_playthrough() -> void:
 	var s := new_sim()
@@ -305,9 +309,9 @@ func test_hints_progress() -> void:
 		"final lamp hint gives the solution, unchanged")
 	s.debug_jump(1)
 	check(says(s.dispatch("hint")) == R02Sim.HINTS["log"][0], "hints reset for the new objective")
-	for obj in ["reread", "chair", "report", "filed", "leave"]:
+	for obj in ["chair", "report", "filed", "leave"]:
 		check(R02Sim.HINTS.has(obj) and R02Sim.HINTS[obj].size() == 3, "three hints for " + obj)
-	for obj in ["lamp", "log", "changed", "drawer", "instruments", "board"]:
+	for obj in ["lamp", "log", "reread", "changed", "drawer", "instruments", "board"]:
 		check(R02Sim.HINTS.has(obj) and R02Sim.HINTS[obj].size() == 4, "four hints (an evidence tier) for " + obj)
 	check("1-8-5-2" in R02Sim.HINTS["drawer"][3], "drawer hint 4 gives the code")
 	check(R02Sim.HINTS["drawer"][2] == "The barometer was mended at a minute. So was the lamp.", "the drawer's evidence tier")
@@ -783,9 +787,9 @@ func test_scene_wiring() -> void:
 	check(scene.action_at(Vector2(1300, 500)) == "continue", "continue once ready, through the doorway")
 	check(scene.action_at(Vector2(700, 400)) == "", "elsewhere is nothing at the threshold")
 	scene.dispatch("continue")
-	check(scene.action_at(Vector2(700, 1000)) == "", "Play again ignores the continue click")
+	check(scene.action_at(R02V.END_BUTTON.get_center()) == "", "Play again ignores the continue click")
 	scene.room_view.end_t = 60.0
-	check(scene.action_at(Vector2(700, 1000)) == "end_continue", "Go on once the card has finished")
+	check(scene.action_at(R02V.END_BUTTON.get_center()) == "end_continue", "Go on once the card has finished")
 	check(scene.action_at(Vector2(700, 790)) == "" and scene.action_at(Vector2(700, 910)) == "",
 		"the old button spots are never Go on")
 	# Drawer open: watch and photo.
@@ -883,10 +887,11 @@ func test_report_gate() -> void:
 	check(s.view == "report" and "closure report" in says(ev) and has_ev(ev, "sfx", "page"), "papers open the closure report")
 	ev = s.dispatch("field_0")
 	check(int(s.state.report_fields[0]) == 1 and has_ev(ev, "sfx", "nib"), "a field turns with a nib tick")
-	# Every field combination but one is rejected with the right time; none says which line
-	# is wrong, and the report stays open.
+	# Every field combination but one is rejected with the right time, and the report stays
+	# open. Exactly one wrong row is named; two or more only fail to reconcile.
 	var accepted := []
 	var all_quiet := true
+	var named := 0
 	for a in 3:
 		for b in 3:
 			for c in 2:
@@ -896,12 +901,20 @@ func test_report_gate() -> void:
 				set_fields(t, [a, b, c])
 				set_time(t, R02Sim.REPORT_TIME_ANSWER)
 				var fe := t.dispatch("file_report")
+				var wrong := []
+				for i in 3:
+					if [a, b, c][i] != R02Sim.REPORT_ANSWER[i]:
+						wrong.append(i)
+				var want: String = R02Sim.REPORT_ROW_MISSES[wrong[0]] if wrong.size() == 1 \
+					else "Something here doesn't reconcile."
 				if t.state.report_filed:
 					accepted.append([a, b, c])
-				elif not says(fe).begins_with("Something here doesn't reconcile.") or t.view != "report":
+				elif not says(fe).begins_with(want) or t.view != "report":
 					all_quiet = false
+				elif wrong.size() == 1:
+					named += 1
 	check(accepted == [R02Sim.REPORT_ANSWER], "only the right report files (accepted %s)" % [accepted])
-	check(all_quiet, "a wrong report says only that it doesn't reconcile, and stays open")
+	check(all_quiet and named == 5, "a wrong report names its one wrong row, or doesn't reconcile, and stays open (%d named)" % named)
 	# Wrong, then right.
 	set_fields(s, [0, 0, 0])
 	ev = s.dispatch("file_report")
@@ -1479,7 +1492,7 @@ func test_end_scene() -> void:
 	scene.dispatch("continue")
 	check(scene.room_sim().view == "end", "scene: the end card")
 	scene.room_view.end_t = 1.0
-	check(scene.action_at(Vector2(700, 1000)) == "", "no restart while the card writes")
+	check(scene.action_at(R02V.END_BUTTON.get_center()) == "", "no restart while the card writes")
 	scene.room_view.end_t = 4.0
 	check(scene.room_view._end_row_writing(), "the log row writes itself from 3 s")
 	scene.room_view._tick_audio(0.1)
@@ -1492,15 +1505,15 @@ func test_end_scene() -> void:
 	check(is_equal_approx(sch.r2_start, sch.r1_done + 2.0) and is_equal_approx(sch.lines[0], sch.r2_done + 1.5)
 		and sch.lines.size() == scene.room_sim().end_lines().size(), "end-card schedule")
 	scene.room_view.end_t = sch.done - 0.1
-	check(scene.action_at(Vector2(700, 1000)) == "", "no restart before the last line is in")
+	check(scene.action_at(R02V.END_BUTTON.get_center()) == "", "no restart before the last line is in")
 	scene.room_view.end_t = sch.done + 0.1
-	check(scene.action_at(Vector2(700, 1000)) == "end_continue" and scene.action_at(Vector2(700, 790)) == "",
+	check(scene.action_at(R02V.END_BUTTON.get_center()) == "end_continue" and scene.action_at(Vector2(700, 790)) == "",
 		"Go on only on the button, once the card is done")
 	scene.room_sim().game.settings.motion = false
 	scene.room_view.end_t = 1.0
-	check(scene.action_at(Vector2(700, 1000)) == "", "Motion off: the grace still applies")
+	check(scene.action_at(R02V.END_BUTTON.get_center()) == "", "Motion off: the grace still applies")
 	scene.room_view.end_t = 1.6
-	check(scene.action_at(Vector2(700, 1000)) == "end_continue", "Motion off: Go on after the grace")
+	check(scene.action_at(R02V.END_BUTTON.get_center()) == "end_continue", "Motion off: Go on after the grace")
 	GameView.remove_saves(scene.save_path)
 	scene.queue_free()
 	await process_frame
@@ -2166,9 +2179,13 @@ func test_rewrite_needs_tide1() -> void:
 			"%s then %s: the log rewrites, without the prints" % order)
 	check(R02Sim.HINTS["reread"] == ["Something in the office has changed.",
 		"The duty card said reconcile the records. The log is a record, and it isn't finished.",
-		"Go back to the Intake Office and open the tide log."], "reread hints")
+		"His log ended with my name on the 18th. A record is only finished when nobody is still writing in it.",
+		"Go back to the Intake Office and open the tide log."], "reread hints: four tiers")
 	var rr: Array = R02Sim.HINTS["reread"]
-	check(rr[0] != rr[1] and rr[1] != rr[2] and rr[0] != rr[2], "T1X reread: the three tiers all differ")
+	var rr_seen := {}
+	for line in rr:
+		rr_seen[line] = true
+	check(rr.size() == 4 and rr_seen.size() == 4, "T1X reread: the four tiers all differ")
 	check(rr[1] != R02Sim.HINTS["log"][2], "T1X reread tier 2 is not the first read's evidence line")
 	check(R02Sim.OBJECTIVES["reread"] == "The logbook has been written in since I left.", "reread objective")
 	check(R02Sim.HINTS["instruments"].size() == 4 and "chart room" in R02Sim.HINTS["instruments"][3], "instruments hints")
@@ -3686,8 +3703,8 @@ func test_p2_threshold_card() -> void:
 	var v = scene.room_view
 	check(scene.room_sim().view == "end", "p2: on the Tide I card")
 	var rect: Rect2 = v.end_photo_rect()
-	check(absf(rect.size.y - 670.0) <= 1.0 and absf(rect.get_center().x - 724.0) <= 0.5
-		and rect.position.y >= 0.0, "p2: the print is 670 px tall, centred on x = 724 (%s)" % rect)
+	check(absf(rect.size.y - 0.7 * 1086.0) <= 1.0 and absf(rect.get_center().x - 724.0) <= 0.5
+		and rect.position.y >= 0.0, "p4: the print is 70%% of the screen's height, centred on x = 724 (%s)" % rect)
 	var sch: Dictionary = v._end_schedule()
 	var times := [0.5, 2.0, sch.r1_start + 0.3, sch.r1_done + 0.5, sch.r2_start + 0.4, sch.done + 1.0]
 	var one_caption := true
@@ -3700,18 +3717,20 @@ func test_p2_threshold_card() -> void:
 				n += 1
 				var cx: float = e.pos.x + e.width / 2.0
 				axis_ok = axis_ok and absf(cx - 724.0) <= 0.5 \
-					and absf(e.pos.y - 8.0 - (rect.end.y + 40.0)) <= 0.5
+					and absf(e.pos.y - 8.0 - (rect.end.y + R02V.END_CAPTION_GAP)) <= 0.5
 			elif not e.kind.begins_with("row") and "19" in e.text:
 				stray.append([t, e.text])
 		one_caption = one_caption and n == 1
 	check(one_caption, "p2: the threshold card draws exactly one caption string at every beat")
-	check(axis_ok, "p2: the caption is centred 40 px under the print on its axis")
+	check(axis_ok, "p2: the caption is centred under the print on its axis")
 	check(stray.is_empty(), "p2: no time stamp outside its row (%s)" % [stray])
 	# Nothing on the card overlaps the print, and Go on sits below the words.
 	var words_ok := true
 	for e in v.end_card_texts(sch.done + 1.0):
-		words_ok = words_ok and e.pos.y > rect.end.y and e.pos.y < v.END_BUTTON.position.y
-	check(words_ok and v.END_BUTTON.end.y <= 1086.0, "p2: caption, rows and lines between the print and Go on")
+		words_ok = words_ok and e.pos.y > rect.end.y and e.pos.y < GameView.SUBTITLE_BAR.position.y
+	check(words_ok and GameView.SUBTITLE_BAR.encloses(v.END_BUTTON)
+		and v.END_BUTTON.end.x >= GameView.SUBTITLE_BAR.end.x - 24.0,
+		"p4: caption, rows and lines between the print and the strip; Go on at the strip's right end")
 	# Motion off shows the same final frame.
 	var final_on: Array = v.end_card_texts(sch.done + 1.0)
 	scene.room_sim().game.settings.motion = false
@@ -3817,5 +3836,140 @@ func test_p2_lamp_tint() -> void:
 	await free_scene(scene)
 
 func test_p2_board_hint() -> void:
+	check(R02Sim.HINTS["board"][1] == "Turn round. The board is on the entry wall.",
+		"p4: P20 hint tier 2 sends her to the entry wall")
+	check(R02Sim.HINTS["board"][0] == "Venn's letters belong on the comparison board in the office."
+		and R02Sim.HINTS["board"][3].begins_with("Thread contract addressee"), "p4: P20 tiers 1 and 4 kept")
 	check(R02Sim.HINTS["board"][2] == "Three papers on the board share one name and one sentence: the contract, the inquiry clipping, his letter.",
 		"p2: P20 hint tier 3 names the three papers")
+
+## P02 refusal: with the time right and one row wrong, she names it; the log is unchanged.
+func test_p4_report_row_misses() -> void:
+	var cases := [[[1, 1, 1], "The pilings line. Out there it's changed again."],
+		[[2, 0, 1], "The observers line. I didn't count myself."],
+		[[2, 2, 1], "The observers line. I didn't count myself."],
+		[[2, 1, 0], "The height line. The water wasn't that."],
+		[[0, 0, 1], "Something here doesn't reconcile."],
+		[[1, 1, 0], "Something here doesn't reconcile."]]
+	for cs in cases:
+		var t := new_sim()
+		t.debug_jump(3)
+		t.dispatch("papers")
+		set_fields(t, cs[0])
+		set_time(t, R02Sim.REPORT_TIME_ANSWER)
+		var ev := t.dispatch("file_report")
+		check(says(ev).begins_with(cs[1]) and not t.state.report_filed and t.view == "report",
+			"p4: fields %s at 19:34 -> %s (got %s)" % [cs[0], cs[1], says(ev)])
+		check(t.state.history == ["miss0"] and has_ev(ev, "fx", "log_write"),
+			"p4: a named row still writes the miss in the log (%s)" % [cs[0]])
+	# A wrong time keeps its own line, even with exactly one row wrong.
+	check(R02Sim.report_miss([1, 1, 1], [0, 7, 1, 3]) == "That's the morning tide. His rule gives the next one.",
+		"p4: a near-miss time answers for itself over a row")
+	check(R02Sim.report_miss([1, 1, 1], [0, 0, 0, 0]) == "Something here doesn't reconcile.",
+		"p4: a wrong time with one wrong row does not name the row")
+	check(R02Sim.report_miss([2, 1, 0], [1, 9, 3, 3]) == "One minute out. He never was.",
+		"p4: one minute out keeps its line")
+	check(R02Sim.report_miss([2, 1, 0], R02Sim.REPORT_TIME_ANSWER) == R02Sim.REPORT_ROW_MISSES[2],
+		"p4: report_miss is pure")
+
+## The office window's sea at the threshold follows the lines, in one step each.
+func test_p4_threshold_sea() -> void:
+	check(R02Sim.threshold_sea(-1) == 0 and R02Sim.threshold_sea(0) == 0, "p4: before 'breathes in' the sea is as it was")
+	check(R02Sim.threshold_sea(1) == 1, "p4: from 'breathes in' the window is drained")
+	check(R02Sim.threshold_sea(2) == 2 and R02Sim.threshold_sea(3) == 2, "p4: from 'breathes out' it is flooded")
+	check("breathes in" in R02Sim.THRESHOLD_LINES[1][1] and "breathes out" in R02Sim.THRESHOLD_LINES[2][1],
+		"p4: the sea's lines are the breaths")
+
+## The threshold: the office window inset follows the lines on their first frame; the figure
+## is opaque, still and drawn over everything but the water's skin; the card's print.
+func test_p4_threshold_view() -> void:
+	var scene = new_scene("user://office_p4_threshold.json")
+	await process_frame
+	scene.room_jump("R02", 4)
+	scene.dispatch("door")
+	var v = scene.room_view
+	check(v.threshold_sea_now() == 0, "p4: at the door the window's sea is as painted")
+	var seen := {}
+	var same_frame := true
+	var t := 0.0
+	while t < 20.0:
+		scene.time += 0.05
+		scene._tick_lines(0.05)
+		var want := -1
+		for i in R02Sim.THRESHOLD_LINES.size():
+			if scene.cur_text == R02Sim.THRESHOLD_LINES[i][1]:
+				want = i
+		var sea: int = v.threshold_sea_now()   # before the view has ticked this frame
+		if want >= 0 and not seen.has(want):
+			seen[want] = true
+			same_frame = same_frame and sea == R02Sim.threshold_sea(want)
+		v._tick_stage(0.05)
+		t += 0.05
+	check(seen.size() == 3 and same_frame, "p4: the window's sea changes on the frame each line starts (%s)" % [seen.keys()])
+	check(v.threshold_sea_now() == 2, "p4: after 'breathes out' the window stays flooded")
+	check(is_equal_approx(v.fig_scale, v.FIGURE_SCALE_STILL), "p4: twenty seconds on, the figure has not moved")
+	# Layout at the full push.
+	scene.sim.settings.motion = true
+	v.zoom_k = 1.0
+	v.push_k = 1.0
+	var inset: Rect2 = v.THRESHOLD_INSET
+	var door: Rect2 = v._zoom_xform() * v.DOOR_SLAB
+	check(absf(inset.size.x / 1448.0 - 0.25) <= 0.01 and inset.end.x + 10.0 < door.position.x
+		and Rect2(Vector2.ZERO, v.SIZE).encloses(inset.grow(10.0)),
+		"p4: the inset is a quarter of the screen wide, on the coat side, clear of the doorway")
+	check(not inset.grow(10.0).intersects(v.threshold_figure_rect()), "p4: nothing of the window lies on the figure")
+	check(is_equal_approx(v.threshold_inset_alpha(), 1.0), "p4: pushed in, the inset is at full value")
+	check(absf(inset.size.y / inset.size.x - v.THRESHOLD_INSET_SRC.size.y / v.THRESHOLD_INSET_SRC.size.x) < 0.01,
+		"p4: the inset keeps the plate window's proportions")
+	scene.sim.settings.motion = false
+	check(v.threshold_inset_alpha() == 1.0, "p4: Motion off, the inset is simply there")
+	scene.sim.settings.motion = true
+	check(R02V.threshold_figure_alpha(3.0, true, false) == 1.0 and R02V.threshold_figure_alpha(20.0, true, true) == 1.0
+		and R02V.threshold_figure_alpha(2.0, false, false) == 1.0, "p4: the figure is fully opaque")
+	check(v.FIGURE_FILL == Color("1b2a36") and v.FIGURE_FILL.a == 1.0, "p4: the figure is storm navy")
+	var src := FileAccess.get_file_as_string("res://game/rooms/R02/R02_view.gd")
+	var body := src.substr(src.find("func _draw_door_opening"))
+	body = body.substr(0, body.find("\nfunc ", 10))
+	var order_ok := body.find("_draw_corridor_floor(") < body.find("_draw_threshold_inset(") \
+		and body.find("_draw_corridor_water(") < body.find("_draw_threshold_inset(") \
+		and body.find("_draw_threshold_inset(") < body.find("_draw_threshold_figure(") and body.find("_draw_threshold_inset(") > 0
+	check(order_ok, "p4: the figure is drawn after the floor, the water and the window")
+	# The card's print.
+	v.continue_ready = true
+	scene.dispatch("continue")
+	check(scene.room_sim().view == "end", "p4: on the card")
+	check(is_equal_approx(v.end_photo_alpha(0.4), 0.5) and v.end_photo_alpha(0.8) == 1.0,
+		"p4: the print is at full value by 0.8 s")
+	var r: Rect2 = v.end_photo_rect()
+	check(absf(r.size.y - 0.7 * 1086.0) <= 1.0 and absf(r.get_center().x - 724.0) <= 0.5, "p4: the print is 70%% high, centred")
+	check(v.END_CAPTION_SIZE == 18 and v.END_CAPTION_COL == Color("d9d2c0"), "p4: an 18 px caption in d9d2c0")
+	check(scene.action_at(Vector2(700, 1000)) == "", "p4: the old Go on spot is nothing")
+	scene.sim.settings.motion = false
+	check(v.end_photo_alpha(0.0) == 1.0, "p4: Motion off, the print is there at once")
+	scene.sim.settings.motion = true
+	await free_scene(scene)
+
+## The turn tab is signposted until she first turns round: pulsing, or steady with Motion off.
+func test_p4_turn_signpost() -> void:
+	var scene = new_scene("user://office_p4_turn.json")
+	await process_frame
+	scene.dispatch("begin")
+	var v = scene.room_view
+	check(v.turn_signposted(), "p4: before she has turned, the turn tab is signposted")
+	scene.sim.settings.motion = true
+	var lo := 9.0
+	var hi := -9.0
+	for i in 30:
+		scene.time += 0.1
+		var a: float = v.turn_signpost_alpha()
+		lo = minf(lo, a)
+		hi = maxf(hi, a)
+	check(hi - lo > 0.4 and lo >= 0.3, "p4: a slow pulse that never goes out (%.2f..%.2f)" % [lo, hi])
+	scene.sim.settings.motion = false
+	check(v.turn_signpost_alpha() == 1.0, "p4: Motion off, a steady bright outline")
+	scene.sim.settings.motion = true
+	scene.dispatch("turn")
+	check(scene.room_sim().state.b_seen and not v.turn_signposted(), "p4: on the entry wall, no signpost")
+	scene.dispatch("turn")
+	check(scene.room_sim().facing == "A" and not v.turn_signposted(), "p4: once used, the signpost is gone for good")
+	await free_scene(scene)
