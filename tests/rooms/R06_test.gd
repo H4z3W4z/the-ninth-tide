@@ -15,32 +15,36 @@ const OWNER := {"cup": "bell", "calipers": "rook", "pencils": "venn", "glove": "
 const LOCKERS := ["bell", "rook", "venn", "ives"]
 const TRAY := ["pencils", "glove", "cup", "calipers"]
 const WRONG := {
-	"cup>rook": "A brass staple through a broken handle. Rook alters instruments. A cup isn't one.",
-	"cup>venn": "A stapled cup. Venn's card is the left of the page and two pencils, then two more.",
-	"cup>ives": "Ives sews what he won't have reissued. A brass staple isn't sewing. This is someone given three new cups who kept none of them.",
-	"calipers>bell": "One jaw filed down by hand. Bell's card is cups she wouldn't take. This is an instrument someone altered.",
-	"calipers>venn": "A filed jaw. Venn's card is pencils and the left of the page. These belong to someone who trusts no instrument he hasn't altered.",
-	"calipers>ives": "A jaw filed fine. Ives can't feel two fingertips, and he sews; he doesn't file.",
-	"pencils>bell": "Four slots, worn bright on the left. Bell's card is tea and cups.",
-	"pencils>rook": "Four slots, worn on the left side. Two issued, two requisitioned, written from the left of the page. Not Rook.",
-	"pencils>ives": "Four pencil slots, left side worn bright. Ives's card is what he can sew.",
-	"glove>bell": "Red thread at two fingertips. Bell's card is cups. This was sewn by someone who won't take a new issue.",
-	"glove>rook": "Restitched in red thread. Rook alters instruments; this is a hand the winch took two fingertips from.",
-	"glove>venn": "A right glove, red thread at two fingertips. Venn's card is pencils and the left of the page.",
+	"cup>rook": "A brass staple riveted through a broken handle. That's a mend after it broke, not a change before it was used. Not Rook.",
+	"cup>venn": "A brass staple, a riveted mend in the handle, and no wear from the left anywhere on it. Not Venn.",
+	"cup>ives": "A brass staple riveted through the handle. Ives's mends are sewn, in red thread. This was riveted.",
+	"calipers>bell": "One jaw filed down by hand. Nothing here broke and was mended; it was changed on purpose. Not Bell.",
+	"calipers>venn": "A filed jaw, worked down by hand. No wear from the left on them. Not Venn.",
+	"calipers>ives": "A jaw filed fine, by fingertips that could feel the file. Ives lost two to the winch, and nothing here is sewn.",
+	"pencils>bell": "Four slots, worn bright on the left. Nothing riveted, nothing mended. Not Bell.",
+	"pencils>rook": "Four slots, worn bright on the left side only. Worn by use from the left, not filed or altered. Not Rook.",
+	"pencils>ives": "Four pencil slots, left side worn bright. No thread anywhere on it. Not Ives.",
+	"glove>bell": "Red thread at two fingertips: sewn, not riveted. Someone mended these two fingers rather than draw a new pair. Not Bell.",
+	"glove>rook": "Restitched in red thread, not filed or altered. Sewn back at the two fingertips the winch numbed. Not Rook.",
+	"glove>venn": "A right glove, red thread at two fingertips. No wear from the left on it. Not Venn.",
 }
+## The old card nouns: no card and no refusal may lean on them (the cards give habits only).
+const OLD_NOUNS := ["cups", "instrument", "pencils issued", "requisitioned", "can sew"]
+## No card names a belonging (or what it is made of).
+const OBJECT_NOUNS := ["cup", "caliper", "pencil", "glove", "jaw", "thread", "staple", "tin", "brass"]
 ## Each refusal names what distinguishes the object in hand (any one of these words).
 const FEATURE := {"cup": ["staple"], "calipers": ["filed", "jaw"], "pencils": ["left", "slots"], "glove": ["red thread"]}
 const RIGHT := {
-	"cup": "Three new cups, and she kept none of them. She kept this one. Bell's.",
-	"calipers": "Altered by his own hand. Rook's.",
-	"pencils": "Two issued, two more requisitioned, worn from the left. Venn's.",
+	"cup": "A riveted mend where it broke. Mended, not replaced. Bell's.",
+	"calipers": "Not as the maker sent them: one jaw filed by his own hand. Rook's.",
+	"pencils": "Every slot filled, and worn bright from the left. Venn's.",
 	"glove": "Red thread at two fingertips. Sewn, not reissued. Ives's.",
 }
 const CARDS := {
-	"bell": "N. Bell. Takes her tea without sugar. Was given three new cups. Kept none of them.",
-	"rook": "Dr S. Rook. Measures everything twice. Trusts no instrument he has not altered.",
-	"venn": "E. Venn. Writes from the left of the page. Was issued two pencils. Requisitioned two more.",
-	"ives": "T. Ives. Lost the feeling in two fingertips to the winch. Will not take a new issue of anything he can sew.",
+	"bell": "N. Bell. Takes her tea without sugar. Mends; does not replace.",
+	"rook": "Dr S. Rook. Measures everything twice. Will not use a thing as it comes from the maker.",
+	"venn": "E. Venn. Writes from the left of the page. Requisitions more than he loses.",
+	"ives": "T. Ives. Lost the feeling in two fingertips to the winch. Will not take a new issue.",
 }
 const LIFT := {"cup": "The cup. Brass glints at the handle.", "calipers": "The calipers. One jaw looks wrong.",
 	"pencils": "The pencil holder. Tin.", "glove": "The glove. A right glove."}
@@ -50,7 +54,7 @@ const WEAR := {
 	"pencils": "A tin pencil holder, four slots, worn bright on the left side only.",
 	"glove": "A right glove, restitched in red thread at two fingertips.",
 }
-const PERSONAL_CARDS := "Bell: tea without sugar; given three new cups, kept none of them. Rook: measures twice; trusts no instrument he has not altered. Venn: writes from the left of the page; two pencils issued, two more requisitioned. Ives: two fingertips lost to the winch; won't take a new issue of anything he can sew."
+const PERSONAL_CARDS := "Bell: tea without sugar; mends, does not replace. Rook: measures twice; won't use a thing as it comes from the maker. Venn: writes from the left of the page; requisitions more than he loses. Ives: two fingertips lost to the winch; won't take a new issue."
 const NO_PENCIL := "Corrections are in the amending officer's hand. Mine."
 const WRITE_LINE := "I write it under the printed line, and leave the printed line alone."
 const CURTAIN_T3 := "A curtain partition on a ceiling rail. It sways a little when I breathe out. Then once more, when I don't."
@@ -296,8 +300,21 @@ func test_wrong_lines_distinct() -> void:
 			for f in FEATURE[o]:
 				named = named or line.to_lower().contains(f)
 			check(named, "P08: wrong line %s>%s names the %s's distinguishing feature" % [o, l, o])
+			for w in OLD_NOUNS:
+				check(not line.to_lower().contains(w), "P08: wrong line %s>%s cites wear, not the old card noun '%s'" % [o, l, w])
 			seen[line] = true
 	check(n == 12, "P08: twelve wrong lines (got %d)" % n)
+	# The cards give habits with no object nouns; the notebook keeps them verbatim.
+	for l in R06Sim.CARD_TEXT:
+		var card := " ".join(PackedStringArray(R06Sim.CARD_TEXT[l]))
+		check(card == CARDS[l], "P08: %s's card text is verbatim (got '%s')" % [l, card])
+		for w in OBJECT_NOUNS + OLD_NOUNS:
+			check(not (" " + card.to_lower().replace(".", " ").replace(";", " ") + " ").contains(" " + w),
+				"P08: %s's card names no object ('%s')" % [l, w])
+		check(R06Sim.OBSERVATIONS["card_" + l] == "Card, %s: '%s'" % [l.to_upper(), CARDS[l]], "P08: card_%s notebook entry quotes the card" % l)
+	for w in OLD_NOUNS:
+		check(not R06Sim.OBSERVATIONS.personal_cards.to_lower().contains(w), "P08: personal_cards drops '%s'" % w)
+		check(not R06Sim.HINTS.p08[2].to_lower().contains(w), "P08: hint tier 3 points at the wear, not '%s'" % w)
 	check(R06Sim.TRAY_ORDER == TRAY, "P08: the tray order")
 	for i in 4:
 		check(R06Sim.OWNER[R06Sim.TRAY_ORDER[i]] != R06Sim.LOCKERS[i], "P08: the tray is never positional (%d)" % i)
@@ -1004,9 +1021,9 @@ func test_objectives_hints() -> void:
 	var ladders := {
 		"p08": ["Four belongings, four open lockers, and a card on each door.",
 			"Each card names a habit. Lift each object and turn it over: it shows the wear that habit leaves.",
-			"Three new cups, kept none: mended, not replaced. An instrument he altered: a filed jaw. Writes from the left: worn on the left. Won't take a new issue: sewn.",
+			"Mends, does not replace: a riveted staple through a broken handle. Won't use a thing as the maker sent it: a jaw filed by hand. Writes from the left: slots worn bright on the left. Won't take a new issue: a glove sewn at two fingertips.",
 			"Cup to Bell, calipers to Rook, pencil holder to Venn, glove to Ives."],
-		"p22": ["Nora's register card says something the bunk room can contradict.",
+		"p22": ["Nora's register card says something the bunk room can contradict. Look along to the curtain wall.",
 			"Her cup is a personal effect. Corrections are added, never written over.",
 			"Her book in the kitchen draws the same cup: 'Cup, mine, mended 3 Feb.' Her card on the RECORD rest, my copy of that sketch on the EVIDENCE rest.",
 			"Put her card and the cup sketch on the slope, set the wheels to 'personal effect identified / repaired cup / Nora Bell', and APPEND with my pencil."],
@@ -1376,8 +1393,13 @@ func test_view_presentation() -> void:
 		check(v.dent_alpha("hart") == 1.0, "view: a click lands every hollow")
 	# Loops by band.
 	var t: Dictionary = v.loop_targets()
-	check(t["r06_rain_roof"] == 0.0 and is_equal_approx(t["r06_beds_breath"], 0.22) and is_equal_approx(t["r06_wind_louvre"], 0.1),
-		"view: band 6 loops (rain gone, beds breathing)")
+	check(t["r06_rain_roof"] == 0.0 and is_equal_approx(t["r06_beds_breath"], 0.45) and is_equal_approx(t["r06_wind_louvre"], 0.2)
+		and is_equal_approx(t["r06_room"], 0.8), "view: band 6 loops (rain gone, the room and the beds carry the bed)")
+	# Tide IX: the room, the breathing beds and the pressure hold the bed up without the rain.
+	scene.tide_jump(9, ROOM)
+	t = scene.room_view.loop_targets()
+	check(t["r06_rain_roof"] == 0.0 and is_equal_approx(t["r06_room"], 0.85) and is_equal_approx(t["r06_beds_breath"], 0.48)
+		and is_equal_approx(t["r06_pressure"], 0.42), "view: band 7 loops (room, beds and pressure up; got %s)" % [t])
 	scene.tide_jump(3, ROOM)
 	t = scene.room_view.loop_targets()
 	check(is_equal_approx(t["r06_rain_roof"], 0.45) and is_equal_approx(t["r06_room"], 0.5) and t["r06_beds_breath"] == 0.0,

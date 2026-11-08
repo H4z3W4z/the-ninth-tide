@@ -387,6 +387,21 @@ func play_p08() -> void:
 	_qd("belongings_shelf")
 	check(bunks.local_view == "c_lockers", "P08: the belongings shelf opens the lockers")
 	var ev: Array = []
+	# The cards give habits, never the belongings; the notebook quotes them.
+	for l in R06Sim.LOCKERS:
+		_qd("card_" + l)
+		check(bunks.has_seen("card_" + l), "P08: %s's card noted" % l)
+	check(R06Sim.OBSERVATIONS.card_bell == "Card, BELL: 'N. Bell. Takes her tea without sugar. Mends; does not replace.'",
+		"P08: Bell's card is a habit, not a cup")
+	# A wrong match cites the wear in hand and changes nothing.
+	_qd("obj_cup")
+	ev = _qd("shelf_rook")
+	var said := ""
+	for e in ev:
+		if e.type == "say":
+			said += str(e.get("text", ""))
+	check(said.contains("riveted") and bunks.placed_in("rook") == "" and not g.flag("P08"),
+		"P08: the cup on Rook's shelf cites its riveted mend (got '%s')" % said)
 	for o in R06Sim.OWNER:
 		_qd("obj_" + o)
 		ev = _qd("shelf_" + R06Sim.OWNER[o])

@@ -36,10 +36,10 @@ const TRAY_ORDER := ["pencils", "glove", "cup", "calipers"]
 ## The cards give habits; the objects must be handled (lifted, then turned over) to show the
 ## wear those habits leave. No card names its object.
 const CARD_TEXT := {
-	"bell": ["N. Bell.", "Takes her tea without sugar.", "Was given three new cups. Kept none of them."],
-	"rook": ["Dr S. Rook.", "Measures everything twice.", "Trusts no instrument he has not altered."],
-	"venn": ["E. Venn.", "Writes from the left of the page.", "Was issued two pencils. Requisitioned two more."],
-	"ives": ["T. Ives.", "Lost the feeling in two fingertips to the winch.", "Will not take a new issue of anything he can sew."],
+	"bell": ["N. Bell.", "Takes her tea without sugar.", "Mends; does not replace."],
+	"rook": ["Dr S. Rook.", "Measures everything twice.", "Will not use a thing as it comes from the maker."],
+	"venn": ["E. Venn.", "Writes from the left of the page.", "Requisitions more than he loses."],
+	"ives": ["T. Ives.", "Lost the feeling in two fingertips to the winch.", "Will not take a new issue."],
 }
 ## The second click on a lifted belonging: turned over in the hand.
 const WEAR_LINES := {
@@ -56,31 +56,31 @@ const LIFT_LINES := {"cup": "The cup. Brass glints at the handle.", "calipers": 
 const PLACED_LINES := {"bell": "Her cup, on Bell's shelf.", "rook": "His calipers, on Rook's shelf.",
 	"venn": "His pencils, on Venn's shelf.", "ives": "His glove, on Ives's shelf."}
 const RIGHT_LINES := {
-	"cup": "Three new cups, and she kept none of them. She kept this one. Bell's.",
-	"calipers": "Altered by his own hand. Rook's.",
-	"pencils": "Two issued, two more requisitioned, worn from the left. Venn's.",
+	"cup": "A riveted mend where it broke. Mended, not replaced. Bell's.",
+	"calipers": "Not as the maker sent them: one jaw filed by his own hand. Rook's.",
+	"pencils": "Every slot filled, and worn bright from the left. Venn's.",
 	"glove": "Red thread at two fingertips. Sewn, not reissued. Ives's.",
 }
 const WRONG := {
 	"cup": {
-		"rook": "A brass staple through a broken handle. Rook alters instruments. A cup isn't one.",
-		"venn": "A stapled cup. Venn's card is the left of the page and two pencils, then two more.",
-		"ives": "Ives sews what he won't have reissued. A brass staple isn't sewing. This is someone given three new cups who kept none of them.",
+		"rook": "A brass staple riveted through a broken handle. That's a mend after it broke, not a change before it was used. Not Rook.",
+		"venn": "A brass staple, a riveted mend in the handle, and no wear from the left anywhere on it. Not Venn.",
+		"ives": "A brass staple riveted through the handle. Ives's mends are sewn, in red thread. This was riveted.",
 	},
 	"calipers": {
-		"bell": "One jaw filed down by hand. Bell's card is cups she wouldn't take. This is an instrument someone altered.",
-		"venn": "A filed jaw. Venn's card is pencils and the left of the page. These belong to someone who trusts no instrument he hasn't altered.",
-		"ives": "A jaw filed fine. Ives can't feel two fingertips, and he sews; he doesn't file.",
+		"bell": "One jaw filed down by hand. Nothing here broke and was mended; it was changed on purpose. Not Bell.",
+		"venn": "A filed jaw, worked down by hand. No wear from the left on them. Not Venn.",
+		"ives": "A jaw filed fine, by fingertips that could feel the file. Ives lost two to the winch, and nothing here is sewn.",
 	},
 	"pencils": {
-		"bell": "Four slots, worn bright on the left. Bell's card is tea and cups.",
-		"rook": "Four slots, worn on the left side. Two issued, two requisitioned, written from the left of the page. Not Rook.",
-		"ives": "Four pencil slots, left side worn bright. Ives's card is what he can sew.",
+		"bell": "Four slots, worn bright on the left. Nothing riveted, nothing mended. Not Bell.",
+		"rook": "Four slots, worn bright on the left side only. Worn by use from the left, not filed or altered. Not Rook.",
+		"ives": "Four pencil slots, left side worn bright. No thread anywhere on it. Not Ives.",
 	},
 	"glove": {
-		"bell": "Red thread at two fingertips. Bell's card is cups. This was sewn by someone who won't take a new issue.",
-		"rook": "Restitched in red thread. Rook alters instruments; this is a hand the winch took two fingertips from.",
-		"venn": "A right glove, red thread at two fingertips. Venn's card is pencils and the left of the page.",
+		"bell": "Red thread at two fingertips: sewn, not riveted. Someone mended these two fingers rather than draw a new pair. Not Bell.",
+		"rook": "Restitched in red thread, not filed or altered. Sewn back at the two fingertips the winch numbed. Not Rook.",
+		"venn": "A right glove, red thread at two fingertips. No wear from the left on it. Not Venn.",
 	},
 }
 const ALREADY_HOME := "Something's already home there."
@@ -178,15 +178,15 @@ const OBSERVATIONS := {
 	"lockers": "Four open lockers: BELL, ROOK, VENN, IVES. A personal card in a brass holder on each, and a bare shelf inside.",
 	"closed_lockers": "Four more lockers, shut and labelled: LUSK, DOANE, HART, TULL. No locker or bed for Pryce.",
 	"belongings": "Four things on top of the locked lockers, in this order: a pencil holder, a glove, a cup, a pair of calipers. No names on them.",
-	"card_bell": "Card, BELL: 'N. Bell. Takes her tea without sugar. Was given three new cups. Kept none of them.'",
-	"card_rook": "Card, ROOK: 'Dr S. Rook. Measures everything twice. Trusts no instrument he has not altered.'",
-	"card_venn": "Card, VENN: 'E. Venn. Writes from the left of the page. Was issued two pencils. Requisitioned two more.'",
-	"card_ives": "Card, IVES: 'T. Ives. Lost the feeling in two fingertips to the winch. Will not take a new issue of anything he can sew.'",
+	"card_bell": "Card, BELL: 'N. Bell. Takes her tea without sugar. Mends; does not replace.'",
+	"card_rook": "Card, ROOK: 'Dr S. Rook. Measures everything twice. Will not use a thing as it comes from the maker.'",
+	"card_venn": "Card, VENN: 'E. Venn. Writes from the left of the page. Requisitions more than he loses.'",
+	"card_ives": "Card, IVES: 'T. Ives. Lost the feeling in two fingertips to the winch. Will not take a new issue.'",
 	"wear_cup": "The cup: a brass staple through the broken handle. N.B. under the foot.",
 	"wear_calipers": "The calipers: one jaw filed down by hand.",
 	"wear_pencils": "The pencil holder: four slots, worn bright on the left side.",
 	"wear_glove": "The glove: a right glove, restitched in red thread at two fingertips.",
-	"personal_cards": "Bell: tea without sugar; given three new cups, kept none of them. Rook: measures twice; trusts no instrument he has not altered. Venn: writes from the left of the page; two pencils issued, two more requisitioned. Ives: two fingertips lost to the winch; won't take a new issue of anything he can sew.",
+	"personal_cards": "Bell: tea without sugar; mends, does not replace. Rook: measures twice; won't use a thing as it comes from the maker. Venn: writes from the left of the page; requisitions more than he loses. Ives: two fingertips lost to the winch; won't take a new issue.",
 	"venn_seal": "Venn's personal seal: three cuts.",
 	"compartment": "The back of Venn's locker dropped away. Behind it, the locker goes on further than the wall it stands against.",
 	"venn_bunk": "Venn's bunk, the lower one, ROOK above. The blanket folded square at the foot.",
@@ -227,11 +227,11 @@ const HINTS := {
 	"p08": [
 		"Four belongings, four open lockers, and a card on each door.",
 		"Each card names a habit. Lift each object and turn it over: it shows the wear that habit leaves.",
-		"Three new cups, kept none: mended, not replaced. An instrument he altered: a filed jaw. Writes from the left: worn on the left. Won't take a new issue: sewn.",
+		"Mends, does not replace: a riveted staple through a broken handle. Won't use a thing as the maker sent it: a jaw filed by hand. Writes from the left: slots worn bright on the left. Won't take a new issue: a glove sewn at two fingertips.",
 		"Cup to Bell, calipers to Rook, pencil holder to Venn, glove to Ives.",
 	],
 	"p22": [
-		"Nora's register card says something the bunk room can contradict.",
+		"Nora's register card says something the bunk room can contradict. Look along to the curtain wall.",
 		"Her cup is a personal effect. Corrections are added, never written over.",
 		"Her book in the kitchen draws the same cup: 'Cup, mine, mended 3 Feb.' Her card on the RECORD rest, my copy of that sketch on the EVIDENCE rest.",
 		"Put her card and the cup sketch on the slope, set the wheels to 'personal effect identified / repaired cup / Nora Bell', and APPEND with my pencil.",

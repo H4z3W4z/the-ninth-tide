@@ -386,7 +386,9 @@ func loop_targets() -> Dictionary:
 	var e := r.ending()
 	var sever := e == "sever"
 	var t := {}
-	t["r06_room"] = 0.4 if sever else 0.5
+	# Tides VIII and IX: the rain has gone and the room itself carries the bed (the timber, the
+	# breathing beds, the pressure), up to the opening rooms' level rather than sinking under it.
+	t["r06_room"] = 0.4 if sever else (0.8 if b == 6 else 0.85 if b == 7 else 0.5)
 	if sever:
 		t["r06_rain_roof"] = 0.3
 	elif b == 1:
@@ -405,15 +407,15 @@ func loop_targets() -> Dictionary:
 		elif b <= 5:
 			t["r06_wind_louvre"] = 0.25
 		elif b == 6:
-			t["r06_wind_louvre"] = 0.1
+			t["r06_wind_louvre"] = 0.2
 		if b == 5:
 			t["r06_beds_breath"] = 0.12
 		elif b == 6:
-			t["r06_beds_breath"] = 0.22
+			t["r06_beds_breath"] = 0.45
 		elif b == 7:
-			t["r06_beds_breath"] = 0.26
+			t["r06_beds_breath"] = 0.48
 		if b == 7 and e == "":
-			t["r06_pressure"] = 0.3
+			t["r06_pressure"] = 0.42
 	if r.curtain_shape():
 		t["r06_curtain_draught"] = 0.2
 	if r.cup_steam():
