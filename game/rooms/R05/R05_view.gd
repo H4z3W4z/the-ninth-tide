@@ -9,7 +9,9 @@ extends RoomView
 ##          table) or view B (the kitchen), the painted overlays and every code-drawn label.
 ##          Two children draw over it: `glow` (additive: a_warm_b7, b_range_glow) and `top`
 ##          (turn chevrons, the lectern pencil, the motion-off hold outline).
-##   CanvasLayer 5 `close`: the close-ups c_table, c_ledger and c_service_board.
+##   CanvasLayer 5 `close`: the close-ups c_table, c_ledger, c_service_board, c_register (Rook's
+##          register at 2x, under the tally's register plate) and c_work_card (Nora's card held up
+##          on a panel over the kitchen, whose other hotspots stay live round it).
 ##
 ## Painted plates: assets/rooms/R05/*.png (tools/art/rooms/R05.py). The plates carry no text: every
 ## initial, numeral, name, page line and label is drawn here so the clues stay exact.
@@ -231,6 +233,21 @@ const ROOK_BROWN := Color("5b3a24")
 const SLANT := 0.22
 const WELL_IDS := ["f_count", "f_name", "f_status"]
 
+# c_register geometry (Rook's register under the tally's plate, at 2x the kitchen board) ----------
+const REG_PLATE := Rect2(254, 92, 940, 836)
+const REG_SLIP := Rect2(296, 132, 856, 756)
+const REG_HEADER_Y := 190.0
+const REG_ROW_Y := 268.0      # baseline of the first name
+const REG_ROW_DY := 62.0
+const REG_NAME_SIZE := 34     # >= 18 px in plate space (the kitchen board's are 15)
+const REG_PRESENT_Y := 846.0
+
+# c_work_card geometry: the card held up at 4.6x on a panel; the kitchen stays live beside it ----
+const WC_PANEL := Rect2(180, 96, 740, 808)
+const WC_SCALE := 4.6
+const WC_AT := Vector2(297, 150)          # the card's top-left (its 110x150 plate, scaled)
+const WC_NAIL := Vector2(55, 6)           # the nail hole, in card units: the card hangs from it
+
 # P07's second blank and the door end (tools/art/rooms/R05.py PLACE10_A / PLACE10_C)
 const PLACE10_A := Vector2(218, 772)
 const PLACE10_C := Vector2(186, 470)
@@ -372,7 +389,7 @@ func _band() -> int:
 func _side() -> String:
 	if glance_active():
 		return "a" if glance_id == "p07_spoon" else "b"
-	return "a" if _view() in ["room", "c_table"] else "b"
+	return "a" if _view() in ["room", "c_table", "c_register"] else "b"
 
 func _closeup() -> bool:
 	return r.is_closeup()
@@ -835,7 +852,20 @@ func _controls() -> Array:
 			if r.state.p09_complete:
 				return BOARD_CONTROLS_AFTER + BOARD_CONTROLS
 			return BOARD_CONTROLS
+		"c_work_card":
+			return work_card_controls()
 	return []
+
+## The held-up card, then every kitchen hotspot the panel leaves uncovered (still live).
+func work_card_controls() -> Array:
+	var out := [["work_card", wc_card_rect(), "Work card"]]
+	for h in KITCHEN_HOTSPOTS:
+		if not WC_PANEL.intersects(h[1]):
+			out.append(h)
+	return out
+
+func wc_card_rect() -> Rect2:
+	return Rect2(WC_AT, Vector2(110, 150) * WC_SCALE)
 
 func action_at(p: Vector2) -> String:
 	if glance_active():
@@ -1198,16 +1228,20 @@ func _draw_card_trace(c: CanvasItem, o: Vector2) -> void:
 	var stamp := R05Sim.CARD_STAMP.split(" · ")
 	_ctext(c, stamp[0], o.x + 55, o.y + 23, 8, INK, narrow_plain)
 	_ctext(c, stamp[1], o.x + 55, o.y + 36, 9, INK, narrow)
+	var abs_pts := PackedVector2Array()
+	for p in _card_trace_points():
+		abs_pts.append(o + p)
+	c.draw_polyline(abs_pts, INK, 2.0, true)
+
+## Her breathing trace in card units (110x150): two short rises, a pause, one long rise.
+func _card_trace_points() -> PackedVector2Array:
 	var pts := PackedVector2Array([Vector2(8, 95), Vector2(12, 95), Vector2(19, 75), Vector2(26, 95),
 		Vector2(28, 95), Vector2(35, 75), Vector2(42, 95), Vector2(62, 95)])
 	for i in 13:
 		var s := i / 12.0
 		pts.append(Vector2(62 + 36 * s, 95 - 33 * sin(PI * s)))
 	pts.append(Vector2(102, 95))
-	var abs_pts := PackedVector2Array()
-	for p in pts:
-		abs_pts.append(o + p)
-	c.draw_polyline(abs_pts, INK, 2.0, true)
+	return pts
 
 ## Rook's register on the kitchen wall, small: header, the eight strips, PRESENT 8.
 func _draw_vb_board(c: CanvasItem) -> void:
@@ -1259,6 +1293,10 @@ func _draw_close() -> void:
 			_draw_ledger(close)
 		"c_service_board":
 			_draw_board(close)
+		"c_register":
+			_draw_register(close)
+		"c_work_card":
+			_draw_work_card(close)
 
 # --- c_table ------------------------------------------------------------------------------------
 func _mat_x(k: int) -> float:
@@ -1558,6 +1596,82 @@ func _draw_board_text(c: CanvasItem) -> void:
 		sy = absf(cos(PI * (time - count_flip_at) / 0.3))
 	c.draw_set_transform(Vector2(0, 649 * (1.0 - sy)), 0.0, Vector2(1, sy))
 	_ctext(c, str(shown_count), 838, 666, 48, PAPER_HI, Ink.serif())
+	c.draw_set_transform_matrix(Transform2D.IDENTITY)
+
+# --- c_register: Rook's shift register at 2x ----------------------------------------------------
+## Under the tally's register plate: his register on a printed slip, eight names in his hand, a
+## ninth ruled line left empty, PRESENT 8. After P09 the ninth line carries the stamp the board took.
+func _draw_register(c: CanvasItem) -> void:
+	var hand := Ink.hand()
+	var serif := Ink.serif()
+	_full(c, "c_table")
+	c.draw_rect(Rect2(Vector2.ZERO, SIZE), Color(Ink.STORM, 0.82))
+	# the brass plate, hinged open at its top edge, and the slip it covered
+	c.draw_rect(REG_PLATE, Ink.BRASS)
+	c.draw_rect(REG_PLATE, NAVY, false, 3.0)
+	for x in [REG_PLATE.position.x + 22, REG_PLATE.end.x - 22]:
+		for y in [REG_PLATE.position.y + 20, REG_PLATE.end.y - 20]:
+			c.draw_circle(Vector2(x, y), 6, NAVY)
+	c.draw_rect(REG_SLIP, PAPER_HI)
+	c.draw_rect(REG_SLIP, INK, false, 2.0)
+	var x0 := REG_SLIP.position.x + 44
+	var x1 := REG_SLIP.end.x - 44
+	_ctext(c, R05Sim.BOARD_HEADER, REG_SLIP.get_center().x, REG_HEADER_Y, 26, INK, narrow)
+	c.draw_line(Vector2(x0, REG_HEADER_Y + 18), Vector2(x1, REG_HEADER_Y + 18), INK, 2.0)
+	for k in 9:
+		var y := REG_ROW_Y + REG_ROW_DY * k
+		_rtext(c, "%d" % (k + 1), x0 + 26, y, 20, Color(INK, 0.7), narrow_plain)
+		c.draw_line(Vector2(x0 + 40, y + 14), Vector2(x1, y + 14), Color(INK, 0.45), 1.5)
+		if k < 8:
+			_text(c, R05Sim.BOARD_NAMES[k], Vector2(x0 + 52, y), REG_NAME_SIZE, INK, hand)
+		elif r.state.p09_complete:
+			_text(c, R05Sim.AMEND_INK, Vector2(x0 + 52, y), 30, STAMP_INK, narrow)
+	c.draw_line(Vector2(x0, REG_PRESENT_Y - 44), Vector2(x1, REG_PRESENT_Y - 44), INK, 2.0)
+	_text(c, "PRESENT", Vector2(x0, REG_PRESENT_Y), 28, INK, serif)
+	_rtext(c, str(R05Sim.REGISTER), x1, REG_PRESENT_Y + 4, 48, INK, serif)
+
+# --- c_work_card: Nora's card, held up -----------------------------------------------------------
+## The card at 4.6x on a storm-navy panel: the stamp (date, then SPECIMEN 27-11 in a stamp box),
+## her name, the grid and the pressed breathing line. It keeps the room's lift (half as far).
+func _draw_work_card(c: CanvasItem) -> void:
+	c.draw_rect(WC_PANEL.grow(6), Color(Ink.STORM, 0.55))
+	c.draw_rect(WC_PANEL, Color(Ink.STORM, 0.94))
+	c.draw_rect(WC_PANEL, Ink.BRASS, false, 2.0)
+	var s := WC_SCALE
+	var pivot := WC_AT + WC_NAIL * s
+	c.draw_circle(pivot + Vector2(0, -4), 9, Ink.BRASS)       # the nail
+	c.draw_set_transform(pivot, -deg_to_rad(card_angle() * 0.5), Vector2.ONE)
+	var o := -WC_NAIL * s
+	var card := PackedVector2Array()
+	for q in [Vector2(2, 0), Vector2(108, 1), Vector2(107, 148), Vector2(3, 147)]:
+		card.append(o + q * s)
+	c.draw_colored_polygon(card, PAPER)
+	var grid := Color(Ink.SEA_GLASS, 0.75)
+	for y in range(30, 140, 10):
+		c.draw_line(o + Vector2(10, y) * s, o + Vector2(100, y) * s, grid, 1.5)
+	for x in range(10, 101, 10):
+		c.draw_line(o + Vector2(x, 30) * s, o + Vector2(x, 138) * s, grid, 1.5)
+	card.append(card[0])
+	c.draw_polyline(card, INK, 3.0, true)
+	c.draw_circle(o + WC_NAIL * s, 3.2 * s, Color(Ink.STORM, 0.94))   # the nail hole
+	var corner := PackedVector2Array([o + Vector2(96, 147) * s, o + Vector2(107, 136) * s, o + Vector2(107, 148) * s])
+	c.draw_colored_polygon(corner, PAPER_HI)
+	corner.append(corner[0])
+	c.draw_polyline(corner, INK, 2.0, true)
+	# the stamp: R05Sim.CARD_STAMP, the date over the specimen number (boxed, as stamped)
+	var stamp := R05Sim.CARD_STAMP.split(" · ")
+	var cx := o.x + 55 * s
+	_ctext(c, stamp[0], cx, o.y + 23 * s + 6, 28, INK, narrow_plain)
+	var box := Rect2(o + Vector2(14, 27.5) * s, Vector2(82, 12) * s)
+	c.draw_rect(box, PAPER_HI)
+	c.draw_rect(box, INK, false, 3.0)
+	_rect_text(c, stamp[1], box, 44, INK, narrow)
+	# her line: the same pressed trace as on the wall
+	var pts := PackedVector2Array()
+	for p in _card_trace_points():
+		pts.append(o + p * s)
+	c.draw_polyline(pts, INK, 5.0, true)
+	_text(c, "BELL, N. · Kitchen", o + Vector2(10, 145.5) * s, 24, INK, Ink.hand())
 	c.draw_set_transform_matrix(Transform2D.IDENTITY)
 
 ## The board behind the board: one line, in Rook's brown ink and forward-leaning hand.
