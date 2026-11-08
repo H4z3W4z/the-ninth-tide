@@ -22,32 +22,30 @@ extends RoomView
 ## `<v>_surf_<band>_r2`, the b3 whitecaps turned on end (`vchop_tile_r2`, drifting sideways) and
 ## the rooms behind Ada as filled silhouettes (`<v>_refl_<band>_r2`).
 ##
-## The P15 beat (fx reveal_upright; the sim's REVEAL_LINES and fx delays set every time here):
-##   0.6  "The horizon's standing up." The stage plate `assets/stages/R09/p15_plane_r3` (b6:
-##        `_b6`, the lighthouse hung in it) comes up the glass: one flat storm-navy plane edge to
-##        edge, no sky, no horizon; over it the whitecaps on end (vchop_tile_r2 at P15_CHOP_A,
-##        drifting P15_CHOP_DRIFT px/s, still under Motion off) and `p15_rooms_r3` (`_b6`): the
-##        station's rooms as lit windows placed as on R03's general plan, the office the
-##        brightest, and just right of the lens the lantern gallery itself, a navy figure at its
-##        rail facing out. Motion off: it is simply there. The same fx time (rain_freeze) stops
-##        every rain streak where it is; from P15 on the rain is always drawn frozen
-##        (r.rain_frozen()), in both views and both Motion settings. In view A the frozen streaks
-##        over the standing surface then fade out over SURF_RAIN_FADE (Motion off: at once), so
-##        the plane reads as one surface; the bead row over the dry gap stays.
-##  13.4  fx lid_pass: a storm-navy band as tall as the glass sweeps it top to bottom in
-##        LID_SWEEP (Motion off: it covers the glass for LID_SWEEP and goes) and leaves a dark lid
-##        line resting at LID_REST_Y, a hand-width under the glass's middle, for good.
-##  21.0  "One of the lit windows is this one..." and fx hold_breath (the core's hook). When the
-##        hold ends the room's bed is only r09_pressure, 6 dB under its level, and r09_glass_air,
-##        until she leaves R09.
-## The plates replace the old standing plate for the beat and for good after it.
-## Fix p3: the stage plate is now `p15_wall_r4` (`_b6`): the same plane with seven sea-glass
-## wave contours across it, broken off around every window, and a pale crest along the top of
-## the glass curling over toward her; the rooms are `p15_rooms_r4` (`_b6`), where the wet
-## laboratory's window has become this gallery seen from outside (the lens's brass ring, the
-## rail, someone seated at the bearing dials), with its own look hotspot (lit_window). From
-## P15 on no rain is drawn at all (rain_drawn(); the timing below survives for the beat's
-## clock) and the r09_rain_glass bed is silent; only the sever ending brings rain back.
+## The P15 beat (fx reveal_upright; the sim's REVEAL_LINES and fx delays set every time here).
+## Fix p4: it plays in the room view, from RECORD BEARING's own event list (the sim is back in
+## the room before the first line); reveal_upright carries `at`, where the beat starts in that
+## list (R09Sim.REVEAL_AFTER_RECORD), and every time below is after it:
+##   0.6  "The horizon's standing up." The stage plate `assets/stages/R09/p15_wall_r5` (b6:
+##        `_b6`, the lighthouse hung in it) comes up the glass over RISE_TIME (Motion off: it is
+##        simply there): the water on end as near-vertical storm-navy striations with sea-glass
+##        highlights, running to the top edge of every pane; the old horizon a bright 3 px line
+##        bent upward at both edges of the glass; the station's lit windows in it, the office
+##        the brightest, and this room's own lit window (the lens's ring, the dials, the rail).
+##        Over it the seated figure in that window (`p15_fig_side_r5`). No bead row (the
+##        rail-light string) from P15 on, and no rain layer at all (rain_drawn()).
+##   1.6  fx hold_breath (the core's hook) for 2.5 s, from the end of the first line. When the
+##        hold ends the room's bed is only r09_pressure, 6 dB under its level, and
+##        r09_glass_air, until she leaves R09.
+##   2.6  fx lid_pass, inside the held breath: a storm-navy band as tall as the glass sweeps it
+##        top to bottom in LID_SWEEP (Motion off: it covers the glass for LID_SWEEP and goes)
+##        and leaves a dark lid line resting at LID_REST_Y, broken off around the windows, for
+##        good.
+##   4.6  "The kitchen is in it. And the bunks."
+##   7.4  "And this room. Lit." and fx figure_turn: the figure in this room's window has turned
+##        round to face the gallery (`p15_fig_out_r5`: a flat silhouette facing out, two pale
+##        eye dots), and stays so.
+## The gallery's own window keeps its look hotspot (lit_window) at its rect on the plate.
 
 const DIR := "res://assets/rooms/R09/%s.png"
 
@@ -222,11 +220,13 @@ const ZOOM_WORD := ["×1", "×10", "×100", "×1000"]
 
 # --- the reveal (fx reveal_upright) -------------------------------------------------------
 const STAGE_DIR := "res://assets/stages/R09/%s.png"
-const SURFACE_PLATE := "p15_wall_r4"
-const ROOMS_PLATE := "p15_rooms_r4"
-## The whitecaps on end over the standing plane: opacity and sideways drift (px/s; still with
-## Motion off).
-const P15_CHOP_A := 0.40
+const SURFACE_PLATE := "p15_wall_r5"
+## The seated figure in this room's window (over the plate): side on at the dials until the
+## reveal's last line, then turned round to face the gallery, for good.
+const FIG_SIDE := "p15_fig_side_r5"
+const FIG_OUT := "p15_fig_out_r5"
+## Fix p4: the water is the plate's own striations; no whitecaps drift over it any more.
+const P15_CHOP_A := 0.0
 const P15_CHOP_DRIFT := 6.0
 ## The frozen streaks over the standing surface fade out over this (s) from the freeze.
 const SURF_RAIN_FADE := 1.0
@@ -242,6 +242,9 @@ const LID_REST_Y := 455.0
 const LINE_COL := Color("0b141b")
 const LINE_EDGE := Color("a9c8b8", 0.55)
 const LINE_W := 5.0
+## Where the lid line stops short of a window on p15_wall_r5 (x spans at LID_REST_Y, the window
+## plus 7 px): the office (398..498) and the vault (1104..1236).
+const LID_GAPS := [Vector2(391, 505), Vector2(1097, 1243)]
 ## The beat runs this long past the hold.
 const LINE_FADE := 1.0
 ## The lens overlay's opacity once the sea has stood up: the plate behind must lead.
@@ -292,6 +295,7 @@ var lid_cue_t := -1.0           # seconds since the lid_pass cue started, -1 = n
 var freeze_at: float = R09Sim.RAIN_FREEZE_AT
 var lid_at: float = R09Sim.LID_PASS_AT
 var hush_at: float = R09Sim.HOLD_BREATH_AT + R09Sim.HOLD_BREATH_SECONDS
+var turn_at: float = R09Sim.FIGURE_TURN_AT
 var rain_off := 0.0             # the rain's scroll where it froze (px)
 var rain_caught := false        # rain_off holds the frozen position
 var beat_origin := -1.0         # the presentation clock at reveal_upright, -1 = none
@@ -413,9 +417,10 @@ func rain_offset() -> float:
 func reveal_running() -> bool:
 	return reveal_t >= 0.0 and reveal_t < reveal_len()
 
-## The beat runs to the end of the core's hold, plus the sea-glass line's fade.
+## The beat runs to the end of the core's hold or the figure's turn, whichever is later, plus
+## LINE_FADE.
 func reveal_len() -> float:
-	return hush_at + LINE_FADE
+	return maxf(hush_at, turn_at) + LINE_FADE
 
 ## The stage overlay view A shows from the reveal on ("" before it, at band 7 and after the
 ## sever ending, which keep their own plates).
@@ -429,10 +434,17 @@ func standing_plate() -> String:
 			return SURFACE_PLATE + "_b6"
 	return SURFACE_PLATE
 
-## The rooms overlay over the standing plate ("" when there is none).
+## The overlay over the standing plate ("" when there is none): the seated figure in this
+## room's window, side on until the last line, then facing out.
 func rooms_plate() -> String:
-	var p := standing_plate()
-	return "" if p == "" else p.replace(SURFACE_PLATE, ROOMS_PLATE)
+	if standing_plate() == "":
+		return ""
+	return FIG_SIDE if figure_side_on() else FIG_OUT
+
+## True while the figure in this room's window is still side on at the dials: during the beat,
+## before the last line ("And this room. Lit.").
+func figure_side_on() -> bool:
+	return reveal_running() and reveal_t < turn_at
 
 ## Where the standing plate's front is (view A y): it has come up from the glass's foot.
 func plate_front() -> float:
@@ -598,7 +610,11 @@ func _on_reveal_end() -> void:
 	beat_origin = -1.0
 
 ## The beat's anchors: [variable, the line it waits for, seconds after that line].
-const BEAT_ANCHORS := [["freeze_at", 0, 0.0], ["lid_at", 3, 0.0], ["hush_at", 6, R09Sim.HOLD_BREATH_SECONDS]]
+## Fix p4: the breath and the lid key off the first line, the figure's turn off the last.
+const BEAT_ANCHORS := [["freeze_at", 0, 0.0],
+	["hush_at", 0, R09Sim.HOLD_BREATH_AT - R09Sim.RAIN_FREEZE_AT + R09Sim.HOLD_BREATH_SECONDS],
+	["lid_at", 0, R09Sim.LID_PASS_AT - R09Sim.RAIN_FREEZE_AT],
+	["turn_at", 2, R09Sim.FIGURE_TURN_AT - R09Sim.REVEAL_LINES[2][0]]]
 
 ## The core may hold the reveal's lines behind a story still being read, and the player may
 ## bring a line up early: each beat follows its own line's time in the core's queue (the fx
@@ -684,9 +700,11 @@ func play_fx(id: String, e: Dictionary) -> void:
 		"reveal_upright":
 			reveal_t = 0.0
 			hold_t = 0.0   # the reveal is the notice; no zoom on top of it
-			freeze_at = R09Sim.RAIN_FREEZE_AT
-			lid_at = R09Sim.LID_PASS_AT
-			hush_at = R09Sim.HOLD_BREATH_AT + R09Sim.HOLD_BREATH_SECONDS
+			var at := float(e.get("at", 0.0))   # where the beat starts in this event list
+			freeze_at = at + R09Sim.RAIN_FREEZE_AT
+			lid_at = at + R09Sim.LID_PASS_AT
+			hush_at = at + R09Sim.HOLD_BREATH_AT + R09Sim.HOLD_BREATH_SECONDS
+			turn_at = at + R09Sim.FIGURE_TURN_AT
 			hushed = false
 			rain_caught = false
 			beat_origin = time
@@ -695,6 +713,8 @@ func play_fx(id: String, e: Dictionary) -> void:
 			freeze_at = float(e.get("delay", freeze_at))
 		"lid_pass":
 			lid_at = float(e.get("delay", lid_at))
+		"figure_turn":
+			turn_at = float(e.get("delay", turn_at))
 		"hold_breath":
 			hush_at = float(e.get("delay", R09Sim.HOLD_BREATH_AT)) + float(e.get("seconds", R09Sim.HOLD_BREATH_SECONDS))
 		"aim":
@@ -853,6 +873,7 @@ func reset_presentation() -> void:
 	freeze_at = R09Sim.RAIN_FREEZE_AT
 	lid_at = R09Sim.LID_PASS_AT
 	hush_at = R09Sim.HOLD_BREATH_AT + R09Sim.HOLD_BREATH_SECONDS
+	turn_at = R09Sim.FIGURE_TURN_AT
 
 func redraw() -> void:
 	room.queue_redraw()
@@ -1085,8 +1106,10 @@ func _draw_sea(c: CanvasItem, side: String) -> void:
 		_band_of(c, L[0], 0.0, top)
 	_surface_rows(c, glass, L[0], L[1], L[2], L[3], top, SIZE.y)
 
+## The beads hang where the rain stops short of the rail: only while there is rain that stops
+## (before P15). Never over the standing sea (fix p4: no rail-light string in that stage).
 func _beads(c: CanvasItem, at: Vector2) -> void:
-	if not _sever():
+	if not _sever() and not r.state.p15_complete:
 		_sprite(c, "beads_r2", at)
 
 # ---------------------------------------------------------------------------
@@ -1155,15 +1178,16 @@ func _draw_sea_a(c: CanvasItem) -> void:
 			_full(c, "a_sea_b3")
 		if k > 0.0:
 			_band_of(c, plate, fy, A_GLASS.end.y)
-			var clip := Rect2(A_GLASS.position.x, fy, A_GLASS.size.x, A_GLASS.end.y - fy)
-			_tile(c, "vchop_tile_r2", clip, Vector2(p15_chop_offset(), 0), P15_CHOP_A)
+			if P15_CHOP_A > 0.0:
+				var clip := Rect2(A_GLASS.position.x, fy, A_GLASS.size.x, A_GLASS.end.y - fy)
+				_tile(c, "vchop_tile_r2", clip, Vector2(p15_chop_offset(), 0), P15_CHOP_A)
 			var lk := lid_line_k()
 			if lk > 0.0 and LID_REST_Y >= fy:
-				# the lid rests on the plane, under the rooms it carries
-				c.draw_rect(Rect2(A_GLASS.position.x, LID_REST_Y - LINE_W / 2.0, A_GLASS.size.x, LINE_W),
-					Color(LINE_COL, lk))
-				c.draw_rect(Rect2(A_GLASS.position.x, LID_REST_Y + LINE_W / 2.0, A_GLASS.size.x, 1.0),
-					Color(LINE_EDGE, LINE_EDGE.a * lk))
+				# the lid rests on the plane, broken off around the windows it carries
+				for span in lid_line_spans():
+					c.draw_rect(Rect2(span.x, LID_REST_Y - LINE_W / 2.0, span.y - span.x, LINE_W), Color(LINE_COL, lk))
+					c.draw_rect(Rect2(span.x, LID_REST_Y + LINE_W / 2.0, span.y - span.x, 1.0),
+						Color(LINE_EDGE, LINE_EDGE.a * lk))
 			_band_of(c, rooms_plate(), fy, A_GLASS.end.y)
 		if k > 0.0 and k < 1.0:
 			# the front: the horizon, standing up
@@ -1173,6 +1197,20 @@ func _draw_sea_a(c: CanvasItem) -> void:
 	var ly := lid_y()
 	if ly >= 0.0:
 		_lid_band(c, ly)
+
+## The resting lid line's spans across the glass ([x0, x1] as Vector2), broken off LID_GAPS
+## around the windows the plate carries at LID_REST_Y (the office, the vault), so it never
+## crosses a lit room.
+func lid_line_spans() -> Array:
+	var out := []
+	var x := A_GLASS.position.x
+	for g in LID_GAPS:
+		if g.x > x:
+			out.append(Vector2(x, g.x))
+		x = maxf(x, g.y)
+	if x < A_GLASS.end.x:
+		out.append(Vector2(x, A_GLASS.end.x))
+	return out
 
 ## The lid: a flat storm-navy band LID_H tall across the whole glass, centred on `y`; clipped
 ## to the glass.

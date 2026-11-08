@@ -8251,6 +8251,24 @@
       "source_svg": null
     },
     {
+      "id": "p15_fig_out_r5",
+      "path": "assets/stages/R09/p15_fig_out_r5.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "15d53b5667873218c17ff0b143e92a6944cf2ae8aa84e527fbe4a4411d57467a",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "p15_fig_side_r5",
+      "path": "assets/stages/R09/p15_fig_side_r5.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "c259a2d4eed4ede7233cfe38ec5869d39e24fb91b2ac264915f19fff2e0487a1",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "p15_plane_r3",
       "path": "assets/stages/R09/p15_plane_r3.png",
       "width": 1448,
@@ -8337,6 +8355,24 @@
       "width": 1448,
       "height": 1086,
       "sha256": "4ad089c4a387a7ae83478be400645dac9927bfcaf7475a534841cf3605239d60",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "p15_wall_r5",
+      "path": "assets/stages/R09/p15_wall_r5.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "4edc802433efa3ba928202c853598f81544675ba231f9ee0e4aa0f1977afd5ba",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "p15_wall_r5_b6",
+      "path": "assets/stages/R09/p15_wall_r5_b6.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "85f26803a97590cc64110d12b393f4afd5cde01d0ae7ae37efb227547dd7044d",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
