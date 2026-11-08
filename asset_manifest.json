@@ -7963,6 +7963,24 @@
       "source_svg": null
     },
     {
+      "id": "p15_surface_on_end",
+      "path": "assets/stages/R09/p15_surface_on_end.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "0188668ac899cf54b7ff1f7afbf4a63191b7caec408ecc01dabee01c7d9a674f",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "p15_surface_on_end_b6",
+      "path": "assets/stages/R09/p15_surface_on_end_b6.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "63fff4f4bb744a833827875805f1b9100ad34d96c50849a2472cf9cb1b781b21",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "away_coat",
       "path": "assets/stages/away_coat.png",
       "width": 1448,

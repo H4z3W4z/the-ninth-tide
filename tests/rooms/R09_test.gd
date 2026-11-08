@@ -12,6 +12,7 @@ const OPEN_TIDE := 5
 const P15_HINTS := [
 	"The lantern's scope takes the specimen frame.",
 	"The diagram says aim where the subject is, not where the water is. Look for something of hers.",
+	"Every aperture has a bowl in it. The kitchen's ninth bowl was mended with a square riveted patch, and only the lens shows a rim from up here.",
 	"Mount the frame, aim at STATION 3, check the square-patched bowl with the lens, then RECORD BEARING.",
 ]
 const REVEAL := [
@@ -19,6 +20,7 @@ const REVEAL := [
 	"It's not the sea any more. It's a surface, on end, and the rooms behind me are in it.",
 	"The office lamp is in it. A warm point.",
 	"Something passed across the whole of it. Like a lid.",
+	"The rain has stopped where it was. It's waiting too.",
 	"It hasn't closed again.",
 ]
 
@@ -184,8 +186,14 @@ func test_objectives() -> void:
 	check(r9(g).objective_text() == "The scope's clamp is empty. Nora's frame is still being made on the laboratory bench.", "(c) wait_p14 text")
 	var g2 := ready_p15()
 	check(r9(g2).objective() == "p15", "(c) p15 once P14 is done")
-	for i in 3:
+	check(r9(g2).hint_tiers() == 4, "(c) R09 ladders have four tiers")
+	for i in 4:
 		check(r9(g2).hint_line(i) == P15_HINTS[i], "(c) p15 hint %d is the card's" % i)
+	for o in R09Sim.HINTS:
+		check(R09Sim.HINTS[o].size() == 4, "(c) %s has nudge, relationship, evidence, solution" % o)
+	# the evidence tiers point at evidence, never the answer
+	check(not "STATION 3" in P15_HINTS[2] and not "RECORD" in P15_HINTS[2], "(c) p15 evidence tier names no aperture or key")
+	check(not "Short rises" in R09Sim.HINTS.wait_p14[2], "(c) wait_p14 evidence tier gives no order")
 	var g3 := solved()
 	check(r9(g3).objective() == "done", "(c) done after P15")
 	for o in R09Sim.HINTS:
@@ -433,12 +441,28 @@ func test_reveal_on_back() -> void:
 	var r := r9(g)
 	check(r.local_view == "room", "(l) back to the room")
 	check(has_ev(ev, "fx", "reveal_upright") and has_ev(ev, "sfx", "deep_tone") and has_ev(ev, "sfx", "lid_pass"), "(l) reveal events")
-	check(story_lines(ev) == REVEAL, "(l) the five reveal lines exact: %s" % [story_lines(ev)])
+	check(story_lines(ev) == REVEAL, "(l) the six reveal lines exact: %s" % [story_lines(ev)])
 	var delays := []
 	for e in ev:
 		if e.type == "say":
 			delays.append(e.delay)
-	check(delays == [0.6, 6.8, 9.6, 13.4, 16.0], "(l) reveal delays")
+	check(delays == [0.6, 6.8, 9.6, 13.4, 15.4, 18.0], "(l) reveal delays")
+	var fx := {}
+	var lid_sfx := -1.0
+	for e in ev:
+		if e.type == "fx":
+			fx[e.id] = e
+		elif e.type == "sfx" and e.id == "lid_pass":
+			lid_sfx = e.delay
+	check(fx.has("rain_freeze") and is_equal_approx(float(fx.rain_freeze.get("delay", -1)), 0.6),
+		"(l) the rain freezes on the first line (fx rain_freeze, delay 0.6)")
+	check(fx.has("lid_pass") and is_equal_approx(float(fx.lid_pass.get("delay", -1)), 13.4) and is_equal_approx(lid_sfx, 13.4),
+		"(l) the lid passes on its line (fx lid_pass and its sfx at 13.4)")
+	check(fx.has("hold_breath") and is_equal_approx(float(fx.hold_breath.get("delay", -1)), 18.0)
+		and is_equal_approx(float(fx.hold_breath.get("seconds", -1)), 2.5), "(l) the core holds its breath for 2.5 s at 18.0")
+	check(index_of(ev, "fx", "reveal_upright") < index_of(ev, "fx", "rain_freeze"), "(l) the beat's fx follow reveal_upright")
+	check("The rain has stopped where it was. It's waiting too." in R09Sim.OBSERVATIONS.upright, "(l) the notebook keeps the new line")
+	check(r.rain_frozen(), "(l) from P15 on the rain is frozen")
 	check(r.state.reveal_seen and r.has_seen("upright") and "upright" in r.state.notices, "(l) reveal seen, upright observed")
 	ev = g.dispatch("back")
 	check(not has_ev(ev, "fx", "reveal_upright") and says(ev) == "", "(l) a second back does not replay")
@@ -759,50 +783,36 @@ func test_hit_purity() -> void:
 	check(JSON.stringify(scene.sim.to_dict()) == before and scene.sim.room(ROOM).local_view == lv, "(x) hit-tests change nothing")
 	await free_scene(scene)
 
-## View A after the reveal: the standing plate, the resting lid, the lens overlay at 0.35; the
-## lid crosses once on the reveal; deep_tone's duck under lid_pass.
+## View A after the reveal: the P15 stage overlay, frozen rain, the lid's sweep and its line,
+## the lens overlay at 0.35; the hush after the hold; deep_tone's duck under lid_pass; the beds.
 func test_view_standing() -> void:
 	var scene = new_scene("user://room_test_R09_standing.json")
 	await process_frame
+	var motion_on: bool = scene.sim.settings.motion
 	scene.tide_jump(5, ROOM)
 	await process_frame
 	var v = scene.room_view
-	check(v.standing_plate() == "" and v.lid_rest_k() == 0.0 and v.lens_alpha() == 1.0, "(vw) before P15: the old sea, no lid, lens at full")
+	check(v.standing_plate() == "" and v.lens_alpha() == 1.0 and not v.rain_frozen(), "(vw) before P15: the old sea, the rain falling, lens at full")
 	for t in [6, 7, 8, 9]:
 		scene.tide_jump(t, ROOM)
 		await process_frame
 		v = scene.room_view
-		var want: String = {6: "surface_standing", 7: "surface_standing", 8: "surface_standing_b6", 9: ""}[t]
+		var want: String = {6: "p15_surface_on_end", 7: "p15_surface_on_end", 8: "p15_surface_on_end_b6", 9: ""}[t]
 		check(v.standing_plate() == want, "(vw) tide %d plate %s (got %s)" % [t, want, v.standing_plate()])
-		check(want == "" or ResourceLoader.exists("res://assets/rooms/R09/%s.png" % want), "(vw) %s exists" % want)
-		check(v.lid_rest_k() == 1.0 and v.lens_alpha() == 0.35 and v.lid_y() < 0.0, "(vw) tide %d: lid at rest, lens 0.35" % t)
+		check(want == "" or ResourceLoader.exists("res://assets/stages/R09/%s.png" % want), "(vw) %s exists" % want)
+		check(want == "" or v._tex(want) != null, "(vw) %s loads" % want)
+		check(v.lens_alpha() == 0.35 and v.lid_y() < 0.0 and v.lid_line_k() == 0.0, "(vw) tide %d: no lid, lens 0.35" % t)
 		check(v.plate_k() == (1.0 if want != "" else 0.0), "(vw) tide %d: plate settled" % t)
-	scene.tide_jump(6, ROOM)
-	await process_frame
-	v = scene.room_view
-	# the reveal: the lid crosses the glass once, top to bottom, over 4 s, then rests
-	v.play_fx("reveal_upright", {})
-	var motion_on: bool = v.motion
-	if motion_on:
-		v.reveal_t = v.LID_START - 0.1
-		check(v.lid_y() < 0.0 and v.lid_rest_k() == 0.0, "(vw) no lid before LID_START")
-		var ys := []
-		for k in 5:
-			v.reveal_t = v.LID_START + 0.01 + k * (v.LID_CROSS - 0.02) / 4.0
-			ys.append(v.lid_y())
-		check(ys[0] <= v.A_GLASS.position.y + 1.0 and ys[4] >= v.A_GLASS.end.y + v.LID_H - 1.0, "(vw) the lid crosses the whole glass: %s" % [ys])
-		var mono := true
-		for k in 4:
-			mono = mono and ys[k + 1] > ys[k]
-		check(mono, "(vw) top to bottom, once")
-		check(is_equal_approx(v.LID_CROSS, 4.0), "(vw) the crossing takes 4.0 s")
-		v.reveal_t = v.LID_END + 0.01
-		check(v.lid_y() < 0.0, "(vw) the crossing is over")
-		v.reveal_t = v.reveal_len() + 0.01
-		check(v.lid_rest_k() == 1.0, "(vw) then it rests")
-	scene.sim.settings.motion = false
-	v.play_fx("reveal_upright", {})
-	check(v.lid_y() < 0.0 and v.lid_rest_k() == 1.0 and v.plate_k() == 1.0, "(vw) Motion off: only the resting band")
+		for m in [true, false]:
+			scene.sim.settings.motion = m
+			check(v.rain_frozen() and v.rain_speed() == 0.0, "(vw) tide %d, Motion %s: the rain is drawn frozen" % [t, m])
+			var o1: float = v.rain_offset()
+			scene.time += 3.7
+			check(v.rain_offset() == o1, "(vw) tide %d, Motion %s: a frozen streak never moves" % [t, m])
+		scene.sim.settings.motion = motion_on
+	for m in [true, false]:
+		scene.sim.settings.motion = m
+		await _beat_checks(scene, m)
 	scene.sim.settings.motion = motion_on
 	# deep_tone's duck under lid_pass: 0 dB, ramp from 2.0 s, -8 dB, ramp out after 8.0 s
 	var V = load("res://game/rooms/R09/R09_view.gd")
@@ -812,7 +822,90 @@ func test_view_standing() -> void:
 	check(is_equal_approx(V.deep_duck_db(8.15), -4.0) and V.deep_duck_db(8.31) == 0.0, "(vw) a 0.3 s ramp out")
 	check(V.LOOP_DB.b3.r09_wind == -3.0 and V.LOOP_DB.b3.r09_rain_glass == -13.0 and V.LOOP_DB.b4.r09_wind == -5.0
 		and V.LOOP_DB.b5.r09_room == -10.0 and not V.LOOP_DB.b5.has("r09_wind"), "(vw) the wind bed levels")
+	check(V.LOOP_DB.b5.r09_glass_air == -14.0 and V.LOOP_DB.b6.r09_glass_air == -12.0 and V.LOOP_DB.b7.r09_glass_air == -12.0
+		and V.LOOP_DB.b5.r09_surface == -17.0 and V.LOOP_DB.b6.r09_surface == -14.0 and V.LOOP_DB.b7.r09_surface == -12.0,
+		"(vw) glass air at b5-b7, the surface 4 dB up")
+	check(ResourceLoader.exists("res://assets/audio/R09/r09_glass_air.wav"), "(vw) r09_glass_air is built")
 	await free_scene(scene)
+
+## The P15 beat played for real (the scene's own dispatch), with Motion `m`.
+func _beat_checks(scene, m: bool) -> void:
+	scene.room_jump(ROOM, 4)
+	await process_frame
+	scene.dispatch("record")
+	scene.dispatch("back")
+	var v = scene.room_view
+	var tag := "Motion %s" % ("on" if m else "off")
+	v.tick(0.0)
+	# the beat follows its lines in the core's queue: here they wait behind RECORD's own lines
+	var z: float = v.freeze_at - 0.6
+	check(v.reveal_running() and z >= 0.0 and is_equal_approx(v.lid_at - z, 13.4)
+		and is_equal_approx(v.hush_at - z, 20.5), "(vb) %s: the beat keeps the sim's spacing, on its lines (+%.2f s)" % [tag, z])
+	var due0 := -1.0
+	for l in scene.lines:
+		if l.text == "The horizon's standing up.":
+			due0 = l.due
+	check(due0 >= 0.0 and is_equal_approx(v.beat_origin + v.freeze_at, due0), "(vb) %s: the rain stops as the first line comes up" % tag)
+	v.reveal_t = z + 0.3
+	check(v.plate_k() == 0.0 and not v.rain_frozen(), "(vb) %s: before the first line, the old sea and the rain falling" % tag)
+	v.tick(0.4)   # across the first line: "The horizon's standing up."
+	check(v.rain_frozen() and v.rain_speed() == 0.0, "(vb) %s: the rain stops on the line" % tag)
+	var o1: float = v.rain_offset()
+	scene.time += 2.0
+	v.tick(0.5)
+	check(v.rain_offset() == o1, "(vb) %s: and stays exactly where it stopped" % tag)
+	check(v.standing_plate() == "p15_surface_on_end", "(vb) %s: the surface on end from the line" % tag)
+	if m:
+		check(v.plate_k() > 0.0 and v.plate_k() < 1.0, "(vb) Motion on: it comes up the glass")
+	else:
+		check(v.plate_k() == 1.0, "(vb) Motion off: it is simply there")
+	v.reveal_t = z + 13.3
+	check(v.lid_y() < 0.0 and v.lid_line_k() == 0.0, "(vb) %s: no lid before 13.4" % tag)
+	var ys := []
+	for k in 5:
+		v.reveal_t = z + 13.4 + 0.001 + k * (1.2 - 0.002) / 4.0
+		ys.append(v.lid_y())
+	var mid: float = v.A_GLASS.get_center().y
+	if m:
+		var mono := true
+		for k in 4:
+			mono = mono and ys[k + 1] > ys[k]
+		check(mono and ys[0] <= v.A_GLASS.position.y - v.LID_H / 2.0 + 1.0 and ys[4] >= v.A_GLASS.end.y + v.LID_H / 2.0 - 1.0,
+			"(vb) Motion on: the band sweeps the whole glass top to bottom in 1.2 s: %s" % [ys])
+	else:
+		check(ys.all(func(y): return is_equal_approx(y, mid)), "(vb) Motion off: the band stands at the middle for 1.2 s")
+	check(is_equal_approx(v.LID_H, 90.0) and v.LID_COL == Ink.INK and v.LINE_COL == Color("a9c8b8") and v.LINE_W == 2.0,
+		"(vb) an ink band 90 px tall; a 2 px sea-glass line")
+	v.reveal_t = z + 14.61
+	check(v.lid_y() < 0.0 and v.lid_line_k() == 1.0, "(vb) %s: after the band, the line" % tag)
+	v.reveal_t = z + 20.4
+	check(v.lid_line_k() == 1.0, "(vb) %s: the line stays through the hold" % tag)
+	check(not v.hushed and v.loop_targets().get("r09_room", 0.0) > 0.0, "(vb) %s: the bed until the hold" % tag)
+	v.tick(0.2)   # across 20.5: the hold is over
+	check(v.hushed, "(vb) %s: hushed after the hold" % tag)
+	var lt: Dictionary = v.loop_targets()
+	var loud := []
+	for id in lt:
+		if lt[id] > 0.0:
+			loud.append(id)
+	loud.sort()
+	check(loud == ["r09_glass_air", "r09_pressure"], "(vb) %s: after the hold only the pressure and the glass air: %s" % [tag, loud])
+	check(is_equal_approx(linear_to_db(lt.r09_pressure), -20.0) or is_equal_approx(linear_to_db(lt.r09_pressure), -26.0)
+		or is_equal_approx(linear_to_db(lt.r09_pressure), -24.0), "(vb) %s: the pressure 6 dB under its level" % tag)
+	v.reveal_t = v.reveal_len() + 0.01
+	v.tick(0.01)
+	check(not v.reveal_running() and v.hushed and v.rain_frozen() and v.plate_k() == 1.0 and v.lid_line_k() == 0.0,
+		"(vb) %s: after the beat, still frozen, still the overlay, still hushed" % tag)
+	# a save/load after P15 keeps the frozen rain and the overlay
+	var g2 := GameSim.new()
+	check(g2.from_dict(JSON.parse_string(JSON.stringify(scene.sim.to_dict()))), "(vb) %s: the save loads" % tag)
+	scene.sim.from_dict(g2.to_dict())
+	scene._mount_room()
+	scene._reset_presentation()
+	await process_frame
+	v = scene.room_view
+	check(r9(scene.sim).state.reveal_seen and v.standing_plate() == "p15_surface_on_end" and v.plate_k() == 1.0
+		and v.rain_frozen() and v.rain_speed() == 0.0, "(vb) %s: a load after P15 keeps the overlay and the frozen rain" % tag)
 
 func test_canonical_chain() -> void:
 	var g := game_at(5, "R11")

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """R09 Lantern Gallery painter (The Ninth Tide).
 
-Writes, and only writes, assets/rooms/R09/*.png:
+Writes, and only writes, assets/rooms/R09/*.png and assets/stages/R09/*.png:
 
   a_room, b_room                  the two gallery views (1448x1086 RGBA): copper soffit, brass-framed
                                   glazing with every pane rect fully transparent; view A also carries
@@ -16,6 +16,8 @@ Writes, and only writes, assets/rooms/R09/*.png:
   c_view_*                        aperture scenes (620x620, circle r 310, subject at the centre)
   c_eyepiece_ring, c_patch, c_steam, c_loupe_ring, c_frame_mounted, c_sel_knob, c_key_*, c_strip
                                   close-up sprites
+  p15_surface_on_end*            fix p1 (ASSETS_P1), into assets/stages/R09/: the P15 stage overlay,
+                                  the surface on end clipped to the gallery glass (seed 1509)
   surface_standing*, c_view_*_r3, c_rim_*
                                   fix pass w3 (see ASSETS_W3): the standing sea at a glance, and
                                   a bowl in every aperture with its rim under the lens
@@ -281,15 +283,16 @@ def grain(im, rng, amp=5, mottle=5, speck=10):
     return rgb
 
 
-def save(im, name, opaque):
-    os.makedirs(OUT, exist_ok=True)
+def save(im, name, opaque, out=None):
+    out = out or OUT
+    os.makedirs(out, exist_ok=True)
     if opaque:
         im = im.convert("RGB")
     else:
         im = im.convert("RGBA")
         a = im.getchannel("A")
         im.paste((0, 0, 0, 0), mask=a.point(lambda v: 255 if v == 0 else 0))
-    path = os.path.join(OUT, name + ".png")
+    path = os.path.join(out, name + ".png")
     im.save(path, optimize=False, compress_level=9)
     print("  wrote", os.path.relpath(path, ROOT), im.size, im.mode)
 
@@ -2816,6 +2819,84 @@ def paint_rim_crack(rng):
     return p
 
 
+# ----------------------------------------------------------------------------- fix p1: the surface on end
+# assets/stages/R09/p15_surface_on_end*.png: the P15 stage overlay for view A, clipped to the gallery
+# glass (A_GLASS 52..1396 x 162..628, transparent everywhere else). One flat storm-navy plane edge to
+# edge: no sky band, no horizon line, no gradient to sea glass. The station's rooms sit in it as small
+# warm lit rectangles in R12 end_b_wide's grammar (the #d2aa66 family, matte, navy-ink contoured, a
+# faint halo), a few unlit ones darker than the plane. The office lamp is the single brightest point.
+# Nothing is put behind the lens (LENS_X), which is opaque in a_room_r2. _b6 also hangs the
+# lighthouse in it, upside down and dim, inside the lighthouse notice's focus (944..1056 x 236..536).
+
+STAGE_OUT = os.path.join(ROOT, "assets", "stages", "R09")
+SURF_GLASS = (52, 162, 1396, 628)
+SURF_PLANE = STORM                           # #22384a, flat
+ROOM_LIT = (210, 170, 102)                   # #d2aa66
+ROOM_LIT_LO = (176, 140, 84)                 # the same family, further in
+ROOM_DARK = (24, 40, 53)                     # an unlit room: a shade under the plane
+OFFICE_POINT = (250, 234, 190)               # the brightest pixel on the plate
+OFFICE_AT = (236, 318)
+# storeys of the station, as the surface carries them: [y of the window line, height]
+SURF_ROWS = [(214, 14), (262, 18), (318, 16), (380, 20), (444, 14)]
+SURF_SKIP = [(LENS_X[0] - 10, LENS_X[1] + 10), (368, 392), (1056, 1080)]   # lens, mullions
+
+
+def paint_p15_surface_on_end(rng, lighthouse_too=False):
+    p = Pen(W, H, rng)
+    x0, y0, x1, y1 = SURF_GLASS
+    p.rect(x0, y0, x1, y1, SURF_PLANE, None)
+    halos = p.layer()
+    rooms = []
+    for ry, rh in SURF_ROWS:
+        x = x0 + rng.uniform(14, 40)
+        while x < x1 - 30:
+            w = rng.choice([18, 22, 26, 30, 34])
+            h = rh + rng.choice([-2, 0, 0, 2])
+            yy = ry + rng.uniform(-3, 3)
+            blocked = any(a - w < x < b for a, b in SURF_SKIP)
+            near_office = abs(x + w / 2 - OFFICE_AT[0]) < 54 and abs(yy + h / 2 - OFFICE_AT[1]) < 40
+            near_light = lighthouse_too and 930 < x + w and x < 1070
+            if not (blocked or near_office or near_light):
+                lit = rng.random() < 0.62
+                rooms.append((x, yy, w, h, lit))
+            x += w + rng.uniform(22, 64)
+    for x, yy, w, h, lit in rooms:
+        if lit:
+            halos.ell(x + w / 2, yy + h / 2, w * 0.9, h * 1.2, ROOM_LIT, None)
+    p.put_soft(halos, 9, 0.16)
+    for x, yy, w, h, lit in rooms:
+        if lit:
+            col = mix(ROOM_LIT, ROOM_LIT_LO, rng.random() * 0.7)
+            p.rect(x, yy, x + w, yy + h, col, INK, 2.2)
+            p.line([(x + 3, yy + h - 4), (x + w - 3, yy + h - 4)], shade(col, 0.86), 1.6)   # a sill
+        else:
+            p.rect(x, yy, x + w, yy + h, ROOM_DARK, INK, 2.0)
+    # the office: one small room, its lamp the single brightest point on the plate
+    ox, oy = OFFICE_AT
+    soft_disc(p, ox, oy, 46, AMBER, 0.42, 16)
+    soft_disc(p, ox, oy, 18, mix(AMBER, PAPER_HI, 0.5), 0.6, 6)
+    p.rect(ox - 22, oy - 15, ox + 22, oy + 15, ROOM_LIT, INK, 2.6)
+    p.ell(ox, oy - 2, 6.5, 6.5, OFFICE_POINT, None)
+    p.ell(ox, oy - 2, 3.0, 3.0, (255, 246, 222), None)
+    if lighthouse_too:
+        lighthouse(p, 1000, 240, 2.0, inv=True, white=mix(STORM_HI, PAPER, 0.38), band=STORM_DK,
+                   glass=mix(STORM, SEAGLASS, 0.3), ink=INK, lw=4.5)
+        ly = 240 + 2.0 * (432 - 330.5)
+        soft_disc(p, 1000, ly, 16, AMBER, 0.22, 6)
+        p.rect(995, ly - 6, 1005, ly + 6, ROOM_LIT_LO, INK, 2.0)
+    im = p.done()
+    clip = Image.new("L", im.size, 0)
+    ImageDraw.Draw(clip).rectangle((x0, y0, x1 - 1, y1 - 1), fill=255)
+    im.putalpha(ImageChops.multiply(im.getchannel("A"), clip))
+    return im
+
+
+ASSETS_P1 = [  # name, seed (random.Random(seed), not SEED + k), painter, opaque, grain; into STAGE_OUT
+    ("p15_surface_on_end", 1509, paint_p15_surface_on_end, False, True),
+    ("p15_surface_on_end_b6", 1509, lambda r: paint_p15_surface_on_end(r, True), False, True),
+]
+
+
 ASSETS_W3 = [
     ("surface_standing", 140, paint_surface_standing, True, True),
     ("surface_standing_b6", 140, lambda r: paint_surface_standing(r, True), True, True),
@@ -2922,6 +3003,14 @@ def main(argv):
         if gr:
             im = grain(im, rng_for(1000 + k))
         save(im, name, opaque)
+    for name, sd, fn, opaque, gr in ASSETS_P1:
+        if not any(fnmatch.fnmatch(name, pat) for pat in pats):
+            continue
+        res = fn(random.Random(sd))
+        im = res.done() if isinstance(res, Pen) else res
+        if gr:
+            im = grain(im, random.Random(1000 + sd))
+        save(im, name, opaque, STAGE_OUT)
 
 
 if __name__ == "__main__":

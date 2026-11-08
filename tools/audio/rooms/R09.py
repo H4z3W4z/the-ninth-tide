@@ -24,8 +24,9 @@ still seen on the glass; glass_tap_dead is a knuckle on something that is not gl
 strike with its ring removed). deep_tone is the card's one very low tone, built on 55 Hz so a
 laptop can carry it (110 / 165 / 220 Hz partials, nothing pitched above 400 Hz); lid_pass is a
 hush that slides down past the gallery, quiet but heard. The view syncs the reveal to
-deep_tone at 0.4 s and lid_pass at 7.0 s, so their lengths are fixed: DEEP_TONE_LEN and
-LID_PASS_LEN.
+deep_tone at 0.4 s and lid_pass at 13.4 s (the lid's sweep), so their lengths are fixed:
+DEEP_TONE_LEN and LID_PASS_LEN. After the core's hold at 18.0 s the bed is only r09_pressure and
+r09_glass_air (air behind the glass, 600-2200 Hz, wandering at 0.06 Hz) until she leaves.
 
     python3 tools/build_audio.py R09
 """
@@ -38,7 +39,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from common import *  # noqa: E402,F401,F403  SR, TAU, lowpass, highpass, white, brown, ...
-from common import (SR, TAU, brown, echo, highpass, lowpass, room_out, seamless,  # noqa: E402
+from common import (SR, TAU, band, brown, echo, highpass, lowpass, room_out, seamless,  # noqa: E402
                     smooth_walk, white, write)
 
 OUT = room_out("R09")
@@ -394,6 +395,19 @@ def r09_pressure() -> list[float]:
     return out
 
 
+def r09_glass_air() -> list[float]:
+    """The air behind the lantern glass once the surface stands on end: white noise band-passed
+    600-2200 Hz (common.band), its level wandering on a 0.06 Hz smooth walk (a knot every 1/0.06 s),
+    nothing else. The one layer left with the pressure after the P15 hold. 50 s, so the walk has
+    three knots and the loop never breathes on a beat."""
+    rnd = seed(29)
+    dur = 50.0
+    n = n_of(dur + FADE)
+    air = unit(band(white(n, rnd), 600, 2200))
+    amp = smooth_walk(n, rnd, 1 / 0.06)
+    return [a * (0.35 + 0.65 * w) for a, w in zip(air, amp)]
+
+
 def r09_room() -> list[float]:
     """Lantern room tone: the brass enclosure ringing faintly about 210 Hz, still air. 15 s."""
     rnd = seed(7)
@@ -693,7 +707,7 @@ def ruler_lift() -> list[float]:
 
 LOOPS = [("r09_room", r09_room), ("r09_clockwork", r09_clockwork), ("r09_wind", r09_wind),
          ("r09_sea_far", r09_sea_far), ("r09_rain_glass", r09_rain_glass), ("r09_surface", r09_surface),
-         ("r09_pressure", r09_pressure), ("r09_flap", r09_flap)]
+         ("r09_pressure", r09_pressure), ("r09_flap", r09_flap), ("r09_glass_air", r09_glass_air)]
 SHOTS = [
     ("sel_click", sel_click), ("iris_turn", iris_turn), ("scope_creak", scope_creak),
     ("mount_clamp", mount_clamp), ("clamp_release", clamp_release), ("mount_tap", mount_tap),

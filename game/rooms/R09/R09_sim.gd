@@ -82,8 +82,16 @@ const REVEAL_LINES := [
 	[6.8, "It's not the sea any more. It's a surface, on end, and the rooms behind me are in it."],
 	[9.6, "The office lamp is in it. A warm point."],
 	[13.4, "Something passed across the whole of it. Like a lid."],
-	[16.0, "It hasn't closed again."],
+	[15.4, "The rain has stopped where it was. It's waiting too."],
+	[18.0, "It hasn't closed again."],
 ]
+## The reveal's timed beats (seconds after reveal_upright), carried as fx delays for the view:
+## the rain stops dead on the first line, the lid crosses on its line, and the core holds its
+## breath on the last.
+const RAIN_FREEZE_AT := 0.6
+const LID_PASS_AT := 13.4
+const HOLD_BREATH_AT := 18.0
+const HOLD_BREATH_SECONDS := 2.5
 ## After the sever ending, these replace the normal lines.
 const SEVER_LINES := {
 	"lens": "The lens. The gallery's in it, upside down. Me too.",
@@ -115,7 +123,7 @@ const OBSERVATIONS := {
 	"bowl_patch": "Under the lens, the mess-table bowl at the cross of STATION 3 has a square patch riveted over a crack: the same mending as the ninth bowl. There is soup in it, steaming.",
 	"no_subject": "RECORD BEARING prints an empty diagram, NO SUBJECT ON BEARING, until the lens has confirmed what the bearing is on. Every aperture has a bowl in it.",
 	"nora_bearing": "Nora Bell's bearing is not out at sea. It is inside the station: STATION 3, the bowl with the square patch.",
-	"upright": "After the bearing printed, the sea outside the glass stood up: a flat surface on end, carrying the rooms behind me, the office lamp a warm point in it. A slow line passed across the whole of it, like a lid opening. It has not closed.",
+	"upright": "After the bearing printed, the sea outside the glass stood up: a flat surface on end, carrying the rooms behind me, the office lamp a warm point in it. A slow line passed across the whole of it, like a lid opening. The rain has stopped where it was. It's waiting too. It has not closed.",
 	"glass": "Rain runs down outside the lantern glass, slower than rain should.",
 	"glass_dead": "The lantern glass doesn't ring when I tap it.",
 	"horizon": "A conventional horizon. For now.",
@@ -134,20 +142,26 @@ const OBJECTIVES := {
 	"p15": "Find Nora's bearing: mount her frame on the scope and record where she is.",
 	"done": "Her bearing is recorded: STATION 3. The records vault is open from the laboratory.",
 }
+## Four tiers per ladder: nudge, relationship, evidence (where to look, never the answer),
+## solution.
+const HINT_TIERS := 4
 const HINTS := {
 	"p15": [
 		"The lantern's scope takes the specimen frame.",
 		"The diagram says aim where the subject is, not where the water is. Look for something of hers.",
+		"Every aperture has a bowl in it. The kitchen's ninth bowl was mended with a square riveted patch, and only the lens shows a rim from up here.",
 		"Mount the frame, aim at STATION 3, check the square-patched bowl with the lens, then RECORD BEARING.",
 	],
 	"wait_p14": [
 		"The scope's clamp takes a specimen frame. The laboratory makes them.",
 		"Nora's frame is built on the laboratory bench.",
+		"Her work card by the kitchen range, her register card and the balance's strip are what the frame is made from.",
 		"Finish Nora's frame in the wet laboratory, then bring it up the stair.",
 	],
 	"done": [
 		"The gallery's bearing is recorded.",
 		"The laboratory's RECORDS door let go of its latch.",
+		"The bearing strip in my pocket is a record now: STATION 3, BELL, N. Records go through the RECORDS door.",
 		"Go down to the wet laboratory and through the RECORDS door.",
 	],
 }
@@ -173,6 +187,14 @@ func initial_state() -> Dictionary:
 
 func is_closeup(v := local_view) -> bool:
 	return v in CLOSEUPS
+
+## Every R09 ladder has HINT_TIERS lines (the evidence tier sits before the solution).
+func hint_tiers() -> int:
+	return HINT_TIERS
+
+## From P15 on, the rain on the glass hangs where it stopped (the view never moves it again).
+func rain_frozen() -> bool:
+	return state.p15_complete and not _sever()
 
 # ---------------------------------------------------------------------------------------------
 # read-only helpers for the view
@@ -278,7 +300,10 @@ func _reveal(ev: Array) -> void:
 	_observe("upright")
 	_fx(ev, "reveal_upright")
 	_sfx(ev, "deep_tone", 0.4)
-	_sfx(ev, "lid_pass", 7.0)
+	_fx(ev, "rain_freeze", {"delay": RAIN_FREEZE_AT})
+	_fx(ev, "lid_pass", {"delay": LID_PASS_AT})
+	_sfx(ev, "lid_pass", LID_PASS_AT)
+	_fx(ev, "hold_breath", {"seconds": HOLD_BREATH_SECONDS, "delay": HOLD_BREATH_AT})
 	for l in REVEAL_LINES:
 		_say(ev, l[1], l[0], true)
 
