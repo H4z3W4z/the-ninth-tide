@@ -195,12 +195,6 @@ def crackle(n: int, rnd: random.Random, rate: float, hiss: float = 0.05) -> list
     return [c + hiss * x for c, x in zip(out, h)]
 
 
-def bell(rnd: random.Random, length: float = 0.6, f: float = 2100, tau: float = 0.4 / 3) -> list[float]:
-    """A small session-mark bell: 2.1 kHz with two inharmonic partials, ~0.4 s to near silence."""
-    return click(rnd, length, 0.002, [(f, 1.0, tau), (f * 2.76, 0.25, tau * 0.4),
-                                       (f * 0.5, 0.12, tau * 0.6)], noise=0.08)
-
-
 def hum_tone(n: int, f: float, harmonics: list[float]) -> list[float]:
     return [sum(a * math.sin(TAU * f * (k + 1) * i / SR) for k, a in enumerate(harmonics))
             for i in range(n)]
@@ -885,13 +879,27 @@ def cadence(dur: float, rnd: random.Random, who: str, t0: float, t1: float) -> l
     return [x / p for x in v]
 
 
-def session(dur: float, rnd: random.Random, parts, bells, crackle_gain: float = 0.12) -> list[float]:
+# The session spool's film: a soft gate tick on every frame, FRAME_S apart from PLAY (tick n at
+# n * FRAME_S, frames 1 to 7). The sync bell is not on these takes: it is the separate one-shot
+# mix_bell, which the sim strikes once per enabled track on that track's frame
+# (R04Sim.FRAME_S / BELL_FRAME), so the slider moves Nora's bell and never Venn's.
+FRAME_S = 0.5
+FRAMES = 7
+
+
+def frame_tick(rnd: random.Random) -> list[float]:
+    return click(rnd, 0.035, 0.003, [(1700, 0.5, 0.005), (640, 0.4, 0.01)], noise=0.6, noise_lp=4500)
+
+
+def session(dur: float, rnd: random.Random, parts, crackle_gain: float = 0.12) -> list[float]:
     n = n_of(dur)
     out = [0.0] * n
     for part, g in parts:
         mix(out, part, 0.0, g)
-    for at in bells:
-        mix(out, bell(rnd), at, 0.55)
+    for k in range(1, FRAMES + 1):
+        tick = frame_tick(rnd)
+        tp = max(abs(x) for x in tick)
+        mix(out, tick, k * FRAME_S, 0.22 / tp)
     c = crackle(n, rnd, 45, 0.05)
     cp = max(abs(x) for x in c)
     return [x + crackle_gain * y / cp for x, y in zip(out, c)]
@@ -901,7 +909,7 @@ def mix_overlap() -> list[float]:
     rnd = seed(21)
     venn = cadence(4.0, rnd, "venn", 0.6, 3.3)
     nora = cadence(4.0, rnd, "nora", 0.95, 3.65)
-    return session(4.0, rnd, [(venn, 0.8), (nora, 0.75)], [0.5, 0.85])
+    return session(4.0, rnd, [(venn, 0.8), (nora, 0.75)])
 
 
 def mix_combined() -> list[float]:
@@ -920,21 +928,30 @@ def mix_combined() -> list[float]:
         joined.append((1 - u) * venn[i] / vp + u * nora[i] / np_)
     joined = bandlimit(joined, 300, 3000)
     p = max(abs(x) for x in joined)
-    return session(dur, rnd, [([x / p for x in joined], 0.85)], [0.2])
+    return session(dur, rnd, [([x / p for x in joined], 0.85)])
 
 
 def mix_venn() -> list[float]:
     rnd = seed(23)
-    return session(2.8, rnd, [(cadence(2.8, rnd, "venn", 0.4, 2.6), 0.85)], [0.2])
+    return session(4.0, rnd, [(cadence(4.0, rnd, "venn", 0.4, 2.6), 0.85)])
 
 
 def mix_nora() -> list[float]:
     rnd = seed(24)
-    v = cadence(2.8, rnd, "nora", 0.4, 2.6)
+    v = cadence(4.0, rnd, "nora", 0.4, 2.6)
     v = smear(v, rnd, 0.09, 8, 0.25)  # a tiny room bloom: she was somewhere with air
     v = bandlimit(v, 300, 3000)
     p = max(abs(x) for x in v)
-    return session(2.8, rnd, [([x / p for x in v], 0.85)], [0.2])
+    return session(4.0, rnd, [([x / p for x in v], 0.85)])
+
+
+def mix_bell() -> list[float]:
+    """The session's sync bell, heard only: one 1.2 kHz strike with two inharmonic partials,
+    a 6 ms attack (never a click) and about a second to near silence."""
+    rnd = seed(37)
+    f = 1200.0
+    return click(rnd, 1.1, SUDDEN_ATTACK, [(f, 1.0, 0.22), (f * 2.76, 0.3, 0.07), (f * 5.40, 0.1, 0.03),
+                                           (f * 0.5, 0.08, 0.12)], noise=0.04)
 
 
 def breath_c() -> list[float]:
@@ -1025,6 +1042,7 @@ def main() -> None:
         ("printer_chatter", printer_chatter), ("slider_step", slider_step),
         ("toggle_channel", toggle_channel), ("mix_overlap", mix_overlap),
         ("mix_combined", mix_combined), ("mix_venn", mix_venn), ("mix_nora", mix_nora),
+        ("mix_bell", mix_bell),
         ("breath_c", breath_c), ("switch_motor", switch_motor), ("key_channel", key_channel),
         ("witness_key", witness_key), ("reject_buzz", reject_buzz), ("relay_on", relay_on),
         ("relay_off", relay_off), ("venn_answer_where", venn_answer_where),
