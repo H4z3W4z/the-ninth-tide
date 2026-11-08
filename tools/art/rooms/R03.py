@@ -16,6 +16,9 @@ Writes, and only writes, assets/rooms/R03/*.png and assets/stages/R03/lighthouse
 
   stage       stages/R03/lighthouse_out_r3 104x232 RGBA: the lighthouse with its lamp out (from Tide II),
               drawn by the view at plate rect (287, 295, 26, 58), tower foot at (300, 350)
+              stages/R03/p21_body_overlay 1448x1086 RGBA: P21, the seated outline the registered
+              composite fills on the c_plan close-up (job "p21_body"), registered to the view's
+              PLAN_ROOMS / PLAN_CHAMBER (R03_view.gd); flat navy contour, matte sea-glass fill
 
 Flat front elevation, approved palette, navy ink contours (tapered: heavy on the shadow side)
 over matte two-tone colour, brass with a highlight stripe and a tarnish band, the office's
@@ -2464,6 +2467,74 @@ def paint_cu_plan_body():
     save(cv.down(), name, "RGBA")
 
 
+# ---------------------------------------------------------------- P21: the registered outline
+# Close-up plan coordinates; these mirror R03_view.gd's PLAN_ROOMS and PLAN_CHAMBER (R03_test
+# samples the PNG at the view's rects, so a drift fails the tests).
+P21_CROSSED = [(730, 175, 850, 230),      # lantern gallery
+               (720, 236, 860, 316),      # chart room
+               (550, 345, 735, 475),      # listening room
+               (748, 345, 928, 475)]      # wet laboratory
+P21_CHAMBER = (660, 535, 780, 645)        # the observation chamber: left hollow, the witness
+P21_OUTSIDE = [(500, 740, 700, 830), (760, 740, 960, 830)]   # office, vault: the name, underneath
+
+
+def p21_body_polys():
+    """A seated figure seen square on, hands on its knees, cut off below the knees."""
+    head = ellipse_pts(790, 250, 86, 98, 96)
+    neck = [(764, 330), (816, 330), (822, 372), (758, 372)]
+    torso = smooth_closed([(790, 362), (875, 364), (950, 382), (990, 410), (996, 450), (976, 520), (958, 590),
+                           (946, 650), (790, 664), (634, 650), (622, 590), (604, 520), (584, 450), (590, 410),
+                           (630, 382), (705, 364)], 8)
+    arm_l = smooth_closed([(586, 404), (600, 430), (584, 470), (574, 560), (596, 640), (640, 690), (626, 712),
+                           (578, 690), (546, 630), (532, 560), (540, 470), (560, 420)], 8)
+    arm_r = [(1580 - x, y) for (x, y) in arm_l]
+    lap = smooth_closed([(640, 640), (790, 652), (940, 640), (976, 676), (968, 716), (900, 730), (820, 722),
+                         (790, 712), (760, 722), (680, 730), (612, 716), (604, 676)], 8)
+    hand_l = ellipse_pts(660, 702, 32, 18, 40)
+    hand_r = ellipse_pts(920, 702, 32, 18, 40)
+    return [head, neck, torso, arm_l, arm_r, lap, hand_l, hand_r]
+
+
+def paint_p21_body():
+    name = "p21_body_overlay"
+    tw, th = W * SS, H * SS
+    S = lambda pts: [(x * SS, y * SS) for x, y in pts]
+    body = Image.new("L", (tw, th), 0)
+    d = ImageDraw.Draw(body)
+    for poly in p21_body_polys():
+        d.polygon(S(poly), fill=255)
+    # The chamber stays hollow: the witness is not part of the body it watches.
+    cx0, cy0, cx1, cy1 = P21_CHAMBER
+    d.rectangle([(cx0 - 4) * SS, (cy0 - 4) * SS, (cx1 + 4) * SS, (cy1 + 4) * SS], fill=0)
+    for (x0, y0, x1, y1) in P21_OUTSIDE:
+        d.rectangle([(x0 - 6) * SS, (y0 - 6) * SS, (x1 + 6) * SS, (y1 + 6) * SS], fill=0)
+    rooms = Image.new("L", (tw, th), 0)
+    d = ImageDraw.Draw(rooms)
+    for (x0, y0, x1, y1) in P21_CROSSED:
+        d.rectangle([x0 * SS, y0 * SS, x1 * SS, y1 * SS], fill=255)
+    rooms = ImageChops.multiply(rooms, body)
+    im = Image.new("RGBA", (tw, th), (0, 0, 0, 0))
+    # matte sea-glass: the whole figure, then the rooms the line crossed a step deeper
+    fill = Image.new("RGBA", (tw, th), rgba((150, 190, 174), 255))
+    fill.putalpha(body.point([int(v * 0.66) for v in range(256)]))
+    im.alpha_composite(fill)
+    deep = Image.new("RGBA", (tw, th), rgba((112, 160, 146), 255))
+    deep.putalpha(rooms.point([int(v * 0.62) for v in range(256)]))
+    im.alpha_composite(deep)
+    # flat navy contour, one weight all round (no taper), plus the hollow's edge
+    b = body.filter(ImageFilter.GaussianBlur(3.2 * SS))
+    edge = ImageChops.subtract(b.point([255 if v > 26 else int(v * 255 / 26) for v in range(256)]),
+                               b.point([255 if v > 229 else 0 for v in range(256)]))
+    ink = Image.new("RGBA", (tw, th), rgba(INK, 255))
+    ink.putalpha(edge)
+    im.alpha_composite(ink)
+    img = im.convert("RGBa").resize((W, H), Image.LANCZOS).convert("RGBA")
+    img = grain(img, rng_for(name + ":grain"), 6)
+    os.makedirs(STAGE_OUT, exist_ok=True)
+    img.save(os.path.join(STAGE_OUT, name + ".png"), optimize=False, compress_level=9)
+    print("  wrote stages/R03/" + name, img.size, "RGBA")
+
+
 # ---------------------------------------------------------------- sprites
 def paint_sheet_paper():
     name = "sheet_paper"
@@ -2564,7 +2635,7 @@ JOBS = {
     "cu_rec_brown": paint_cu_rec_brown, "cu_plan": paint_cu_plan, "cu_plan_lid": paint_cu_plan_lid,
     "cu_plan_body": paint_cu_plan_body,
     "sheet_paper": paint_sheet_paper, "sheet_tracing": paint_sheet_tracing, "plate_blank": paint_plate_blank,
-    "tile_blank": paint_tile_blank, "lighthouse_out": paint_lighthouse_out,
+    "tile_blank": paint_tile_blank, "lighthouse_out": paint_lighthouse_out, "p21_body": paint_p21_body,
 }
 
 

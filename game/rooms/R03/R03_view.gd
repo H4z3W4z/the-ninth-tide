@@ -151,35 +151,52 @@ const REC_SHUTTER := Rect2(884, 470, 500, 470)
 const PLATE_WORDS := {"boundary": "BOUNDARY", "relation": "RELATION", "observer": "OBSERVER"}
 const TYPE_CPS := 14.0
 
-# --- c_plan --------------------------------------------------------------------------
+# --- c_plan ----------------------------------------------------------------------------
+## P21: the plan is drawn with north to the right. His composite, laid over it, turned one
+## quarter clockwise and pinned by his lighthouse cross on PLAN_LH, runs its curve down through
+## the lantern gallery, the chart room, the listening room and the laboratory; its hollow circle
+## falls in the chamber. tools/art/rooms/R03.py (P21_CROSSED, P21_CHAMBER) paints the outline
+## over these same rects.
 const PLAN_PAPER := Rect2(220, 100, 1000, 800)
 const PLAN_ROOMS := [
-	["LANTERN GALLERY", Rect2(650, 150, 140, 60)],
-	["CHART ROOM", Rect2(640, 220, 160, 90)],
-	["LISTENING ROOM", Rect2(520, 350, 180, 120)],
-	["WET LABORATORY", Rect2(740, 350, 180, 120)],
-	["MACHINE ROOM", Rect2(740, 480, 180, 60)],
-	["INTAKE OFFICE", Rect2(480, 720, 200, 110)],
-	["RECORDS VAULT", Rect2(760, 720, 200, 110)],
-	["JETTY", Rect2(1000, 760, 180, 40)],
+	["LANTERN GALLERY", Rect2(730, 175, 120, 55)],
+	["CHART ROOM", Rect2(720, 236, 140, 80)],
+	["LISTENING ROOM", Rect2(550, 345, 185, 130)],
+	["WET LABORATORY", Rect2(748, 345, 180, 130)],
+	["MACHINE ROOM", Rect2(1040, 400, 150, 60)],
+	["INTAKE OFFICE", Rect2(500, 740, 200, 90)],
+	["RECORDS VAULT", Rect2(760, 740, 200, 90)],
+	["JETTY", Rect2(1000, 800, 180, 40)],
 	["KITCHEN & MESS", Rect2(270, 360, 170, 90)],
 	["BUNK ROOM", Rect2(270, 480, 170, 90)],
 ]
-const PLAN_CHAMBER := Rect2(660, 570, 120, 110)
+## The rooms the registered curve crosses (by PLAN_ROOMS name), and the two it leaves outside.
+const PLAN_CROSSED := ["LANTERN GALLERY", "CHART ROOM", "LISTENING ROOM", "WET LABORATORY"]
+const PLAN_OUTSIDE := ["INTAKE OFFICE", "RECORDS VAULT"]
+const PLAN_CHAMBER := Rect2(660, 535, 120, 110)
+## Where the WITNESS pin can be offered (R03Sim.ZONES).
 const PLAN_ZONES := {
-	"chart": Rect2(620, 140, 200, 180), "lab": Rect2(500, 340, 440, 210),
-	"centre": Rect2(640, 560, 160, 130), "office": Rect2(460, 710, 520, 130),
+	"chart": Rect2(710, 165, 160, 160), "lab": Rect2(540, 335, 398, 150),
+	"centre": Rect2(650, 525, 140, 130), "office": Rect2(490, 730, 480, 110),
 }
 const PLAN_MARGINS := [["plan_margin_kitchen", Rect2(270, 360, 170, 90)], ["plan_margin_bunks", Rect2(270, 480, 170, 90)]]
-const PLAN_HOMES := {
-	"body": Rect2(1250, 200, 170, 84), "place": Rect2(1250, 300, 170, 84),
-	"name": Rect2(1250, 400, 170, 84), "witness": Rect2(1250, 500, 170, 84),
-}
-const PLAN_FIX := Rect2(1260, 760, 150, 110)
-## Where a misplaced tile's reference card sits, beside its zone.
-const PLAN_CARD_AT := {
-	"chart": Vector2(830, 236), "lab": Vector2(948, 402), "centre": Vector2(810, 600), "office": Vector2(980, 820),
-}
+## The plan's own lighthouse cross, printed beside the lantern gallery, and its north arrow.
+const PLAN_LH := Vector2(870, 290)
+const PLAN_NORTH_AT := Vector2(1060, 200)
+## Where his composite's centre lies before it is pinned.
+const PLAN_LOOSE := Vector2(764, 474)
+const PLAN_BODY_FILE := "res://assets/stages/R03/p21_body_overlay.png"
+## The right-hand contraption: tray slots under the lid, register pins below, the clip plate.
+const PLAN_CONTROLS := [
+	["plan_lay", Rect2(1250, 200, 170, 84), "His chart"],
+	["plan_rotate_ccw", Rect2(1250, 300, 83, 84), "Turn left"],
+	["plan_rotate_cw", Rect2(1337, 300, 83, 84), "Turn right"],
+	["plan_pin", Rect2(1250, 400, 170, 84), "WITNESS pin"],
+	["plan_snap_lighthouse", Rect2(1240, 618, 190, 44), "His LIGHTHOUSE"],
+	["plan_snap_buoy", Rect2(1240, 664, 190, 44), "His BUOY"],
+	["plan_snap_datum", Rect2(1240, 710, 190, 44), "His DATUM STONE"],
+	["plan_clip", Rect2(1260, 760, 150, 110), "CLIP"],
+]
 const PLAN_MARGIN_TEXT := "Three frames. One witness. The copy port left bare."
 const NAME_CPS := 6.0
 
@@ -219,6 +236,7 @@ var lamp_light: PointLight2D
 var hatch_light: PointLight2D
 var close: Node2D
 var reg_sheets: Control
+var plan_sheets: Control
 var close_top: Node2D
 var mixer: LoopMixer
 
@@ -228,8 +246,10 @@ var hold_id := ""          # the notice being held
 var hold_t := -1.0         # seconds into the hold; < 0 while waiting for the tide card
 var drum_t := 0.0          # seconds the drum has scrolled
 var comp_k := 1.0          # 0..1 the composite curve's fade
-var plan_k := 1.0          # 0..1 the plan body's fade
+var plan_k := 1.0          # 0..1 the margin procedure's fade (P21 solved)
 var plan_fading := false
+var body_k := 1.0          # 0..1 the registered outline's fade
+var body_fading := false
 var strip_live := false    # the strip is being printed this visit
 var strip_cue := 0         # 1 strip_print, 2 strip_print_last, 3 the second relay clack
 var strip_chars := 0.0     # characters typed across the strip's lines
@@ -262,6 +282,10 @@ func _load_textures() -> void:
 			var t := load(path) as Texture2D
 			if t:
 				textures[n] = t
+	if ResourceLoader.exists(PLAN_BODY_FILE):
+		var bt := load(PLAN_BODY_FILE) as Texture2D
+		if bt:
+			textures["p21_body_overlay"] = bt
 	if ResourceLoader.exists(LIGHTHOUSE_OUT_FILE):
 		var lt := load(LIGHTHOUSE_OUT_FILE) as Texture2D
 		if lt:
@@ -320,6 +344,14 @@ func _build_nodes() -> void:
 	reg_sheets.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	close.add_child(reg_sheets)
 	reg_sheets.draw.connect(_draw_reg_sheets)
+	# The plan paper clips his composite the same way.
+	plan_sheets = Control.new()
+	plan_sheets.position = PLAN_PAPER.position
+	plan_sheets.size = PLAN_PAPER.size
+	plan_sheets.clip_contents = true
+	plan_sheets.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	close.add_child(plan_sheets)
+	plan_sheets.draw.connect(_draw_plan_sheet)
 	close_top = Node2D.new()
 	close.add_child(close_top)
 	close_top.draw.connect(_draw_close_top)
@@ -385,6 +417,8 @@ func tick(dt: float) -> void:
 		comp_k = minf(1.0, comp_k + dt / 0.8) if motion else 1.0
 	if plan_fading and plan_k < 1.0 and motion:
 		plan_k = minf(1.0, plan_k + dt / 4.0)
+	if body_fading and body_k < 1.0 and motion:
+		body_k = minf(1.0, body_k + dt / 3.0)
 	_tick_typing(dt)
 	_tick_audio(dt)
 	queue_redraw()
@@ -393,6 +427,7 @@ func tick(dt: float) -> void:
 func _redraw_close() -> void:
 	close.queue_redraw()
 	reg_sheets.queue_redraw()
+	plan_sheets.queue_redraw()
 	close_top.queue_redraw()
 
 func _window_energy(band: int) -> float:
@@ -551,6 +586,8 @@ func apply_instantly() -> void:
 	comp_k = 1.0
 	plan_k = 1.0
 	plan_fading = false
+	body_k = 1.0
+	body_fading = false
 	strip_live = false
 	strip_cue = 3
 	name_live = false
@@ -568,6 +605,8 @@ func reset_presentation() -> void:
 	comp_k = 1.0
 	plan_k = 1.0
 	plan_fading = false
+	body_k = 1.0
+	body_fading = false
 	strip_live = false
 	strip_cue = 3
 	strip_chars = 0.0
@@ -591,9 +630,13 @@ func play_fx(id: String, e: Dictionary) -> void:
 			strip_live = true
 			strip_cue = 0
 			strip_chars = 0.0
+		"plan_register":
+			# Motion on: the outline fills in over 3 s; off, it is simply there on its cue.
+			body_fading = true
+			body_k = 0.0
 		"plan_resolve":
 			plan_fading = true
-			plan_k = 0.0
+			plan_k = 0.0 if motion else 1.0
 			name_live = true
 			name_chars = -1.0
 	queue_redraw()
@@ -611,8 +654,8 @@ func on_sfx(id: String) -> void:
 			if strip_live and strip_cue >= 2:
 				strip_cue = 3
 		"plan_resolve":
-			if plan_fading and not motion:
-				plan_k = 1.0   # still: plain, then resolved on the cue
+			if body_fading and not motion:
+				body_k = 1.0   # still: plain, then filled on the cue
 		"name_print":
 			if name_live:
 				name_chars = 0.0 if motion else 99.0
@@ -712,9 +755,8 @@ func dev_rects() -> Array:
 		"c_plan":
 			for z in PLAN_ZONES:
 				out.append(PLAN_ZONES[z])
-			for t in PLAN_HOMES:
-				out.append(PLAN_HOMES[t])
-			out.append(PLAN_FIX)
+			for c0 in PLAN_CONTROLS:
+				out.append(c0[1])
 	return out
 
 func _reg_action(p: Vector2) -> String:
@@ -759,29 +801,25 @@ func _rec_action(p: Vector2) -> String:
 		return "rec_seal"
 	return ""
 
-## The rect a placed tile is drawn at: centred in its zone, 150x70 in the centre zone.
-func tile_rect(zone: String) -> Rect2:
-	var z: Rect2 = PLAN_ZONES[zone]
-	var size := Vector2(150, 70) if zone == "centre" else Vector2(170, 84)
-	return Rect2(z.get_center() - size / 2.0, size)
-
 func _plan_action(p: Vector2) -> String:
 	var ps := r3.plan_state()
-	for t in R03Sim.TILES:
-		var z: String = ps.tiles[t]
-		if z != "" and tile_rect(z).has_point(p):
-			return "plan_tile_" + t
-	for t in R03Sim.TILES:
-		if PLAN_HOMES[t].has_point(p) and (t in ps.tray or ps.held == t):
-			return "plan_tile_" + t
+	for c0 in PLAN_CONTROLS:
+		if c0[1].has_point(p):
+			if c0[0] == "plan_lay" and ps.laid and not ps.registered:
+				return "plan_lift"
+			return c0[0]
+	if ps.laid and not ps.registered:
+		var xf := plan_xform()
+		for k in CROSSES:
+			var at: Vector2 = xf * CROSSES[k]
+			if PLAN_PAPER.has_point(at) and at.distance_to(p) <= 34.0:
+				return "plan_snap_" + k
 	for z in PLAN_ZONES:
 		if PLAN_ZONES[z].has_point(p):
 			return "plan_zone_" + z
 	for m in PLAN_MARGINS:
 		if m[1].has_point(p):
 			return m[0]
-	if PLAN_FIX.has_point(p):
-		return "plan_fix"
 	return ""
 
 # ---------------------------------------------------------------------------
@@ -1330,8 +1368,12 @@ func _draw_reg_sheets() -> void:
 		_draw_registration(reg_sheets, -REG_TABLE.position)
 
 func _draw_close_top() -> void:
-	if r3 != null and r3.local_view == "c_registration":
+	if r3 == null:
+		return
+	if r3.local_view == "c_registration":
 		_draw_reg_controls(close_top)
+	elif r3.local_view == "c_plan":
+		_draw_plan_controls(close_top)
 
 func _bg(cv: CanvasItem, id: String, fallback: Color) -> void:
 	var t := _tex(id)
@@ -1734,20 +1776,19 @@ func _draw_plan(cv: Node2D) -> void:
 	var nf := narrow()
 	var ink := Ink.INK
 	_bg(cv, "cu_plan", Color("1e2a36"))
-	var t := _tex("cu_plan")
-	if t == null:
+	if _tex("cu_plan") == null:
 		cv.draw_rect(PLAN_PAPER, Ink.PAPER)
-	# The body lies under the drafting once the plan resolves: the rooms are drawn over it.
-	if ps.complete:
-		var body := _tex("cu_plan_body")
+	# Registered, the rooms the line crosses fill with the outline; the drafting stays on top.
+	if ps.registered:
+		var body := _tex("p21_body_overlay")
 		if body:
-			cv.draw_texture(body, Vector2.ZERO, Color(1, 1, 1, plan_k))
+			cv.draw_texture(body, Vector2.ZERO, Color(1, 1, 1, body_k))
 	Ink.text(cv, "GREYWAKE SURVEY STATION · GENERAL PLAN · 1889 · REVISED E.V. 1927", Vector2(220, 134), 20, ink,
 		Ink.serif(), 1000)
 	for rm in PLAN_ROOMS:
 		var r: Rect2 = rm[1]
 		cv.draw_rect(r, ink, false, 2.5)
-		if ps.complete:
+		if ps.registered:
 			_knockout(cv, rm[0], r.position + Vector2(8, 22), 16, r.size.x - 12, nf)
 		Ink.wrapped(cv, rm[0], r.position + Vector2(8, 22), 16, ink, r.size.x - 12, true, nf)
 	# The observation chamber: outline only, printed WITNESS.
@@ -1764,60 +1805,185 @@ func _draw_plan(cv: Node2D) -> void:
 	cv.draw_set_transform(Vector2(230, 600), -PI / 2.0, Vector2.ONE)
 	cv.draw_string(nf, Vector2(0, 0), "BOUNDARY", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, ink)
 	cv.draw_set_transform_matrix(Transform2D.IDENTITY)
-	# The dry stair with its landings.
-	var y := 310.0
-	while y < 570.0:
-		cv.draw_line(Vector2(720, y), Vector2(720, minf(y + 12, 570)), ink, 2.5)
+	# The dry stair between the listening room and the laboratory, with its landings.
+	var y := 316.0
+	while y < 535.0:
+		cv.draw_line(Vector2(741, y), Vector2(741, minf(y + 12, 535)), ink, 2.5)
 		y += 20.0
-	Ink.text(cv, "[ 1", Vector2(736, 336), 18, ink, nf, 60, HORIZONTAL_ALIGNMENT_LEFT)
-	Ink.text(cv, "] 1", Vector2(736, 554), 18, ink, nf, 60, HORIZONTAL_ALIGNMENT_LEFT)
-	Ink.text(cv, "[ 2", Vector2(736, 696), 18, ink, nf, 60, HORIZONTAL_ALIGNMENT_LEFT)
+	Ink.text(cv, "[ 1", Vector2(746, 338), 18, ink, nf, 60, HORIZONTAL_ALIGNMENT_LEFT)
+	Ink.text(cv, "] 1", Vector2(746, 524), 18, ink, nf, 60, HORIZONTAL_ALIGNMENT_LEFT)
+	Ink.text(cv, "[ 2", Vector2(792, 700), 18, ink, nf, 60, HORIZONTAL_ALIGNMENT_LEFT)
+	# The plan's own registration: the lighthouse cross beside the lantern gallery, north to the right.
+	_cross(cv, PLAN_LH, 11.0, ink, 3.0)
+	Ink.text(cv, "LIGHTHOUSE", PLAN_LH + Vector2(18, -14), 16, ink, nf, 140, HORIZONTAL_ALIGNMENT_LEFT)
+	_north_right(cv, PLAN_NORTH_AT, 90.0, ink, 22)
 	if ps.complete:
-		Ink.wrapped(cv, PLAN_MARGIN_TEXT, Vector2(262, 620), 18, Ink.BLUE_INK, 190, true, Ink.hand())
-	# Placed tiles, centred in their zones.
-	var tt := _tex("tile_blank")
-	for tile in R03Sim.TILES:
-		var z: String = ps.tiles[tile]
-		if z != "":
-			_tile(cv, tt, tile_rect(z), tile)
-	# Reference cards beside the misplaced ones.
-	if not ps.complete:
-		for tile in ps.misplaced:
-			var z: String = ps.tiles[tile]
-			if z != "":
-				_ref_card(cv, PLAN_CARD_AT[z], "%s: %s" % [String(tile).to_upper(), R03Sim.TILE_REFS[tile]])
-	# The tray.
-	for tile in ps.tray:
-		_tile(cv, tt, PLAN_HOMES[tile], tile)
-	if not ps.unlocked:
-		_over(cv, "cu_plan_lid")
-	# ADA MERCER in the witness frame, under the word.
-	if ps.complete and ps.tiles.witness == "centre":
+		Ink.wrapped(cv, PLAN_MARGIN_TEXT, Vector2(262, 620), 18, Color(Ink.BLUE_INK, plan_k), 190, true, Ink.hand())
+		# ADA MERCER under the chamber, on a paper knockout: the name never overprints WITNESS.
 		var full := "ADA MERCER"
 		var n := full.length()
 		if name_live:
 			n = 0 if name_chars < 0.0 else clampi(int(name_chars), 0, full.length())
-		var zr: Rect2 = tile_rect("centre")
 		var fw := nf.get_string_size(full, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
 		if n > 0:
-			# Below the tile, on a paper knockout: the name never overprints WITNESS.
-			var at := Vector2(zr.get_center().x - fw / 2.0, zr.end.y + 40)
-			cv.draw_rect(Rect2(at + Vector2(-8, -22), Vector2(fw + 16, 30)), Color("ded4ba"))
+			var at := Vector2(PLAN_CHAMBER.get_center().x - fw / 2.0, PLAN_CHAMBER.end.y + 32)
+			var tag := Rect2(at + Vector2(-8, -22), Vector2(fw + 16, 30))
+			cv.draw_rect(tag, Color("ded4ba"))
+			cv.draw_rect(tag, ink, false, 1.5)
 			cv.draw_string(nf, at, full.substr(0, n), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, ink)
-	Ink.text(cv, "FIX", Vector2(PLAN_FIX.position.x, PLAN_FIX.position.y + 100), 20, ink, nf, PLAN_FIX.size.x)
-	if r3.held_tile != "":
-		var m := cv.get_global_mouse_position() + Vector2(18, 18)
-		_tile(cv, tt, Rect2(m, Vector2(170, 84)), r3.held_tile)
 
-func _tile(cv: CanvasItem, tt: Texture2D, r: Rect2, tile: String) -> void:
-	if tt:
-		cv.draw_texture_rect(tt, r, false)
+## A north arrow lying on its side: the plan's north is to the right.
+func _north_right(cv: CanvasItem, base: Vector2, length: float, col: Color, size: int) -> void:
+	var tip := base + Vector2(length, 0)
+	cv.draw_line(base, tip, col, 3.0)
+	cv.draw_colored_polygon(PackedVector2Array([tip, tip + Vector2(-16, -8), tip + Vector2(-16, 8)]), col)
+	Ink.text(cv, "N", tip + Vector2(8, 8), size, col, Ink.serif(), 40, HORIZONTAL_ALIGNMENT_LEFT)
+
+## His composite on the plan, sheet-local (600x560) -> close-up: turned plan_rot quarter turns
+## clockwise about its centre, then pinned by plan_snap on the plan's lighthouse cross (or loose).
+func plan_xform() -> Transform2D:
+	var st: Dictionary = r3.state
+	var rot := float(int(st.plan_rot)) * PI / 2.0
+	var r := Transform2D(rot, Vector2.ZERO)
+	var anchor := PLAN_LOOSE
+	var snap: String = st.plan_snap
+	if snap != "" and CROSSES.has(snap):
+		anchor = PLAN_LH - r * (CROSSES[snap] - VENN_CENTRE)
+	return Transform2D(rot, anchor) * Transform2D(0.0, -VENN_CENTRE)
+
+## The composite curve where it lies on the plan now: sheet points -> close-up.
+func plan_curve_points() -> PackedVector2Array:
+	var xf := plan_xform()
+	var out := PackedVector2Array()
+	for p in CURVE_17 + VENN_BRACKET.slice(1) + VENN_LINKED + [VENN_LOOP_C] + VENN_EXIT:
+		out.append(xf * p)
+	return out
+
+func _plan_map(p: Vector2) -> Vector2:
+	return p
+
+## His composite, laid on the plan (drawn into the clipping node). Registered, the tracing goes
+## clear and the line stays.
+func _draw_plan_sheet() -> void:
+	if r3 == null or r3.local_view != "c_plan" or not r3.state.plan_laid:
+		return
+	var cv := plan_sheets
+	var ps := r3.plan_state()
+	var nf := narrow()
+	var clear := body_k if ps.registered else 0.0
+	var xf := Transform2D(0.0, -PLAN_PAPER.position) * plan_xform()
+	cv.draw_set_transform_matrix(xf)
+	var tr := _tex("sheet_tracing")
+	var paper_a := 1.0 - 0.88 * clear
+	if tr:
+		cv.draw_texture(tr, Vector2.ZERO, Color(1, 1, 1, paper_a))
 	else:
-		cv.draw_rect(r, Ink.PAPER)
-		cv.draw_rect(r, Ink.INK, false, 2.0)
-	var size := 24 if r.size.x >= 160 else 22
-	var y := r.get_center().y + size * 0.36
-	Ink.text(cv, tile.to_upper(), Vector2(r.position.x, y), size, Ink.INK, Ink.serif(), r.size.x)
+		cv.draw_rect(Rect2(0, 0, 600, 560), Color(0.95, 0.95, 0.9, 0.55 * paper_a))
+	cv.draw_rect(Rect2(0, 0, 600, 560), Color(VENN_INK, 0.6 * paper_a), false, 2.0)
+	var marks := Color(VENN_INK, 1.0 - 0.75 * clear)
+	Ink.text(cv, "COMPOSITE · 17 OCT 1931 · E.V.", Vector2(0, 520), 18, marks, nf, 600)
+	_sheet_marks(cv, marks)
+	_composite_curve(cv, Callable(self, "_plan_map"), VENN_INK, 5.0, 1.0)
+	cv.draw_set_transform_matrix(Transform2D.IDENTITY)
+	if not ps.registered:
+		# A brass collar round each of his crosses: press one to pin his chart by it.
+		for k in CROSSES:
+			var at: Vector2 = xf * CROSSES[k]
+			cv.draw_arc(at, 20.0, 0, TAU, 28, Color(Ink.INK, 0.8), 5.0)
+			cv.draw_arc(at, 20.0, 0, TAU, 28, Color("d9b876"), 2.6)
+
+## The plan's contraption, over the painted tray and plate: his chart's slot, two knobs, the
+## WITNESS pin's slot under the lid, three register pins and the clip.
+func _draw_plan_controls(cv: Node2D) -> void:
+	var ps := r3.plan_state()
+	var nf := narrow()
+	# His chart's slot.
+	var cr: Rect2 = PLAN_CONTROLS[0][1]
+	if ps.laid:
+		_dashed_rect(cv, cr.grow(-10), Color(Ink.PAPER, 0.7), 2.0, 9.0)
+		Ink.text(cv, "on the plan" if ps.registered else "lift his chart", cr.position + Vector2(0, 52), 20,
+			Color(Ink.PAPER, 0.85), Ink.hand(), cr.size.x)
+	elif ps.composite:
+		var sh := Rect2(cr.position + Vector2(22, 12), Vector2(126, 60))
+		cv.draw_rect(Rect2(sh.position + Vector2(3, 4), sh.size), Color(0, 0, 0, 0.35))
+		cv.draw_rect(sh, Color(0.93, 0.93, 0.88))
+		cv.draw_rect(sh, VENN_INK, false, 1.5)
+		cv.draw_polyline(PackedVector2Array([sh.position + Vector2(10, 22), sh.position + Vector2(48, 30),
+			sh.position + Vector2(62, 44), sh.position + Vector2(84, 40), sh.position + Vector2(116, 46)]),
+			VENN_INK, 2.5, true)
+		Ink.text(cv, "HIS CHART", Vector2(cr.position.x, cr.end.y - 4), 15, Ink.PAPER, nf, cr.size.x)
+	else:
+		_dashed_rect(cv, cr.grow(-10), Color(Ink.PAPER, 0.5), 2.0, 9.0)
+	# Two knobs: each turns his chart a quarter; the pointer shows where his north points.
+	var dim: bool = not ps.laid or ps.registered
+	for i in 2:
+		var r: Rect2 = PLAN_CONTROLS[1 + i][1]
+		var c0 := r.get_center() + Vector2(0, -8)
+		var col := Color(Ink.PAPER, 0.45 if dim else 0.95)
+		cv.draw_circle(c0, 20.0, Color(Ink.BRASS, 0.5 if dim else 1.0))
+		cv.draw_arc(c0, 20.0, 0, TAU, 28, Ink.INK, 2.0)
+		var ang := float(int(ps.rot)) * PI / 2.0 - PI / 2.0
+		cv.draw_line(c0, c0 + Vector2(cos(ang), sin(ang)) * 16.0, Ink.INK, 4.0)
+		var cw := i == 1
+		var a0 := PI * 0.85 if not cw else PI * 0.15
+		var a1 := PI * 0.6 if not cw else PI * 0.4
+		var arc := PackedVector2Array()
+		for k in 9:
+			var t := lerpf(a0, a1, float(k) / 8.0)
+			arc.append(c0 + Vector2(cos(t), -sin(t)) * 30.0)
+		cv.draw_polyline(arc, col, 3.0, true)
+		var tip: Vector2 = arc[arc.size() - 1]
+		var dirv: Vector2 = (tip - arc[arc.size() - 2]).normalized()
+		var nrm := Vector2(-dirv.y, dirv.x)
+		cv.draw_colored_polygon(PackedVector2Array([tip + dirv * 9.0, tip + nrm * 6.0, tip - nrm * 6.0]), col)
+		Ink.text(cv, "RIGHT" if cw else "LEFT", Vector2(r.position.x, r.end.y - 4), 15, col, nf, r.size.x)
+	# The WITNESS pin in its slot (gone while in the hand, or once it is in the plan).
+	var pr: Rect2 = PLAN_CONTROLS[3][1]
+	if not ps.held_pin and not ps.complete:
+		_witness_pin(cv, pr.get_center() + Vector2(-50, -8), 1.0)
+		Ink.text(cv, "WITNESS", Vector2(pr.position.x + 58, pr.get_center().y + 7), 19, Ink.PAPER, nf, 106,
+			HORIZONTAL_ALIGNMENT_LEFT)
+	else:
+		_dashed_rect(cv, pr.grow(-10), Color(Ink.PAPER, 0.5), 2.0, 9.0)
+	# Three register pins: raised until one is pressed home.
+	Ink.text(cv, "Pin his cross to the plan's lighthouse:", Vector2(1238, 612), 14, Ink.PAPER, nf, 196,
+		HORIZONTAL_ALIGNMENT_LEFT)
+	for i in 3:
+		var r: Rect2 = PLAN_CONTROLS[4 + i][1]
+		var k: String = ["lighthouse", "buoy", "datum"][i]
+		var pin := Vector2(r.position.x + 22, r.get_center().y)
+		var a := 0.5 if dim else 1.0
+		if ps.snap == k:
+			cv.draw_circle(pin, 11.0, Color(Ink.BRASS.darkened(0.25), a))
+			cv.draw_arc(pin, 11.0, 0, TAU, 24, Ink.INK, 2.0)
+			cv.draw_circle(pin, 3.5, Ink.INK)
+		else:
+			cv.draw_circle(pin + Vector2(3, 4), 14.0, Color(0, 0, 0, 0.35 * a))
+			cv.draw_circle(pin, 14.0, Color(Color("d9b876"), a))
+			cv.draw_arc(pin, 14.0, 0, TAU, 28, Color(Ink.INK, a), 2.0)
+		_cross(cv, Vector2(r.position.x + 56, r.get_center().y), 8.0, Color(Color("cfd8e8"), a), 2.0)
+		Ink.text(cv, String(CROSS_LABELS[k]), Vector2(r.position.x + 72, r.get_center().y + 7), 17,
+			Color(Ink.PAPER, a), nf, r.size.x - 76, HORIZONTAL_ALIGNMENT_LEFT)
+	# The clip, on the brass plate.
+	var clr: Rect2 = PLAN_CONTROLS[7][1]
+	if ps.registered:
+		_bulldog(cv, clr.get_center() + Vector2(0, 6), 0.9, true)
+	Ink.text(cv, "CLIP", Vector2(clr.position.x, clr.end.y - 8), 20, Ink.INK, nf, clr.size.x)
+	if not ps.unlocked:
+		_over(cv, "cu_plan_lid")
+	# The WITNESS pin: in the chamber once placed, or in the hand (it follows the pointer).
+	if ps.complete:
+		_witness_pin(cv, PLAN_CHAMBER.get_center() + Vector2(0, -16), 1.1)
+	elif ps.held_pin:
+		_witness_pin(cv, cv.get_global_mouse_position() + Vector2(14, 14), 1.1)
+
+## A brass map pin: a round head and its shank, the point 30 px * s below `at`.
+func _witness_pin(cv: CanvasItem, at: Vector2, s: float) -> void:
+	cv.draw_line(at + Vector2(0, 8) * s, at + Vector2(0, 30) * s, Ink.INK, 3.0 * s)
+	cv.draw_circle(at + Vector2(3, 4) * s, 14.0 * s, Color(0, 0, 0, 0.35))
+	cv.draw_circle(at, 14.0 * s, Color("c49a52"))
+	cv.draw_arc(at, 14.0 * s, 0, TAU, 28, Ink.INK, 2.4 * s)
+	cv.draw_circle(at + Vector2(-4, -5) * s, 4.0 * s, Color("ecd29a"))
 
 ## A paper knockout behind a label's words, so a stroke under it stops at the letters.
 func _knockout(cv: CanvasItem, s: String, pos: Vector2, size: int, width: float, font: Font) -> void:
@@ -1837,16 +2003,6 @@ func _knockout(cv: CanvasItem, s: String, pos: Vector2, size: int, width: float,
 		var w := font.get_string_size(r, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 		cv.draw_rect(Rect2(pos.x - 3, y - size + 1, w + 6, size + 5), Color("ded4ba"))
 		y += size * 1.45
-
-func _ref_card(cv: CanvasItem, at: Vector2, s: String) -> void:
-	var nf := narrow()
-	var w := nf.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x + 24
-	var r := Rect2(at, Vector2(w, 40))
-	if r.end.x > 1236:
-		r.position.x = 1236 - w
-	cv.draw_rect(r, Color(0.97, 0.94, 0.86))
-	cv.draw_rect(r, Ink.INK, false, 2.0)
-	Ink.text(cv, s, Vector2(r.position.x + 12, r.position.y + 27), 18, Ink.INK, nf, w, HORIZONTAL_ALIGNMENT_LEFT)
 
 func _dashed_rect(cv: CanvasItem, r: Rect2, col: Color, w: float, dash: float) -> void:
 	var corners := [r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y), r.position]
