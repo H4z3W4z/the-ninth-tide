@@ -107,6 +107,10 @@ const ANSWERS := {
 		"VENN: Physically. Here. A witness, not a signature. Three days I have stood where you are standing. There is less of me each tide."],
 }
 const ANSWER_DELAYS := [0.0, 2.2, 6.0]
+## After P19, funnel 5 faces her: "It's dark all the way down." lands this long after the click,
+## and the room holds its breath (every bed drops out) for HOLE_HOLD seconds from that line.
+const HOLE_DELAY := 1.4
+const HOLE_HOLD := 2.0
 const TAPE_MOTOR := "LIVE PLAYBACK NOT ISOLATED."
 const TAPE_A := "CHANNEL A LIVE."
 const TAPE_B := "CHANNEL B LIVE."
@@ -171,6 +175,7 @@ const HINTS := {
 	"p02": [
 		"The Listening Room. Something on the spindle needs putting back together.",
 		"One band starts, one ends, and the seam has to run unbroken from the start end. The transcript card says which day.",
+		"The notebook has it: the card says 17 OCT and D's rim says 14 OCT, so D is the wrong day. C has the START notch, B the END notch, and A's seam runs off both edges, so A goes between.",
 		"Place C, then A, then B from the start end. Turn them to I, III, II so the seam is continuous. Then play.",
 	],
 	"p17": [
@@ -186,6 +191,7 @@ const HINTS := {
 	"p19": [
 		"The listening room's dead channel can be addressed.",
 		"Venn's seal has three cuts. The procedure says isolate live playback first.",
+		"The notebook has it: three cuts is socket C, Venn's station. The procedure wants the motor off and the live channels, A and B, closed before WITNESS.",
 		"Motor off, close A and B, open C, press WITNESS. Ask all three questions.",
 	],
 	"p19_ask": [
@@ -224,6 +230,11 @@ func initial_state() -> Dictionary:
 		"motor_on": true, "ch_open": {"A": true, "B": true, "C": false}, "witness_open": false,
 		"asked": [], "p19_complete": false, "notices": [], "printer_q_seen": false,
 	}
+
+## P02 and P19 carry a fourth tier (what the notebook already holds) before the solution; the
+## core asks before giving the last. Same rule as RoomSim.hint_tiers(): four lines, four tiers.
+func hint_tiers() -> int:
+	return 4 if HINTS.get(objective(), []).size() >= 4 else 3
 
 func is_closeup(v := local_view) -> bool:
 	return v in CLOSEUPS
@@ -472,7 +483,9 @@ func _room(action: String, ev: Array) -> void:
 			if ending() == "sever":
 				_say(ev, SEVER_LINES.funnels)
 			elif funnel5_pose() == "facing":
-				_say(ev, "Number five is looking straight at me. It's dark all the way down.")
+				_say(ev, "Number five is looking straight at me.", 0.0, true)
+				_say(ev, "It's dark all the way down.", HOLE_DELAY, true)
+				_fx(ev, "hold_breath", {"seconds": HOLE_HOLD, "delay": HOLE_DELAY})
 				_observe("five_facing")
 			elif b == 0:
 				_say(ev, "Six brass ear trumpets, numbered. Their pipes go into the plaster and don't come out the other side.")

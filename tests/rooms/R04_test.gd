@@ -839,10 +839,18 @@ func test_items_objectives_hints() -> void:
 	check(says(g.dispatch("printer")) == GameSim.GENERIC_WRONG_USE, "clips on the printer are generic")
 	# Objectives through the room's life.
 	check(r.objective() == "p02" and r.objective_text() == R04Sim.OBJECTIVES.p02, "objective: P02")
-	var hint := g.dispatch("hint")
-	check(says(hint) == R04Sim.HINTS.p02[0], "hint ladder starts at the nudge")
-	g.dispatch("hint")
-	check(says(g.dispatch("hint")) == R04Sim.HINTS.p02[2], "hint ladder reaches the solution")
+	check(r.hint_tiers() == 4, "P02 has four hint tiers")
+	for i in 4:
+		check(r.hint_line(i) == R04Sim.HINTS.p02[i], "P02 hint tier %d" % i)
+	check("17 OCT" in r.hint_line(2) and "14 OCT" in r.hint_line(2) and not "I, III, II" in r.hint_line(2),
+		"P02's evidence tier points at the notebook, not the answer")
+	var said := []
+	for i in 5:
+		said.append(says(g.dispatch("hint")))
+	check(said.slice(0, 3) == R04Sim.HINTS.p02.slice(0, 3), "hint ladder: nudge, relationship, evidence (%s)" % [said])
+	if _core_confirms():
+		check(said[3] == GameSim.new().get_script().get_script_constant_map()["HINT_CONFIRM"] and said[4] == R04Sim.HINTS.p02[3],
+			"hint ladder asks, then reaches the solution (%s)" % [said])
 	solve_p02(g)
 	check(r.objective() == "away" and r.objective_text() == "Nothing here needs me yet. The horns are listening anyway.",
 		"after P02: away until P16")
@@ -856,13 +864,22 @@ func test_items_objectives_hints() -> void:
 	check(r04(m).objective() == "wait_p18", "objective: wait for P18")
 	m.set_flag("P18")
 	check(r04(m).objective() == "p19", "objective: P19")
+	check(r04(m).hint_tiers() == 4 and r04(m).hint_line(3) == R04Sim.HINTS.p19[3], "P19 has four hint tiers")
+	check("three cuts" in r04(m).hint_line(2) and "Venn's station" in r04(m).hint_line(2)
+		and not "press WITNESS" in r04(m).hint_line(2), "P19's evidence tier points at the notebook, not the answer")
 	open_witness(m)
 	check(r04(m).objective() == "p19_ask", "objective: ask")
 	for q in R04Sim.QUESTIONS:
 		m.dispatch(q)
 	check(r04(m).objective() == "done" and r04(m).objective_text() == "The board is quiet.", "objective: done")
 	for k in R04Sim.HINTS:
-		check(R04Sim.OBJECTIVES.has(k) and R04Sim.HINTS[k].size() == 3, "hint ladder %s has three levels" % k)
+		var n := 4 if k in ["p02", "p19"] else 3
+		check(R04Sim.OBJECTIVES.has(k) and R04Sim.HINTS[k].size() == n, "hint ladder %s has %d levels" % [k, n])
+	check(r04(m).hint_tiers() == 3, "the done ladder has three tiers")
+
+## True when the core asks before a ladder's last tier (GameSim.HINT_CONFIRM, the p1 core).
+func _core_confirms() -> bool:
+	return GameSim.new().get_script().get_script_constant_map().has("HINT_CONFIRM")
 
 func test_debug_jumps() -> void:
 	var g := GameSim.new()
@@ -1102,7 +1119,7 @@ func test_w1_decoy() -> void:
 	build(g, ["C", "A", "B"], {"C": 0, "A": 2, "B": 1})
 	g.dispatch("play")
 	check(g.flag("P02") and r.state.band_rot.D == 2, "w1: then C-A-B at I, III, II solves; D keeps its turn")
-	check(R04Sim.HINTS.p02[2] == "Place C, then A, then B from the start end. Turn them to I, III, II so the seam is continuous. Then play.",
+	check(R04Sim.HINTS.p02[3] == "Place C, then A, then B from the start end. Turn them to I, III, II so the seam is continuous. Then play.",
 		"w1: the explicit hint is unchanged")
 
 func test_w1_funnel5() -> void:
@@ -1125,6 +1142,21 @@ func test_w1_funnel5() -> void:
 	t7.dispatch("to_funnels")
 	var fev := t7.dispatch("funnels")
 	check("looking straight at me" in says(fev) and r04(t7).has_seen("five_facing"), "w1: the funnels line while it faces her")
+	# SILENCE: the room holds its breath on the hole line, with that line's delay.
+	var hole_delay := -1.0
+	var holds := []
+	for e in fev:
+		if e.type == "say" and e.text == "It's dark all the way down.":
+			hole_delay = float(e.delay)
+		if e.type == "fx" and e.id == "hold_breath":
+			holds.append(e)
+	check(hole_delay > 0.0, "silence: the hole line comes after a beat (%s)" % says(fev))
+	check(holds.size() == 1 and is_equal_approx(float(holds[0].get("seconds", 0.0)), 2.0)
+		and is_equal_approx(float(holds[0].get("delay", -1.0)), hole_delay),
+		"silence: hold_breath 2.0 s timed to the hole line (%s)" % [holds])
+	var before_hold := game_at(7, ROOM)
+	r04(before_hold).local_view = "room"
+	check(not has_ev(before_hold.dispatch("funnels"), "fx", "hold_breath"), "silence: no hold before funnel 5 faces her")
 	t7.set_flag("P21")
 	check(r04(t7).funnel5_pose() == "turned", "w1: the next tide it turns back with the others")
 	var s := game_at(9, ROOM)
