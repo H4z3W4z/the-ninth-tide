@@ -85,12 +85,20 @@ func run_tests() -> void:
 		await test_view_gauge_and_bell()
 		await test_view_water_slab()
 		await test_view_name_shutter()
+		await test_view_esc_in_cut()
+		await test_view_late_wash()
 	else:
 		print("SKIP: R11 view_checks: the R11 view does not yet declare rects for every sim hotspot (view team)")
 
 # ---------------------------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------------------------
+func key(scene: Node, code: Key) -> void:
+	var k := InputEventKey.new()
+	k.keycode = code
+	k.pressed = true
+	scene._unhandled_input(k)
+
 func r11(g: GameSim) -> R11Sim:
 	return g.room(ROOM) as R11Sim
 
@@ -1404,8 +1412,8 @@ func test_view_p12_clicks() -> void:
 	click_on(scene, "lever_open")
 	check(scene.sim.flag("P12"), "P12 by clicks on c_gate")
 	check(v.cut_playing() and v.cut == "p12", "the P12 cut plays")
-	check(v.action_at(Vector2(700, 500)) == "" and not v.exits_active() and v.esc_action() == "",
-		"nothing answers during the cut")
+	check(v.action_at(Vector2(700, 500)) == "" and not v.exits_active() and v.esc_action() == "menu",
+		"nothing answers during the cut but Esc, which is the menu")
 	var t: Dictionary = v.audio_targets()
 	check(t.r11_air == 0.0 and t.r11_glass > 0.0, "only the glass sounds in the cut")
 	for i in 20:
@@ -1755,4 +1763,90 @@ func test_view_name_shutter() -> void:
 	v.reset_presentation()
 	check(v.shutter_k == 1.0, "reset keeps the state's shutter")
 	scene.sim.settings.motion = true
+	await free_scene(scene)
+
+## Esc during the P12 cut opens the menu (never Back, never nothing); the cut stands still
+## under the menu and Resume carries on from exactly where it stopped. The same for a hold.
+func test_view_esc_in_cut() -> void:
+	var scene = await view_scene(5)
+	var v = scene.room_view
+	var r := scene.room_sim() as R11Sim
+	click_on(scene, "gate")
+	click_on(scene, "lever_open")
+	check(v.cut_playing() and v.cut == "p12", "esc: the P12 cut plays")
+	for i in 30:
+		scene._process(0.1)
+	var t0: float = v.cut_t
+	check(t0 > v.CUT_GATE and t0 < v.CUT_END, "esc: mid-cut (%.2f s)" % t0)
+	check(v.esc_action() == "menu", "esc: Esc in the cut is the menu")
+	key(scene, KEY_ESCAPE)
+	check(scene.sim.view == "menu", "esc: Esc opens the menu during the cut")
+	check(v.cut_playing() and is_equal_approx(v.cut_t, t0), "esc: Esc does not skip the cut")
+	for i in 120:
+		scene._process(0.1)
+	check(v.cut_playing() and is_equal_approx(v.cut_t, t0), "esc: the cut stands still under the menu (%.2f vs %.2f)" % [v.cut_t, t0])
+	scene.dispatch("resume")
+	check(scene.sim.view == "room" and v.cut_playing() and is_equal_approx(v.cut_t, t0), "esc: Resume comes back to the same moment")
+	scene._process(0.5)
+	check(v.cut_playing() and is_equal_approx(v.cut_t, t0 + 0.5), "esc: and the cut carries on from there (%.2f)" % v.cut_t)
+	for i in 100:
+		scene._process(0.1)
+	check(not v.cut_playing() and r.landing == 2, "esc: the cut still ends on its own, on the lower landing")
+	# A hold: the same.
+	v.hold_id = "n_bell"
+	v.hold_t = 0.5
+	check(v.holding() and v.esc_action() == "menu", "esc: Esc in a hold is the menu")
+	key(scene, KEY_ESCAPE)
+	check(scene.sim.view == "menu", "esc: Esc opens the menu during a hold")
+	for i in 30:
+		scene._process(0.1)
+	check(v.holding() and is_equal_approx(v.hold_t, 0.5), "esc: the hold waits under the menu")
+	scene.dispatch("resume")
+	for i in 20:
+		scene._process(0.1)
+	check(not v.holding(), "esc: and finishes after Resume")
+	await free_scene(scene)
+
+## Band 6+: the late wash, drawn by state alone. Lower landing (b6_wash): the wall under the
+## glass shelf down to the dado goes storm navy; gate landing (b6_wash_L1): the wall above the
+## horizontal pane's line. Off the band each overlay is clear, and on it every object keeps
+## its plate's own full-ink contour.
+func test_view_late_wash() -> void:
+	var scene = await view_scene(5)
+	var v = scene.room_view
+	var navy := Color("22384a")
+	# [overlay, its plate, a wall point in the wash, a point off the band, an ink contour, an object face]
+	var cases := [
+		["b6_wash", "L2_base", Vector2i(450, 450), Vector2i(450, 200), Vector2i(1108, 500), Vector2i(700, 550)],
+		["b6_wash_L1", "L1_base", Vector2i(1300, 140), Vector2i(1300, 700), Vector2i(1171, 300), Vector2i(300, 300)],
+	]
+	for c in cases:
+		check(FileAccess.file_exists("res://assets/stages/R11/%s.png" % c[0]), "wash: %s is on disk" % c[0])
+		check(v.textures.has(c[0]), "wash: %s loads" % c[0])
+		var tex: Texture2D = v.textures.get(c[0])
+		var base: Texture2D = v.textures.get(c[1])
+		if tex == null or base == null:
+			continue
+		var img := tex.get_image()
+		var bimg := base.get_image()
+		check(tex.get_size() == Vector2(1448, 1086), "wash: %s is a full plate" % c[0])
+		var w := img.get_pixelv(c[2])
+		var b := bimg.get_pixelv(c[2])
+		check(w.a == 1.0 and w.get_luminance() < b.get_luminance() * 0.6,
+			"wash: %s darkens the wall (%.2f vs %.2f)" % [c[0], w.get_luminance(), b.get_luminance()])
+		check(w.b > w.r + 0.05 and absf(w.get_luminance() - navy.get_luminance()) < 0.12, "wash: %s toward storm navy" % c[0])
+		check(img.get_pixelv(c[3]).a == 0.0, "wash: %s is clear off its band" % c[0])
+		var ink_w := img.get_pixelv(c[4])
+		var ink_b := bimg.get_pixelv(c[4])
+		check(ink_b.get_luminance() < 0.3 and absf(ink_w.get_luminance() - ink_b.get_luminance()) < 0.02,
+			"wash: %s keeps an object's contour at full ink (%.3f vs %.3f)" % [c[0], ink_w.get_luminance(), ink_b.get_luminance()])
+		check(img.get_pixelv(c[5]).is_equal_approx(bimg.get_pixelv(c[5])) or
+			absf(img.get_pixelv(c[5]).get_luminance() - bimg.get_pixelv(c[5]).get_luminance()) < 0.02,
+			"wash: %s leaves the object's face as painted" % c[0])
+	for t in [5, 6, 7]:
+		scene.tide_jump(t + 2, ROOM)   # tide t+2 starts at band t
+		await process_frame
+		v = scene.room_view
+		check(scene.sim.weather_band() == t, "wash: tide %d is band %d" % [t + 2, t])
+		check(v.wash_shown() == (t >= v.WASH_BAND), "wash: band %d %s" % [t, "washed" if t >= 6 else "dry"])
 	await free_scene(scene)

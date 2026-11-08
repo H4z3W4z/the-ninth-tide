@@ -31,7 +31,12 @@ Writes, and only writes, assets/rooms/R11/*.png (and the one stage overlay named
 
 and, as a stage overlay, assets/stages/R11/p12_water_slab.png (OUT_DIRS): after P12, the water
 standing up in the gateway as one vertical slab, flat sea-glass over storm navy inside a hard
-navy contour, its flat top standing clear of the lintel.
+navy contour, its flat top standing clear of the lintel; and, from band 6, the late wash:
+assets/stages/R11/b6_wash.png (lower landing: the wall at the glass shelf, the office floor's
+underside, down to the dado) and b6_wash_L1.png (gate landing: the wall above the horizontal
+pane's line), sage soaked to storm navy with a sea-glass waterline stain on the shelf line and
+dark drip ticks off it. Each is its plate repainted with the wash under every object, cut to
+the band (transparent elsewhere), so every contour on it stays at full ink.
 
 Flat front elevation, approved palette, navy ink contours, matte colour, a low seeded paper
 grain. No text, numerals, symbols or diagrams: every placard, plate, flag window, gauge face
@@ -55,7 +60,9 @@ from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageOp
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 OUT = os.path.join(ROOT, "assets", "rooms", "R11")
 ## Assets written somewhere other than OUT: {name: directory}.
-OUT_DIRS = {"p12_water_slab": os.path.join(ROOT, "assets", "stages", "R11")}
+OUT_DIRS = {"p12_water_slab": os.path.join(ROOT, "assets", "stages", "R11"),
+            "b6_wash": os.path.join(ROOT, "assets", "stages", "R11"),
+            "b6_wash_L1": os.path.join(ROOT, "assets", "stages", "R11")}
 W, H = 1448, 1086
 SS = 2                      # supersampling for every painted shape
 SEED = 1931_11_00
@@ -854,6 +861,11 @@ def paint_L1_base(rng):
     p = Pen(W, H, rng, PLASTER)
     stone_wall(p, rng, (-4, 80, W + 4, DADO_Y), PLASTER, 96, 80, skip=[(1350, 550, 1442, 770), (906, 160, 954, 880)],
                mottle=0.18, joints=0.4)
+    return _l1_after_wall(p, rng)
+
+
+def _l1_after_wall(p, rng):
+    """Everything on the gate landing after its wall (b6_wash_L1 lays its wash between)."""
     dado(p, rng)
     ceiling_band(p, rng, -4, W + 4)
     ladder(p, rng)
@@ -1321,6 +1333,11 @@ def upper_stair(p, rng):
 def paint_L2_base(rng):
     p = Pen(W, H, rng, PLASTER)
     stone_wall(p, rng, (-4, -4, W + 4, DADO_Y), PLASTER, 96, 0, skip=[(10, 120, 96, 360)], mottle=0.18, joints=0.4)
+    return _l2_after_wall(p, rng)
+
+
+def _l2_after_wall(p, rng):
+    """Everything on the lower landing after its wall (b6_wash lays its wash between)."""
     dado(p, rng)
     # stone section above the cutaway
     p.rect(300, -4, W + 4, CUT[1], CEIL_ST, None)
@@ -2495,6 +2512,78 @@ def paint_water_slab(rng):
     return p
 
 
+# ----------------------------------------------------------------------------- p3 overlays
+# Band 6+: the wall at the glass shelf soaked from sage to storm navy. Every plaster pixel
+# (mottle and joints too) is multiplied by WASH_K and pulled WASH_TO_STORM toward storm navy;
+# a flat sea-glass waterline stain WASH_STAIN px deep runs along the shelf line and 3 px drip
+# ticks hang off it every DRIP_STEP px. Each overlay is its plate repainted with the wash laid
+# between the wall and the first object (same seed, same draw order), so off the wash it is
+# the plate pixel for pixel and every object on the wall keeps its own full-ink contour; it is
+# then cut to the washed band (transparent elsewhere).
+WASH_K = 0.45
+WASH_TO_STORM = 0.4
+WASH_STAIN = 6
+DRIP_STEP = 90
+DRIP_W = 3
+# L2: the glass shelf is the office floor seen from below (SLAB, y 300-330); the wall from its
+# underside down to the dado cap washes, the stain under the shelf line.
+WASH_L2 = (SLAB[1], DADO_Y - 12)
+# L1: the glass shelf is the horizontal pane (R11_view SLAB_BAND, top edge y 486); the wall
+# above it, from the ceiling band's foot, washes, the stain on the shelf line.
+WASH_L1 = (80, 486)
+
+
+def wash_band(p, y0, y1):
+    box = (0, y0 * SS, p.im.width, y1 * SS)
+    r, g, b, a = p.im.crop(box).split()
+    k, t = WASH_K, WASH_TO_STORM
+    chans = [c.point(lambda v, n=n: int(round(v * k * (1 - t) + n * t))) for c, n in zip((r, g, b), STORM)]
+    p.im.paste(Image.merge("RGBA", chans + [a]), box)
+
+
+def waterline(p, rng, y_stain, y_drip):
+    """The stain (y_stain .. +WASH_STAIN) and the drip ticks hanging from y_drip."""
+    p.rect(-4, y_stain, W + 4, y_stain + WASH_STAIN, SEA_SAT, None)
+    p.line([(-4, y_stain + 0.5), (W + 4, y_stain + 0.5)], SEAGLASS_HI, 1.0)
+    x = DRIP_STEP / 2
+    while x < W:
+        L = rng.uniform(12, 34)
+        p.rect(x - DRIP_W / 2, y_drip, x + DRIP_W / 2, y_drip + L, STORM_DK, None)
+        p.ell(x, y_drip + L, DRIP_W * 0.75, DRIP_W * 0.9, STORM_DK, None)
+        x += DRIP_STEP
+
+
+def _cut_band(p, k, y0, y1):
+    im = grain(p.done(), rng_for(1000 + k), amp=4, mottle=4, speck=8).convert("RGBA")
+    a = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(a).rectangle((0, y0, W, y1), fill=255)
+    im.putalpha(a)
+    return im
+
+
+def paint_b6_wash(rng):
+    """The lower landing (paint_L2_base, seed 20) with the wall under the glass shelf washed."""
+    p = Pen(W, H, rng, PLASTER)
+    stone_wall(p, rng, (-4, -4, W + 4, DADO_Y), PLASTER, 96, 0, skip=[(10, 120, 96, 360)], mottle=0.18, joints=0.4)
+    y0, y1 = WASH_L2
+    wash_band(p, y0, y1)
+    waterline(p, rng_for(18), y0, y0 + WASH_STAIN)
+    _l2_after_wall(p, rng)
+    return _cut_band(p, 20, y0 - 2, DADO_Y + 6)
+
+
+def paint_b6_wash_L1(rng):
+    """The gate landing (paint_L1_base, seed 0) with the wall above the glass shelf washed."""
+    p = Pen(W, H, rng, PLASTER)
+    stone_wall(p, rng, (-4, 80, W + 4, DADO_Y), PLASTER, 96, 80, skip=[(1350, 550, 1442, 770), (906, 160, 954, 880)],
+               mottle=0.18, joints=0.4)
+    y0, y1 = WASH_L1
+    wash_band(p, y0, y1 - WASH_STAIN)
+    waterline(p, rng_for(17), y1 - WASH_STAIN, y1)
+    _l1_after_wall(p, rng)
+    return _cut_band(p, 0, y0 - 4, y1 + 40)
+
+
 def paint_name_shutter(rng):
     """The iron shutter over the NAME frame's glass: flat storm-navy slats in a riveted plate,
     a brass bottom lip. The view stencils its word."""
@@ -2569,6 +2658,9 @@ ASSETS = [  # name, seed index, painter, opaque, grain
     # p1 overlays (new files)
     ("p12_water_slab", 16, paint_water_slab, False, False),
     ("c_name_shutter", 65, paint_name_shutter, False, False),
+    # p3 overlays (new files)
+    ("b6_wash", 20, paint_b6_wash, False, False),
+    ("b6_wash_L1", 0, paint_b6_wash_L1, False, False),
 ]
 
 

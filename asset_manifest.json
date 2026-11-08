@@ -8332,6 +8332,24 @@
       "source_svg": null
     },
     {
+      "id": "b6_wash",
+      "path": "assets/stages/R11/b6_wash.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "dffd5535218cd2da8a0265519725fba1a41fcf4875c33079202131a7c261f23b",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "b6_wash_L1",
+      "path": "assets/stages/R11/b6_wash_L1.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "c6db055577cb4c8f680cafc9fbc838baf1fd94e189719d89ff8f895d5263892c",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "p12_water_slab",
       "path": "assets/stages/R11/p12_water_slab.png",
       "width": 1448,
