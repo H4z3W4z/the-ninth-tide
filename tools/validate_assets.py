@@ -20,4 +20,12 @@ for group in ['room_hotspots','puzzle_hotspots']:
 lamp=(root/'assets/props/lamp_off.png').read_bytes()
 assert lamp[25]==6,'Lamp must have RGBA PNG encoding'
 assert len(ids)==len(list((root/'assets').rglob('*.png'))),'Unlisted PNG asset'
-print(f'PASS: {len(ids)} PNG assets, SVG sources, checksums, state dimensions, alpha encoding and touch target bounds')
+# Bundled fonts (not manifest entries): each family's .ttf files ship with its licence text
+# (<Family>-OFL.txt; Noto Serif is SIL OFL 1.1, Liberation Sans Narrow 1.07 is GPL-2 with the
+# font exception, see assets/fonts/README.txt).
+fonts=sorted((root/'assets/fonts').glob('*.ttf'))
+for f in fonts:
+ assert f.read_bytes()[:4] in (b'\x00\x01\x00\x00',b'true',b'OTTO'),f
+ lic=root/'assets/fonts'/(f.stem.split('-')[0]+'-OFL.txt')
+ assert lic.exists() and any(k in lic.read_text(errors='replace') for k in ('Open Font License','Font exception')),f'{f.name}: no licence beside it'
+print(f'PASS: {len(ids)} PNG assets, SVG sources, checksums, state dimensions, alpha encoding and touch target bounds; {len(fonts)} bundled fonts with their licences')

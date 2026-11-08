@@ -51,11 +51,13 @@ const ENDINGS := {
 	"sever": {"title": "The Unrecorded Shore", "lines": [
 		"I write eight names. Then his.",
 		"\"I cannot certify their absence.\"",
-	], "still": ["res://assets/stages/R12/r12_sever_office_r2.png", "res://assets/rooms/R12/end_a_page.png"]},
+	], "still": ["res://assets/stages/R12/end_a_card.png", "res://assets/stages/R12/r12_sever_office_r2.png",
+		"res://assets/rooms/R12/end_a_page.png"]},
 	"continue": {"title": "The Last Observer", "lines": [
 		"\"Subject Bell possesses no surviving personal effects.\"",
 		"\"Nora Bell took her tea without sugar. Begin there.\"",
-	], "still": ["res://assets/stages/R12/end_b_wide_3.png", "res://assets/rooms/R12/end_b_field.png"]},
+	], "still": ["res://assets/stages/R12/end_b_card.png", "res://assets/stages/R12/end_b_wide_3.png",
+		"res://assets/rooms/R12/end_b_field.png"]},
 }
 
 const GENERIC_WRONG_USE := "That isn't what it's for."
@@ -420,6 +422,11 @@ func hops(from: String, to: String) -> int:
 				queue.append(e[0])
 	return -1
 
+## How many rooms apart `a` and `b` are on foot: a BFS over open exits (hops()). 0 for the
+## same room, -1 when no open way joins them.
+func walk_distance(a: String, b: String) -> int:
+	return hops(a, b)
+
 ## The room the "Now:" line sends her to: the work elsewhere, else the room she is in. ""
 ## at the end of the build.
 func objective_room() -> String:
@@ -624,24 +631,43 @@ func _hint(ev: Array) -> void:
 	if build_end():
 		ev.append({"type": "say", "text": BUILD_END_HINT, "delay": 0.0, "story": false})
 		return
-	var away := work_elsewhere()
-	var key: String = state.room + (":" + r.objective() if away == "" else ":->" + away)
+	var key := hint_key()
 	if state.hint["for"] != key:
 		state.hint["for"] = key
 		state.hint["level"] = 0
-	# The ladder as said, press by press: the room's own tiers (hint_tiers(), 3 or 4) or the
-	# way there and that room's ladder, with a confirmation before the last tier. `level`
-	# indexes this sequence and stops on the last line.
+	var seq := hint_sequence()
+	var level := clampi(int(state.hint["level"]), 0, seq.size() - 1)
+	ev.append({"type": "say", "text": seq[level], "delay": 0.0, "story": false})
+	state.hint["level"] = mini(mini(level + 1, seq.size() - 1), hint_level_cap())
+
+## What the Hint ladder is for right now: "<rid>:<objective>", or "<rid>:-><away>" on the way
+## to work elsewhere.
+func hint_key() -> String:
+	var away := work_elsewhere()
+	return state.room + (":" + room().objective() if away == "" else ":->" + away)
+
+## The ladder as said, press by press: the room's own tiers (hint_tiers(), 3 or 4) or the way
+## there and that room's ladder, with a confirmation before the last tier. `hint.level`
+## indexes this sequence and stops on the last line.
+func hint_sequence() -> Array:
+	var r := room()
+	var away := work_elsewhere()
 	var seq: Array = []
 	if away == "":
 		for i in maxi(1, r.hint_tiers()):
 			seq.append(r.hint_line(i))
 	else:
 		seq = _elsewhere_ladder(away)
-	seq = with_confirmation(seq)
-	var level := clampi(int(state.hint["level"]), 0, seq.size() - 1)
-	ev.append({"type": "say", "text": seq[level], "delay": 0.0, "story": false})
-	state.hint["level"] = mini(level + 1, seq.size() - 1)
+	return with_confirmation(seq)
+
+## The highest hint.level kept, written or loaded alike (so a save loads as it was written):
+## the room's tiers plus the confirmation step, or the last step of a longer ladder on the
+## way to work elsewhere.
+func hint_level_cap() -> int:
+	var cap := maxi(1, room().hint_tiers()) + 1
+	if work_elsewhere() != "":
+		cap = maxi(cap, hint_sequence().size() - 1)
+	return cap
 
 ## Said before the last tier of any ladder: only the next Hint gives the answer away.
 const HINT_CONFIRM := "Do you want me to just say it? Hint again."
@@ -925,8 +951,9 @@ func from_dict(d: Variant) -> bool:
 			ok = ok and t is String and MOVES.has(t)
 		if ok:
 			state.p05_trace = d.p05_trace.duplicate()
+	var saved_hint: Variant = null
 	if d.get("hint") is Dictionary and d.hint.get("for") is String and RoomSim._all_whole([d.hint.get("level")]):
-		state.hint = {"for": d.hint["for"], "level": clampi(int(d.hint.level), 0, HINT_LEVEL_MAX)}
+		saved_hint = {"for": d.hint["for"], "level": maxi(0, int(d.hint.level))}
 	for rid in order:
 		var r: RoomSim = rooms[rid]
 		r.load_state(d.rooms.get(rid))
@@ -954,6 +981,10 @@ func from_dict(d: Variant) -> bool:
 	if state.started and ending is String and ENDINGS.has(ending) and tide_done(8):
 		state.ending = ending
 		view = "end"
+	if saved_hint != null:
+		# Clamped as _hint writes it, once the rooms it is measured against are loaded.
+		saved_hint.level = mini(saved_hint.level, hint_level_cap() if room() else HINT_LEVEL_MAX)
+		state.hint = saved_hint
 	return true
 
 func _valid_flag(k: String) -> bool:

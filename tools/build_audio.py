@@ -796,6 +796,43 @@ def exhale_near() -> list[float]:
     return dark
 
 
+ECHO_STEP_LEN = 0.5
+ECHO_STEP_HEELS = ((0.03, 132.0), (0.31, 96.0))   # (onset s, thud Hz): two heel strikes 0.28 s apart
+ECHO_STEP_PEAK = 10 ** (-6 / 20)                    # -6 dBFS
+
+
+def echo_step() -> list[float]:
+    """Two soft heel strikes on boards, somewhere off to one side (the core's echo_trace).
+    Each strike is a damped 90-140 Hz thud with a pitch drop, a dull board knock, and a
+    short lowpassed noise scuff as the heel lands. 0.5 s, seeded 'echo_step'."""
+    rnd = random.Random("echo_step")
+    n = int(ECHO_STEP_LEN * SR)
+    out = [0.0] * n
+    for onset, hz in ECHO_STEP_HEELS:
+        s = int(onset * SR)
+        scuff = lowpass(white(int(0.05 * SR), rnd), 1800)
+        for j in range(n - s):
+            t = j / SR
+            f = hz * (1.0 + 0.25 * math.exp(-t / 0.01))     # the board gives under the heel
+            v = math.sin(TAU * f * t) * math.exp(-t / 0.045)
+            v += 0.35 * math.sin(TAU * 2.6 * hz * t) * math.exp(-t / 0.018)
+            if j < len(scuff):
+                v += 0.5 * scuff[j] * math.exp(-t / 0.012)
+            out[s + j] += v
+    return lowpass(out, 2400)
+
+
+# Core one-shots added after the slice set: written by a full run, or alone with
+#   python3 tools/build_audio.py --core-added
+# so adding one never rewrites the approved WAVs above.
+CORE_ADDED = [("echo_step", echo_step, ECHO_STEP_PEAK)]
+
+
+def core_added() -> None:
+    for name, fn, peak in CORE_ADDED:
+        write(name, fn(), peak)
+
+
 def main() -> None:
     print(f"Writing to {OUT}")
     for name, fn in [
@@ -814,6 +851,7 @@ def main() -> None:
         ("exhale_near", exhale_near, 0.6),
     ]:
         write(name, fn(), peak)
+    core_added()
 
 
 def rooms(only: list[str]) -> None:
@@ -829,6 +867,9 @@ def rooms(only: list[str]) -> None:
 
 if __name__ == "__main__":
     import sys
-    if len(sys.argv) == 1:
-        main()
-    rooms(sys.argv[1:])
+    if sys.argv[1:] == ["--core-added"]:
+        core_added()
+    else:
+        if len(sys.argv) == 1:
+            main()
+        rooms(sys.argv[1:])

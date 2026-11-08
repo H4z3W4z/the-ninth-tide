@@ -24,21 +24,65 @@ const BLACK := Color("070b0f")
 ## Forward slant for her hand. A positive skew leans glyph tops to the right.
 const HAND_SKEW := 0.18
 
-static var _serif: SystemFont
-static var _hand: SystemFont
+## The bundled fonts (SIL OFL 1.1; licences beside them in assets/fonts/). A system font is
+## only the fallback for a file that fails to load.
+const SERIF_FILE := "res://assets/fonts/NotoSerif-Regular.ttf"
+const SERIF_ITALIC_FILE := "res://assets/fonts/NotoSerif-Italic.ttf"
+const LABEL_FILE := "res://assets/fonts/LiberationSansNarrow-Regular.ttf"
+const LABEL_BOLD_FILE := "res://assets/fonts/LiberationSansNarrow-Bold.ttf"
+const SERIF_NAMES := ["Noto Serif", "DejaVu Serif", "Liberation Serif", "serif"]
 
+static var _serif: Font
+static var _hand: Font
+static var _label: Font
+
+## A bundled font file, or null when it is missing or fails to load.
+static func _font_file(path: String) -> FontFile:
+	if not ResourceLoader.exists(path):
+		return null
+	return load(path) as FontFile
+
+static func _system(names: Array, italic := false) -> SystemFont:
+	var f := SystemFont.new()
+	f.font_names = PackedStringArray(names)
+	f.font_italic = italic
+	return f
+
+## Noto Serif Regular: titles, the notebook, subtitles, buttons.
 static func serif() -> Font:
 	if _serif == null:
-		_serif = SystemFont.new()
-		_serif.font_names = PackedStringArray(["Noto Serif", "DejaVu Serif", "Liberation Serif", "serif"])
+		var f := _font_file(SERIF_FILE)
+		_serif = f if f != null else _system(SERIF_NAMES)
 	return _serif
 
+## Her hand: Noto Serif Italic; without it, the regular cut slanted by HAND_SKEW.
 static func hand() -> Font:
 	if _hand == null:
-		_hand = SystemFont.new()
-		_hand.font_names = PackedStringArray(["Noto Serif", "DejaVu Serif", "Liberation Serif", "serif"])
-		_hand.font_italic = true
+		var f := _font_file(SERIF_ITALIC_FILE)
+		if f != null:
+			_hand = f
+		else:
+			var base := _font_file(SERIF_FILE)
+			if base != null:
+				var v := FontVariation.new()
+				v.base_font = base
+				v.variation_embolden = 0.0
+				v.variation_transform = Transform2D(Vector2(1.0, HAND_SKEW), Vector2(0.0, 1.0), Vector2.ZERO)   # the docs' fake-italic slant
+				_hand = v
+			else:
+				_hand = _system(SERIF_NAMES, true)
 	return _hand
+
+## Liberation Sans Narrow Regular: small printed labels (tags, plates, dials).
+static func label_font() -> Font:
+	if _label == null:
+		var f := _font_file(LABEL_FILE)
+		_label = f if f != null else _system(["Liberation Sans Narrow", "Liberation Sans", "DejaVu Sans", "sans-serif"])
+	return _label
+
+## A printed label's colour: navy ink at 0.85 on paper, brass on navy.
+static func label_color(on_dark: bool) -> Color:
+	return BRASS if on_dark else Color(INK, 0.85)
 
 static func button(c: CanvasItem, rect: Rect2, label: String, active := false, size := 24, dim := false) -> void:
 	var style := StyleBoxFlat.new()

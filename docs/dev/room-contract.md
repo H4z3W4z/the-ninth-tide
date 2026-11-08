@@ -279,7 +279,7 @@ and page turners always act: during a story chain the chain advances and the cli
 the same press (what the action says waits after the chain). The HUD (Hint, Notebook, Plan,
 menu) and every inventory slot act on the press itself: they never advance or wait on a
 playing chain and never become `pending_action`; the chain keeps playing underneath (the
-pause menu holds it where it is until Resume). Exits, plan rows
+pause menu and the notebook hold it where it is until she is back in the room). Exits, plan rows
 and room hotspots during a chain follow the rules in section 8 (the reveal is read where it
 was said; a hotspot acts in the press, or when the chain ends). Only a click on empty space or
 the subtitle bar is spent advancing a chain and nothing else. An exit or
@@ -296,8 +296,9 @@ test's pointer mode simulates a pointer through them (and `game.hover(p)`), head
 every label is anchored to its target's rect, not the pointer: centred just above it, else
 just below it when above would rise into the HUD band, else in the row above the
 subtitles, never over the clue it names, never above y = 80 and never on the tide card
-while it is up. The hover clears when a close-up opens, on travel and when the pointer
-leaves every rect. The core finds the rect with `control_rect(id)`, which reads your `closeup_controls(view)` and
+while it is up. The hover clears whenever the room's local view, the item in hand, the game
+view or whether a chain is playing changes, and is read again under the pointer the frame
+after (when there is one); on travel; and when the pointer leaves every rect. The core finds the rect with `control_rect(id)`, which reads your `closeup_controls(view)` and
 `_controls()` rows if you have them, then `hotspot_rect(id)`. Inventory slot labels (`short`,
 else `name`) are 14 characters at most (`tests/core_test.gd`).
 Draw with `Ink` (`game/core/ink.gd`): palette, fonts, `button`, `text`, `wrapped`, `handwriting`.
@@ -470,7 +471,9 @@ times (R08's `_flush_for_reveal`) moves that click's `game.pending_fx` with them
 `0..hint_tiers()-1`. The core says `GameSim.HINT_CONFIRM` before the last tier of any ladder
 (your own, or the ladder toward another room) and gives the last tier on the next press; the
 confirmation is skipped when the last tier repeats the one before it. `state.hint.level`
-counts presses along that sequence and is clamped to 0..4 on load.
+counts presses along that sequence; written and loaded alike, it is clamped to
+`maxi(1, hint_tiers()) + 1` (the tiers and the confirmation), or the last step of a longer
+ladder toward work elsewhere, so a save loads exactly as it was written.
 
 **Exits during a reveal (`pending_travel`).** An exit tab or plan row clicked while story lines
 of a chain are still queued does not travel at once: the rest of the chain is rushed where
@@ -480,15 +483,17 @@ story lines at their full `min_read`, and she goes once the last has had its hol
 tab shows pressed meanwhile. A second exit click meanwhile goes
 at once and drops what is left (it is not lost: your `_observe` notes were written by the
 commit). On any travel every queued and on-screen line, timed sound and timed fx of the old
-room is cleared, so the new room's arrival line is always the first thing said there. A
-change to the notebook, menu, title or end card drops a deferred exit. Make every line of a
+room is cleared, so the new room's arrival line is always the first thing said there. The
+notebook or menu opened over the room holds a deferred exit with its chain (fix p3); the
+title or end card drops it. Make every line of a
 reveal readable on its own; never put the reward only in a line after a 6 s delay.
 
 **Hotspots during a chain (`pending_action`).** With only the line on screen left, a click on a
 room hotspot finishes that line and acts in the same press. With more of the chain queued,
 the click rushes the rest of the chain like an exit does (every line held at least
 `max(0.6 s, min_read * BACKLOG_SQUEEZE)`), the hotspot shows pressed, and it acts when the
-chain ends (a later hotspot click replaces it; a change of view or room drops it). A second
+chain ends (a later hotspot click replaces it; a change of view or room drops it, except
+the notebook or menu over the room, which only pause it). A second
 click on the same waiting hotspot acts at once; the chain's lines still all play, ahead of
 what the action says. Story lines are never dropped or interleaved. `consume_click(p)` still sees every click
 first (R02's photograph during the drawer chain only advances).
@@ -510,3 +515,59 @@ arrival): "The plan in my notebook knows the way. Quicker than my feet." (`setti
 **The Plan button** sits in its own slot, `GameView.PLAN_BUTTON` (1272, 80, 154, 40), under Hint
 and the menu, in the room view only. Keep room hotspots out of it (`core_test` lists the known
 offenders in `PLAN_OVERLAP_KNOWN`). A Plan press within 0.4 s of a Back is ignored.
+
+### Core hooks for the room teams (fix p3)
+
+Each is covered by `tests/core_test.gd` (and the nav step by `tests/click_chain_test.gd`).
+
+**Esc means Back.** In the room view Esc first puts away the item in hand. Then it sends
+`back` when `back_visible()` is true, or when the local view is not `"room"`, your
+`esc_action()` says `"menu"`, and the view is not `"ending"`, `"threshold"` or `"end"` (a base
+view with a way back, such as R05's kitchen, R09's rail, R10's catalogue, R12's frames and
+routing). Otherwise it sends your `esc_action()`, and `"menu"` when that is `""` (a hold or a
+cut: the menu holds the chain). Your `esc_action()` no longer needs to special-case base views.
+
+**The notebook holds the chain.** Like the pause menu, the notebook opened from the room
+holds every queued line, the line on screen (it finishes typing), timed sounds and fx
+(`hold_breath` included), a waiting glance, a deferred exit and a waiting hotspot, until Back.
+Its own clock (the stranger's line writing itself) runs. A plan row clicked mid-reveal still
+rushes the reveal and goes.
+
+**Stale feedback.** When a new click's events arrive, every not-yet-shown `story = false` line
+an earlier click queued is dropped. Story lines are never dropped. Don't queue a refusal for
+later and expect it to survive the next click.
+
+**In-room steps (`is_nav_action`).** `to_<view>`, `turn`, `wall_left`, `wall_right`, and any id
+your view lists in `const NAV_ACTIONS := [...]` are steps inside the room. During a reveal with
+lines still queued, the step rushes the rest of it (as an exit does) and goes when it ends; a
+second click goes at once. Otherwise a playing chain advances and the step goes in the press.
+
+**`echo_trace`.** `_fx(ev, "echo_trace", {"moves": game.value("movement_events").slice(-3)})`
+(or any list of at most three `GameSim.MOVES` ids). The core plays it; your view never sees
+it. Per event i at `i * 1.8 s`: `echo_step` (two heel strikes), then the move's sound 0.6 s
+later (`GameView.ECHO_SFX`: lamp_mended switch, log_read page, drawer_opened drawer,
+recording_played dial, charts_aligned page, report_signed pen, held_still breath, turned_round
+seat, zero_turned dial, interval_set clunk, hatch_opened latch_far, stair_looked door), all the
+core's own `assets/audio/*.wav`, at -10 dB (-16 dB with a 30 ms fade-in under "Soften sudden
+sounds"), panned 0.7 away from the way she came in (left when `came_from` sorts before this
+room's id). No caption goes up until the last sound plus 0.8 s, so put the reveal's lines in
+the same event list and let the core hold them. Unknown ids are skipped; held under the
+notebook and menu; cleared by travel.
+
+**The Plan pulse.** When the "Now:" objective's room changes to one 3 or more rooms away on
+foot (`game.walk_distance(a, b)`, a BFS over open exits), the Plan HUD button's brass rim
+swells once over 1.2 s (Motion off: a steady rim for 3 s). No text, no sound, never saved.
+
+**Fonts.** `Ink.serif()` and `Ink.hand()` are the bundled Noto Serif Regular and Italic
+(`assets/fonts/`, SIL OFL); a system font is only the fallback. `Ink.label_font()` is
+Liberation Sans Narrow Regular (GPL-2 with the font exception, see `assets/fonts/README.txt`)
+for printed labels, with `Ink.label_color(on_dark)`: navy ink at 0.85 on paper, brass on navy.
+Type font variables as `Font`, not `SystemFont`. Adopting `label_font()` in rooms is next
+round's work.
+
+**The end card.** New game sits small and dim at (1188, 1010, 220, 50) and takes two clicks:
+the first arms it ("Start over? Your place at the final decision will be lost.", widened to
+(788, 1010, 620, 50)) for 3 s; only the second starts over and gives up the checkpoint.
+SEVER's panel is storm-navy ink (0.94) with paper text; CONTINUE keeps paper (0.96). The
+still list starts with R12's `assets/stages/R12/end_a_card.png` / `end_b_card.png`; keep
+their subjects above y 740 (the panel starts at 760).
