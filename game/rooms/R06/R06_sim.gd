@@ -98,9 +98,15 @@ const FINDINGS := ["NO SURVIVING EFFECTS", "PERSONAL EFFECT IDENTIFIED", "EFFECT
 const WHEEL_OBJECTS := ["CALIPERS", "PENCIL HOLDER", "GLOVE", "REPAIRED CUP"]
 const OWNERS := ["S. ROOK", "E. VENN", "T. IVES", "NORA BELL"]
 const WHEELS := [FINDINGS, WHEEL_OBJECTS, OWNERS]
+## The engraved plate under each drum's window, in WHEELS order.
+const WHEEL_LABELS := ["FINDING", "OBJECT", "OWNER"]
+## A drum shows its word in the window, the previous word half above it and the next word half
+## below it. ▷ (WHEEL_NEXT) turns the drum so the word below comes up into the window; ◁ brings
+## the word above down. wheel_neighbour() is what the view draws, so motion and labels agree.
+const WHEEL_NEXT := 1
 const WHEEL_SOLUTION := [1, 3, 3]
 const REGISTER_TEXT := ["BELL, N.", "Cook and caretaker.", "No surviving personal effects."]
-const REGISTER_STAMP := "SPECIMEN N-27"
+const REGISTER_STAMP := "SPECIMEN 27-11"
 const AMEND_TEXT := "PERSONAL EFFECT IDENTIFIED / REPAIRED CUP / NORA BELL"
 const SKETCH_TEXT := "Cup, mine, mended 3 Feb."
 const ERASE_REFUSAL := "No. Corrections append. The original stands, and so does this."
@@ -126,8 +132,9 @@ const GLANCES := {
 	"p08_latch": {"rect": Rect2(706, 524, 96, 84), "view": "curtain"},   # the pigeonhole
 	"p22_cup": {"rect": Rect2(52, 420, 92, 150), "view": "room"},        # Bell's cup, steaming
 }
-const WHEEL_CONTROLS := {"fin_prev": [0, -1], "fin_next": [0, 1], "obj_prev": [1, -1],
-	"obj_next": [1, 1], "own_prev": [2, -1], "own_next": [2, 1]}
+const WHEEL_CONTROLS := {"fin_prev": [0, -WHEEL_NEXT], "fin_next": [0, WHEEL_NEXT],
+	"obj_prev": [1, -WHEEL_NEXT], "obj_next": [1, WHEEL_NEXT], "own_prev": [2, -WHEEL_NEXT],
+	"own_next": [2, WHEEL_NEXT]}
 
 # --- the calendar ---------------------------------------------------------------------------
 const CALENDAR_DATES := ["11", "12", "13", "14", "15", "16", "17", "18"]
@@ -195,7 +202,7 @@ const OBSERVATIONS := {
 	"pigeonhole": "A latched pigeonhole in the back of the writing slope. No keyhole.",
 	"ives_letter": "Ives, to his mother, 16 Oct: sideways rain, the sea coming up the jetty; his fingers better, mostly; Mrs Bell's fish soup, and how she counts them in every night, whoever's sat down. 'Dr Rook says on Tuesday we're all to be measured for the new survey. I'll write after and tell you how tall I' It stops in the middle of a word.",
 	"slope": "A writing slope for comparing two documents: a RECORD rest, an EVIDENCE rest, and an amendment line with three wheels.",
-	"register_card": "Nora's register card: 'BELL, N. Cook and caretaker. No surviving personal effects.' Stamped SPECIMEN N-27.",
+	"register_card": "Nora's register card: 'BELL, N. Cook and caretaker. No surviving personal effects.' Stamped SPECIMEN 27-11.",
 	"sketch_laid": "I laid my copy of Nora's sketch on the evidence rest: 'Cup, mine, mended 3 Feb.' The same staple.",
 	"card_vs_cup": "Her card says no surviving personal effects. Her cup is in her locker.",
 	"nora_amendment": "'No surviving personal effects.' Amended, in my hand: personal effect identified, repaired cup, Nora Bell.",
@@ -211,22 +218,30 @@ const OBJECTIVES := {
 	"away": "Nothing here needs me yet. The beds keep what they keep.",
 	"done": "Her card is amended. The bunk room is finished with me.",
 	"take_card": "Take Nora's amended card off the writing slope.",
+	"card_on_slope": "Take Nora's register card back off the writing slope.",
 }
 const HINTS := {
 	"p08": [
 		"Four belongings, four open lockers, and a card on each door.",
 		"Each card names a habit. Lift each object and turn it over: it shows the wear that habit leaves.",
+		"Three new cups, kept none: mended, not replaced. An instrument he altered: a filed jaw. Writes from the left: worn on the left. Won't take a new issue: sewn.",
 		"Cup to Bell, calipers to Rook, pencil holder to Venn, glove to Ives.",
 	],
 	"p22": [
 		"Nora's register card says something the bunk room can contradict.",
 		"Her cup is a personal effect. Corrections are added, never written over.",
+		"Her book in the kitchen draws the same cup: 'Cup, mine, mended 3 Feb.' Her card on the RECORD rest, my copy of that sketch on the EVIDENCE rest.",
 		"Put her card and the cup sketch on the slope, set the wheels to 'personal effect identified / repaired cup / Nora Bell', and APPEND with my pencil.",
 	],
 	"away": [
 		"Nothing in the bunk room is waiting on me.",
 		"The beds keep what they keep. Something elsewhere comes first.",
 		"Come back when I have a record of Nora's that needs correcting.",
+	],
+	"card_on_slope": [
+		"Nora's register card is still on the writing slope.",
+		"I left it on the RECORD rest. Other records need it before it can be amended.",
+		"Open the writing slope and step back from it: her card comes with me.",
 	],
 	"take_card": [
 		"Her card is still on the writing slope.",
@@ -276,7 +291,15 @@ func objective() -> String:
 		return "take_card" if state.card_on_rest else "done"
 	if game.flag("P21"):
 		return "p22"
+	if state.card_on_rest:
+		# laid before P21 and kept there by a save: other records (P14, P18) still need it
+		return "card_on_slope"
 	return "away"
+
+## The hint ladder's height for the current objective: P08 and P22 have an evidence tier
+## (nudge, relationship, evidence, solution); the rest have three.
+func hint_tiers() -> int:
+	return (HINTS.get(objective(), []) as Array).size()
 
 # ---------------------------------------------------------------------------------------------
 # view helpers (read-only)
@@ -369,10 +392,16 @@ func calendar_hand() -> String:
 	return "many"
 
 func wheel_text(i: int) -> String:
+	return wheel_neighbour(i, 0)
+
+## The word on drum `i` at `side`: 0 in the window, -1 half above it, +1 half below it. ▷ brings
+## the +1 word into the window (WHEEL_NEXT).
+func wheel_neighbour(i: int, side: int) -> String:
 	if i < 0 or i >= WHEELS.size():
 		return ""
 	var w: Array = WHEELS[i]
-	return str(w[clampi(int(state.wheels[i]), 0, w.size() - 1)])
+	var at := clampi(int(state.wheels[i]), 0, w.size() - 1)
+	return str(w[posmod(at + side * WHEEL_NEXT, w.size())])
 
 func amendment_written() -> bool:
 	return state.p22_complete
@@ -509,7 +538,7 @@ func use_item(item: String, target: String, ev: Array) -> bool:
 				game.take("nora_register_card")
 				state.card_on_rest = true
 				_sfx(ev, "card_lay")
-				_say(ev, "Her register card. 'No surviving personal effects.' Stamped SPECIMEN N-27.")
+				_say(ev, "Her register card. 'No surviving personal effects.' Stamped " + REGISTER_STAMP + ".")
 				_observe("register_card")
 				return true
 			if target in ["locker_bell", "shelf_bell"]:
@@ -999,22 +1028,30 @@ func load_state(d: Variant) -> void:
 		state.pillow_dented = false
 		state.letter_read = false
 	if state.p22_complete:
-		# the amended card may still be on the rest; the sketch never outlives a load
+		# the amended card may still be on the rest; the sketch went back with the amendment
 		var on_rest: bool = state.card_on_rest
 		_set_p22_done()
 		state.card_on_rest = on_rest
 	else:
+		# Before P22 whatever lay on the rests stays there (reconcile checks it against the bag
+		# and the notebook once both are loaded).
 		state.cup_warm_seen = false
 
 func reconcile() -> void:
 	_sync()
 	game.set_flag("P08", state.p08_complete)
 	game.set_flag("P22", state.p22_complete)
-	if state.card_on_rest and not state.p22_complete:
-		game.give("nora_register_card")
-		state.card_on_rest = false
-	state.sketch_on_rest = false
-	if state.p22_complete:
+	if not state.p22_complete:
+		# The rests keep what she laid on them. A card can only lie there if P13 gave it and it
+		# is not also in her bag; the sketch only if she has read the book it is copied from.
+		if state.card_on_rest and (game.has_item("nora_register_card") or not game.flag("P13")):
+			state.card_on_rest = false
+		if state.sketch_on_rest and not game.has_seen("R05", "nora_ledger"):
+			state.sketch_on_rest = false
+	else:
+		state.sketch_on_rest = false
+		if state.card_on_rest and game.has_item("amended_nora_card"):
+			state.card_on_rest = false
 		_swap_card()
 
 # ---------------------------------------------------------------------------------------------
