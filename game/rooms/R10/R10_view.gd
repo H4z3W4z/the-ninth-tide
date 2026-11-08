@@ -20,7 +20,8 @@ const DIR := "res://assets/rooms/R10/%s.png"
 const STAGE_DIR := "res://assets/stages/R10/%s.png"
 ## The overlays that live in assets/stages/R10/ (new stage art; the room's own plates stay put).
 const STAGE_IDS := ["vault_grade", "cabinet_r3", "staff_seep_r3", "staff_seep_r3_1", "staff_seep_r3_2",
-	"drawer_open_r3", "a_cabinet_r3", "r10_flood_b6", "r10_flood_b6_a"]
+	"drawer_open_r3", "a_cabinet_r3", "r10_flood_b6", "r10_flood_b6_a", "r10_dusk_a", "r10_dusk_b",
+	"r10_tide_b5_a", "r10_tide_b5_b", "r10_tide_b6_a", "r10_tide_b6_b"]
 ## The STAFF drawer is always drawn shut (cabinet_r3, ring pulls). Out of its seam a hard
 ## sea-glass stripe runs up to the ceiling, at aperture width 0, 1, 2 (each step wider).
 const STAFF_SEEPS := ["staff_seep_r3", "staff_seep_r3_1", "staff_seep_r3_2"]
@@ -40,11 +41,21 @@ const FLOOD_KEEP_A := Vector2(0, 0)
 const FLOOD_KEEP_B := Vector2(820, 1180)
 ## From this band the back shelving is graded toward storm navy (vault_grade).
 const GRADE_BAND := 6
-## From this band the water stands in the room: everything under FLOOD_Y washed toward storm
-## navy, labels re-stroked (R10.py r10_flood_b6 for view B, r10_flood_b6_a for view A).
-const FLOOD_PLATE_BAND := 6
-const FLOOD_PLATES := {"a": "r10_flood_b6_a", "b": "r10_flood_b6"}
-## The waterline's meniscus: 3 px storm navy under a 1 px pale sea-glass highlight (as R02).
+## From band 5 the water's plate (R10.py r10_tide_b5_*, round p4): a hard sea-glass band from
+## FLOOD_Y down to WATER_FOOT (40% of the wall's height), the card drawers under it swollen dark
+## past their frames with their labels re-stroked, the STAFF card-holder hanging open (view B)
+## and chair 6's sitter standing, back turned, in the portrait row (view A). From band 6 the same
+## with the water below washed deeper (r10_tide_b6_*).
+const FLOOD_PLATE_BAND := 5
+const FLOOD_PLATES := {5: {"a": "r10_tide_b5_a", "b": "r10_tide_b5_b"}, 6: {"a": "r10_tide_b6_a", "b": "r10_tide_b6_b"}}
+const WATER_FOOT := 558.0
+## From band 4 the waterline: a 7 px storm-navy contour under a 2 px pale sea-glass highlight,
+## and the wallpaper one flat storm layer deeper (r10_dusk_*: the wall only, never an object).
+const WATERLINE_BAND := 4
+const DUSK_BAND := 4
+const DUSK_PLATES := {"a": "r10_dusk_a", "b": "r10_dusk_b"}
+const CONTOUR_W := 7.0
+const MENISCUS_W := 2.0
 const MENISCUS_HI := Color("a9c8b8")
 
 const PAPER := Color("ded4ba")
@@ -114,6 +125,8 @@ const FOLDER_CONTROLS := [
 	["mon_dn", Rect2(860, 796, 120, 64), "Month ▼"],
 	["year_up", Rect2(1000, 626, 150, 64), "Year ▲"],
 	["year_dn", Rect2(1000, 796, 150, 64), "Year ▼"],
+	["chair_up", Rect2(1088, 882, 64, 50), "Chair ▲"],
+	["chair_dn", Rect2(1088, 934, 64, 50), "Chair ▼"],
 	["compare", Rect2(1180, 626, 200, 110), "COMPARE"],
 	["release", Rect2(1160, 760, 260, 150), "TRAINING RELEASE"],
 ]
@@ -220,6 +233,8 @@ const LAMP_X0 := 28.0
 const LAMP_DX := 32.0
 const LAMP_R := 8.0
 const LAMP_BED := Rect2(4, 125, 272, 24)
+## The chair numbers under the lamps (full-size panels only): 1 to 8, left to right.
+const LAMP_NUM_BED := Rect2(4, 149, 272, 18)
 ## Frame 16, the last blank on panel C (panel space), and its turned silhouette's feet.
 const FRAME16 := Rect2(222, 132, 56, 100)
 const TURNED_FEET := Vector2(253, 229)
@@ -247,6 +262,23 @@ const RELEASE_AT := Vector2(1366, 796)
 const CMP_TRAY := Rect2(122, 652, 536, 136)
 const RELEASE_SLIP := Rect2(1180, 916, 200, 66)
 const INDEX_CARD := Rect2(690, 884, 476, 102)
+## The CHAIR dial: a brass plate under the date dials (clear of the subtitle bar), with a plan of
+## the 1927 session table (eight chairs round it, numbered as on the panels: chair 6 at the left,
+## by the room's only door), the number window and two keys. After P18 the index card lies over
+## it and its keys are gone.
+const CHAIR_PLATE := Rect2(696, 878, 464, 108)
+const CHAIR_WIN := Rect2(1012, 904, 66, 72)
+const CHAIR_KEYS := {"chair_up": Vector2(1120, 907), "chair_dn": Vector2(1120, 959)}
+const PLAN_ROOM := Rect2(752, 888, 248, 90)
+const PLAN_C := Vector2(876, 933)
+const PLAN_R := Vector2(96, 32)
+## Chair k sits at angle (k - 1) * 45 deg - 45 deg (screen y down): 6 at the left, 8 at the top.
+const PLAN_A0 := -45.0
+## The door gap in the plan's left wall (y0 .. y1), level with chair 6.
+const PLAN_DOOR := Vector2(918, 948)
+## The records' slide from the tray into their folders when they file themselves (s).
+const SELF_FILE_TIME := 0.7
+const SELF_FILE_STAGGER := 0.25
 const LEAF_STAGGER := 0.35
 const LEAF_FOLD := 0.4
 const BAR_DROP := 0.4
@@ -351,6 +383,7 @@ var key_down := ""
 var key_down_t := 0.0
 var cmp_date := ""              # the date COMPARE last read (stamped in the tray)
 var cmp_recs := []              # the records it read in the folders (their shadows in the tray)
+var self_file_t := -1.0         # seconds into her records filing themselves; -1 settled
 var ap_hold := false            # P23: the mirror still shows the STAFF opening as it was
 var ap_t := -1.0                # seconds into its widening in the mirror; -1 settled
 var cg_t := -1.0                # c_contact's own glance (frame 16); -1 none
@@ -678,6 +711,10 @@ func tick(dt: float) -> void:
 				idx_t = -1.0
 				rel_t = -1.0
 				back_t = -1.0
+	if self_file_t >= 0.0:
+		self_file_t += dt
+		if self_file_t > SELF_FILE_TIME + SELF_FILE_STAGGER * 2.0 or not motion:
+			self_file_t = -1.0
 	if riffle_t >= 0.0:
 		riffle_t += dt
 		if riffle_t > (RIFFLE_TIME if motion else RIFFLE_STILL):
@@ -777,6 +814,8 @@ func play_fx(id: String, e: Dictionary) -> void:
 				start_glance("frame_16", frame16_rect())
 			turn_hold = true
 			refl_hold = true
+		"self_file":
+			self_file_t = 0.0 if motion else -1.0
 		"index_close":
 			seq_on = true
 			ghost = {}
@@ -893,6 +932,7 @@ func on_view_changed(_before: String) -> void:
 	if _view() != "c_folders":
 		cmp_date = ""
 		cmp_recs = []
+		self_file_t = -1.0
 	if riffle_owed and _view() == "catalogue":
 		riffle_owed = false
 		riffle_t = 0.0
@@ -1016,7 +1056,10 @@ func closeup_controls(cid: String) -> Array:
 				out.append(h)
 			return out
 		"c_folders":
-			return FOLDER_CONTROLS
+			if not r.state.p18_complete:
+				return FOLDER_CONTROLS
+			# after P18 the index card lies over the CHAIR dial
+			return FOLDER_CONTROLS.filter(func(h): return not h[0].begins_with("chair_"))
 		"c_model":
 			var out := []
 			for h in MODEL_CONTROLS:
@@ -1205,6 +1248,7 @@ func _draw_room() -> void:
 
 func _draw_view_a(c: CanvasItem) -> void:
 	_full(c, plate_id())
+	_draw_dusk(c, "a")
 	var ov := overlay_ids()
 	for id in ov:
 		if id != "a_mercer_card":
@@ -1227,7 +1271,7 @@ func _draw_view_a(c: CanvasItem) -> void:
 		for pr in photo_rects():
 			c.draw_rect(pr, PAPER_HI)
 			c.draw_rect(pr, Color(INK, 0.6), false, 1.4)
-	if flooded():
+	if waterline():
 		_draw_flood_line(c, FLOOD_KEEP_A)
 	# the vault door's inner plate
 	c.draw_rect(RECORDS_PLATE, Color("d4cab0"))
@@ -1258,20 +1302,38 @@ func _draw_reflection_a(c: CanvasItem, ov: Array) -> void:
 		_draw_figure(c, f.x, f.facing_out)
 	c.draw_set_transform_matrix(Transform2D.IDENTITY)
 
+## The waterline is drawn from band 4 (the sea heard through the wall marks where it will stand);
+## the water itself, from band 5.
+func waterline() -> bool:
+	return _band() >= WATERLINE_BAND
+
 ## The waterline: hard, dead level, the width of the wall except across `keep` (x0, x1: a label
-## it must not cross); a faint sea-glass wash below it, to the boards.
+## it must not cross); from band 5 a faint sea-glass wash below it, to the boards.
 func _draw_flood_line(c: CanvasItem, keep: Vector2) -> void:
-	c.draw_rect(Rect2(0, FLOOD_Y, 1448, FLOOR_TOP - FLOOD_Y), FLOOD_WASH)
+	if flooded():
+		c.draw_rect(Rect2(0, FLOOD_Y, 1448, FLOOR_TOP - FLOOD_Y), FLOOD_WASH)
 	for span in [Vector2(0, keep.x), Vector2(keep.y, 1448)]:
 		if span.y <= span.x:
 			continue
-		# the meniscus: a 1 px pale sea-glass highlight over a 3 px storm-navy contour
-		c.draw_line(Vector2(span.x, FLOOD_Y - 2.0), Vector2(span.y, FLOOD_Y - 2.0), MENISCUS_HI, 1.0)
-		c.draw_line(Vector2(span.x, FLOOD_Y + 0.5), Vector2(span.y, FLOOD_Y + 0.5), STORM, 3.0)
+		# a 2 px pale sea-glass highlight on a 7 px storm-navy contour, the water's top edge
+		c.draw_rect(Rect2(span.x, FLOOD_Y, span.y - span.x, CONTOUR_W), STORM)
+		c.draw_rect(Rect2(span.x, FLOOD_Y - MENISCUS_W, span.y - span.x, MENISCUS_W), MENISCUS_HI)
 
-## The flood plate's id for view `side` ("a" or "b"), or "" below FLOOD_PLATE_BAND.
+## The wall's dusk overlay for `side`, or "" below DUSK_BAND.
+func dusk_id(side: String) -> String:
+	return DUSK_PLATES[side] if _band() >= DUSK_BAND else ""
+
+func _draw_dusk(c: CanvasItem, side: String) -> void:
+	var id := dusk_id(side)
+	if id != "":
+		_full(c, id)
+
+## The water's plate for view `side` ("a" or "b"), or "" below FLOOD_PLATE_BAND.
 func flood_plate_id(side: String) -> String:
-	return FLOOD_PLATES[side] if r.band() >= FLOOD_PLATE_BAND else ""
+	var b := r.band()
+	if b < FLOOD_PLATE_BAND:
+		return ""
+	return FLOOD_PLATES[mini(b, 6)][side]
 
 ## The water standing in the room, under the waterline and every label the view writes.
 func _draw_flood_plate(c: CanvasItem, side: String) -> void:
@@ -1350,14 +1412,18 @@ func _draw_divider_tab(c: CanvasItem) -> void:
 
 func _draw_view_b(c: CanvasItem) -> void:
 	_full(c, plate_id())
+	_draw_dusk(c, "b")
 	for id in overlay_ids():
 		if id == "b_drawer_open" and drawer_t >= 0.0:
 			var k := smoothstep(0.0, 1.0, drawer_t / DRAWER_SLIDE)
 			_full(c, id, k, Vector2(0, -DRAWER_SLIDE_PX * (1.0 - k)))
 		else:
 			_full(c, id)
-	_draw_flood_plate(c, "b")
-	if flooded():
+		if id == "cabinet_r3":
+			# the water stands over the chest (its drawers swell under it), under Venn's open
+			# drawer, the stripe and everything the view writes
+			_draw_flood_plate(c, "b")
+	if waterline():
 		# under the labels, and broken where the folder cabinet's spine plates stand (R10.py
 		# paints its tide line round them too)
 		_draw_flood_line(c, FLOOD_KEEP_B)
@@ -1406,7 +1472,7 @@ func _draw_close() -> void:
 func _draw_panel(c: CanvasItem, x: String, pos: Vector2, s: float, cells: Array = []) -> void:
 	c.draw_set_transform(pos, 0.0, Vector2(s, s))
 	_sprite(c, "c_panel_" + x.to_lower(), Vector2.ZERO)
-	_draw_lamps(c, R10Sim.lamps_lit(x))
+	_draw_lamps(c, x, s >= 1.0)
 	if x == "C":
 		for pa in last_blank():
 			if pa[0] == "c_blank_t2":
@@ -1432,12 +1498,17 @@ func _draw_panel(c: CanvasItem, x: String, pos: Vector2, s: float, cells: Array 
 
 ## The eight chair lamps along a panel's top rail, in panel space, countable by eye: the
 ## painted lamps are covered by a strip of the photograph's ground, then each lamp is a solid
-## amber dot (lit) or a navy ring (out).
-func _draw_lamps(c: CanvasItem, lit: int) -> void:
+## amber dot (lit) or a navy ring (out), over its own chair (R10Sim.lamp_on). Full-size panels
+## also number the chairs 1 to 8 under their lamps, as the folders' CHAIR dial does.
+func _draw_lamps(c: CanvasItem, x: String, numbered: bool) -> void:
 	c.draw_rect(LAMP_BED, SEPIA)
+	if numbered:
+		c.draw_rect(LAMP_NUM_BED, SEPIA)
 	for k in 8:
 		var at := Vector2(LAMP_X0 + LAMP_DX * k, LAMP_Y)
-		if k < lit:
+		if numbered:
+			_ctext(c, str(k + 1), at.x, LAMP_NUM_BED.end.y - 2, 15, INK, narrow)
+		if R10Sim.lamp_on(x, k + 1):
 			c.draw_circle(at, LAMP_R + 1.4, INK)
 			c.draw_circle(at, LAMP_R, AMBER)
 			c.draw_circle(at + Vector2(-2.5, -2.5), 2.4, PAPER_HI)
@@ -1501,6 +1572,9 @@ func _draw_contact(c: CanvasItem) -> void:
 		var note := Rect2(194, 574, 104, 30)
 		_slip(c, note, false)
 		_rtext(c, "Sync: bell.", note, 18, GRAPHITE, Ink.hand())
+		var mark := Rect2(310, 574, 214, 30)
+		_slip(c, mark, false)
+		_rtext(c, "2 frames after the bell", mark, 18, GRAPHITE, Ink.hand())
 	# the registration cover
 	var dx := cover_dx()
 	if dx >= 0.0:
@@ -1580,7 +1654,7 @@ func _rec_at(c: CanvasItem, rec: String, pos: Vector2, s := 1.0, a := 1.0) -> vo
 func _draw_folders(c: CanvasItem) -> void:
 	var st: Dictionary = r.state
 	_full(c, "c_folders")
-	_cpara(c, "A subject is complete when BODY, PLACE and NAME correspond on one session date. S.R.",
+	_cpara(c, "A subject is complete when BODY, PLACE and NAME correspond in one chair on one session date. S.R.",
 		LID_CARD.get_center().x, LID_CARD.position.y + 34, 22, INK, LID_CARD.size.x - 40)
 	for k in 3:
 		var pk: Rect2 = POCKETS[k]
@@ -1598,7 +1672,16 @@ func _draw_folders(c: CanvasItem) -> void:
 		if rec != "":
 			var size: Vector2 = REC_SIZE[rec]
 			# in the pocket's sleeve, clear of the cover's diagram
-			_rec_at(c, rec, Vector2(pk.get_center().x - size.x / 2.0, pk.position.y + 186) + goff, 1.0, ga)
+			var home := Vector2(pk.get_center().x - size.x / 2.0, pk.position.y + 186)
+			var sc := 1.0
+			var sk := self_file_k(rec)
+			if sk < 1.0:
+				# filing itself: up out of the tray into its own folder, unhurried
+				var from := Vector2(CMP_TRAY.position.x + 18 + 178 * R10Sim.RECORDS.find(rec), CMP_TRAY.position.y + 14)
+				var e := smoothstep(0.0, 1.0, sk)
+				home = from.lerp(home, e)
+				sc = lerpf(0.6, 1.0, e)
+			_rec_at(c, rec, home + goff, sc, ga)
 	# the leaves shutting on her, and the index bar across them
 	for k in 3:
 		var ck := leaf_closed(k)
@@ -1618,16 +1701,19 @@ func _draw_folders(c: CanvasItem) -> void:
 	var by := bar_y()
 	if not is_nan(by):
 		_sprite(c, "c_index_bar", Vector2(BAR_X, by))
-	# the comparison tray
+	# the comparison tray: its printed legend, then what COMPARE last read
+	if cmp_date == "" and self_file_t < 0.0:
+		_ctext(c, "TRAINING SUBJECT", CMP_TRAY.get_center().x, CMP_TRAY.get_center().y + 10, 26, Color(PAPER_HI, 0.9), narrow)
 	_draw_cmp_tray(c)
-	var tray: Array = st.tray
-	for i in tray.size():
-		_rec_at(c, tray[i], Vector2(132 + 178 * i, 662), 0.6)
 	# the result window
 	var lines := str(r.strip_text).split("\n")
-	var y0 := RESULT_WIN.get_center().y + 7 - (lines.size() - 1) * 11
+	var lh := 22 if lines.size() <= 2 else 16
+	var y0 := RESULT_WIN.get_center().y + 7 - (lines.size() - 1) * lh / 2.0
 	for i in lines.size():
-		_ctext(c, lines[i], RESULT_WIN.get_center().x, y0 + 22 * i, 20 if lines.size() == 1 else 18, INK, narrow)
+		var fs := 20 if lines.size() == 1 else (18 if lines.size() == 2 else 15)
+		_ctext(c, lines[i], RESULT_WIN.get_center().x, y0 + lh * i, fs, INK, narrow)
+	if not st.p18_complete:
+		_draw_chair_dial(c, int(st.chair))
 	# the date dials
 	var vals := ["%02d" % int(st.day), R10Sim.MONTHS[int(st.month) - 1], str(int(st.year))]
 	for k in 3:
@@ -1657,6 +1743,70 @@ func _draw_folders(c: CanvasItem) -> void:
 		_cpara(c, "THE STATION INDEX RETAINED EIGHT SUBJECTS THROUGH THESE THREE CORRESPONDENCES. 18.X.27.",
 			INDEX_CARD.get_center().x, INDEX_CARD.position.y + 30, 20, INK, INDEX_CARD.size.x - 28, narrow, 1.2)
 
+## How far record `rec` is on its way from the tray into its folder (1 = home). They go in the
+## order R10Sim.RECORDS, a beat apart.
+func self_file_k(rec: String) -> float:
+	if self_file_t < 0.0:
+		return 1.0
+	var i := R10Sim.RECORDS.find(rec)
+	return clampf((self_file_t - SELF_FILE_STAGGER * i) / SELF_FILE_TIME, 0.0, 1.0)
+
+## The CHAIR dial plate: the plan of the session room with the chosen chair ringed, the number
+## window and its two keys. Flat brass and ink, every numeral drawn.
+func _draw_chair_dial(c: CanvasItem, chair: int) -> void:
+	var p := CHAIR_PLATE
+	c.draw_rect(Rect2(p.position + Vector2(5, 6), p.size), Color(STORM, 0.35))
+	c.draw_rect(p, BRASS)
+	c.draw_rect(p.grow(-6), BRASS_LO, false, 1.6)
+	c.draw_rect(p, INK, false, 3.0)
+	# the plan: the session room's walls with the door gap, the round table, eight chairs
+	var rm := PLAN_ROOM
+	c.draw_rect(rm, Color(PAPER, 0.95))
+	var wall := 4.0
+	c.draw_line(rm.position, Vector2(rm.end.x, rm.position.y), INK, wall)
+	c.draw_line(Vector2(rm.end.x, rm.position.y), rm.end, INK, wall)
+	c.draw_line(Vector2(rm.position.x, rm.end.y), rm.end, INK, wall)
+	c.draw_line(rm.position, Vector2(rm.position.x, PLAN_DOOR.x), INK, wall)
+	c.draw_line(Vector2(rm.position.x, PLAN_DOOR.y), Vector2(rm.position.x, rm.end.y), INK, wall)
+	# the door: its leaf standing open, out of the room, from the hinge at the gap's top
+	var hinge := Vector2(rm.position.x, PLAN_DOOR.x)
+	var leaf := PLAN_DOOR.y - PLAN_DOOR.x
+	c.draw_line(hinge, hinge + Vector2(-leaf * 0.7, -leaf * 0.7), INK, 3.0)
+	c.draw_arc(hinge, leaf, PI * 0.75, PI, 12, Color(INK, 0.7), 1.4)
+	_ctext(c, "DOOR", rm.position.x - 26, PLAN_DOOR.y + 22, 13, INK, narrow)
+	c.draw_colored_polygon(Ink.ellipse(PLAN_C, 46.0, 13.0, 36), BRASS_LO)
+	c.draw_polyline(Ink.ellipse(PLAN_C, 46.0, 13.0, 36), INK, 2.2, true)
+	for k in 8:
+		var at := plan_chair(k + 1)
+		if k + 1 == chair:
+			c.draw_circle(at, 15.0, INK)
+			c.draw_circle(at, 12.5, BRASS_HI)
+		else:
+			c.draw_circle(at, 11.5, PAPER_HI)
+			c.draw_arc(at, 11.5, 0.0, TAU, 24, INK, 1.8)
+		_ctext(c, str(k + 1), at.x, at.y + 5.5, 15, INK, narrow)
+	# the window and its number
+	_ctext(c, "CHAIR", CHAIR_WIN.get_center().x, CHAIR_WIN.position.y - 6, 14, INK, narrow)
+	c.draw_rect(CHAIR_WIN, PAPER_HI)
+	c.draw_rect(Rect2(CHAIR_WIN.position.x, CHAIR_WIN.end.y - 9, CHAIR_WIN.size.x, 9), Color(SEPIA, 0.8))
+	c.draw_rect(CHAIR_WIN, INK, false, 3.0)
+	_ctext(c, str(chair), CHAIR_WIN.get_center().x, CHAIR_WIN.get_center().y + 15, 42, INK, narrow)
+	# the keys: brass bosses with an ink arrow
+	for id in CHAIR_KEYS:
+		var at: Vector2 = CHAIR_KEYS[id]
+		c.draw_circle(at + Vector2(2, 3), 21.0, Color(STORM, 0.45))
+		c.draw_circle(at, 21.0, INK)
+		c.draw_circle(at, 19.0, BRASS_HI)
+		c.draw_arc(at, 14.0, 0.0, TAU, 28, BRASS_LO, 1.4)
+		var tip := -9.0 if id == "chair_up" else 9.0
+		c.draw_colored_polygon(PackedVector2Array([at + Vector2(0, tip), at + Vector2(8, -tip * 0.7),
+			at + Vector2(-8, -tip * 0.7)]), INK)
+
+## Where chair `n` (1-8) sits on the CHAIR dial's plan.
+func plan_chair(n: int) -> Vector2:
+	var a := deg_to_rad(PLAN_A0 + (n - 1) * 45.0)
+	return PLAN_C + Vector2(cos(a) * PLAN_R.x, sin(a) * PLAN_R.y)
+
 ## The release lever mid-pull (R10.py lever()): the knob travels from above the pivot boss
 ## to below it, the arm shortening through the boss as it swings toward her.
 func _draw_lever(c: CanvasItem, k: float) -> void:
@@ -1682,7 +1832,7 @@ func _draw_lever(c: CanvasItem, k: float) -> void:
 func _draw_cmp_tray(c: CanvasItem) -> void:
 	if cmp_date == "":
 		return
-	if r.state.tray.is_empty():
+	if not r.subject_filed():
 		for i in cmp_recs.size():
 			var rec: String = cmp_recs[i]
 			var size: Vector2 = REC_SIZE[rec] * 0.6

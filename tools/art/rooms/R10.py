@@ -2716,6 +2716,221 @@ def paint_flood_b6_a(rng):
     return p
 
 
+# ----------------------------------------------------------------------------- round p4
+#
+# The wall's dusk, band 4 on: the wallpaper (and only the wallpaper) one flat storm-navy layer
+# deeper, so the vault reads as sinking while every object keeps its own face. The mask is the
+# exact set of pixels wall() colours: the stage-4 plate painted twice with two wall darknesses,
+# differenced. One flat colour under a mask, so the overlay is tiny.
+#
+# The water, band 5 on: a hard sea-glass band from the office's tide height (TIDE_Y, the same
+# height in every room) down to WATER_FOOT, 40% of the wall's height (CEIL_Y .. FLOOR_Y) up from
+# the boards; the view draws its 7 px navy contour and highlight on top. Below it the card drawers
+# have swollen, dark, past their frames (labels re-stroked), the water stands at a flat wash and
+# the lightbox's glass still shines through it. View B: the STAFF drawer's brass card-holder hangs
+# open from one screw under its label. View A: in the portrait row, chair 6's photograph (hers,
+# P18) no longer holds a seated back-of-head: the sitter stands, full length, back to us.
+WATER_TOP = TIDE_Y                                         # 512
+WATER_FOOT = round(FLOOR_Y - 0.40 * (FLOOR_Y - CEIL_Y))    # 558
+WATER_BAND = SEEP
+WATER_BAND_OP = 0.92
+WALL_DUSK = 0.52
+SWOLLEN = mix(OAK_DK, STORM, 0.55)
+SWOLLEN_HI = mix(SWOLLEN, SEAGLASS_HI, 0.35)
+SWOLLEN_IN = mix(SWOLLEN, SOOT, 0.30)
+SWELL = 4.0
+TIDE_WASH = {5: 0.30, 6: 0.45}
+STANDING_FRAME = 5                                         # FRIEZE_X index: chair 6's photograph
+
+
+def paint_wall_dusk(side):
+    def plate():
+        if side == "a":
+            return paint_view_a(rng_for(0), 4, 6, False).done()
+        return paint_view_b(rng_for(10), 4).done()
+
+    def paint(rng):
+        global _wall_dark
+        try:
+            _wall_dark = 0.0
+            a = plate()
+            _wall_dark = 0.6
+            b = plate()
+        finally:
+            _wall_dark = 0.0
+        diff = ImageChops.difference(a.convert("RGB"), b.convert("RGB")).convert("L")
+        mask = diff.point(lambda v: 255 if v > 4 else 0)
+        out = Image.new("RGBA", (W, H), STORM + (0,))
+        out.putalpha(mask.point(lambda v: int(v * WALL_DUSK)))
+        return out
+    return paint
+
+
+def water_band(p, keep_out=()):
+    """The band itself: flat sea-glass, a navy foot. (The view strokes its top contour.)"""
+    lay = p.layer()
+    lay.rect(-4, WATER_TOP, W + 4, WATER_FOOT, WATER_BAND, None)
+    lay.line([(-4, WATER_FOOT), (W + 4, WATER_FOOT)], INK, 2.6)
+    m = rect_mask([(-4, 0, W + 4, H)])
+    if keep_out:
+        m = ImageChops.subtract(m, rect_mask(list(keep_out)))
+    p.put(lay, WATER_BAND_OP, mask=m)
+
+
+def tide_wash(p, band, keep_out=()):
+    lay = p.layer(STORM)
+    lay.rect(-4, WATER_FOOT, W + 4, FLOOR_Y, STORM, None, 0)
+    m = rect_mask([(-4, WATER_FOOT, W + 4, FLOOR_Y)])
+    if keep_out:
+        m = ImageChops.subtract(m, rect_mask(list(keep_out)))
+    p.put(lay, TIDE_WASH[band], mask=m)
+
+
+def swollen_front(p, x0, y0, x1, y1, r=5):
+    """A drawer front swollen with water: past its frame on every side, dark, its face bowed."""
+    s = SWELL
+    p.rect(x0 - s, y0 - s * 0.7, x1 + s, y1 + s * 0.7, SWOLLEN, INK, 2.8, r=r)
+    cx = (x0 + x1) / 2
+    hw = (x1 - x0) / 2 - 7
+    p.arc(cx, y0 + (y1 - y0) * 0.62, hw, (y1 - y0) * 0.42, 205, 335, SWOLLEN_HI, 1.8)
+    p.arc(cx, y0 + (y1 - y0) * 0.38, hw, (y1 - y0) * 0.42, 25, 155, SWOLLEN_IN, 2.2)
+
+
+def ring_pull(p, cx, cy, rx, ry, w_lo, w_hi):
+    global _ring_pulls
+    _ring_pulls = True
+    try:
+        pull(p, cx, cy, rx, ry, w_lo, w_hi)
+    finally:
+        _ring_pulls = False
+
+
+def card_holder_open(p):
+    """STAFF's brass card-holder (the bezel over its label) hanging open from its left screw."""
+    x0, y0, x1, y1 = STAFF_PLATE
+    hinge = (x0 - 2, y1 + 2)
+    w, h = (x1 - x0) + 8, (y1 - y0) + 8
+    ang = 64.0                                   # hanging down and a little out to the right
+    outer = [rot((hinge[0] + u, hinge[1] + v), hinge, ang) for u, v in ((0, 0), (w, 0), (w, h), (0, h))]
+    inner = [rot((hinge[0] + u, hinge[1] + v), hinge, ang) for u, v in ((5, 5), (w - 5, 5), (w - 5, h - 5), (5, h - 5))]
+    sh = p.layer(SHADOW)
+    sh.poly([(q[0] + 3, q[1] + 4) for q in outer], SHADOW, None)
+    p.put_soft(sh, 2, 0.35)
+    lay = p.layer()
+    lay.poly(outer, BRASS, INK, 2.4)
+    lay.poly(inner, SWOLLEN_IN, INK, 1.6)
+    p.put(lay)
+    screw(p, hinge[0] + 2, hinge[1] - 2, 3.6)
+    # the empty screw hole on the right, where it used to hold
+    p.ell(x1 + 2, y1 + 1, 2.2, 2.2, SOOT, INK, 1.0)
+
+
+def standing_back(p, x0, y0, x1, y1):
+    """Chair 6's photograph: the sitter is standing now, full length, back to the camera, beside
+    the empty chair. One stark flat silhouette, taller than anything seated in the row."""
+    w = x1 - x0
+    fy = y0 + (y1 - y0) * 0.86
+    p.rect(x0, y0, x1, y1, SEPIA, None)
+    p.rect(x0, fy, x1, y1, mix(SEPIA, SEPIA_DK, 0.25), None)
+    p.line([(x0, fy), (x1, fy)], mix(SEPIA, SEPIA_DK, 0.6), 1.4)
+    p.line([(x0, y0 + (y1 - y0) * 0.30), (x1, y0 + (y1 - y0) * 0.30)], SEPIA_HI, 1.2)
+    cx = x0 + w * 0.40
+    lay = p.layer()
+    sc = w / 40.0 * 0.5
+    chair(lay, x0 + w * 0.78, fy - 29 * sc, sc, bh=34)
+    top = y0 + 6
+    hgt = fy - top
+    rim = mix(SEPIA_HI, PAPER_HI, 0.5)
+    body = [(cx - w * 0.17, fy), (cx - w * 0.17, top + hgt * 0.62), (cx - w * 0.20, top + hgt * 0.30),
+            (cx - w * 0.14, top + hgt * 0.22), (cx - w * 0.05, top + hgt * 0.20), (cx + w * 0.05, top + hgt * 0.20),
+            (cx + w * 0.14, top + hgt * 0.22), (cx + w * 0.20, top + hgt * 0.30), (cx + w * 0.17, top + hgt * 0.62),
+            (cx + w * 0.17, fy)]
+    lay.poly(body, COAT, rim, 1.6)
+    lay.rect(cx - w * 0.05, top + hgt * 0.14, cx + w * 0.05, top + hgt * 0.22, HAIR, None)
+    lay.ell(cx, top + hgt * 0.10, w * 0.10, hgt * 0.10, HAIR, rim, 1.4)
+    lay.ell(cx, top + hgt * 0.13, w * 0.085, hgt * 0.06, HAIR, None)
+    # the coat's centre seam: the only mark on it
+    lay.line([(cx, top + hgt * 0.26), (cx, fy - 2)], STORM, 1.2)
+    p.put(lay, mask=rect_mask([(x0, y0, x1, y1)]))
+
+
+def chest_under(p):
+    """The chest's small drawers below the line, swollen, their plates and pulls re-stroked."""
+    cells = []
+    for ry0, ry1 in ROWS:
+        if ry0 < WATER_TOP:
+            continue
+        for k in range(len(COLS) - 1):
+            cx0, cx1 = COLS[k], COLS[k + 1]
+            if ry0 == VENN[1] and cx1 <= COLS[2]:
+                continue
+            cells.append((cx0, ry0, cx1, ry1))
+    for cx0, ry0, cx1, ry1 in cells:
+        swollen_front(p, cx0 + 3, ry0 + 3, cx1 - 3, ry1 - 3, r=3)
+    for cx0, ry0, cx1, ry1 in cells:
+        cx = (cx0 + cx1) / 2
+        pw = min(48, (cx1 - cx0) * 0.5)
+        oak_plate(p, cx - pw / 2, ry0 + 11, cx + pw / 2, ry0 + 25)
+        ring_pull(p, cx, ry0 + 25 + (ry1 - ry0 - 25) * 0.5 - 1, 9, 6, 4.4, 1.8)
+    return cells
+
+
+def paint_tide_b(band):
+    def paint(rng):
+        p = Pen(W, H, rng)
+        tide_wash(p, band, keep_out=[SPINE_BAND])
+        cells = chest_under(p)
+        water_band(p)
+        # what stands in front of the water, or whose label it crosses, re-stroked over the band
+        for k in range(3):
+            oak_plate(p, 830 + 120 * k, 500, 930 + 120 * k, 526)
+        for cx0, ry0, cx1, ry1 in cells:
+            if ry0 + 11 < WATER_FOOT:
+                cx = (cx0 + cx1) / 2
+                pw = min(48, (cx1 - cx0) * 0.5)
+                oak_plate(p, cx - pw / 2, ry0 + 11, cx + pw / 2, ry0 + 25)
+        global _ring_pulls
+        _ring_pulls = True
+        try:
+            tray(p)
+        finally:
+            _ring_pulls = False
+        brng = rng_for(640)
+        y = FLOOR_Y
+        for w, h in ((176, 78), (164, 72), (170, 70)):
+            x0 = 1226 + brng.uniform(-6, 6)
+            if y - h + 26 >= WATER_FOOT:
+                oak_plate(p, x0 + w / 2 - 30, y - h + 26, x0 + w / 2 + 30, y - h + 42)
+            y -= h
+        card_holder_open(p)
+        return p
+    return paint
+
+
+def paint_tide_a(band):
+    def paint(rng):
+        p = Pen(W, H, rng)
+        tide_wash(p, band, keep_out=[LB_GLASS])
+        # the hanging file's box and the desk's two drawers, swollen
+        x0, y0, x1, y1 = CAB
+        swollen_front(p, x0 + 2, y0 + 8, x1 - 2, y1 - 2, r=4)
+        p.rect(x0 + 16, y0 + 22, x1 - 16, y1 - 16, None, mix(INK, SWOLLEN, 0.4), 1.8, r=3)
+        oak_plate(p, (x0 + x1) / 2 - 42, y0 + 40, (x0 + x1) / 2 + 42, y0 + 64)
+        ring_pull(p, (x0 + x1) / 2, y0 + 98, 16, 12, 6, 2.6)
+        dx, dy = DESK[0], DESK[1]
+        for k in range(2):
+            dx0 = dx + 30 + k * 176 + (8 if k else 0)
+            swollen_front(p, dx0, dy + 30, dx0 + 156, 778, r=3)
+            oak_plate(p, dx0 + 56, dy + 40, dx0 + 100, dy + 52)
+            p.rect(dx0 + 62, dy + 60, dx0 + 94, dy + 66, BRASS, INK, 1.6, r=2)
+        water_band(p)
+        fx = FRIEZE_X[STANDING_FRAME]
+        standing_back(p, fx + 12, FRIEZE_Y + 13, fx + 72, FRIEZE_Y + 99)
+        p.rect(fx + 12, FRIEZE_Y + 13, fx + 72, FRIEZE_Y + 99, None, mix(INK, SEPIA, 0.4), 1.4)
+        return p
+    return paint
+
+
 ASSETS = [  # name, seed index, painter, opaque, grain
     ("view_a", 0, lambda r: paint_view_a(r, 4), True, True),
     ("view_a_s5", 0, lambda r: paint_view_a(r, 5), True, True),
@@ -2795,6 +3010,14 @@ STAGE_ASSETS = [  # name, seed index, painter, opaque, grain -> assets/stages/R1
     # round p3: the flood from band 6, view B (the catalogue wall) and view A (the shelves)
     ("r10_flood_b6", 102, paint_flood_b6_b, False, False),
     ("r10_flood_b6_a", 103, paint_flood_b6_a, False, False),
+    # round p4: the wall's dusk from band 4; the water band, swollen drawers, the card-holder
+    # hanging open and chair 6's sitter standing, from band 5 (a band-6 variant washes deeper)
+    ("r10_dusk_a", 104, paint_wall_dusk("a"), False, False),
+    ("r10_dusk_b", 105, paint_wall_dusk("b"), False, False),
+    ("r10_tide_b5_a", 106, paint_tide_a(5), False, True),
+    ("r10_tide_b5_b", 107, paint_tide_b(5), False, True),
+    ("r10_tide_b6_a", 108, paint_tide_a(6), False, True),
+    ("r10_tide_b6_b", 109, paint_tide_b(6), False, True),
 ]
 
 
