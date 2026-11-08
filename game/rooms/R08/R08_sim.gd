@@ -39,26 +39,28 @@ const CLOSEUPS := ["c_valves", "c_tags"]
 ## true = OPEN.
 const VALVES := ["SUPPLY", "GATE", "RETURN", "INDEX"]
 const SOLUTION := {"SUPPLY": true, "GATE": true, "RETURN": true, "INDEX": false}
-## The board carries no names: each toggle is stamped with Venn's tag number. The drawing names
-## the lines; his repair tags (c_tags) say which number is which line.
+## Neither the board nor the drawing names a line: each toggle is stamped with Venn's tag number,
+## and the drawing (MAINT. DWG. 4) shows only topology: the pump, four valve symbols numbered
+## the same, the STAIR GATE box, and a capped stub, 'SEALED. NEVER FEED.' His repair tags
+## (c_tags) say which number is which line.
 const VALVE_TAGS := {"SUPPLY": "07", "GATE": "12", "RETURN": "31", "INDEX": "44"}
 ## The circuit codes circuit() can return, in evaluation order.
 const CIRCUITS := ["no_supply", "index", "gate_shut", "dead_gate", "loop"]
 ## Printed on the drawing's fault window (the view draws them).
 const FAULT_NAMES := {
-	"no_supply": "NO SUPPLY",
-	"index": "DIVERTED TO INDEX",
+	"no_supply": "NO PRESSURE",
+	"index": "DIVERTED TO SEALED STUB",
 	"gate_shut": "DEAD END BEFORE GATE",
 	"dead_gate": "DEAD END AT GATE",
 	"loop": "LOOP COMPLETE",
 }
 ## [first PREVIEW of that circuit, every later one].
 const FAULT_LINES := {
-	"no_supply": ["No supply. The pump would turn over on nothing.", "Still no supply."],
-	"index": ["It runs straight up the sealed line.", "Into INDEX again."],
+	"no_supply": ["No pressure. The pump would turn over on nothing.", "Still no pressure."],
+	"index": ["It runs straight up the sealed line.", "Into the sealed line again."],
 	"gate_shut": ["It stops short of the gate.", "Dead before the gate."],
 	"dead_gate": ["It reaches the gate and has no way back.", "Nothing coming back."],
-	"loop": ["Out through the gate and back. INDEX stays dry.", "The loop's clean."],
+	"loop": ["Out through the gate and back. The sealed line stays dry.", "The loop's clean."],
 }
 ## What a refused PUMP says, and the sound the lever makes.
 const PUMP_REFUSALS := {
@@ -67,7 +69,7 @@ const PUMP_REFUSALS := {
 	"gate_shut": ["lever_spring", "Dead end before the gate. It springs back."],
 	"dead_gate": ["lever_spring", "Dead end at the gate. It springs back."],
 }
-const DRAWING_LINE := "Out through SUPPLY and GATE, back through RETURN. INDEX capped: SEALED. NEVER FEED."
+const DRAWING_LINE := "From the pump through 07 and 12 to the stair gate, back through 31. A stub off 44, capped: SEALED. NEVER FEED."
 
 # --- O04: Venn's repair tags -------------------------------------------------------------------
 ## Pages 0-11 are handwritten (backward slant), in the order they hang; the four valve tags
@@ -120,13 +122,13 @@ const OBSERVATIONS := {
 	"bolts": "Twelve restraining bolts round the ring. A white paint stripe runs across each head onto the flange, so you'd see if one turned.",
 	"dust": "Fine grey dust on the floor, swept and settled again. Nobody's walked through it but me.",
 	"valve_board": "Valve board: four toggles with no names, only stamped numbers, No. 07, No. 12, No. 31, No. 44, each OPEN or SHUT. A PUMP lever, and a PREVIEW key that lights the active circuit on the drawing.",
-	"drawing": "Maintenance drawing: from the pump through SUPPLY, out through GATE to the stair gate, and back through RETURN to the pump. INDEX branches off before the gate, drawn capped: 'SEALED. NEVER FEED.'",
+	"drawing": "Maintenance drawing, MAINT. DWG. 4. No line names, only numbers: from the pump through valve 07, out through 12 to the STAIR GATE, and back through 31 to the pump. A stub branches off before the gate through valve 44, drawn capped: 'SEALED. NEVER FEED.'",
 	"index_seal_cut": "No. 44 was left OPEN. The lead seal wire on its toggle has been cut, cleanly.",
 	"tag_07": "Repair tag No. 07: 'SUPPLY valve reseated, 11 Jan 1926.' The SUPPLY toggle is No. 07.",
 	"tag_12": "Repair tag No. 12: 'GATE valve repacked, 3 Mar 1926.' The GATE toggle is No. 12.",
 	"tag_31": "Repair tag No. 31: 'RETURN line flushed, 9 Sep 1927.' The RETURN toggle is No. 31.",
 	"tag_44": "Repair tag No. 44: 'INDEX resealed. Wire cut again. Do not open.' The INDEX toggle is No. 44.",
-	"index_hunger": "With SUPPLY and INDEX both open, the whole machine stopped and held, flywheel and all, like something listening. It let go when the line was shut.",
+	"index_hunger": "With 07 and 44 both open, the whole machine stopped and held, flywheel and all, like something listening. It let go when the line was shut.",
 	"reference_respiration": "With the gate loop running, one belt stopped. The diaphragm kept breathing without it. Under the belt, a nameplate: REFERENCE RESPIRATION.",
 	"o04_tags": "Venn's repair tags, on a ring behind the middle belt: years of valves, bolts, lacing and seals, all in his left-handed slope. The valve tags carry the toggles' numbers.",
 	"o04_keeps_time": "Twice he relaced the middle belt. In 1928 the diaphragm kept time 4 seconds without it. In 1930, 40. He didn't tell Rook.",
@@ -140,20 +142,20 @@ const OBSERVATIONS := {
 	"late_reflection": "The diaphragm's surface doesn't hold the room. It holds a horizon: one long curve with nine pale points along it, moving a moment after the breath.",
 	"far_horizon": "The horizon in its surface is further back than the wall goes. A long way further.",
 	"lens_pores": "Under the lens it isn't rubber. It has pores, and they close when it breathes in.",
-	"lens_index_ink": "On the drawing, INDEX is in a different ink. Added after the rest, then capped.",
+	"lens_index_ink": "On the drawing, the capped stub and valve 44 are in a different ink. Added after the rest, then capped.",
 	"end_sever": "It hangs slack in its ring. The dust lies where it fell.",
 	"end_continue": "It breathes evenly now. The room in its surface has caught up.",
 }
 const OBJECTIVES := {
-	"p11": "Route the pump to the stair gate without feeding the INDEX line.",
+	"p11": "Route the pump to the stair gate without feeding the sealed line.",
 	"done": "The gate line has pressure. The machine room runs on its own.",
 }
 const HINTS := {
 	"p11": [
-		"The valve toggles have numbers, not names. Venn tagged everything he repaired: his tags hang behind the middle belt.",
-		"Match each toggle's number to its tag, then route the drawing's loop: out through the gate and back, never into the sealed line.",
-		"Venn's tags: No. 07 SUPPLY, No. 12 GATE, No. 31 RETURN, No. 44 INDEX, 'Do not open.' The drawing caps INDEX: SEALED. NEVER FEED.",
-		"No. 07 (SUPPLY), No. 12 (GATE) and No. 31 (RETURN) open, No. 44 (INDEX) shut. Then the pump.",
+		"The drawing above the valve board is the circuit: a pump, four numbered valves, the stair gate, and one capped stub.",
+		"The capped stub on the drawing is the line that must never be fed. Find its valve.",
+		"On the drawing, 07, 12 and 31 carry the loop out to the stair gate and back. The capped stub hangs off 44, and Venn's tag for 44 says 'Do not open.'",
+		"07, 12 and 31 open, 44 shut. Then the pump.",
 	],
 	"done": [
 		"Nothing in the machine room is waiting on me.",
@@ -189,15 +191,6 @@ func objective() -> String:
 ## (nudge, relationship, evidence, solution); the done ladder keeps three.
 func hint_tiers() -> int:
 	return c("HINTS", {}).get(objective(), []).size()
-
-## A core that predates hint_tiers() climbs only to level 2. On the fourth press here (its
-## stored level already 3, for this room's own ladder) the solution still comes.
-func hint_line(level: int) -> String:
-	var hint: Variant = game.state.get("hint") if game else null
-	if level == 2 and hint is Dictionary and str(hint.get("for", "")) == ID + ":" + objective() \
-			and game.state.get("room", "") == ID and int(hint.get("level", 0)) >= 3:
-		level = 3
-	return super(level)
 
 # ---------------------------------------------------------------------------------------------
 # the circuit
@@ -400,7 +393,7 @@ func use_item(item: String, target: String, ev: Array) -> bool:
 						else "Not through a running belt.")
 					return true
 				"drawing", "valve_board", "look_drawing":
-					_say(ev, "INDEX is drawn in a different ink. Added after, then capped.")
+					_say(ev, "The capped stub is drawn in a different ink. Added after, then capped.")
 					_observe("lens_index_ink")
 					return true
 				"bolts":

@@ -220,6 +220,8 @@ const GAUGE_SWEEP := 1.2
 
 ## Notice holds: focus rects.
 const HOLD_TIME := 1.5
+const FOCUS_IN := 0.3
+const FOCUS_OUT := 0.4
 const NOTICE_FOCUS := {
 	"cycle_pause": Rect2(540, 100, 520, 660),
 	"breathes_alone": Rect2(64, 224, 640, 460),
@@ -972,8 +974,7 @@ func _draw_room() -> void:
 	_draw_room_labels(c)
 	# notice focus
 	if hold_t > 0.0 and not r.is_closeup():
-		var a := 1.0 if not motion else smoothstep(0.0, 0.3, HOLD_TIME - hold_t)
-		_draw_focus(c, hold_rect, a)
+		_draw_focus(c, hold_rect, focus_alpha())
 
 ## The floor's dust overlays now, [[id, alpha], ...] bottom first. After P11 the dragged fan is
 ## a still that stays: streaks, then the combed lines, and from band 5 the rake drawn over them.
@@ -1145,16 +1146,26 @@ func _draw_room_labels(c: CanvasItem) -> void:
 	_draw_circuit(c, false)
 	c.draw_set_transform_matrix(Transform2D.IDENTITY)
 
-## The notice focus: a light ink frame and a soft surround; the object itself is never darkened.
+## The notice focus's strength now, 0..1: in over FOCUS_IN, out over the hold's last FOCUS_OUT,
+## so the glance ends on the bare room. Without motion it holds steady and then simply ends.
+func focus_alpha() -> float:
+	if hold_t <= 0.0:
+		return 0.0
+	if not motion:
+		return 1.0
+	return smoothstep(0.0, FOCUS_IN, HOLD_TIME - hold_t) * smoothstep(0.0, FOCUS_OUT, hold_t)
+
+## The notice focus: only a soft surround, no frame; the object itself is never darkened or
+## outlined (a drawn rectangle round the flywheel read as UI, not as the room).
 func _draw_focus(c: CanvasItem, rect: Rect2, a: float) -> void:
+	if a <= 0.0:
+		return
 	var g := rect.grow(10)
 	var dim := Color(0.03, 0.05, 0.07, 0.11 * a)
 	c.draw_rect(Rect2(0, 0, SIZE.x, g.position.y), dim)
 	c.draw_rect(Rect2(0, g.end.y, SIZE.x, SIZE.y - g.end.y), dim)
 	c.draw_rect(Rect2(0, g.position.y, g.position.x, g.size.y), dim)
 	c.draw_rect(Rect2(g.end.x, g.position.y, SIZE.x - g.end.x, g.size.y), dim)
-	c.draw_rect(g, Color(INK, 0.75 * a), false, 4.0)
-	c.draw_rect(g.grow(-4), Color(PAPER_HI, 0.8 * a), false, 1.5)
 
 # ---------------------------------------------------------------------------
 # drawing: close-ups (layer 5)
@@ -1215,7 +1226,7 @@ func _draw_circuit(c: CanvasItem, words: bool) -> void:
 	var ink := INK
 	# lines first, then the symbols over them
 	c.draw_polyline(PackedVector2Array(ROUTE_LOOP), ink, w, true)
-	# INDEX was added later, in another ink (lens_index_ink): its branch, valve, cap and words
+	# the capped stub was added later, in another ink (lens_index_ink): its branch, valve 44, cap and words
 	var later := INDEX_INK
 	c.draw_line(D_J, Vector2(D_J.x, D_CAP_Y), later, w, true)
 	if words:
@@ -1247,10 +1258,11 @@ func _draw_circuit(c: CanvasItem, words: bool) -> void:
 		return
 	_text(c, "GATE PRESSURE CIRCUIT  -  MAINT. DWG. 4", Vector2(200, 140), 20, ink)
 	_mtext(c, "PUMP", D_PUMP.x, D_PUMP.y, 16, ink)
-	_mtext(c, "SUPPLY", D_SUPPLY.x, 392, 18, ink)
-	_mtext(c, "GATE", D_GATE.x, 392, 18, ink)
-	_mtext(c, "RETURN", D_RETURN.x, 534, 18, ink)
-	_text(c, "INDEX", Vector2(642, D_INDEX.y + 7), 18, later)
+	# topology only: the valves carry their stamped numbers, never the lines' names (P11)
+	_mtext(c, R08Sim.VALVE_TAGS.SUPPLY, D_SUPPLY.x, 392, 20, ink)
+	_mtext(c, R08Sim.VALVE_TAGS.GATE, D_GATE.x, 392, 20, ink)
+	_mtext(c, R08Sim.VALVE_TAGS.RETURN, D_RETURN.x, 534, 20, ink)
+	_text(c, R08Sim.VALVE_TAGS.INDEX, Vector2(642, D_INDEX.y + 7), 20, later)
 	_text(c, "SEALED. NEVER FEED.", Vector2(660, 196), 20, later)
 	_mtext(c, "STAIR GATE", D_GATE_BOX.get_center().x, D_GATE_BOX.get_center().y, 18, ink)
 
