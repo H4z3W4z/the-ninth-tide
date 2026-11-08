@@ -201,8 +201,9 @@ func play_p03a() -> void:
 	_qd("puddle")
 	_qd("drawer")
 	_turn(office, "drawer_dial", "dial_", [1, 8, 5, 2])
-	_qd("try_drawer")
+	var ev := _qd("try_drawer")
 	check(office.state.drawer_open, "drawer: 1852 opens it")
+	check(R02Sim.PHOTO_BEFORE_LINE in says(ev), "drawer: she has seen the picture before")
 	_qd("back")
 	check(g.has_item("venn_tide_sheet") and g.has_item("inspection_lens"), "drawer: his tide sheet and the lens")
 	_qd("logbook")
@@ -739,10 +740,12 @@ func play_p20() -> void:
 	check(office.state.board_loaded, "P20: the letters go on the board")
 	if office.local_view != "board":
 		_qd("board")
+	var ev := []
 	for m in R02Sim.BOARD_ANSWER:
-		_qd(m)
+		ev = _qd(m)
+	check(says(ev) == "Thread: contract addressee → dissent signatory → quoted sentence", "P20: the thread, said")
 	_qd(R02Sim.BOARD_STAMP)
-	var ev := _qd("provenance")
+	ev = _qd("provenance")
 	check(g.flag("P20") and office.has_seen("why_ada"), "P20: the thread and stamp")
 	check(not has_ev(ev, "fx", "tide"), "P20: Tide VII waits for the plan")
 	_qd("back")

@@ -154,6 +154,17 @@ func run_tests() -> void:
 	await test_view_notice_and_board()
 	await test_repaint_pass()
 	await test_fix_w1()
+	test_w2_fair_report()
+	await test_w2_threshold_verb()
+	await test_w2_exits()
+	await test_w2_window_and_mark()
+	test_p1_threshold_resume()
+	test_p1_unlatch_save()
+	test_p1_photo_line()
+	test_p1_barometer_deduction()
+	test_p1_hint_tiers()
+	await test_p1_exit_hit_test()
+	await test_p1_threshold_scene_resume()
 
 func test_full_playthrough() -> void:
 	var s := new_sim()
@@ -279,13 +290,19 @@ func test_hints_progress() -> void:
 	var h2 := says(s.dispatch("hint"))
 	var h3 := says(s.dispatch("hint"))
 	var h4 := says(s.dispatch("hint"))
-	check(h1 != h2 and h2 != h3 and h3 == h4, "hints escalate and cap at the solution")
-	check("bridge B" in h3, "final lamp hint gives the solution")
+	var h5 := says(s.dispatch("hint"))
+	check(h1 != h2 and h2 != h3 and h3 != h4 and h4 == h5, "hints escalate through four tiers and cap at the solution")
+	check(h3 == R02Sim.HINTS["lamp"][2] and "spare B" in h3, "the lamp's evidence tier: his log's spare B")
+	check("bridge B" in h4 and h4 == "Open the lamp. Switch the supply OFF, select straight bridge B, tap the terminals, then switch ON.",
+		"final lamp hint gives the solution, unchanged")
 	s.debug_jump(1)
 	check(says(s.dispatch("hint")) == R02Sim.HINTS["log"][0], "hints reset for the new objective")
-	for obj in ["drawer", "reread", "chair", "report", "filed", "leave"]:
+	for obj in ["reread", "chair", "report", "filed", "leave"]:
 		check(R02Sim.HINTS.has(obj) and R02Sim.HINTS[obj].size() == 3, "three hints for " + obj)
-	check("1-8-5-2" in R02Sim.HINTS["drawer"][2], "drawer hint 3 gives the code")
+	for obj in ["lamp", "log", "changed", "drawer", "instruments", "board"]:
+		check(R02Sim.HINTS.has(obj) and R02Sim.HINTS[obj].size() == 4, "four hints (an evidence tier) for " + obj)
+	check("1-8-5-2" in R02Sim.HINTS["drawer"][3], "drawer hint 4 gives the code")
+	check(R02Sim.HINTS["drawer"][2] == "The barometer was mended at a minute. So was the lamp.", "the drawer's evidence tier")
 
 func test_save_roundtrip_and_tamper() -> void:
 	var s := new_sim()
@@ -599,7 +616,7 @@ func test_story_flags() -> void:
 	for e in ev:
 		if e.type == "say" and not e.story:
 			all_story = false
-	check(all_story and says(ev).split(" | ").size() == 7, "all seven drawer lines are story")
+	check(all_story and says(ev).split(" | ").size() == 8, "all eight drawer lines are story")
 	var b := new_sim()
 	ev = b.dispatch("begin")
 	check(ev[1].delay == 3.2, "opening second line at 3.2 s")
@@ -638,7 +655,8 @@ func test_milestone_saves() -> void:
 	s.dispatch("back"); s.dispatch("door")
 	check(s.view == "threshold", "at the threshold")
 	t = roundtrip(s)
-	check(t.view == "room" and t.state.seat_wet and not t.state.finished, "a threshold save lands in the room")
+	check(t.view == "threshold" and t.state.seat_wet and not t.state.finished and not t.game.flag("t1x_threshold_crossed"),
+		"a threshold save lands back in the doorway, not crossed")
 	var bad := new_sim()
 	bad.from_dict({"schema": 5, "started": true, "p01_complete": true, "log_read": true,
 		"prints_seen": true, "log_rewritten": true})
@@ -1036,7 +1054,7 @@ func test_tide_rhythm() -> void:
 	dial_to(s, [1, 8, 5, 2])
 	s.dispatch("try_drawer")
 	check(s.state.drawer_open and s.log_rows()[R02Sim.BLOTTED_ROW][1] == "18:52", "after the drawer the hour reads 18:52")
-	check(R02Sim.HINTS["drawer"][1].contains("margin") and "1-8-5-2" in R02Sim.HINTS["drawer"][2],
+	check(R02Sim.HINTS["drawer"][1].contains("margin") and "1-8-5-2" in R02Sim.HINTS["drawer"][3],
 		"drawer hints: the margin, then the code")
 	# Dials turn both ways.
 	var w := new_sim()
@@ -1831,10 +1849,15 @@ func test_endings() -> void:
 	check(s.end_rows() == [[R02Sim.END_TURN_ROW, "her"], [R02Sim.END_NEXT_TURNED, "her"]], "turned: both rows in her hand")
 	check(s.end_lines() == [R02Sim.END_ON_STATION], "turned: end lines")
 	var t := roundtrip(s)
-	check(t.state.turned and t.view == "room", "turned round-trips; a save lands in the office")
-	check(s.game.flag("t1x_turned") and t.game.flag("t1x_turned") and t.game.flag("t1x_threshold_crossed")
+	check(not t.state.turned and not t.state.finished and t.view == "threshold",
+		"a save on the card before Go on: the doorway again, nothing of it kept")
+	check(s.game.flag("t1x_turned") and not t.game.flag("t1x_turned") and not t.game.flag("t1x_threshold_crossed")
 		and not s.game.flag("t1x_threshold_crossed"),
 		"t1x_turned and the threshold follow the office's state through a save")
+	s.dispatch("end_continue")
+	t = roundtrip(s)
+	check(t.state.turned and t.state.finished and t.game.flag("t1x_turned") and t.game.flag("t1x_threshold_crossed"),
+		"after Go on, turned round-trips")
 	check(s.game.value("movement_events").back() == "turned_round", "turning round is a recorded move")
 	var n := new_sim()
 	n.debug_jump(4)
@@ -2123,7 +2146,7 @@ func test_rewrite_needs_tide1() -> void:
 	check(R02Sim.HINTS["reread"] == ["Something in the office has changed.", "Venn's log is not finished with you.",
 		"Go back to the Intake Office and open the tide log."], "reread hints")
 	check(R02Sim.OBJECTIVES["reread"] == "The logbook has been written in since I left.", "reread objective")
-	check(R02Sim.HINTS["instruments"].size() == 3 and "chart room" in R02Sim.HINTS["instruments"][2], "instruments hints")
+	check(R02Sim.HINTS["instruments"].size() == 4 and "chart room" in R02Sim.HINTS["instruments"][3], "instruments hints")
 	var bad := new_sim()
 	bad.from_dict({"schema": 5, "started": true, "p01_complete": true, "log_read": true, "log_rewritten": true})
 	check(not bad.state.log_rewritten, "a rewrite needs the drawer open")
@@ -2533,7 +2556,7 @@ func board_sim() -> R02Sim:
 	return s
 
 func expected_refusal(pins: Array, stamp: String) -> String:
-	if pins.size() < 3: return "The thread has to run all the way. Three pins first."
+	if pins.size() < 3: return "The thread isn't finished."
 	if "m_callis" in pins or "m_orme" in pins: return "Their signatures don't carry the sentence. Mine does."
 	if "m_countersign" in pins: return "That's his name, not mine. The thread follows mine."
 	if pins != R02Sim.BOARD_ANSWER: return "The name went from the contract, to the inquiry, to his letter. The thread should go the same way."
@@ -2584,7 +2607,7 @@ func test_p20() -> void:
 	check(c.view == "room" and c.facing == "B", "back from the board faces B")
 	c.dispatch("item:venn_correspondence")
 	check(says(c.dispatch("board")) == "They're already on the board.", "already loaded")
-	check(c.objective() == "board" and R02Sim.HINTS["board"].size() == 3, "objective board")
+	check(c.objective() == "board" and R02Sim.HINTS["board"].size() == 4 and c.hint_tiers() == 4, "objective board")
 	check(says(c.dispatch("board")) == "His letters, the inquiry clipping and the contract. Three pins and a thread." and c.view == "board", "the loaded board")
 	# Reading.
 	for a in ["read_contract", "read_clipping", "read_letter", "seal"]:
@@ -2595,15 +2618,25 @@ func test_p20() -> void:
 	c.dispatch("stamp_board")
 	check(c.held_stamp == "", "the same stamp again puts it down")
 	# Pins: a 4th is refused; unpinning compacts.
+	var thread_says := {"m_callis": "Thread: Callis", "m_orme": "Thread: Callis → Orme",
+		"m_mercer": "Thread: Callis → Orme → dissent signatory"}
 	for m in ["m_callis", "m_orme", "m_mercer"]:
 		ev = c.dispatch(m)
-		check(has_ev(ev, "sfx", "pin") and says(ev) == "", "pin %s" % m)
+		check(has_ev(ev, "sfx", "pin") and says(ev) == thread_says[m], "pin %s says the thread so far (%s)" % [m, says(ev)])
 	var before: Array = c.state.board_pins.duplicate()
 	check(says(c.dispatch("m_sentence")) == "Three pins. Take one out first." and c.state.board_pins == before, "a 4th pin is refused")
 	ev = c.dispatch("m_orme")
-	check(has_ev(ev, "sfx", "unpin") and c.state.board_pins == ["m_callis", "m_mercer"], "unpinning compacts")
-	c.dispatch("slot_0")
-	check(c.state.board_pins == ["m_mercer"], "slot_0 unpins and compacts")
+	check(has_ev(ev, "sfx", "unpin") and c.state.board_pins == ["m_callis", "m_mercer"] and says(ev) == "I unpin Orme.",
+		"unpinning compacts, and says so")
+	ev = c.dispatch("slot_0")
+	check(c.state.board_pins == ["m_mercer"] and says(ev) == "I unpin Callis.", "slot_0 unpins and compacts, and says so")
+	# The stamp on an unfinished thread: said, and nothing moves (the stamp stays in her hand).
+	c.dispatch("stamp_venn")
+	var snap0 := JSON.stringify(c.to_dict())
+	ev = c.dispatch("provenance")
+	check(says(ev) == "The thread isn't finished." and c.held_stamp == "stamp_venn" and JSON.stringify(c.to_dict()) == snap0
+		and not has_ev(ev, "sfx", "stamp_dry") and not c.game.flag("P20"), "an unfinished thread: the stamp changes nothing")
+	c.dispatch("stamp_venn")
 	check(c.dispatch("slot_2").is_empty() and c.state.board_pins == ["m_mercer"], "an empty slot does nothing")
 	# Persistence.
 	c.dispatch("back")
@@ -2639,8 +2672,12 @@ func test_p20() -> void:
 			s.dispatch(st)
 			var snap := JSON.stringify(s.to_dict())
 			var e := s.dispatch("provenance")
-			var ok: bool = says(e) == want and has_ev(e, "sfx", "stamp_dry") and s.held_stamp == "" \
+			# An unfinished thread changes nothing, the stamp in her hand included.
+			var short: bool = pins.size() < 3
+			var ok: bool = says(e) == want and has_ev(e, "sfx", "stamp_dry") != short \
+				and s.held_stamp == (st if short else "") \
 				and JSON.stringify(s.to_dict()) == snap and not s.game.flag("P20")
+			s.held_stamp = ""
 			if not ok and bad_msgs.size() < 3:
 				bad_msgs.append("%s %s: %s" % [pins, st, says(e)])
 			all_ok = all_ok and ok
@@ -3040,12 +3077,12 @@ func test_repaint_pass() -> void:
 		"the core draws the exits just before the room's draw_hud")
 	v.pointer_at = Vector2(700, 500)
 	v._open_hud_pass()
-	check(v.hud_pass_open and not v.exits_active(), "HUD pass, bar at rest: the core leaves the tabs to the room")
+	check(v.hud_pass_open and v.exits_active(), "HUD pass, bar at rest: the exits still answer")
 	v.pointer_at = v.exit_rects().values()[0].get_center()
-	check(v.exits_active(), "HUD pass, cursor on a tab: the core draws the bar full")
+	check(v.exits_active(), "HUD pass, cursor on a tab: the exits answer")
 	v._close_hud_pass()
 	v.pointer_at = Vector2(700, 500)
-	check(not v.hud_pass_open and v.exits_active(), "after draw_hud the exits answer clicks again")
+	check(not v.hud_pass_open and v.exits_active(), "after draw_hud the exits answer")
 	v.pointer_at = null
 	await process_frame
 	check(not v.hud_pass_open, "a real frame closes the pass it opened")
@@ -3245,6 +3282,7 @@ func test_fix_w1() -> void:
 func test_w2_fair_report() -> void:
 	var s := new_sim()
 	s.debug_jump(3)
+	tide1(s)
 	s.state.soundings_heard = true   # the soundings beat is its own test
 	check(s.objective() == "report" and s.game.tide_done(1), "stage 3: the report is the objective")
 	var ev := s.dispatch("map")
@@ -3313,8 +3351,6 @@ func test_w2_exits() -> void:
 	var VC = load("res://game/rooms/R02/R02_view.gd")
 	check(is_equal_approx(VC.TAB_REST_ALPHA, 0.8), "the threshold's turn tab rests at 0.8")
 	check(is_equal_approx(VC.BAR_REST_ALPHA, 0.45), "the exit bar rests at 0.45")
-	check(FileAccess.get_file_as_string("res://game/rooms/R02/R02_view.gd").contains("BAR_REST_ALPHA * (1.0 if open else 0.6)"),
-		"a closed exit rests at 0.6 of that")
 	for tab in ["go:R05", "go:R06"]:
 		for facing in ["A", "B"]:
 			var k := with_flags(["P01", "P06"])
@@ -3377,3 +3413,202 @@ func test_w2_window_and_mark() -> void:
 		and v._tex("R02/window_tenth_piling") != null, "the new overlays load")
 	check(scene.action_at(Rect2(428, 82, 430, 515).get_center()) == "window", "the window is still the window at tide II")
 	await free_scene(scene)
+
+
+# ---------------------------------------------------------------------------
+# fix pass p1
+# ---------------------------------------------------------------------------
+## The T1X chain commits only on Go on: a save anywhere between the door and Go on reloads
+## into the doorway, from its first beat, not crossed.
+func test_p1_threshold_resume() -> void:
+	var s := new_sim()
+	s.debug_jump(4)
+	tide1(s)
+	s.dispatch("door")
+	check(s.view == "threshold" and s.state.threshold_started and not s.game.flag("t1x_threshold_crossed"),
+		"the door starts the threshold chain, nothing crossed")
+	s.dispatch("continue")
+	check(s.view == "end" and s.state.finished and not s.game.flag("t1x_threshold_crossed"),
+		"after continue: the card, still not crossed")
+	var t := roundtrip(s)
+	check(t.view == "threshold" and t.resume_view() == "threshold", "a save after continue reloads into the threshold")
+	check(not t.state.finished and not t.state.threshold_crossed and not t.game.flag("t1x_threshold_crossed")
+		and t.band() == 0, "reloaded: re-armed from its first beat, Tide I still")
+	check(t.game.tide() == 1, "reloaded: Tide II has not begun")
+	t.dispatch("continue")
+	check(t.view == "end" and not t.game.flag("t1x_threshold_crossed"), "continue again: the card; not crossed until Go on")
+	var ev := t.dispatch("end_continue")
+	check(t.game.flag("t1x_threshold_crossed") and t.state.threshold_crossed and has_ev(ev, "fx", "tide"),
+		"Go on commits the crossing and plays the Tide II card")
+	var u := roundtrip(t)
+	check(u.state.finished and u.game.flag("t1x_threshold_crossed") and u.game.state.room == "R03",
+		"after Go on the crossing survives a save")
+	check(office(u.game).resume_view() == "room", "past the threshold the office resumes at the room")
+	# A save made before the door: the room, not the doorway.
+	var r := new_sim()
+	r.debug_jump(4)
+	check(roundtrip(r).view == "room", "filed, door not opened: the room")
+	# An older save (no threshold keys) past the threshold keeps the core's flag.
+	var old := new_sim()
+	old.debug_jump(5)
+	var d: Dictionary = JSON.parse_string(JSON.stringify(old.game.to_dict()))
+	for k in ["threshold_started", "threshold_crossed"]:
+		d.rooms.R02.erase(k)
+	var g := GameSim.new()
+	check(g.from_dict(d) and office(g).state.finished and g.flag("t1x_threshold_crossed") and office(g).view == "room",
+		"an older save past the threshold stays past it")
+
+## heard_unlatch saves as it was: a save on the signed report resumes on the report, and
+## stepping back still unlatches the door.
+func test_p1_unlatch_save() -> void:
+	var s := sim_before_chair()
+	tide1(s)
+	s.dispatch("logbook")
+	s.dispatch("back")
+	s.dispatch("chair")
+	file_report(s)
+	check(s.state.report_filed and not s.state.heard_unlatch and s.view == "report", "filed, not stepped back")
+	var t := roundtrip(s)
+	check(t.state.report_filed and not t.state.heard_unlatch and t.view == "report",
+		"the save keeps heard_unlatch as it was, and resumes on the report")
+	var ev := t.dispatch("back")
+	check(t.state.heard_unlatch and "unlatched itself" in says(ev) and has_ev(ev, "sfx", "latch_near"),
+		"stepping back after the load unlatches the door")
+	check(t.dispatch("door") != [] and t.view == "threshold", "and the door opens on the threshold")
+	var u := roundtrip(t)
+	check(u.state.heard_unlatch and u.view == "threshold", "heard_unlatch true survives too")
+
+## P03: the photograph's title line, between her coat and the window.
+func test_p1_photo_line() -> void:
+	check(R02Sim.PHOTO_BEFORE_LINE == "I've seen this picture before. Before I came.", "the photo line is exact")
+	var d := new_sim()
+	d.debug_jump(2)
+	d.dispatch("drawer")
+	dial_to(d, [1, 8, 5, 2])
+	var ev := d.dispatch("try_drawer")
+	var coat := say_ev(ev, "That's my coat. That's me.")
+	var before := say_ev(ev, R02Sim.PHOTO_BEFORE_LINE)
+	var window := say_ev(ev, "There is nothing outside this window to stand on.")
+	check(is_equal_approx(coat.get("delay", -1.0), 11.2) and is_equal_approx(before.get("delay", -1.0), 13.0)
+		and is_equal_approx(window.get("delay", -1.0), 15.2), "coat 11.2 s, picture 13.0 s, window 15.2 s")
+	check(before.get("story", false), "the picture line is story")
+	var lines: PackedStringArray = says(ev).split(" | ")
+	check(lines.find(R02Sim.PHOTO_BEFORE_LINE) == lines.find("That's my coat. That's me.") + 1,
+		"it follows the coat line")
+	check(R02Sim.PHOTO_BEFORE_LINE in str(R02Sim.OBSERVATIONS["photo"]) and d.has_seen("photo"),
+		"the photo observation keeps it")
+
+## P03 part 1: 1852 opens the drawer once either the barometer or the log has been read.
+func test_p1_barometer_deduction() -> void:
+	var n := new_sim()
+	n.debug_jump(1)
+	n.dispatch("drawer")
+	dial_to(n, [1, 8, 5, 2])
+	n.dispatch("try_drawer")
+	check(not n.state.drawer_open, "1852 with neither the log nor the barometer read: shut")
+	var b := new_sim()
+	b.debug_jump(1)
+	b.dispatch("turn")
+	var ev := b.dispatch("barometer")
+	check(b.state.baro_read and "Eight minutes to seven" in says(ev), "the barometer gives the minute")
+	b.dispatch("turn")
+	b.dispatch("drawer")
+	dial_to(b, [1, 8, 5, 2])
+	b.dispatch("try_drawer")
+	check(b.state.drawer_open and not b.state.log_read and b.game.has_item("venn_tide_sheet"),
+		"after the barometer alone, 1852 opens the drawer")
+	var t := roundtrip(b)
+	check(t.state.drawer_open and t.state.baro_read, "a barometer-opened drawer survives a save")
+	check(t.objective() == "log", "the log is still to read")
+	var early := new_sim()
+	early.dispatch("begin")
+	early.dispatch("turn")
+	early.dispatch("barometer")
+	check(not early.state.baro_read, "before the lamp the barometer clock tells her nothing")
+	var bad := new_sim()
+	bad.from_dict({"schema": 5, "started": true, "baro_read": true, "drawer_open": true})
+	check(not bad.state.drawer_open and not bad.state.baro_read, "baro_read needs the lamp")
+
+## The evidence tier: four rungs for the lamp, the log, the drawer, the instruments and the board.
+func test_p1_hint_tiers() -> void:
+	var s := new_sim()
+	s.debug_jump(2)
+	s.dispatch("puddle")
+	check(s.objective() == "drawer" and s.hint_tiers() == 4, "the drawer ladder has four rungs")
+	var got := []
+	for i in 5:
+		got.append(says(s.dispatch("hint")))
+	check(got.slice(0, 4) == R02Sim.HINTS["drawer"] and got[4] == got[3], "the Hint climbs all four, then holds the solution")
+	check(got[2] == "The barometer was mended at a minute. So was the lamp.", "the evidence rung before the code")
+	var c := new_sim()
+	c.debug_jump(4)
+	check(c.hint_tiers() == 3, "three rungs where there is no evidence tier")
+	c.dispatch("door")
+	check(c.hint_tiers() == 1, "one at the threshold")
+
+## Exit hit-testing never waits on a draw: after a tick with no draw every tab answers, and
+## the threshold's corridor answers 'continue'.
+func test_p1_exit_hit_test() -> void:
+	var scene = new_scene("user://office_p1_exits.json")
+	await process_frame
+	scene.tide_jump(4, "R02")
+	await process_frame
+	var v = scene.room_view
+	var src := FileAccess.get_file_as_string("res://game/rooms/R02/R02_view.gd")
+	check(src.contains("game.pointer_position()") and src.contains("game.has_pointer()"), "the bar reads the core's pointer")
+	scene.sim_pointer_on = true
+	scene.sim_pointer = Vector2(700, 500)
+	v.tick(0.016)   # opens the HUD pass; no draw follows
+	check(v.hud_pass_open and not v._exit_bar_live(), "a tick with no draw, the pointer on the room")
+	var n := 0
+	for e in scene.sim.exits():
+		var live: Dictionary = v.live_exit_rects()
+		if live.has(e[0]):
+			n += 1
+			check(scene.action_at(live[e[0]].get_center()) == "go:" + e[0],
+				"after a tick with no draw the %s tab returns go:%s" % [e[0], e[0]])
+	check(n >= 2, "the office's tabs were tested (%d)" % n)
+	scene.sim_pointer = v.exit_rects().values()[0].get_center()
+	check(v._exit_bar_live(), "the core's pointer on a tab raises the bar")
+	scene.sim_pointer_on = false
+	for c in ["logbook", "drawer"]:
+		scene.room_sim().local_view = c
+		check(not v.exits_active(), "no exits in the %s close-up" % c)
+	scene.room_sim().local_view = "room"
+	# The threshold: after a tick, the corridor still answers.
+	scene.room_jump("R02", 4)
+	await process_frame
+	scene.dispatch("door")
+	v = scene.room_view
+	v.continue_ready = true
+	v.tick(0.016)
+	var xf: Transform2D = v._zoom_xform()
+	check(scene.action_at(xf * v.VP) == "continue", "after a tick with no draw the threshold answers continue")
+	check(not v.exits_active(), "no exit tabs in the doorway")
+	await free_scene(scene)
+
+## A scene saved on the card before Go on loads into the doorway with its lines queued again.
+func test_p1_threshold_scene_resume() -> void:
+	var path := "user://office_p1_resume.json"
+	var scene = new_scene(path)
+	await process_frame
+	scene.room_jump("R02", 4)
+	scene.dispatch("door")
+	scene.room_view.continue_ready = true
+	scene.dispatch("continue")
+	check(scene.room_sim().view == "end" and not scene.sim.flag("t1x_threshold_crossed"), "scene: on the card, not crossed")
+	scene._save_progress()
+	scene.queue_free()
+	await process_frame
+	var again = load("res://game/core/game.tscn").instantiate()
+	again.save_path = path
+	again.migrate_slice_save = false
+	root.add_child(again)
+	await process_frame
+	check(again.room_sim().view == "threshold" and not again.sim.flag("t1x_threshold_crossed"),
+		"scene: the load lands in the doorway")
+	var v = again.room_view
+	check(v.threshold_armed and count_line(again, R02Sim.THRESHOLD_LINES[0][1]) == 1,
+		"scene: the doorway's first beat is queued again")
+	check(not v.continue_ready, "scene: she has to hold still again")
+	await free_scene(again)

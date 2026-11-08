@@ -567,7 +567,7 @@ func _hint(ev: Array) -> void:
 	# indexes this sequence and stops on the last line.
 	var seq: Array = []
 	if away == "":
-		for i in r.hint_tiers():
+		for i in maxi(1, r.hint_tiers()):
 			seq.append(r.hint_line(i))
 	else:
 		seq = _elsewhere_ladder(away)
@@ -606,7 +606,7 @@ func _elsewhere_ladder(away: String) -> Array:
 				first = "The %s is through the %s." % [title, str(rooms[rid].c("TITLE", rid)).to_lower()]
 				break
 		steps.append(first)
-	for level in there.hint_tiers():
+	for level in maxi(1, there.hint_tiers()):
 		var line := there.hint_line(level)
 		if not (visited and _changed_line(line)):
 			steps.append(line)
