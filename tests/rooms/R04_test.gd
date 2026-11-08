@@ -538,13 +538,21 @@ func test_p19_switches() -> void:
 		if r.state.ch_open.C != cc: g.dispatch("key_c")
 		check(r.board_tape == "", "switching clears the tape")
 		var ev := g.dispatch("witness")
-		var want := ""
-		if motor: want = "LIVE PLAYBACK NOT ISOLATED."
-		elif a: want = "CHANNEL A LIVE."
-		elif b: want = "CHANNEL B LIVE."
 		var label := "motor %s A %s B %s C %s" % [motor, a, b, cc]
-		if want != "":
-			check(says(ev) == want and r.board_tape == want and has_ev(ev, "sfx", "reject_buzz"), "%s: %s" % [label, want])
+		if motor:
+			# taught by failure: the cylinder is still turning, so C carries Rook's 1927 dictation
+			var want := " | ".join(R04Sim.ROOK_DICTATION + [R04Sim.LINE_OCCUPIED])
+			check(says(ev) == want and r.board_tape == R04Sim.TAPE_MOTOR and has_ev(ev, "sfx", "rook_dictation")
+				and not has_ev(ev, "sfx", "reject_buzz") and r.has_seen("line_occupied"), "%s: Rook's dictation, occupied" % label)
+			check(says(ev).ends_with("The line is occupied.") and "1927" in says(ev), "%s: the occupied line" % label)
+		elif a or b:
+			# the live channels bleed the 1927 session voices onto C
+			var want := " | ".join(R04Sim.MIX_OVERLAP + [R04Sim.LINE_CROWDED])
+			check(says(ev) == want and r.board_tape == R04Sim.TAPE_CROWDED and has_ev(ev, "sfx", "mix_overlap")
+				and r.has_seen("line_crowded"), "%s: the session voices bleed" % label)
+			check(says(ev).ends_with("Two other voices on the line. His can't get through them."), "%s: crowded line" % label)
+		if motor or a or b:
+			check(not "LIVE" in says(ev) and not "ISOLAT" in says(ev), "%s: the failure names no rule" % label)
 			g.dispatch("key_c")
 			check(r.board_tape == "", "%s: a switch clears the tape" % label)
 		elif not cc:
@@ -567,8 +575,16 @@ func test_p19_switches() -> void:
 	check(says(g.dispatch("witness")) == "He's listening.", "WITNESS again while open")
 	var q := channels_game(ready)
 	check(says(q.dispatch("q_where")) == "Nobody's on the line." and r04(q).state.asked.is_empty(), "no questions before the line opens")
-	check(says(q.dispatch("procedure")) == "'Isolate live playback before addressing a witness: motor off, live channels closed.'",
-		"the procedure")
+	check(says(q.dispatch("procedure")) == "'Address a witness on a quiet line.'", "the procedure")
+	for k in ["procedure", "socket_cuts"]:
+		var o: String = R04Sim.OBSERVATIONS[k]
+		check(not "one cut" in o and not "two cuts" in o and not "three cuts" in o and not "motor off" in o
+			and not "closed" in o, "%s gives no rule in words" % k)
+	check("I over A, II over B, III over C" in R04Sim.OBSERVATIONS.socket_cuts, "socket strokes noted")
+	# before P17 and P18 the board gives no lessons: nothing answers, whatever the switches
+	var early := channels_game(flags_upto(17))
+	check(r04(early).state.motor_on and says(early.dispatch("witness")) == "The key clicks. Nothing answers."
+		and not r04(early).has_seen("line_occupied"), "no dictation before the line is ready")
 
 const Q_ORDERS := [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]]
 
@@ -866,7 +882,8 @@ func test_items_objectives_hints() -> void:
 	check(r04(m).objective() == "p19", "objective: P19")
 	check(r04(m).hint_tiers() == 4 and r04(m).hint_line(3) == R04Sim.HINTS.p19[3], "P19 has four hint tiers")
 	check("three cuts" in r04(m).hint_line(2) and "Venn's station" in r04(m).hint_line(2)
-		and not "press WITNESS" in r04(m).hint_line(2), "P19's evidence tier points at the notebook, not the answer")
+		and "seal rubbing in the notebook" in r04(m).hint_line(2)
+		and not "press WITNESS" in r04(m).hint_line(2), "P19's evidence tier names the seal rubbing, not the answer")
 	open_witness(m)
 	check(r04(m).objective() == "p19_ask", "objective: ask")
 	for q in R04Sim.QUESTIONS:
