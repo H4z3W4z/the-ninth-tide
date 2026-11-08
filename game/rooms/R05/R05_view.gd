@@ -157,6 +157,9 @@ const LOOP_RATE := 0.11        # linear units / s
 const BREATH_LEN := 5.2        # r05_draught_breath: rises 0-0.35, 0.5-0.85, 1.6-3.6, then rest
 const FOG_DUCK := 0.3          # r05_room and r05_rain under the fog's creep
 const FOG_RESTORE := 2.0
+## Tides VIII-IX (bands 6-7, no ending yet): the rain and the draught are gone, so the beds that
+## remain (room, kettle, breath, range) are lifted to hold the room near the game's -10.7 dBFS.
+const LATE_BED_TRIM := 1.45
 
 ## Interior luminance per weather band: a slight cool shift that never drops below 0.88.
 const TINT_LUM := [1.0, 1.0, 0.975, 0.955, 0.94, 0.925, 0.91, 0.90]
@@ -236,6 +239,9 @@ const STAMP_INK := Color("8a3b2a")
 const ROOK_BROWN := Color("5b3a24")
 const SLANT := 0.22
 const WELL_IDS := ["f_count", "f_name", "f_status"]
+## The empty STATUS well's faint stencil, drawn where the status plate will sit.
+const STATUS_TICK := "PRESENT / ABSENT"
+const STATUS_PLATE := Rect2(852, 748, 186, 60)
 
 # c_register geometry (Rook's register under the tally's plate, at 2x the kitchen board) ----------
 const REG_PLATE := Rect2(254, 92, 940, 836)
@@ -587,6 +593,9 @@ func loop_targets() -> Dictionary:
 		out["r05_draught_breath"] = 0.45
 	if r.range_lit():
 		out["r05_range"] = 0.4 * mess_k
+	if b >= 6 and e == "":
+		for id in out:
+			out[id] *= LATE_BED_TRIM
 	return out
 
 func _tick_audio(dt: float) -> void:
@@ -1545,6 +1554,9 @@ func _draw_board(c: CanvasItem) -> void:
 				var ry := wr.end.y - 12.0
 				c.draw_line(Vector2(wr.position.x + 10, ry), Vector2(wr.end.x - 10, ry), Color(Ink.PAPER, 0.35), 2.0)
 				c.draw_line(Vector2(wr.position.x + 10, ry - 6), Vector2(wr.position.x + 10, ry), Ink.BRASS, 2.0)
+				if key == "status":
+					# the stencilled choices, faint, so the well reads as something to tick
+					_rect_text(c, STATUS_TICK, STATUS_PLATE, 17, Color(PAPER_HI, 0.42), narrow_plain)
 	if str(a.count) != "":
 		_tex_at(c, "c_tile_small", Vector2(325, 735))
 		_rect_text(c, str(a.count).replace("-", "−"), Rect2(325, 735, 140, 86), 34, INK, serif)
@@ -1553,7 +1565,7 @@ func _draw_board(c: CanvasItem) -> void:
 		_tex_at(c, "c_tile_new" if nm2 == "MERCER" else "c_tile", Vector2(550, 745))
 		_rect_text(c, nm2, Rect2(550, 745, 210, 66), 22, INK, narrow)
 	if str(a.status) != "":
-		var pr := Rect2(852, 748, 186, 60)
+		var pr := STATUS_PLATE
 		c.draw_rect(pr, PAPER_HI)
 		c.draw_rect(pr, INK, false, 2.0)
 		_rect_text(c, str(a.status).to_upper(), pr, 20, INK, narrow_plain)
