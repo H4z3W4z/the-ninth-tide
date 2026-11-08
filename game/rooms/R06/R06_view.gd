@@ -174,7 +174,7 @@ const SFX_SOFT := ["spring_creak", "compartment_drop", "latch_small"]
 ## Soften sudden sounds: the card's spring creak is not heard at all.
 const SFX_SOFT_CUT := {"spring_creak": 80.0}
 const LOOPS := ["r06_room", "r06_rain_roof", "r06_rain_heavy", "r06_wind_louvre", "r06_curtain_draught",
-	"r06_beds_breath", "r06_pressure", "r06_cup_steam"]
+	"r06_beds_breath", "r06_pressure", "r06_cup_steam_r2"]
 const RAIN_LOOPS := ["r06_rain_roof", "r06_rain_heavy"]
 const LOOP_RATE := 0.11
 const CLOSE_DUCK_DB := 4.0
@@ -417,7 +417,7 @@ func loop_targets() -> Dictionary:
 	if r.curtain_shape():
 		t["r06_curtain_draught"] = 0.2
 	if r.cup_steam():
-		t["r06_cup_steam"] = 0.12
+		t["r06_cup_steam_r2"] = 0.12
 	var close_k := db_to_linear(-CLOSE_DUCK_DB) if r.is_closeup() else 1.0
 	var rain_k := db_to_linear(-RAIN_DUCK_DB) if _rain_ducked() else 1.0
 	var out := {}

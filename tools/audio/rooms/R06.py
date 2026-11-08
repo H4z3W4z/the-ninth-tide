@@ -38,6 +38,7 @@ OUT = room_out("R06")  # noqa: F405
 LOOP_RMS = 10 ** (-18 / 20)   # about -18 dBFS RMS
 SHOT_PEAK = 10 ** (-3 / 20)   # -3 dBFS peak
 SUDDEN_ATTACK = 0.006         # every sudden transient rises over at least 6 ms
+R2_STEAM_FADE = 1.5           # r06_cup_steam_r2's seamless crossfade, seconds
 WOOL_LP = 4200                # what the blankets leave of the top end
 
 SPRING_MODES = [  # (Hz, amplitude, decay tau s): coiled steel, high partials die first
@@ -301,11 +302,11 @@ def match_wrap(xs: list[float], seconds: float = 0.002) -> list[float]:
     return out
 
 
-def write_loop(name: str, xs: list[float]) -> None:
+def write_loop(name: str, xs: list[float], fade_s: float = 1.0) -> None:
     """Masters to about -18 dBFS RMS. Peaky textures (raindrops, ring ticks) would hit full scale
     first, so they are rounded off by soft_limit and the level re-measured. Every loop's wrap
-    gets a 2 ms raised-cosine match after seamless() (match_wrap)."""
-    xs = match_wrap(seamless(xs, 1.0), 0.002)
+    gets a 2 ms raised-cosine match after seamless(fade_s) (match_wrap)."""
+    xs = match_wrap(seamless(xs, fade_s), 0.002)
     for _ in range(3):
         g = LOOP_RMS / max(1e-9, rms(xs))
         xs = soft_limit([x * g for x in xs])
@@ -472,6 +473,22 @@ def r06_cup_steam() -> list[float]:
     flutter = smooth_walk(n, rnd, 0.35)
     slow = smooth_walk(n, rnd, 1.3)
     return [h * (0.45 + 0.35 * f + 0.2 * s) for h, f, s in zip(hiss, flutter, slow)]
+
+
+def r06_cup_steam_r2() -> list[float]:
+    """The cup's steam, long enough not to be heard repeating: 12 s after a 1.5 s seamless
+    crossfade, the same thin hiss and flutter, under a slow 0.75 + 0.25 * smooth_walk level drift
+    so the curl swells and thins at no fixed period. The view plays this; r06_cup_steam.wav
+    (4 s) stays on disk unchanged."""
+    rnd = seed(36)
+    n = n_of(12 + R2_STEAM_FADE)
+    hiss = highpass(highpass(white(n, rnd), 2800), 2800)
+    hiss = lowpass(hiss, 7000)
+    flutter = smooth_walk(n, rnd, 0.35)
+    slow = smooth_walk(n, rnd, 1.3)
+    drift = smooth_walk(n, rnd, 2.7)
+    return [h * (0.45 + 0.35 * f + 0.2 * s) * (0.75 + 0.25 * d)
+            for h, f, s, d in zip(hiss, flutter, slow, drift)]
 
 
 # ---------------------------------------------------------------- one-shots: springs
@@ -840,12 +857,15 @@ SHOTS = [
     ("append_refuse", append_refuse), ("pencil_scratch", pencil_scratch), ("cup_warm", cup_warm),
 ]
 SUDDEN = {"spring_creak", "compartment_drop", "latch_small"}
+LONG_LOOPS = [("r06_cup_steam_r2", r06_cup_steam_r2, R2_STEAM_FADE)]  # (name, fn, seamless fade s)
 
 
 def main() -> None:
     print(f"Writing to {OUT}")
     for name, fn in LOOPS:
         write_loop(name, fn())
+    for name, fn, fade in LONG_LOOPS:
+        write_loop(name, fn(), fade)
     for name, fn in SHOTS:
         xs = fn()
         if name in SUDDEN:

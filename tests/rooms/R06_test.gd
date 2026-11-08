@@ -98,6 +98,7 @@ func run_tests() -> void:
 		await view_checks(ROOM)
 		test_view_rects()
 		test_view_staged_art()
+		test_view_loops()
 		await test_view_presentation()
 	else:
 		print("SKIP: R06 view_checks and rect checks: the R06 view does not yet declare rects for every sim hotspot (view team)")
@@ -1266,6 +1267,18 @@ func test_view_rects() -> void:
 	for s in ["spring_creak", "compartment_drop", "latch_small"]:
 		check(s in soft, "R06 view: %s is in SFX_SOFT" % s)
 	check(float(m.get("SFX_SOFT_CUT", {}).get("spring_creak", 0.0)) >= 60.0, "R06 view: spring_creak is cut by at least 60 dB")
+
+## Every loop the view mixes is on disk; the cup's steam is the 12 s r2 loop, and the 4 s original stays.
+func test_view_loops() -> void:
+	var loops: Array = view_consts().get("LOOPS", [])
+	for id in loops:
+		check(ResourceLoader.exists("res://assets/audio/R06/%s.wav" % id), "R06 sound: loop %s is on disk" % id)
+	check("r06_cup_steam_r2" in loops and not "r06_cup_steam" in loops, "R06 sound: the view mixes the 12 s cup steam")
+	check(ResourceLoader.exists("res://assets/audio/R06/r06_cup_steam.wav"), "R06 sound: the 4 s cup steam is kept")
+	var st := load("res://assets/audio/R06/r06_cup_steam_r2.wav") as AudioStreamWAV
+	check(st != null and absf(st.get_length() - 12.0) < 0.01, "R06 sound: r06_cup_steam_r2 is 12 s")
+	# LoopMixer loops the whole file (loop_end = length * mix_rate): it must be 22050 Hz mono.
+	check(st != null and st.mix_rate == 22050 and not st.stereo, "R06 sound: r06_cup_steam_r2 is 22050 Hz mono")
 
 ## Every staged overlay the view can ask for is painted (tools/art/rooms/R06.py diff_overlay).
 func test_view_staged_art() -> void:
