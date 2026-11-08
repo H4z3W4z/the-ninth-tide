@@ -70,6 +70,22 @@ const KNOT_POINTS_STEP := 12
 const KNOT_POINTS_MAX := 340
 ## The lighthouse lantern in the window (band 0 plate), and his tide scale on the right pane.
 const LIGHTHOUSE_LAMP := Vector2(300, 312.5)
+## From Tide II (t1x_threshold_crossed) the lighthouse is out: one seeded sprite (tools/art/rooms/R03.py
+## "lighthouse_out", 104x232, 4x detail) drawn over the window tower. Published for R01 to reuse:
+## LIGHTHOUSE_OUT_RECT is where it sits on wall B's plate, LIGHTHOUSE_OUT_FOOT the tower's foot
+## inside that rect (the point to anchor, rotate and scale about).
+const LIGHTHOUSE_OUT_FILE := "res://assets/stages/R03/lighthouse_out_r3.png"
+const LIGHTHOUSE_OUT_RECT := Rect2(287, 295, 26, 58)
+const LIGHTHOUSE_OUT_FOOT := Vector2(13, 55)
+## The plate's own tower: band 0 (Tide II plate B_window_t2), 1 and 2 stand it at (300, 350),
+## height 30; band 6 stands it on the sky at (196, 250), height 46, leaning 30 degrees.
+## Bands 3, 4, 5 and 7 show no tower, so nothing is drawn.
+const LIGHTHOUSE_TOWERS := {0: [Vector2(300, 350), 0.0, 1.0, 1.0], 1: [Vector2(300, 350), 0.0, 1.0, 1.0],
+	2: [Vector2(300, 350), 0.0, 1.0, 0.85], 6: [Vector2(196, 250), 30.0, 46.0 / 30.0, 1.0]}
+## Brass-plate words shrink to this floor, then end in an ellipsis (as Ink.button does).
+const PLATE_WORD_MIN := 10
+## Clear brass kept each side of a plate word.
+const PLATE_WORD_PAD := 4.0
 const TIDE_SCALE := Rect2(346, 380, 36, 180)
 const MUD_Y := 500.0
 const TIDE_MARKS := [["HW", 404.0], ["LW", 458.0], ["MUD", MUD_Y]]
@@ -246,6 +262,10 @@ func _load_textures() -> void:
 			var t := load(path) as Texture2D
 			if t:
 				textures[n] = t
+	if ResourceLoader.exists(LIGHTHOUSE_OUT_FILE):
+		var lt := load(LIGHTHOUSE_OUT_FILE) as Texture2D
+		if lt:
+			textures["lighthouse_out"] = lt
 
 static func _damp_names() -> Array:
 	var out := []
@@ -867,8 +887,11 @@ func _draw_wall_b() -> void:
 	var low := r3.sea_low()
 	if not (low and _plate("B_window_t2")):
 		_plate("B_window_%d" % band)
-	if band == 0 and not t1x:
-		_draw_lighthouse_lit()
+	if not t1x:
+		if band == 0:
+			_draw_lighthouse_lit()
+	else:
+		_draw_lighthouse_out(band)
 	_draw_tide_scale()
 	if band >= 1 and band <= 5:
 		var frame := 0
@@ -921,6 +944,23 @@ func _draw_lighthouse_lit() -> void:
 		draw_circle(LIGHTHOUSE_LAMP, 10.0 + k * 7.0, Color(amber, 0.16))
 	draw_rect(Rect2(LIGHTHOUSE_LAMP - Vector2(5, 4.5), Vector2(10, 9)), amber)
 	draw_rect(Rect2(LIGHTHOUSE_LAMP - Vector2(5, 4.5), Vector2(10, 9)), Ink.INK, false, 1.2)
+
+## Where the dead lighthouse goes on wall B at `band` once the threshold is crossed:
+## [foot, degrees, scale, alpha], or [] where the window shows no tower (or before Tide II).
+static func lighthouse_out_placement(band: int, t1x: bool) -> Array:
+	if not t1x:
+		return []
+	return LIGHTHOUSE_TOWERS.get(band, [])
+
+## From Tide II the lighthouse is out: the sprite over the plate's tower, never a glow.
+func _draw_lighthouse_out(band: int) -> void:
+	var at := lighthouse_out_placement(band, true)
+	var t := _tex("lighthouse_out")
+	if at.is_empty() or t == null:
+		return
+	draw_set_transform(at[0], deg_to_rad(at[1]), Vector2.ONE * float(at[2]))
+	draw_texture_rect(t, Rect2(-LIGHTHOUSE_OUT_FOOT, LIGHTHOUSE_OUT_RECT.size), false, Color(1, 1, 1, at[3]))
+	draw_set_transform_matrix(Transform2D.IDENTITY)
 
 ## His tide scale, a paper strip taped to the right pane: HW, LW and the MUD mark, with the
 ## MUD mark ruled across the pane in grease pencil. At Tide II the sea lies below it.
@@ -1199,11 +1239,21 @@ func _symbol(cv: CanvasItem, kind: String, c0: Vector2, s: float, col: Color, w:
 func _plate_face(cv: CanvasItem, r: Rect2, pid: String, word_size: int) -> void:
 	var s := minf(r.size.x, r.size.y) * 0.5
 	_symbol(cv, pid, r.position + Vector2(r.size.x / 2.0, r.size.y * 0.38), s, Ink.INK, maxf(2.5, s * 0.1))
-	var word: String = PLATE_WORDS[pid]
-	var fs := word_size
-	while fs > 12 and narrow().get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > r.size.x + 2:
-		fs -= 1
-	Ink.text(cv, word, Vector2(r.position.x - 6, r.end.y - r.size.y * 0.1), fs, Ink.INK, narrow(), r.size.x + 12)
+	var fit := fit_plate_word(narrow(), PLATE_WORDS[pid], word_size, r.size.x - 2.0 * PLATE_WORD_PAD)
+	Ink.text(cv, fit[0], Vector2(r.position.x, r.end.y - r.size.y * 0.1), fit[1], Ink.INK, narrow(), r.size.x)
+
+## A plate word fitted to `room` px: shrink to PLATE_WORD_MIN, then trim to an ellipsis
+## (Ink.button's rule). Returns [label, size]; the label's width never exceeds `room`
+## unless even a single letter and ellipsis don't fit.
+static func fit_plate_word(font: Font, word: String, size: int, room: float) -> Array:
+	var w := func(s: String, fs: int) -> float: return font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	while size > PLATE_WORD_MIN and w.call(word, size) > room:
+		size -= 1
+	if w.call(word, size) > room:
+		while word.length() > 1 and w.call(word + "…", size) > room:
+			word = word.substr(0, word.length() - 1)
+		word = word.strip_edges() + "…"
+	return [word, size]
 
 ## The registered curve: the 17 Oct half and Venn's half, through `map` (sheet -> canvas).
 func _composite_curve(cv: CanvasItem, map: Callable, col: Color, w: float, alpha: float) -> void:
