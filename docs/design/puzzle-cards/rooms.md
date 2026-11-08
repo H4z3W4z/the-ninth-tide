@@ -287,7 +287,7 @@ The quality template. View A is the approved plate (desk, window, map, stove, ho
 
 **Base views (2):**
 - **A, shelves:** low shelves receding by repetition and occlusion (flat elevation, depth by stacking), hanging index cards, contact table with four panels B, D, A, C and the opaque registration cover, wall clock (stopped at the session time).
-- **B, catalogue wall:** the drawer marked STAFF (opens onto a dry mouth-shaped aperture lined with index tabs, motionless) with a tray before it, the three-folder cabinet BODY / PLACE / NAME with its comparison tray and training release, the Index model (INPUT, COPY, WITNESS terminals, TEST AMENDMENT), Venn's correspondence drawer, O06 wrapped photograph.
+- **B, catalogue wall:** the drawer marked STAFF (always shut, its label in Ada's own hand, warm; out of its top seam a thin hard sea-glass #5f8f86 stripe runs straight up the cabinet face and the wall to the ceiling; every pull on the chest a plain ring) with a tray before it, the three-folder cabinet BODY / PLACE / NAME with its comparison tray and training release, the Index model (three terminals labelled only by marks: solid triangle, two overlapping squares, hollow circle; TEST AMENDMENT), Venn's correspondence drawer, O06 wrapped photograph.
 
 **Close-ups (3):** `c_contact` (P16), `c_folders` (P18), `c_model` (P23).
 
@@ -299,11 +299,11 @@ The quality template. View A is the approved plate (desk, window, map, stove, ho
 | --- | --- | --- | --- | --- |
 | Arrival | `p15_complete` (band 4) | Shelves deeper than the plan. Photographs of chairs occupied by retouched blank areas. | Paper settling far off, further than the room. | The shelves continue. |
 | P16 done | `p16_complete` | Contact sheet assembled; the last face looks away toward the witness position. | | |
-| P18 done (with P17: band 5) | `p18_complete` | Model Index closed then released; correspondence drawer open. STAFF aperture tabs riffle once (`motion`). | Paper breath, once. | |
-| 5 | band 5 | A ninth photograph on the wall: an empty chair, not retouched. | | |
+| P18 done (with P17: band 5) | `p18_complete` | Model Index closed then released; correspondence drawer open. Inside the shut STAFF drawer every card moves at once (heard); the stripe jolts one step wider for a moment. | Paper breath, once. | |
+| 5 | band 5 | A ninth photograph on the wall: an empty chair, not retouched. The vault floods to a hard dead-level line at the tide height (y 512); below it the shelves are their own reflection (the strip above, flipped, sea-glass tinted, alpha 0.85). Labels and hotspots unchanged. | | "The lower shelves aren't lit. They're reflected." (story, once) |
 | P23 done | `p23_complete` | Model stamped OPEN; witness bridge gone from it. | | |
 | 6 | band 6 | Index card at the front of the hanging file: MERCER, A. Blank. | | Her card. |
-| 7 | band 7 | The STAFF aperture is open slightly wider. Still motionless. | | |
+| 7 | band 7 | The stripe up from STAFF is wider again. The drawer is still shut. | | |
 
 ---
 

@@ -93,22 +93,25 @@ const SHEET_DATE := "The sheet only gives the date. 18 October 1927."
 const GLANCE_DRAWER := [100, 680, 240, 120]
 ## P18's reveal chain, three lines (the folders' card and the records' return are shown).
 const P18_SHUT := "The folders shut on her, all three."
-const P18_STAFF_OPENS := "The STAFF drawer slides open on its own."
-const P18_STAFF_RIFFLE := "Every tab in the STAFF drawer moves at once."
+const P18_STAFF := "Behind me, inside the shut STAFF drawer, every card moves at once."
 const P18_RELEASE := "I pull the release. Venn's drawer opens."
 
 # --- P23: the Index model --------------------------------------------------------------------
 const SHUTTER_LINE := "A brass shutter over the terminals. A hollow circle on it: OBSERVER. No keyhole this side. It opens from the other side."
-## The faceplate names the terminals and nothing else: the rule is written only in the margin
-## of the session log (R04, P17). Here it is learned by testing, and by the copy test's failure.
-const FACEPLATE := "INPUT. COPY. WITNESS. Nothing else on the plate."
+## The terminals carry marks, not words: the faceplate and the socket plates show only these.
+## Two of them are the two marks in the margin of the session log (R04Sim.MARGIN_MARKS, P17),
+## drawn there joined by a stroke beside "A human correction keeps it open." Nothing on the
+## model pairs them; the rule is learned from that margin, by testing, and by the copy's failure.
+const TERMINAL_GLYPHS := {"input": "triangle", "copy": "squares", "witness": "circle"}
+const GLYPH_WORDS := {"triangle": "the triangle", "squares": "the two squares", "circle": "the circle"}
+const FACEPLATE := "Three terminals. A solid triangle, two squares overlapping, a hollow circle. No words on the plate."
 const MODEL_OPEN_LINE := "The Index model. Three brass leaves over a terminal block."
 const STRIP_CLOSED := "AMENDMENT 1 APPENDED. RECORD CLOSED."
 const STRIP_OPEN := "AMENDMENT 1 APPENDED. RECORD OPEN."
 const STRIP_WITNESS := "WITNESS: MERCER, A."
 const STRIP_RECORD_OPEN := "RECORD OPEN"
 const STRIP_NO_INPUT := "NO INPUT"
-const LEAD_START := "The lead starts at INPUT."
+const LEAD_START := "The lead starts at the triangle."
 const STAMPED_OPEN := "It's stamped OPEN. In ink."
 const GLANCE_STAFF := [420, 370, 220, 160]
 
@@ -120,8 +123,15 @@ const NOTICE_LINES := {
 	"ninth_photo": "There are nine photographs now. And I can't hear the sea through the wall any more.",
 	"mercer_card": "A new card at the front of the file. MERCER, A.",
 	"shelves_more": "The shelves go back further than they did.",
-	"aperture_wide": "The STAFF drawer's open wider. Nothing moved it.",
+	"aperture_wide": "The stripe up from STAFF is wider again. The drawer's still shut.",
 }
+## Band 5 on: the vault stands flooded to a dead-level line, and below it the shelves are only
+## their own reflection. Said once, the first time she faces the shelves at band 5 or later.
+const FLOOD_BAND := 5
+const FLOOD_LINE := "The lower shelves aren't lit. They're reflected."
+## The STAFF drawer, shut: the first look and the second.
+const STAFF_FIRST := "STAFF. The drawer's shut. What's coming out of it is running up."
+const STAFF_SECOND := "It's warm. The label's in my handwriting."
 
 const OBSERVATIONS := {
 	"shelves": "The shelves go back further than the floor plan allows. Past where the laboratory wall should be they keep going, each bay a little smaller, all labelled in the same hand.",
@@ -145,7 +155,9 @@ const OBSERVATIONS := {
 	"training_release": "A lever on the panel, printed: 'TRAINING RELEASE. Training model. Release returns all records.'",
 	"not_yet": "Set to 18 October 1931, the folders printed DATE DOES NOT CORRESPOND, and under it: NOT YET.",
 	"index_protocol": "Rook's Index: when body, place and name agree on one date, the subject is complete. The cabinet closed a model around Nora's records. The real system did this to all eight.",
-	"staff_aperture": "A catalogue drawer marked STAFF. It opens onto a dry opening shaped like a mouth, lined with index tabs instead of teeth. Nothing in it moves.",
+	"staff_aperture": "A catalogue drawer marked STAFF, shut. Out of its top seam a thin hard stripe of sea-glass runs straight up the cabinet and the wall to the ceiling, and spreads along it.",
+	"staff_label": "The STAFF drawer is warm to the touch. The label on it is in my handwriting.",
+	"flood": "The vault stands flooded to a dead-level line at the office's tide height. Below it the lower shelves aren't lit: they are the shelves above, reflected.",
 	"staff_tray": "A brass tray in front of the STAFF drawer, the size of a record card, worn bright in the middle.",
 	"tray_for": "The tray in front of STAFF is where records are fed to it. I put nothing there.",
 	"venn_drawer": "A small drawer with a brass plate cut three times: Venn's seal. Locked from inside.",
@@ -154,11 +166,11 @@ const OBSERVATIONS := {
 	"o06_photo": "Rook's own photograph, wrapped and tied: a woman and a small boy on the jetty in summer. On the back: 'Edith and Kit, 1911. To keep them exactly as they are.' He meant preservation as love, once.",
 	"model": "An Index model on the cabinet: three brass leaves over a terminal block.",
 	"model_shutter": "The model's terminals are behind a brass shutter marked with a hollow circle, OBSERVER. No keyhole on this side.",
-	"faceplate": "The model's faceplate names three terminals, INPUT, COPY and WITNESS, and says nothing about them. A lead from INPUT with two plugs; TEST AMENDMENT and RESET. A bridge sits across WITNESS.",
-	"model_closed_test": "On the model, INPUT to COPY: the amendment was appended and the record printed CLOSED. Every STAFF drawer slammed shut at once, and for a moment the photographs on the wall held nothing. RESET opens it again at once.",
-	"witness_test": "On the model: INPUT to COPY closes the record. INPUT to WITNESS takes an amendment and stays open. The witness has to be a person, and the person has to stay.",
-	"aperture_wider": "After the test the STAFF opening is wider than it was. Nothing moved it.",
-	"aperture_wide": "The STAFF opening is wider again. Still motionless.",
+	"faceplate": "The model's faceplate has no words: three marks over three terminals, a solid triangle, two overlapping squares and a hollow circle. A lead from the triangle with two plugs; TEST AMENDMENT and RESET. A bridge sits across the circle.",
+	"model_closed_test": "On the model, the triangle to the two squares: the amendment was appended and the record printed CLOSED. Every drawer in the catalogue knocked at once, the stripe up from STAFF stopped, and for a moment the photographs on the wall held nothing. RESET opens it again at once.",
+	"witness_test": "On the model: the triangle to the two squares closes the record. The triangle to the hollow circle takes an amendment and stays open. The circle is the witness. The witness has to be a person, and the person has to stay.",
+	"aperture_wider": "After the test the stripe running up from STAFF is wider than it was. Nothing touched it.",
+	"aperture_wide": "The stripe up from STAFF is wider again. The drawer is still shut.",
 }
 const OBJECTIVES := {
 	"p16": "Put the 1927 contact sheet back in order and uncover the faces.",
@@ -184,8 +196,8 @@ const HINTS := {
 	"p23": [
 		"The model in the vault can be tested safely.",
 		"A copy closes a record. A witness keeps it open.",
-		"The margin of the session log, in the listening room, says what closes a record.",
-		"Lead from INPUT to WITNESS, leave COPY empty, press TEST AMENDMENT. Take the bridge.",
+		"The session log's margin has two marks. The terminals carry the same two.",
+		"Lead from the triangle to the hollow circle, leave the two squares empty, press TEST AMENDMENT. Take the bridge.",
 	],
 	"away_p17": [
 		"The vault's done its part of the session.",
@@ -207,11 +219,12 @@ const HINTS := {
 const ITEMS := {
 	"contact_sheet": {"name": "Contact sheet, 18 Oct 1927", "short": "Contact sheet", "desc": "A contact sheet from the Index session."},
 	"venn_correspondence": {"name": "Venn's correspondence", "short": "Venn's letters", "desc": "Letters from Venn's drawer in the vault."},
-	"witness_bridge": {"name": "Witness bridge", "desc": "A bridge part from the Index model, marked WITNESS."},
+	"witness_bridge": {"name": "Witness bridge", "desc": "A bridge part from the Index model, marked with a hollow circle."},
 }
 
 const SAVED_BOOLS := ["clipped", "cover_off", "p16_complete", "p18_complete", "staff_open", "drawer_open",
-	"input", "copy", "witness", "p23_complete", "bridge_taken", "strip2", "not_yet_seen", "folders_seen"]
+	"input", "copy", "witness", "p23_complete", "bridge_taken", "strip2", "not_yet_seen", "folders_seen",
+	"flood_seen"]
 
 ## Transient, never saved: what the view shows after the last action.
 var held := ""          # the panel letter in hand in c_contact
@@ -228,6 +241,7 @@ func initial_state() -> Dictionary:
 		"input": false, "copy": false, "witness": false, "stamp": "", "p23_complete": false,
 		"bridge_taken": false, "strip2": false,
 		"notices": [], "catalogue_notices": [], "not_yet_seen": false, "folders_seen": false,
+		"flood_seen": false,
 	}
 
 func is_closeup(v := local_view) -> bool:
@@ -321,6 +335,10 @@ func drawer_open() -> bool:
 func wrap() -> int:
 	return int(state.wrap)
 
+## Band 5 on: the vault is flooded to a fixed line and the lower shelves are a reflection.
+func flooded() -> bool:
+	return band() >= FLOOD_BAND
+
 func sea_through_wall() -> bool:
 	return band() == 4
 
@@ -377,6 +395,7 @@ func arrive(ev: Array, first: bool) -> void:
 		var n := current_notice()
 		if n != "":
 			_mark_notice(n)
+		_flood_notice(ev, 4.8)
 		return
 	_room_notice(ev)
 
@@ -428,11 +447,22 @@ func _go(v: String, ev: Array) -> void:
 	local_view = v
 	_clear_transient()
 
+## Facing the shelves: the flood line first (once, from band 5), then the band's notice.
 func _room_notice(ev: Array) -> void:
+	var flood := _flood_notice(ev, 0.0)
 	var n := current_notice()
 	if n != "" and not n in state.notices:
-		_deliver(ev, n)
+		_deliver(ev, n, 2.4 if flood else 1.6, flood)
 		_mark_notice(n)
+
+## The flood's line, story, the first time she faces the shelves at band 5 or later. True if said.
+func _flood_notice(ev: Array, delay: float) -> bool:
+	if not flooded() or state.flood_seen:
+		return false
+	state.flood_seen = true
+	_say(ev, FLOOD_LINE, delay, true)
+	_observe("flood")
+	return true
 
 func _catalogue_notice(ev: Array) -> void:
 	var n := current_catalogue_notice()
@@ -440,9 +470,9 @@ func _catalogue_notice(ev: Array) -> void:
 		_deliver(ev, n)
 		state.catalogue_notices.append(n)
 
-func _deliver(ev: Array, n: String) -> void:
+func _deliver(ev: Array, n: String, delay := 1.6, story := false) -> void:
 	_fx(ev, "notice_" + n)
-	_say(ev, NOTICE_LINES[n], 1.6)
+	_say(ev, NOTICE_LINES[n], delay, story)
 	_observe(n)
 
 # ---------------------------------------------------------------------------------------------
@@ -507,26 +537,26 @@ func _catalogue(action: String, ev: Array) -> void:
 	match action:
 		"staff_drawer":
 			if staff_shut():
-				_say(ev, "Shut. Flush with the front, as if it had never opened. The model says CLOSED.")
+				_say(ev, "Nothing's coming out of it now. The model says CLOSED.")
 				return
+			# The drawer is always shut: what she sees is the stripe running up out of its seam.
+			state.staff_open = true
 			if not has_seen("staff_aperture"):
-				if not state.staff_open:
-					state.staff_open = true
-					_sfx(ev, "staff_open")
-				_say(ev, "STAFF.")
-				_say(ev, "It doesn't open onto a drawer.", 1.2, true)
-				_say(ev, "A dry opening, shaped like a mouth. Lined with index tabs where the teeth would be. Nothing moves.", 3.6, true)
+				_say(ev, STAFF_FIRST)
 				_observe("staff_aperture")
+			elif not has_seen("staff_label"):
+				_sfx(ev, "staff_settle")
+				_say(ev, STAFF_SECOND)
+				_observe("staff_label")
 			else:
-				state.staff_open = true
 				match aperture_width():
 					2:
-						_say(ev, "Wider again. Still nothing moves.")
+						_say(ev, "Wider again. Still running up.")
 						_observe("aperture_wide")
 					1:
-						_say(ev, "Wider than it was. I didn't see it move.")
+						_say(ev, "Wider than it was. I didn't see it change.")
 					_:
-						_say(ev, "Still. The tabs don't move.")
+						_say(ev, "Still running up. The drawer stays shut.")
 		"tray":
 			_say(ev, "A brass tray in front of STAFF, the size of a record card. Worn bright in the middle.")
 			_observe("staff_tray")
@@ -833,7 +863,6 @@ func _compare(ev: Array) -> void:
 	_solve_p18(ev)
 
 func _solve_p18(ev: Array) -> void:
-	var was_open: bool = state.staff_open
 	state.p18_complete = true
 	game.solve("P18", ev)
 	for f in FOLDER_ORDER:
@@ -854,7 +883,7 @@ func _solve_p18(ev: Array) -> void:
 	_say(ev, P18_SHUT, 1.0, true)
 	_sfx(ev, "tabs_riffle", 4.2)
 	_fx(ev, "riffle", {"delay": 4.2})
-	_say(ev, P18_STAFF_RIFFLE if was_open else P18_STAFF_OPENS, 4.4, true)
+	_say(ev, P18_STAFF, 4.4, true)
 	_fx(ev, "release", {"delay": 7.6})
 	_sfx(ev, "release_lever", 7.6)
 	_say(ev, P18_RELEASE, 7.6, true)
@@ -908,17 +937,17 @@ func _model(action: String, ev: Array) -> void:
 		return
 	match action:
 		"bridge":
-			_say(ev, "A bridge seated across WITNESS. It doesn't come out.")
+			_say(ev, "A bridge seated across the circle. It doesn't come out.")
 		"t_input":
 			state.input = not state.input
 			if state.input:
 				_sfx(ev, "lead_plug")
-				_say(ev, "The lead in INPUT.")
+				_say(ev, "The lead in the triangle.")
 			else:
 				state.copy = false
 				state.witness = false
 				_sfx(ev, "lead_unplug")
-				_say(ev, "Out of INPUT. The plugs come with it.")
+				_say(ev, "Out of the triangle. The plugs come with it.")
 		"t_copy", "t_witness":
 			if not state.input:
 				_say(ev, LEAD_START)
@@ -926,7 +955,7 @@ func _model(action: String, ev: Array) -> void:
 			var key := "copy" if action == "t_copy" else "witness"
 			state[key] = not state[key]
 			_sfx(ev, "lead_plug" if state[key] else "lead_unplug")
-			var word := key.to_upper()
+			var word: String = GLYPH_WORDS[TERMINAL_GLYPHS[key]]
 			_say(ev, ("A plug in %s." if state[key] else "Out of %s.") % word)
 		"lead":
 			state.input = false
@@ -961,7 +990,7 @@ func _test(ev: Array) -> void:
 		_sfx(ev, "staff_slam", 1.2)
 		_fx(ev, "staff_slam", {"delay": 1.2})
 		_fx(ev, "photos_blank", {"delay": 1.2})
-		_say(ev, "Behind me every STAFF drawer slams at once.", 1.3, true)
+		_say(ev, "Behind me every drawer in the catalogue knocks at once. The stripe has stopped.", 1.3, true)
 		_say(ev, "The copy answered for her. That's what it did to them.", 3.0, true)
 		_observe("model_closed_test")
 		return
@@ -981,10 +1010,10 @@ func _test(ev: Array) -> void:
 	_say(ev, "It took the line. It stays open.", 1.4, true)
 	_fx(ev, "aperture_wider", {"delay": 3.6})
 	_sfx(ev, "staff_settle", 3.6)
-	_say(ev, "Behind the model, the STAFF drawer is open wider than it was. Nothing moved.", 3.8, true)
+	_say(ev, "Behind the model, the stripe up from STAFF is wider than it was. Nothing touched it.", 3.8, true)
 	_sfx(ev, "bridge_lift", 7.0)
 	_fx(ev, "bridge_free", {"delay": 7.0})
-	_say(ev, "The bridge has come free of WITNESS. I lift it out.", 7.0, true)
+	_say(ev, "The bridge has come free of the circle. I lift it out.", 7.0, true)
 	_say(ev, "It's warm. My temperature, exactly.", 9.6, true)
 	_fx(ev, "print2", {"text": STRIP_WITNESS, "delay": 12.0})
 	_sfx(ev, "strip_print", 12.0)
@@ -1223,7 +1252,7 @@ func reconcile() -> void:
 # debug
 # ---------------------------------------------------------------------------------------------
 const A_SEEN := ["shelves", "vault_clock", "photographs", "index_file"]
-const B_SEEN := ["staff_aperture", "staff_tray", "venn_drawer", "parcel", "model", "model_shutter"]
+const B_SEEN := ["staff_aperture", "staff_label", "staff_tray", "venn_drawer", "parcel", "model", "model_shutter"]
 const P16_SEEN := ["contact_table", "panel_a", "panel_b", "panel_c", "panel_d", "contact_sheet_1927",
 	"photos_turned"]
 const P18_SEEN := ["folders", "protocol_card", "index_protocol", "venn_drawer_open"]

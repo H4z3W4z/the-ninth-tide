@@ -19,7 +19,7 @@ const REF_WORD := {8: "Eight", 6: "Six", 3: "Three", 0: "None"}
 const REF_WORD_LC := {8: "eight", 6: "six", 3: "three", 0: "none"}
 const REF_COUNT := {2: "two", 3: "three"}
 ## P18's reveal chain (the owner's three lines).
-const P18_CHAIN := ["The folders shut on her, all three.", "The STAFF drawer slides open on its own.",
+const P18_CHAIN := ["The folders shut on her, all three.", "Behind me, inside the shut STAFF drawer, every card moves at once.",
 	"I pull the release. Venn's drawer opens."]
 const RECS := ["nora_frame", "nora_spatial_strip", "nora_register_card"]
 const REF_HOME := {"nora_frame": "BODY", "nora_spatial_strip": "PLACE", "nora_register_card": "NAME"}
@@ -577,12 +577,12 @@ func test_p18_success() -> void:
 	check(says(g.dispatch("release")) == "Down. It stays down.", "release after")
 	g.dispatch("back")
 	check(says(g.dispatch("folders")) == "The folders. They've done their demonstration.", "folders after")
-	# The STAFF drawer already open changes the line.
+	# Having looked at STAFF first does not change the chain: the drawer is always shut.
 	g = folders_game()
 	play(g, ["back", "staff_drawer", "folders"])
 	file_all_correct(g)
 	set_date(g, "18 OCT 1927")
-	check(says(g.dispatch("compare")) == "The folders shut on her, all three. | Every tab in the STAFF drawer moves at once. | I pull the release. Venn's drawer opens.", "chain (drawer was open)")
+	check(Array(says(g.dispatch("compare")).split(" | ")) == P18_CHAIN, "chain (after looking at STAFF)")
 
 func test_p18_returns() -> void:
 	var g := folders_game()
@@ -739,7 +739,24 @@ func test_p23_shutter() -> void:
 	g = model_game()
 	r = r10(g)
 	check(r.shutter_open() and r.has_seen("faceplate"), "after P21 the first open notes the faceplate")
-	check(says(g.dispatch("faceplate")) == "INPUT. COPY. WITNESS. Nothing else on the plate.", "faceplate line: the port labels only")
+	check(says(g.dispatch("faceplate")) == "Three terminals. A solid triangle, two squares overlapping, a hollow circle. No words on the plate.", "faceplate line: the marks only")
+	# The terminals carry marks, never words; two of them are the session log's margin marks.
+	check(R10Sim.TERMINAL_GLYPHS == {"input": "triangle", "copy": "squares", "witness": "circle"}, "terminal marks")
+	check([R10Sim.TERMINAL_GLYPHS.input, R10Sim.TERMINAL_GLYPHS.witness] == R04Sim.MARGIN_MARKS,
+		"input and witness carry the margin's two marks, in its order")
+	check(not R10Sim.TERMINAL_GLYPHS.copy in R04Sim.MARGIN_MARKS, "copy's mark is not in the margin")
+	var proc: String = R04Sim.OBSERVATIONS.witness_procedure
+	check(proc.find("solid triangle") >= 0 and proc.find("hollow circle") >= 0, "the session log's notebook entry has both marks")
+	for k in ["t_input", "t_copy", "t_witness", "bridge"]:
+		var lab := ""
+		for row in RV.MODEL_CONTROLS:
+			if row[0] == k:
+				lab = row[2]
+		for word in ["INPUT", "COPY", "WITNESS", "Input", "Copy", "Witness"]:
+			check(lab.find(word) < 0, "%s hover names no port (%s)" % [k, lab])
+	for k in ["faceplate", "model_closed_test", "witness_test"]:
+		for word in ["INPUT", "COPY", "WITNESS"]:
+			check(R10Sim.OBSERVATIONS[k].find(word) < 0, "%s names no port word %s" % [k, word])
 
 func test_p23_combinations() -> void:
 	for i in [false, true]:
@@ -758,7 +775,7 @@ func test_p23_combinations() -> void:
 					check(not g.flag("P23"), "%s: no P23" % tag)
 				elif c:
 					check(r.state.stamp == "closed" and r.model_text == "AMENDMENT 1 APPENDED. RECORD CLOSED."
-						and says(ev) == "CLOSED. | Behind me every STAFF drawer slams at once. | The copy answered for her. That's what it did to them.", "%s: closed (%s)" % [tag, says(ev)])
+						and says(ev) == "CLOSED. | Behind me every drawer in the catalogue knocks at once. The stripe has stopped. | The copy answered for her. That's what it did to them.", "%s: closed (%s)" % [tag, says(ev)])
 					check(has_ev(ev, "sfx", "stamp_closed") and has_ev(ev, "fx", "stamp_closed") and r.has_seen("model_closed_test"), "%s: closed events" % tag)
 					check(not g.flag("P23") and not g.has_item("witness_bridge"), "%s: no P23" % tag)
 				else:
@@ -770,17 +787,17 @@ func test_p23_combinations() -> void:
 	# By play: the lead only goes in from INPUT.
 	var g := model_game()
 	var r := r10(g)
-	check(says(g.dispatch("t_copy")) == "The lead starts at INPUT." and not r.state.copy, "copy needs input")
-	check(says(g.dispatch("t_witness")) == "The lead starts at INPUT." and not r.state.witness, "witness needs input")
-	g.dispatch("t_input")
-	g.dispatch("t_copy")
-	g.dispatch("t_witness")
+	check(says(g.dispatch("t_copy")) == "The lead starts at the triangle." and not r.state.copy, "copy needs input")
+	check(says(g.dispatch("t_witness")) == "The lead starts at the triangle." and not r.state.witness, "witness needs input")
+	check(says(g.dispatch("t_input")) == "The lead in the triangle.", "input by its mark")
+	check(says(g.dispatch("t_copy")) == "A plug in the two squares.", "copy by its mark")
+	check(says(g.dispatch("t_witness")) == "A plug in the circle.", "witness by its mark")
 	check(r.state.input and r.state.copy and r.state.witness, "all seated")
 	g.dispatch("t_input")
 	check(not r.state.input and not r.state.copy and not r.state.witness, "unseating input parks the plugs")
 	play(g, ["t_input", "t_witness"])
 	check(says(g.dispatch("lead")) == "I coil the lead." and not r.state.input and not r.state.witness, "lead parks all")
-	check(says(g.dispatch("bridge")) == "A bridge seated across WITNESS. It doesn't come out.", "bridge before")
+	check(says(g.dispatch("bridge")) == "A bridge seated across the circle. It doesn't come out.", "bridge before")
 	check(says(g.dispatch("stamp")) == "Nothing stamped." and says(g.dispatch("strip")) == "Blank.", "reads")
 	play(g, ["t_input", "t_witness"])
 	g.dispatch("test")
@@ -885,7 +902,7 @@ func test_p23_copy_failure() -> void:
 	# STAFF stays shut on the catalogue wall, and says so without changing anything
 	g.dispatch("back")
 	var st := JSON.stringify(r.state)
-	check(says(g.dispatch("staff_drawer")) == "Shut. Flush with the front, as if it had never opened. The model says CLOSED."
+	check(says(g.dispatch("staff_drawer")) == "Nothing's coming out of it now. The model says CLOSED."
 		and JSON.stringify(r.state) == st, "the shut STAFF drawer refuses quietly")
 	# survives a save
 	var t := roundtrip(g)
@@ -897,7 +914,7 @@ func test_p23_copy_failure() -> void:
 	check(snapshot(g) == snap, "still nothing else changed")
 	# then the witness solves as before
 	play(g, ["t_input", "t_witness", "test"])
-	check(g.flag("P23") and not r.staff_shut() and r.aperture_width() >= 1, "then INPUT to WITNESS solves; STAFF open wider")
+	check(g.flag("P23") and not r.staff_shut() and r.aperture_width() >= 1, "then INPUT to WITNESS solves; the stripe wider")
 
 ## P18: the dial opens on 17 OCT 1931 (a decoy: today), which COMPARE refuses; the session
 ## date is 18 OCT 1927, from the film edge and the spool.
@@ -922,11 +939,16 @@ func test_p18_p23_no_rule_text() -> void:
 	for banned in ["copied acknowledgement", "closes the cycle", "may append another correction", "FOR TRAINING",
 			"MASS / BREATH TRACE", "PERSONAL CARD", "FOLDER_CAPTIONS"]:
 		check(src.find(banned) < 0, "the view draws no '%s'" % banned)
-	check(RV.FACEPLATE_PORTS == ["INPUT", "COPY", "WITNESS"], "the faceplate: INPUT / COPY / WITNESS")
+	check(RV.FACEPLATE_PORTS == ["input", "copy", "witness"], "the faceplate: one mark per terminal, in socket order")
 	for k in R10Sim.OBSERVATIONS:
 		var o: String = R10Sim.OBSERVATIONS[k]
 		check(o.find("copied acknowledgement") < 0 and o.find("human witness may") < 0, "%s states no rule" % k)
-	check(R10Sim.FACEPLATE.find("closes") < 0 and R10Sim.FACEPLATE.find("INPUT") >= 0, "the faceplate line names ports only")
+	check(R10Sim.FACEPLATE.find("closes") < 0 and R10Sim.FACEPLATE.find("INPUT") < 0 and R10Sim.FACEPLATE.find("triangle") >= 0,
+		"the faceplate line names marks only")
+	# the view draws no port word on the model (marks only); the strip's post-solve line may say WITNESS
+	var model_src := src.substr(src.find("func _draw_model"))
+	for word in ["\"INPUT\"", "\"COPY\"", "\"WITNESS\"", "key.to_upper()"]:
+		check(model_src.find(word) < 0, "the model draws no %s" % word)
 	var g := model_game()
 	check(says(g.dispatch("faceplate")).find("cycle") < 0, "reading the faceplate states no rule")
 	var hints: Array = R10Sim.HINTS["p18"]
@@ -934,14 +956,22 @@ func test_p18_p23_no_rule_text() -> void:
 		"P18 hints: the instrument, then the evidence")
 	for k in ["p16", "p18", "p23"]:
 		check(R10Sim.HINTS[k].size() == 4, "%s: four tiers, evidence before the solution" % k)
+	var p23: Array = R10Sim.HINTS["p23"]
+	check(p23[2] == "The session log's margin has two marks. The terminals carry the same two.",
+		"P23 tier 3 names the notebook entry's two marks")
+	check(p23[1] != p23[2] and p23[2] != p23[3], "P23: tiers 2, 3 and 4 all differ")
 
 ## The new stage art exists where the view looks for it.
 func test_stage_art() -> void:
 	for id in RV.STAGE_IDS:
 		check(ResourceLoader.exists(RV.STAGE_DIR % id), "stage art %s" % id)
 		check(FileAccess.file_exists("res://assets/stages/R10/%s.png" % id), "assets/stages/R10/%s.png" % id)
-	for id in RV.STAFF_SLOTS:
+	for id in RV.STAFF_SEEPS + ["cabinet_r3", RV.DRAWER_OPEN, "a_cabinet_r3"]:
 		check(id in RV.STAGE_IDS, "%s is stage art" % id)
+	# round 3 art comes from the seeded painter
+	var py: String = FileAccess.get_file_as_string("res://tools/art/rooms/R10.py")
+	for id in RV.STAFF_SEEPS + ["cabinet_r3", RV.DRAWER_OPEN, "a_cabinet_r3"]:
+		check(py.find("(\"%s\"" % id) >= 0, "%s has a painter entry" % id)
 	check(ResourceLoader.exists("res://assets/audio/R10/r10_paper_tick.wav") and ResourceLoader.exists("res://assets/audio/R10/staff_slam.wav"),
 		"the paper ticks and the slam exist")
 	check("staff_slam" in RV.SFX_SOFT and RV.SFX_DB.has("staff_slam"), "the slam is a sudden sound")
@@ -1000,7 +1030,15 @@ func test_notices() -> void:
 		var n: String = s[1]
 		ev = g.dispatch("go:R10")
 		check(count_ev(ev, "fx", "notice_" + n) == 1 and r.has_seen(n), "notice %s plays (got %s)" % [n, says(ev)])
-		check(says(ev) == R10Sim.NOTICE_LINES[n] and float(ev[-1].get("delay", 0)) == 1.6, "%s line at 1.6" % n)
+		if n == "ninth_photo":
+			# band 5: the flood line first (story, once), then the notice after it, also story
+			check(says(ev) == R10Sim.FLOOD_LINE + " | " + R10Sim.NOTICE_LINES[n] and r.has_seen("flood")
+				and r.state.flood_seen, "band 5: the flood, then %s (got %s)" % [n, says(ev)])
+			check(ev.filter(func(e): return e.type == "say").all(func(e): return e.get("story", false)),
+				"band 5: both lines are story")
+			check(float(ev[-1].get("delay", 0)) == 2.4, "%s line after the flood's" % n)
+		else:
+			check(says(ev) == R10Sim.NOTICE_LINES[n] and float(ev[-1].get("delay", 0)) == 1.6, "%s line at 1.6" % n)
 		check(r.state.notices == R10Sim.NOTICES.slice(0, R10Sim.NOTICES.find(n) + 1), "%s retires the older ones" % n)
 		check(not has_ev(ev, "fx", "notice_aperture_wide"), "%s: no catalogue notice on arrival" % n)
 		g.dispatch("go:R07")
@@ -1034,6 +1072,11 @@ func test_notices() -> void:
 	g.dispatch("to_catalogue")
 	ev = g.dispatch("to_shelves")
 	check(has_ev(ev, "fx", "notice_ninth_photo"), "to_shelves delivers the due notice")
+	check(says(ev).begins_with("The shelves. | " + R10Sim.FLOOD_LINE) and r.state.flood_seen, "and the flood line before it (got %s)" % says(ev))
+	ev = play(g, ["to_catalogue", "to_shelves"])
+	check(says(ev).find(R10Sim.FLOOD_LINE) < 0, "the flood line once")
+	check(roundtrip(g).rooms[ROOM].state.flood_seen, "flood_seen survives a load")
+	check(not r10(game_at(6, ROOM)).flooded() and r10(game_at(7, ROOM)).flooded(), "flooded from band 5")
 	g = game_at(6, ROOM)
 	g.set_flag("P16")
 	g.set_flag("P17")
@@ -1073,9 +1116,16 @@ func test_catalogue_objects() -> void:
 	var r := r10(g)
 	g.dispatch("to_catalogue")
 	var ev := g.dispatch("staff_drawer")
-	check(says(ev) == "STAFF. | It doesn't open onto a drawer. | A dry opening, shaped like a mouth. Lined with index tabs where the teeth would be. Nothing moves."
-		and has_ev(ev, "sfx", "staff_open") and r.state.staff_open and r.has_seen("staff_aperture"), "STAFF first")
-	check(says(g.dispatch("staff_drawer")) == "Still. The tabs don't move.", "STAFF still")
+	check(says(ev) == "STAFF. The drawer's shut. What's coming out of it is running up."
+		and not has_ev(ev, "sfx", "staff_open") and r.state.staff_open and r.has_seen("staff_aperture"), "STAFF first")
+	check(not r.has_seen("staff_label"), "the label not noticed yet")
+	ev = g.dispatch("staff_drawer")
+	check(says(ev) == "It's warm. The label's in my handwriting." and r.has_seen("staff_label"), "STAFF second")
+	check(says(g.dispatch("staff_drawer")) == "Still running up. The drawer stays shut.", "STAFF still")
+	for k in ["staff_aperture", "staff_label"]:
+		var o: String = R10Sim.OBSERVATIONS[k]
+		for word in ["mouth", "teeth", "tabs"]:
+			check(o.find(word) < 0, "%s: no %s" % [k, word])
 	check(says(g.dispatch("tray")) == "A brass tray in front of STAFF, the size of a record card. Worn bright in the middle." and r.has_seen("staff_tray"), "tray")
 	ev = g.dispatch("correspondence_drawer")
 	check(says(ev) == "Locked. The plate's cut three times. Venn's mark." and has_ev(ev, "sfx", "drawer_locked") and r.has_seen("venn_drawer"), "Venn's drawer locked")
@@ -1090,10 +1140,10 @@ func test_catalogue_objects() -> void:
 	g = game_at(9, ROOM)
 	g.dispatch("to_catalogue")
 	check(says(use(g, "witness_bridge", "tray")) == "I know what the tray is for now. No.", "bridge on the tray")
-	check(says(g.dispatch("staff_drawer")) == "Wider again. Still nothing moves.", "STAFF at band 7")
+	check(says(g.dispatch("staff_drawer")) == "Wider again. Still running up.", "STAFF at band 7")
 	g = model_game()
 	play(g, ["t_input", "t_witness", "test", "back"])
-	check(says(g.dispatch("staff_drawer")) == "Wider than it was. I didn't see it move.", "STAFF after P23")
+	check(says(g.dispatch("staff_drawer")) == "Wider than it was. I didn't see it change.", "STAFF after P23")
 
 func test_room_objects() -> void:
 	var g := fresh()
@@ -1156,8 +1206,8 @@ const REF_HINTS := {
 		"The film edge is dated. So is the spool.",
 		"Frame to BODY, strip to PLACE, register card to NAME, date 18 Oct 1927, COMPARE."],
 	"p23": ["The model in the vault can be tested safely.", "A copy closes a record. A witness keeps it open.",
-		"The margin of the session log, in the listening room, says what closes a record.",
-		"Lead from INPUT to WITNESS, leave COPY empty, press TEST AMENDMENT. Take the bridge."],
+		"The session log's margin has two marks. The terminals carry the same two.",
+		"Lead from the triangle to the hollow circle, leave the two squares empty, press TEST AMENDMENT. Take the bridge."],
 	"away_p17": ["The vault's done its part of the session.",
 		"The contact sheet says sync on the bell. The listening room has the session spool.",
 		"Take the contact sheet to the listening room's mixer."],
@@ -1461,11 +1511,11 @@ func test_view_p18_staging() -> void:
 		scene.dispatch("back")
 		check(r.local_view == "catalogue", "%s: back at the catalogue" % tag)
 		check(v.start_glance("correspondence_drawer", Rect2()) and v.b_glance() == "staff", "%s: the glance shows STAFF first" % tag)
-		check("b_drawer_open" not in v.overlay_ids(), "%s: Venn's drawer still shut while STAFF is shown" % tag)
+		check(RV.DRAWER_OPEN not in v.overlay_ids(), "%s: Venn's drawer still shut while STAFF is shown" % tag)
 		v.tick(RV.GLANCE_TIME / 2.0 + 0.05)
-		check(v.b_glance() == "drawer" and "b_drawer_open" in v.overlay_ids(), "%s: then Venn's drawer, open" % tag)
+		check(v.b_glance() == "drawer" and RV.DRAWER_OPEN in v.overlay_ids(), "%s: then Venn's drawer, open" % tag)
 		v.tick(RV.GLANCE_TIME)
-		check(v.b_glance() == "" and "b_drawer_open" in v.overlay_ids(), "%s: the glance ends, the drawer stays open" % tag)
+		check(v.b_glance() == "" and RV.DRAWER_OPEN in v.overlay_ids(), "%s: the glance ends, the drawer stays open" % tag)
 		await free_scene(scene)
 
 ## The copy test on screen: STAFF shows open until the slam is heard, then shut (in the mirror
@@ -1480,30 +1530,41 @@ func test_view_copy_slam() -> void:
 		scene.dispatch("to_catalogue")
 		scene.dispatch("model")
 		check(r.local_view == "c_model", "%s: at the model" % tag)
-		check(v.mirror_staff()[0][0] in RV.STAFF_SLOTS, "%s: the mirror shows the STAFF slot" % tag)
+		check(v.mirror_staff()[-1][0] in RV.STAFF_SEEPS, "%s: the mirror shows the stripe from STAFF" % tag)
 		for a in ["t_input", "t_copy", "test"]:
 			scene.dispatch(a)
 		check(r.staff_shut() and v.slam_hold, "%s: shut in the sim, held until the slam" % tag)
-		check(v.mirror_staff()[0][0] != "staff_shut", "%s: not yet shut on screen" % tag)
+		check(v.mirror_staff()[-1][0] in RV.STAFF_SEEPS, "%s: not yet stopped on screen" % tag)
 		v.on_sfx("staff_slam")
-		check(not v.slam_hold and v.staff_shut_drawn() and v.mirror_staff() == [["staff_shut", 1.0]], "%s: slammed, in the mirror" % tag)
+		check(not v.slam_hold and v.staff_shut_drawn() and v.mirror_staff() == [["cabinet_r3", 1.0]], "%s: stopped, in the mirror" % tag)
 		check(v.blank_owed and not v.photos_blank(), "%s: the photographs' beat waits for the wall" % tag)
 		scene.dispatch("back")
-		check("staff_shut" in v.overlay_ids(), "%s: view B shows STAFF shut" % tag)
+		check("cabinet_r3" in v.overlay_ids() and v.seep_id() == "" and not v.overlay_ids().any(func(id): return id in RV.STAFF_SEEPS),
+			"%s: view B shows STAFF shut, the stripe stopped" % tag)
 		scene.dispatch("to_shelves")
 		v.tick(0.05)
 		check(v.photos_blank() and v.photo_rects().size() >= 8, "%s: on the shelves wall the photographs are blank" % tag)
 		v.tick(RV.BLANK_BEAT + 0.1)
 		check(not v.photos_blank(), "%s: for one beat" % tag)
 		check(v.overlay_ids()[0] == "vault_grade", "%s: band 6: the back shelving is graded" % tag)
+		check("a_cabinet_r3" in v.overlay_ids(), "%s: the hanging file's ring pull" % tag)
+		# band 6: flooded; the reflection is the shelves' span below the line, nothing else
+		check(v.flooded() and v.reflection_rect() == Rect2(36, RV.FLOOD_Y, 480, RV.REFLECT_BOTTOM - RV.FLOOD_Y),
+			"%s: the reflection fills the shelves below the flood line" % tag)
+		check(is_equal_approx(RV.REFLECT_TINT.a, 0.85), "%s: the reflection at 0.85" % tag)
+		for h in RV.HOTSPOTS:
+			if h[0] != "shelves":
+				check(not v.reflection_rect().intersects(h[1]), "%s: the reflection leaves %s alone" % [tag, h[0]])
+		check(v.hotspot_rect("shelves") == Rect2(36, 120, 480, 710), "%s: the shelves hotspot is unchanged" % tag)
 		scene.dispatch("to_catalogue")
 		scene.dispatch("model")
 		scene.dispatch("reset")
-		check(not r.staff_shut() and not v.staff_shut_drawn() and v.mirror_staff()[0][0] in RV.STAFF_SLOTS, "%s: RESET reopens STAFF" % tag)
+		check(not r.staff_shut() and not v.staff_shut_drawn() and v.mirror_staff()[-1][0] in RV.STAFF_SEEPS, "%s: RESET starts the stripe again" % tag)
 		check(not scene.sim.flag("P23"), "%s: no P23" % tag)
 		await free_scene(scene)
 	# below band 6 the shelves are not graded
 	var t2: Array = await _vault_scene("user://room_test_R10_grade.json", 1)
 	check(not "vault_grade" in t2[1].overlay_ids(), "band 4: no vault grade")
+	check(not t2[1].flooded(), "band 4: no flood")
 	await free_scene(t2[0])
 

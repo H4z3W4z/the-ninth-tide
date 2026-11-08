@@ -903,10 +903,10 @@ def card_cabinet(p):
     p.line([(x0 + 20, y0 + 27), (x1 - 20, y0 + 27)], OAK_HI, 1.4)
     oak_plate(p, (x0 + x1) / 2 - 42, y0 + 40, (x0 + x1) / 2 + 42, y0 + 64)
     cx = (x0 + x1) / 2
-    p.arc(cx, y0 + 98, 16, 12, 0, 180, BRASS_LO, 6)
-    p.arc(cx, y0 + 98, 16, 12, 0, 180, BRASS_HI, 2.6)
-    screw(p, cx - 18, y0 + 96, 3)
-    screw(p, cx + 18, y0 + 96, 3)
+    pull(p, cx, y0 + 98, 16, 12, 6, 2.6)
+    if not _ring_pulls:
+        screw(p, cx - 18, y0 + 96, 3)
+        screw(p, cx + 18, y0 + 96, 3)
     p.rect(x0 + 16, y1 - 70, x1 - 16, y1 - 16, None, mix(INK, OAK, 0.5), 1.4)
 
 
@@ -1253,6 +1253,24 @@ def paint_a_mercer_card(rng):
 
 # ----------------------------------------------------------------------------- view B parts
 
+# Round 3 (p2) stage art paints every drawer pull as a plain ring: a navy circle outline round a
+# small brass boss, no upturned curve. False (every older stem) keeps the old arc pulls exactly.
+_ring_pulls = False
+
+
+def pull(p, cx, cy, rx, ry, w_lo, w_hi):
+    """A drawer pull centred on (cx, cy): the old brass arc (rx, ry; strokes w_lo, w_hi), or,
+    in ring mode, a plain ring of radius rx * 0.8 with a brass boss in its middle."""
+    if _ring_pulls:
+        r = rx * 0.8
+        p.ell(cx, cy, r, r, None, INK, max(1.8, w_hi * 0.9))
+        b = max(2.4, r * 0.34)
+        p.ell(cx, cy, b, b, BRASS_HI, INK, 1.3)
+        return
+    p.arc(cx, cy, rx, ry, 0, 180, BRASS_LO, w_lo)
+    p.arc(cx, cy, rx, ry, 0, 180, BRASS_HI, w_hi)
+
+
 CHEST = (60, 140, 720, 840)
 ROWS = [(156, 228), (228, 304), (304, 380), (380, 450), (450, 520), (520, 605), (605, 690), (690, 790)]
 COLS = [108, 219, 330, 430, 530, 630, 704]
@@ -1271,8 +1289,7 @@ def small_drawer(p, x0, y0, x1, y1):
     pw = min(48, (x1 - x0) * 0.5)
     oak_plate(p, cx - pw / 2, y0 + 11, cx + pw / 2, y0 + 25)
     py = y0 + 25 + (y1 - y0 - 25) * 0.5
-    p.arc(cx, py - 1, 9, 6, 0, 180, BRASS_LO, 4.4)
-    p.arc(cx, py - 1, 9, 6, 0, 180, BRASS_HI, 1.8)
+    pull(p, cx, py - 1, 9, 6, 4.4, 1.8)
 
 
 def chest(p):
@@ -1305,10 +1322,10 @@ def staff_face(p):
     p.line([(x0 + 8, y0 + 8), (x1 - 8, y0 + 8)], OAK_HI, 1.6)
     plate(p, *STAFF_PLATE)
     cx = (x0 + x1) / 2
-    p.arc(cx, 478, 22, 14, 0, 180, BRASS_LO, 8)
-    p.arc(cx, 478, 22, 14, 0, 180, BRASS_HI, 3.4)
-    screw(p, cx - 26, 476, 3.6)
-    screw(p, cx + 26, 476, 3.6)
+    pull(p, cx, 478, 22, 14, 8, 3.4)
+    if not _ring_pulls:
+        screw(p, cx - 26, 476, 3.6)
+        screw(p, cx + 26, 476, 3.6)
 
 
 def venn_face(p):
@@ -1317,9 +1334,7 @@ def venn_face(p):
     p.rect(x0 + 3, y0 + 3, x1 - 3, y1 - 3, OAK, INK, 2.6, r=2)
     p.line([(x0 + 7, y0 + 7), (x1 - 7, y0 + 7)], OAK_HI, 1.6)
     venn_plate(p)
-    cx = (x0 + x1) / 2
-    p.arc(cx, 762, 14, 9, 0, 180, BRASS_LO, 6)
-    p.arc(cx, 762, 14, 9, 0, 180, BRASS_HI, 2.4)
+    pull(p, (x0 + x1) / 2, 762, 14, 9, 6, 2.4)
 
 
 def venn_plate(p):
@@ -1817,8 +1832,7 @@ def paint_b_drawer_open(rng):
     p.line([(x0, fy + 4), (x1, fy + 4)], OAK_HI, 1.6)
     sh = p.at(0, fy - y0)
     venn_plate(p)
-    p.arc((x0 + x1) / 2, 762, 14, 9, 0, 180, BRASS_LO, 6)
-    p.arc((x0 + x1) / 2, 762, 14, 9, 0, 180, BRASS_HI, 2.4)
+    pull(p, (x0 + x1) / 2, 762, 14, 9, 6, 2.4)
     p.restore(sh)
     return p
 
@@ -2545,6 +2559,84 @@ def tide_plate(side, tide):
     return paint
 
 
+# ----------------------------------------------------------------------------- stage art, round 3
+#
+# The catalogue chest repainted with plain ring pulls and the STAFF drawer shut (no slot, no
+# mouth). Out of its top seam a thin hard stripe of sea-glass runs straight UP the cabinet face and
+# the wall to the ceiling: flat colour, navy edges, no gradient, as if gravity had been filed the
+# wrong way round. It widens one step after P23 and another at band 7.
+
+SEEP = (95, 143, 134)           # #5F8F86
+SEEP_W = {0: 10.0, 1: 16.0, 2: 24.0}
+CHEST_KEEP = (52, 128, 728, 842)       # the chest with its cap and plinth, nothing round it
+CAB_PULL = (625, 686, 685, 722)        # view A: the hanging file's pull and its two screws
+
+
+def paint_cabinet_r3(rng):
+    """View B overlay: the whole chest (and the tray before STAFF) with ring pulls, STAFF shut."""
+    global _ring_pulls
+    p = Pen(W, H, rng)
+    _ring_pulls = True
+    try:
+        chest(p)
+        tray(p)
+    finally:
+        _ring_pulls = False
+    a = p.im.getchannel("A")
+    p.im.putalpha(ImageChops.multiply(a, rect_mask([CHEST_KEEP])))
+    # the shut drawer's top seam, a hair darker: where the stripe comes out
+    x0, y0, x1, _ = STAFF
+    p.line([(x0 + 6, y0 + 3), (x1 - 6, y0 + 3)], mix(OAK_DK, SOOT, 0.4), 2.0)
+    return p
+
+
+def paint_staff_seep(rng, step):
+    """View B overlay: the stripe from STAFF's top seam up to the ceiling."""
+    p = Pen(W, H, rng)
+    w = SEEP_W[step]
+    cx = STAFF_C[0]
+    x0, y0, x1, _ = STAFF
+    top = CEIL_Y + 14                   # under the cornice: it spreads along it a little
+    seam = y0 + 3
+    # along the seam: a hairline of it leaking out under the drawer's top rail
+    sx = 34.0 + 10.0 * step
+    p.poly([(cx - sx, seam - 1.2), (cx + sx, seam - 1.2), (cx + sx, seam + 1.4), (cx - sx, seam + 1.4)], SEEP, None)
+    # the stripe: dead straight, hard edged
+    p.rect(cx - w / 2, top, cx + w / 2, seam, SEEP, None)
+    for x in (cx - w / 2, cx + w / 2):
+        p.line([(x, top + 2), (x, seam - 2)], INK, 1.6)
+    # where it meets the cornice it runs along the underside, flat, both ways
+    sp = 44.0 + 18.0 * step
+    p.rect(cx - sp, top - 1, cx + sp, top + 3.5, SEEP, None)
+    p.line([(cx - sp, top + 3.5), (cx - w / 2, top + 3.5)], INK, 1.4)
+    p.line([(cx + w / 2, top + 3.5), (cx + sp, top + 3.5)], INK, 1.4)
+    return p
+
+
+def paint_drawer_open_r3(rng):
+    """Venn's drawer open, as b_drawer_open, with the ring pull."""
+    global _ring_pulls
+    _ring_pulls = True
+    try:
+        return paint_b_drawer_open(rng)
+    finally:
+        _ring_pulls = False
+
+
+def paint_a_cabinet_r3(rng):
+    """View A overlay: the hanging file's arc pull and screws covered, a ring pull in their place."""
+    global _ring_pulls
+    p = Pen(W, H, rng)
+    x0, y0, x1, y1 = CAB
+    p.rect(*CAB_PULL, mix(OAK, OAK_DK, 0.35), None)
+    _ring_pulls = True
+    try:
+        pull(p, (x0 + x1) / 2, y0 + 98, 16, 12, 6, 2.6)
+    finally:
+        _ring_pulls = False
+    return p
+
+
 ASSETS = [  # name, seed index, painter, opaque, grain
     ("view_a", 0, lambda r: paint_view_a(r, 4), True, True),
     ("view_a_s5", 0, lambda r: paint_view_a(r, 5), True, True),
@@ -2614,6 +2706,13 @@ STAGE_ASSETS = [  # name, seed index, painter, opaque, grain -> assets/stages/R1
     ("staff_slot_riffle", 93, lambda r: paint_staff_slot(r, 0, riffle=True), False, False),
     ("staff_shut", 94, paint_staff_shut, False, False),
     ("vault_grade", 95, paint_vault_grade, False, False),
+    # round 3 (p2): ring pulls everywhere, STAFF shut, the stripe running up out of it
+    ("cabinet_r3", 96, paint_cabinet_r3, False, True),
+    ("staff_seep_r3", 97, lambda r: paint_staff_seep(r, 0), False, False),
+    ("staff_seep_r3_1", 98, lambda r: paint_staff_seep(r, 1), False, False),
+    ("staff_seep_r3_2", 99, lambda r: paint_staff_seep(r, 2), False, False),
+    ("drawer_open_r3", 100, paint_drawer_open_r3, False, False),
+    ("a_cabinet_r3", 101, paint_a_cabinet_r3, False, True),
 ]
 
 

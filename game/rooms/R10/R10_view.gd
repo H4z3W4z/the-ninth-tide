@@ -10,7 +10,8 @@ extends RoomView
 ##   CanvasLayer 5 `close`: c_contact (P16), c_folders (P18), c_model (P23).
 ##
 ## Painted plates: assets/rooms/R10/*.png, and the later-stage art in assets/stages/R10/*.png (the
-## STAFF slot, its shut seam, the vault grade), both from tools/art/rooms/R10.py. They carry no
+## catalogue chest with ring pulls and STAFF shut, the stripe running up out of it, the vault
+## grade), both from tools/art/rooms/R10.py. They carry no
 ## text: every label, numeral, clock hand, tally and printed line is drawn here, so the clues stay
 ## exact.
 ## Owner rule: no darkening at any band. Dread is what is clearly seen being wrong.
@@ -18,9 +19,25 @@ extends RoomView
 const DIR := "res://assets/rooms/R10/%s.png"
 const STAGE_DIR := "res://assets/stages/R10/%s.png"
 ## The overlays that live in assets/stages/R10/ (new stage art; the room's own plates stay put).
-const STAGE_IDS := ["staff_slot", "staff_slot_1", "staff_slot_2", "staff_slot_riffle", "staff_shut", "vault_grade"]
-## The STAFF slot at aperture width 0, 1, 2: each step a wider slot and one more row of cards.
-const STAFF_SLOTS := ["staff_slot", "staff_slot_1", "staff_slot_2"]
+const STAGE_IDS := ["vault_grade", "cabinet_r3", "staff_seep_r3", "staff_seep_r3_1", "staff_seep_r3_2",
+	"drawer_open_r3", "a_cabinet_r3"]
+## The STAFF drawer is always drawn shut (cabinet_r3, ring pulls). Out of its seam a hard
+## sea-glass stripe runs up to the ceiling, at aperture width 0, 1, 2 (each step wider).
+const STAFF_SEEPS := ["staff_seep_r3", "staff_seep_r3_1", "staff_seep_r3_2"]
+## Venn's drawer open, with its ring pull.
+const DRAWER_OPEN := "drawer_open_r3"
+## From band 5 the vault floods to a dead-level line at the office's tide height (R10.py TIDE_Y).
+## Below it the shelves are their own reflection: the strip above, flipped, sea-glass tinted.
+const FLOOD_BAND := 5
+const FLOOD_Y := 512.0
+const FLOOD_LINE := Color("5f8f86")
+const REFLECT_X := Vector2(36, 516)        # the shelves' span (R10.py SHELF)
+const REFLECT_BOTTOM := 830.0
+const REFLECT_TINT := Color(0.74, 0.86, 0.83, 0.85)
+const FLOOD_WASH := Color(0.37, 0.56, 0.53, 0.08)
+## Where the line breaks (x0, x1): nowhere in view A; across the folder cabinet's spine plates in B.
+const FLOOD_KEEP_A := Vector2(0, 0)
+const FLOOD_KEEP_B := Vector2(820, 1180)
 ## From this band the back shelving is graded toward storm navy (vault_grade).
 const GRADE_BAND := 6
 
@@ -97,11 +114,11 @@ const FOLDER_CONTROLS := [
 const MODEL_CONTROLS := [
 	["faceplate", Rect2(220, 96, 1010, 110), "Faceplate"],
 	["strip", Rect2(220, 222, 1010, 180), "Strip"],
-	["bridge", Rect2(1008, 440, 240, 70), "Witness bridge"],
+	["bridge", Rect2(1008, 440, 240, 70), "Bridge"],
 	["shutter", Rect2(200, 430, 1050, 300), "Shutter"],
-	["t_input", Rect2(220, 520, 200, 200), "INPUT"],
-	["t_copy", Rect2(624, 520, 200, 200), "COPY"],
-	["t_witness", Rect2(1028, 520, 200, 200), "WITNESS"],
+	["t_input", Rect2(220, 520, 200, 200), "Triangle terminal"],
+	["t_copy", Rect2(624, 520, 200, 200), "Two-square terminal"],
+	["t_witness", Rect2(1028, 520, 200, 200), "Circle terminal"],
 	["lead", Rect2(220, 770, 260, 120), "Lead"],
 	["test", Rect2(560, 770, 260, 120), "TEST AMENDMENT"],
 	["reset", Rect2(860, 770, 180, 120), "RESET"],
@@ -157,6 +174,8 @@ const DIVIDER_PIVOT := Vector2(735, 606)
 const DIVIDER_PERIOD := 7.0
 const PENDANT_A := Vector2(770, 190)
 const PENDANT_B := Vector2(700, 120)
+## Where the wall meets the boards (R10.py FLOOR_Y): the flood wash stops here.
+const FLOOR_TOP := 900.0
 
 # --- view B geometry ----------------------------------------------------------------------
 const STAFF_PLATE := Rect2(480, 392, 100, 28)
@@ -220,9 +239,6 @@ const LEVER_POS := Vector2(1230, 745)
 const TRAINING_AT := Vector2(1214, 796)
 const RELEASE_AT := Vector2(1366, 796)
 const CMP_TRAY := Rect2(122, 652, 536, 136)
-## The NAME leaf bares a row of index tabs along its lower edge as it shuts (Motion off: the
-## final state keeps them).
-const TEETH_TIME := 0.12
 const RELEASE_SLIP := Rect2(1180, 916, 200, 66)
 const INDEX_CARD := Rect2(690, 884, 476, 102)
 const LEAF_STAGGER := 0.35
@@ -249,10 +265,11 @@ const RESET_POS := Vector2(860, 770)
 const PRINT_RATE := 18.0
 ## The inspection glass on the faceplate: it shows the STAFF drawer behind her, mirrored.
 const MIRROR := Rect2(270, 112, 196, 78)
-const MIRROR_SRC := Rect2(420, 406, 220, 88)
+const MIRROR_SRC := Rect2(390, 300, 280, 112)
 const AP_TIME := 1.0
-## The faceplate carries only the terminals' names, over the sockets they name.
-const FACEPLATE_PORTS := ["INPUT", "COPY", "WITNESS"]
+## The faceplate carries only the terminals' marks (R10Sim.TERMINAL_GLYPHS), in socket order, and
+## no word: two of them are the session log's margin marks (R04Sim.MARGIN_MARKS).
+const FACEPLATE_PORTS := ["input", "copy", "witness"]
 const FACEPLATE_PORT_X := [640.0, 848.0, 1056.0]
 ## The copy test: the frame photographs on the shelves wall go blank for one beat (s).
 const BLANK_BEAT := 0.9
@@ -271,7 +288,7 @@ const NOTICE_FOCUS := {
 	"ninth_photo": Rect2(1318, 330, 96, 128),
 	"mercer_card": Rect2(556, 528, 200, 90),
 	"shelves_more": Rect2(36, 120, 480, 710),
-	"aperture_wide": Rect2(420, 370, 220, 160),
+	"aperture_wide": Rect2(420, 40, 220, 490),
 }
 ## Reveals that wait for their sound: fx id -> [sound, sounds of that id to let pass first].
 const REVEAL_SOUND := {
@@ -420,6 +437,7 @@ func overlay_ids() -> Array:
 	if _side() == "a":
 		if _band() >= GRADE_BAND:
 			out.append("vault_grade")
+		out.append("a_cabinet_r3")
 		out.append("a_sheet_assembled" if r.sheet_assembled() else "a_panels_loose")
 		if r.photos_turned():
 			out.append("a_photos_turned")
@@ -428,15 +446,12 @@ func overlay_ids() -> Array:
 		if r.mercer_card():
 			out.append("a_mercer_card")
 		return out
-	if r.staff_open():
-		if staff_shut_drawn():
-			out.append("staff_shut")
-		elif riffle_t >= 0.0:
-			out.append("staff_slot_riffle")
-		else:
-			out.append(STAFF_SLOTS[clampi(r.aperture_width(), 0, 2)])
+	out.append("cabinet_r3")
+	var seep := seep_id()
+	if seep != "":
+		out.append(seep)
 	if r.drawer_open() and not drawer_hide:
-		out.append("b_drawer_open")
+		out.append(DRAWER_OPEN)
 	if r.shutter_open():
 		out.append("b_terminals" if r.bridge_present() else "b_terminals_nobridge")
 	if r.wrap() == 1:
@@ -449,6 +464,20 @@ func overlay_ids() -> Array:
 ## slam has been heard.
 func staff_shut_drawn() -> bool:
 	return r.staff_shut() and not slam_hold
+
+## The stripe running up out of STAFF now ("" while the copy test has stopped it). The P18
+## riffle jolts it one step wider for a moment.
+func seep_id() -> String:
+	if staff_shut_drawn():
+		return ""
+	var w := clampi(r.aperture_width(), 0, 2)
+	if riffle_t >= 0.0:
+		w = mini(w + 1, 2)
+	return STAFF_SEEPS[w]
+
+## The vault is flooded to FLOOD_Y (band 5 on).
+func flooded() -> bool:
+	return _band() >= FLOOD_BAND
 
 ## The photographs on the shelves wall are blank for their beat.
 func photos_blank() -> bool:
@@ -565,15 +594,6 @@ func bar_y() -> float:
 		return NAN
 	var k := clampf((idx_t - t0) / BAR_DROP, 0.0, 1.0)
 	return lerpf(top, BAR_Y, k * k)
-
-## The NAME leaf's tabs: for an instant as it shuts; Motion off, while the folders stay shut.
-func teeth_shown() -> bool:
-	if leaf_closed(2) < 0.999:
-		return false
-	if not motion:
-		return true
-	var t0 := LEAF_STAGGER * 2 + LEAF_FOLD
-	return idx_t >= t0 and idx_t < t0 + TEETH_TIME
 
 ## The release lever is down once P18 is done and its pull has been seen.
 func lever_down() -> bool:
@@ -1173,6 +1193,8 @@ func _draw_view_a(c: CanvasItem) -> void:
 	for id in ov:
 		if id != "a_mercer_card":
 			_full(c, id)
+	if flooded():
+		_draw_reflection_a(c, ov)
 	# the wall clock: stopped at 22:00
 	_clock_hands(c, CLOCK_C, "22:00", 30.0, 46.0, 9.0, 6.0, INK)
 	c.draw_circle(CLOCK_C, 4.0, BRASS)
@@ -1188,11 +1210,47 @@ func _draw_view_a(c: CanvasItem) -> void:
 		for pr in photo_rects():
 			c.draw_rect(pr, PAPER_HI)
 			c.draw_rect(pr, Color(INK, 0.6), false, 1.4)
+	if flooded():
+		_draw_flood_line(c, FLOOD_KEEP_A)
 	# the vault door's inner plate
 	c.draw_rect(RECORDS_PLATE, Color("d4cab0"))
 	c.draw_rect(RECORDS_PLATE, INK, false, 2.0)
 	_rtext(c, "RECORDS", RECORDS_PLATE, 20, INK, narrow)
 	_rtext(c, "The catalogue wall ▸", TURN_PLATE, 22, INK, narrow)
+
+## Below the flood line the shelves are not lit: they are the strip above, flipped about
+## FLOOD_Y, tinted sea-glass at 0.85 (with the vault grade, and the deep lamp and whoever passes
+## it, mirrored the same way). Only the shelves' span: everything else keeps its own face.
+func reflection_rect() -> Rect2:
+	return Rect2(REFLECT_X.x, FLOOD_Y, REFLECT_X.y - REFLECT_X.x, REFLECT_BOTTOM - FLOOD_Y)
+
+func _draw_reflection_a(c: CanvasItem, ov: Array) -> void:
+	var dst := reflection_rect()
+	var h := dst.size.y
+	var src := Rect2(dst.position.x, FLOOD_Y - h, dst.size.x, h)
+	c.draw_rect(dst, PAPER)
+	c.draw_set_transform(Vector2(0, 2.0 * FLOOD_Y), 0.0, Vector2(1, -1))
+	for id in [plate_id()] + (["vault_grade"] if "vault_grade" in ov else []):
+		var t := _tex(id)
+		if t:
+			c.draw_texture_rect_region(t, src, src, REFLECT_TINT)
+	var f := deep_figure()
+	var lamp_a := REFLECT_TINT.a
+	c.draw_circle(DEEP_LAMP, 3.0, Color(AMBER.lerp(FLOOD_LINE, 0.4), lamp_a))
+	if not f.is_empty():
+		_draw_figure(c, f.x, f.facing_out)
+	c.draw_set_transform_matrix(Transform2D.IDENTITY)
+
+## The waterline: hard, dead level, the width of the wall except across `keep` (x0, x1: a label
+## it must not cross); a faint sea-glass wash below it, to the boards.
+func _draw_flood_line(c: CanvasItem, keep: Vector2) -> void:
+	c.draw_rect(Rect2(0, FLOOD_Y, 1448, FLOOR_TOP - FLOOD_Y), FLOOD_WASH)
+	for span in [Vector2(0, keep.x), Vector2(keep.y, 1448)]:
+		if span.y <= span.x:
+			continue
+		c.draw_line(Vector2(span.x, FLOOD_Y), Vector2(span.y, FLOOD_Y), Color(PAPER_HI, 0.9), 4.0)
+		c.draw_line(Vector2(span.x, FLOOD_Y + 2.5), Vector2(span.y, FLOOD_Y + 2.5), FLOOD_LINE, 3.0)
+		c.draw_line(Vector2(span.x, FLOOD_Y + 4.5), Vector2(span.y, FLOOD_Y + 4.5), INK, 1.4)
 
 func _draw_deep_lamp(c: CanvasItem) -> void:
 	c.draw_circle(DEEP_LAMP, 5.0, Color(AMBER, 0.35))
@@ -1271,9 +1329,14 @@ func _draw_view_b(c: CanvasItem) -> void:
 			_full(c, id, k, Vector2(0, -DRAWER_SLIDE_PX * (1.0 - k)))
 		else:
 			_full(c, id)
+	if flooded():
+		# under the labels, and broken where the folder cabinet's spine plates stand (R10.py
+		# paints its tide line round them too)
+		_draw_flood_line(c, FLOOD_KEEP_B)
 	c.draw_rect(STAFF_PLATE, Color("e3dccb"))
 	c.draw_rect(STAFF_PLATE, INK, false, 2.0)
-	_rtext(c, "STAFF", STAFF_PLATE, 20, INK, narrow)
+	# the label is in Ada's own hand
+	_rtext(c, "STAFF", STAFF_PLATE, 22, GRAPHITE, Ink.hand())
 	for k in 3:
 		_rtext(c, R10Sim.FOLDER_ORDER[k], SPINE_PLATES[k], 18, INK, narrow)
 	if r.state.p23_complete:
@@ -1522,8 +1585,6 @@ func _draw_folders(c: CanvasItem) -> void:
 				Rect2(0, 0, hw, pk.size.y))
 			c.draw_texture_rect_region(lt, Rect2(pk.end.x - hw * ck, pk.position.y, hw * ck, pk.size.y),
 				Rect2(hw, 0, hw, pk.size.y))
-		if k == 2 and teeth_shown():
-			_draw_leaf_teeth(c, pk)
 		if ck >= 0.95:
 			_rtext(c, R10Sim.FOLDER_ORDER[k], Rect2(pk.position.x + 110, pk.position.y + 18, 140, 26), 18, INK, narrow)
 	var by := bar_y()
@@ -1588,23 +1649,6 @@ func _draw_lever(c: CanvasItem, k: float) -> void:
 	c.draw_arc(Vector2(cx, cy), 13.0, 0.0, TAU, 24, INK, 1.8)
 	c.draw_circle(Vector2(cx, cy), 5.0, BRASS)
 
-## Index tabs along the NAME leaf's lower edge, the same as the STAFF drawer's: uneven heights,
-## each leaning its own way.
-func _draw_leaf_teeth(c: CanvasItem, pk: Rect2) -> void:
-	var n := 13
-	for i in n:
-		var x := pk.position.x + 26.0 + (pk.size.x - 52.0) * i / (n - 1)
-		var h: float = [16.0, 24.0, 12.0, 20.0, 27.0, 14.0, 22.0, 18.0, 26.0, 11.0, 21.0, 15.0, 23.0][i]
-		var lean: float = [-0.2, 0.1, 0.25, -0.1, 0.0, 0.2, -0.25, 0.1, -0.05, 0.2, -0.15, 0.05, 0.15][i]
-		var y := pk.end.y - 2.0
-		var hw := 7.0
-		var pts := PackedVector2Array([Vector2(x - hw, y), Vector2(x - hw + lean * h, y + h - 3),
-			Vector2(x - hw + 3 + lean * h, y + h), Vector2(x + hw - 3 + lean * h, y + h),
-			Vector2(x + hw + lean * h, y + h - 3), Vector2(x + hw, y)])
-		c.draw_colored_polygon(pts, PAPER_HI if i % 4 != 2 else Color("cbd8cf"))
-		pts.append(pts[0])
-		c.draw_polyline(pts, INK, 2.0)
-
 ## What the comparison tray shows after COMPARE: the shadows of the records it read and the
 ## date it read them on, stamped. Presentation only: cleared when she leaves the close-up.
 func _draw_cmp_tray(c: CanvasItem) -> void:
@@ -1628,6 +1672,20 @@ func _draw_cmp_tray(c: CanvasItem) -> void:
 	c.draw_set_transform_matrix(Transform2D.IDENTITY)
 
 # --- c_model ------------------------------------------------------------------------------
+## One terminal mark, flat ink, centred on `at`, `r` its half-size: "triangle" solid, "squares"
+## two overlapping outlines, "circle" hollow. The same shapes as R04's session-log margin.
+func glyph(c: CanvasItem, kind: String, at: Vector2, r: float, col: Color) -> void:
+	var w := maxf(1.8, r * 0.2)
+	match kind:
+		"triangle":
+			c.draw_colored_polygon(PackedVector2Array([at + Vector2(0, -r), at + Vector2(r * 1.05, r * 0.8),
+				at + Vector2(-r * 1.05, r * 0.8)]), col)
+		"squares":
+			var s := r * 1.2
+			c.draw_rect(Rect2(at + Vector2(-r, -r), Vector2(s, s)), col, false, w)
+			c.draw_rect(Rect2(at + Vector2(r - s, r - s), Vector2(s, s)), col, false, w)
+		"circle":
+			c.draw_arc(at, r - w / 2.0, 0.0, TAU, 40, col, w)
 func _cable(c: CanvasItem, a: Vector2, b: Vector2, sag: float) -> void:
 	var m := (a + b) / 2.0 + Vector2(0, sag)
 	var pts := PackedVector2Array()
@@ -1643,18 +1701,16 @@ func _cable(c: CanvasItem, a: Vector2, b: Vector2, sag: float) -> void:
 
 ## The STAFF opening's overlays in the mirror now: [[id, alpha], ...].
 func mirror_staff() -> Array:
-	if not r.staff_open():
-		return []
 	if staff_shut_drawn():
-		return [["staff_shut", 1.0]]
-	var ids := STAFF_SLOTS
+		return [["cabinet_r3", 1.0]]
+	var ids := STAFF_SEEPS
 	var w := clampi(r.aperture_width(), 0, 2)
 	if ap_hold:
-		return [[ids[maxi(0, w - 1)], 1.0]]
+		return [["cabinet_r3", 1.0], [ids[maxi(0, w - 1)], 1.0]]
 	if ap_t >= 0.0 and w >= 1:
 		var k := smoothstep(0.0, 1.0, ap_t / AP_TIME)
-		return [[ids[w - 1], 1.0 - k], [ids[w], k]]
-	return [[ids[w], 1.0]]
+		return [["cabinet_r3", 1.0], [ids[w - 1], 1.0 - k], [ids[w], k]]
+	return [["cabinet_r3", 1.0], [ids[w], 1.0]]
 
 func _draw_mirror(c: CanvasItem) -> void:
 	var plate := _tex("view_b_t%d" % tide_n())
@@ -1681,7 +1737,7 @@ func _draw_model(c: CanvasItem) -> void:
 	# faceplate: the port labels and nothing else. The rule is written only in the margin of
 	# the session log (R04, P17); here it is learned by testing.
 	for k in FACEPLATE_PORTS.size():
-		_ctext(c, FACEPLATE_PORTS[k], FACEPLATE_PORT_X[k], 164, 26, INK, narrow)
+		glyph(c, R10Sim.TERMINAL_GLYPHS[FACEPLATE_PORTS[k]], Vector2(FACEPLATE_PORT_X[k], 152), 17.0, INK)
 	# the strip
 	var lines := strip_lines()
 	for i in lines.size():
@@ -1704,7 +1760,7 @@ func _draw_model(c: CanvasItem) -> void:
 		var plate := Rect2(SOCK[key].x - 60, SOCK_LABEL_Y, 120, 26)
 		c.draw_rect(plate, BRASS_HI)
 		c.draw_rect(plate, INK, false, 1.8)
-		_rtext(c, key.to_upper(), plate, 18, INK, narrow)
+		glyph(c, R10Sim.TERMINAL_GLYPHS[key], plate.get_center(), 9.0, INK)
 	if st.input:
 		_sprite(c, "c_plug", SOCK.input - Vector2(40, 40))
 	for key in ["copy", "witness"]:
