@@ -67,7 +67,7 @@ const PANE_DEG := -58.0
 const STAIR_LEAN_DEG := -12.0
 ## Appended to the P14 reveal chain (the fogged jar), and kept in the notebook.
 const DOWN_LINE := "All of it leans the same way. Down."
-const REF_CARD := "A valid sample keeps the station's own level: the brass, not the bob, not the glass."
+const REF_CARD := "A valid sample keeps the station's own level."
 const TAG_TEXT := "DATUM READING STABLE. STAIR PRESSURE TARGET: 2."
 ## At rest the three look alike: only a tip on the rack tells them apart.
 const JAR_LINES := {
@@ -181,13 +181,13 @@ const SEVER_LINES := {
 
 const OBSERVATIONS := {
 	"angles": "Three sealed jars on a canted rack, A, B and C, each half full of seawater. At rest they look alike: the tilt rack is the test.",
-	"datum": "A brass line set into the wall, labelled DATUM. The room is built square to it: tiles, shelves, floor. Beside it a plumb bob labelled GRAVITY hangs eight degrees off the wall. The station was built on the datum, not on level ground.",
+	"datum": "A brass line set into the wall, labelled DATUM and ruled dot-dash along its length. The room is built square to it: tiles, shelves, floor. Beside it a plumb bob labelled GRAVITY hangs eight degrees off the wall. The station was built on the datum, not on level ground.",
 	"datum_water": "From band 3 the water stands at the datum line, flat across the whole room, and stays there when I move. Below it everything is sea-glass and a little off to one side. It isn't in the room. The room is in it.",
 	"tank": "A flotation tank. Its water lies at the plumb bob's slant, eight degrees off the room. Ordinary water: it follows gravity.",
 	"basin_drip": "The basin tap drips. Every drop falls at a slant, along the plumb line, not down the tiles.",
 	"drip_hangs": "The drop at the basin tap doesn't fall. It hangs at the spout.",
-	"reference_card": "Reference card above the socket: 'A valid sample keeps the station's own level: the brass, not the bob, not the glass.'",
-	"rack": "A tilt rack. Its cradle tips one jar through a fixed quarter-turn, and a test card draws the jar's surface against three printed lines: GRAVITY (solid), JAR (dashed), DATUM (dot-dash).",
+	"reference_card": "Reference card above the socket: 'A valid sample keeps the station's own level.'",
+	"rack": "A tilt rack. Its cradle tips one jar through a fixed quarter-turn, and a test card draws the jar's surface against three printed lines: solid, dashed and dot-dash. The card doesn't name them.",
 	"test_a": "Jar A, tipped a quarter-turn: its surface stayed on the solid line.",
 	"test_b": "Jar B, tipped a quarter-turn: its surface turned with the jar, on the dashed line.",
 	"test_c": "Jar C, tipped a quarter-turn: its surface stayed on the dot-dash line, square with the room, whatever the jar did.",
@@ -230,7 +230,7 @@ const HINTS := {
 	"p10": [
 		"The laboratory's three jars look alike at rest. The tilt rack tests them.",
 		"The card wants the brass: a surface that keeps the datum's level, whatever the jar does. Tip each one.",
-		"The TEST card draws three lines: gravity, jar, datum. Tip each jar and watch which line its water keeps.",
+		"The TEST card's three lines carry no names. The brass DATUM rail on the wall is ruled dot-dash. Tip each jar and watch which line its water keeps.",
 		"Test all three. C stays parallel to the datum. Put C in the reference socket.",
 	],
 	"p13": [
@@ -605,7 +605,7 @@ func _room(action: String, ev: Array) -> void:
 				_observe("datum")
 				_observe("datum_water")
 				return
-			_say(ev, _line(action,"A brass line set into the wall: DATUM. The room is square to it. The plumb bob beside it hangs eight degrees off, and it's marked GRAVITY."))
+			_say(ev, _line(action,"A brass line set into the wall: DATUM, ruled dot-dash. The room is square to it. The plumb bob beside it hangs eight degrees off, and it's marked GRAVITY."))
 			_observe("datum")
 		"tank":
 			_sfx(ev, "glass_tap")
@@ -712,9 +712,9 @@ func _bench(action: String, ev: Array) -> void:
 				if not state.frame_opened:
 					state.frame_opened = true
 					if reference_seen():
-						_say(ev, "The frame's plate is blank but for its category. Her trace is on her work card, in my notebook.")
+						_say(ev, "The frame's plate is blank. Her trace is on her work card, in my notebook.")
 					else:
-						_say(ev, "The frame's plate is blank but for its category. Her trace is on her work card. It hangs in the kitchen, by the range.")
+						_say(ev, "The frame's plate is blank. Her trace is on her work card. It hangs in the kitchen, by the range.")
 				_observe("frame_stand")
 		"sealed_jar":
 			if _sever():
@@ -768,7 +768,7 @@ func _rack(action: String, ev: Array) -> void:
 		"seat":
 			_seat(ev)
 		"test_card":
-			_say(ev, "The test card. Three printed lines: GRAVITY solid, JAR dashed, DATUM dot-dash. A tipped jar's surface is drawn over whichever one it followed.")
+			_say(ev, "The test card. Three printed lines, solid, dashed, dot-dash, and no names. A tipped jar's surface is drawn over whichever one it followed.")
 			_observe("rack")
 		"ref_card":
 			_say(ev, "'%s'" % REF_CARD)
@@ -1024,7 +1024,7 @@ func _frame(action: String, ev: Array) -> void:
 			if frame_print.size() == 3:
 				_say(ev, "What the frame printed from the sections. Her work card is in my notebook to hold it against.")
 			elif reference_seen():
-				_say(ev, "A blank plate. CATEGORY: BODY. It prints what I build. Her trace is on her work card, in my notebook.")
+				_say(ev, "A blank plate. It prints what I build. Her trace is on her work card, in my notebook.")
 			else:
 				_say(ev, KITCHEN_CARD)
 		"seal":

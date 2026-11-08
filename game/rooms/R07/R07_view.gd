@@ -8,6 +8,11 @@ extends RoomView
 ##          (the tank wall) or view B (the bench), their painted overlays, every water surface
 ##          and every label.
 ##   CanvasLayer 5 `close`: the close-ups c_tilt_rack (P10), c_balance (P13), c_frame (P14).
+##   Each layer's plate (view B's bench plate, a close-up's plate) is drawn by a backdrop child
+##   behind it (`room_back`, `close_back`) through the KEEP shader: from band 3 (not after
+##   sever) the plate goes to SUB_DIM value everywhere but its hotspot and clue art (the keep
+##   mask), and the sub_* overlay lays the surface, the stain and the waterline over it. Nothing
+##   else is modulated: no CanvasModulate darkening, every hotspot and label stays as painted.
 ##
 ## Water is drawn, never painted: each vessel's interior rectangle, rotated with its vessel, is
 ## clipped against the half-plane below a surface line through its centre, so every vessel is
@@ -22,13 +27,36 @@ const DIR := "res://assets/rooms/R07/%s.png"
 ## Stage overlays (tools/art/rooms/R07.py "stage overlays"): dread while the puzzles are played.
 const STAGE_DIR := "res://assets/stages/R07/%s.png"
 const STAGE_IDS := ["b2_tidemark", "b2_tidemark_bench", "b4_lamp_pool", "b4_lamp_pool_cold", "b4_water_lean",
-	"datum_water_r3", "datum_water_sub", "r07_submerged_b3", "r07_submerged_b5"]
-## View A from band 3 / band 5 (not after sever): the room under a surface, in place of the stage
-## plate (tools/art/rooms/R07.py "r07_submerged"): the underside of a water surface across the
-## top 14%, the room below washed toward storm navy off the hotspot art, and one waterline at the
+	"datum_water_r3", "datum_water_sub", "r07_submerged_b2", "r07_submerged_b3", "r07_submerged_b5",
+	"keep_bench", "keep_c_tilt_rack", "keep_c_balance", "keep_c_frame",
+	"sub_bench", "sub_c_tilt_rack", "sub_c_balance", "sub_c_frame",
+	"bench_scale_s3", "bench_scale_s4", "bench_scale_s5", "bench_scale_s6", "bench_scale_s7", "bench_liquid"]
+## View A from band 2 / band 3 / band 5 (not after sever): the room under a surface, in place of
+## the stage plate (tools/art/rooms/R07.py "r07_submerged"): the underside of a water surface
+## across the top (band 2: at reduced height, 84 px; from band 3: 152 px), the room washed toward
+## storm navy off the hotspot art (band 2: only below the waterline), and one waterline at the
 ## tank's lean through everything. Painted without the wall lamp, which a_lamp / a_lamp_low
 ## redraw from band 2 anyway, so no lamp patch goes under them.
-const SUBMERGED_PLATES := {3: "r07_submerged_b3", 5: "r07_submerged_b5"}
+const SUBMERGED_PLATES := {2: "r07_submerged_b2", 3: "r07_submerged_b3", 5: "r07_submerged_b5"}
+## Band >= 3 (not after sever): the bench and the three close-ups stand under the same surface
+## (tools/art/rooms/R07.py "the bench under the surface"). The plate is drawn at SUB_DIM value off
+## its keep_<view> mask (the hotspot and clue art), then sub_<view> lays, all off the keep mask,
+## the surface band (top 110 px), a storm-navy wash like view A's (tuned per view so the view's
+## mean luma at 1024x768 stays <= 100), the tide stain on the close-ups' tiles and a 2 px
+## sea-glass waterline (y 527 on the bench, 530 in a close-up) with 40% storm navy below it.
+const SUB_VIEWS := ["bench", "c_tilt_rack", "c_balance", "c_frame"]
+const SUB_DIM := 0.78
+## The bench's wrongness from band 3: the balance down on its empty pan (bench_scale_s<band>: the
+## bench at that band as the view lays it, plate dimmed and overlays over it, cut to the pixels
+## that differ; laid over the overlays, under sub_bench) and the water in every vessel on the bench
+## turned toward her at one impossible angle (bench_liquid, over the shells, under the fog).
+const KEEP_SHADER := """shader_type canvas_item;
+uniform sampler2D keep;
+uniform float dim = 1.0;
+void fragment() {
+	COLOR.rgb *= mix(dim, 1.0, texture(keep, UV).r);
+}
+"""
 ## Over a submerged plate the datum water's wash is storm navy, not pale sea-glass (same surface
 ## line, same mask, same shift): the pale one would lift the room back out of the water.
 const DATUM_WASH_SUB := "datum_water_sub"
@@ -238,9 +266,10 @@ const HOLDER_SLIP := Rect2(1168, 104, 256, 196)
 # --- c_frame geometry ---------------------------------------------------------------------
 const SLOT_X := [170.0, 545.0, 920.0]
 const SECTION := Vector2(340, 160)
-## The frame's own plate (the board at the top): blank but for its category, and, after a full
-## SEAL, the composite the frame printed from the slotted sections (R07Sim.frame_print). Her
-## trace itself is only on her work card (R05, by the range, and in the notebook).
+## The frame's own plate (the board at the top): blank until it is built (no category; that is
+## printed with the seal), and, after a full SEAL, the composite the frame printed from the
+## slotted sections (R07Sim.frame_print). Her trace itself is only on her work card (R05, by the
+## range, and in the notebook).
 const PLATE_LABEL := Rect2(555, 136, 340, 48)
 const PLATE_RIM := Color8(116, 92, 50)        # BRASS_LO
 const PLATE_ENAMEL := Color8(228, 220, 200)   # ENAMEL
@@ -300,6 +329,8 @@ var room: Node2D
 var close: Node2D
 var shade: CanvasModulate
 var mixer: LoopMixer
+var room_back: Node2D
+var close_back: Node2D
 
 # presentation state (never saved)
 var hold_t := 0.0
@@ -352,6 +383,9 @@ func _build_nodes() -> void:
 	room.name = "Room"
 	add_child(room)
 	room.draw.connect(_draw_room)
+	var keep_shader := Shader.new()
+	keep_shader.code = KEEP_SHADER
+	room_back = _backdrop(room, keep_shader, _draw_room_back)
 	shade = CanvasModulate.new()
 	add_child(shade)
 	var layer := CanvasLayer.new()
@@ -360,6 +394,18 @@ func _build_nodes() -> void:
 	close = Node2D.new()
 	layer.add_child(close)
 	close.draw.connect(_draw_close)
+	close_back = _backdrop(close, keep_shader, _draw_close_back)
+
+## A child of `parent` drawn behind it, through its own instance of the keep shader.
+func _backdrop(parent: Node2D, shader: Shader, painter: Callable) -> Node2D:
+	var n := Node2D.new()
+	n.show_behind_parent = true
+	var m := ShaderMaterial.new()
+	m.shader = shader
+	n.material = m
+	parent.add_child(n)
+	n.draw.connect(painter)
+	return n
 
 func _build_audio() -> void:
 	mixer = LoopMixer.new()
@@ -395,12 +441,31 @@ func plate_id() -> String:
 	if _side() == "b" and not _sever() and B_WATER_PLATES.has(_band()):
 		return B_WATER_PLATES[_band()]
 	if submerged():
-		return SUBMERGED_PLATES[5 if _band() >= 5 else 3]
+		var b := _band()
+		return SUBMERGED_PLATES[5 if b >= 5 else (3 if b >= 3 else 2)]
 	return ("view_b" if _side() == "b" else "view_a") + stage_suffix()
 
-## True while view A stands under the surface (band >= 3, not after sever).
+## True while view A stands under the surface (band >= 2, so from her first visit; not after
+## sever). Band 2 is the reduced-height plate.
 func submerged() -> bool:
-	return _side() == "a" and not _sever() and _band() >= 3
+	return _side() == "a" and not _sever() and _band() >= 2
+
+## True while view `v` (the bench or one of the three close-ups) stands under the surface: band
+## >= 3, not after sever.
+func under_surface(v: String) -> bool:
+	return v in SUB_VIEWS and not _sever() and _band() >= 3
+
+## The backdrop's value off the keep mask for view `v`: SUB_DIM under the surface, else 1.
+func backdrop_dim(v: String) -> float:
+	return SUB_DIM if under_surface(v) else 1.0
+
+## The overlays laid over view `v`'s plate under the surface, bottom to top ([] when not).
+func sub_layers(v: String) -> Array:
+	if not under_surface(v):
+		return []
+	if v == "bench":
+		return ["bench_scale_s%d" % _band(), "sub_bench"]
+	return ["sub_" + v]
 
 func _p(key: String) -> bool:
 	return bool(r.state.get(key, false))
@@ -778,6 +843,8 @@ func reset_presentation() -> void:
 func redraw() -> void:
 	room.queue_redraw()
 	close.queue_redraw()
+	room_back.queue_redraw()
+	close_back.queue_redraw()
 
 func back_visible() -> bool:
 	return _view() != "room"
@@ -1114,7 +1181,8 @@ func _draw_view_a(c: CanvasItem) -> void:
 		_full(c, "a_return_unbolted")
 	if p10:
 		_full(c, "a_rack_salt_v2")
-	# the brass datum and the plumb that disagrees with it
+	# the brass datum, ruled dot-dash, and the plumb that disagrees with it
+	_datum_rail(c, 300.0, ROOM_RAIL)
 	_on_plate(c, DATUM_TAG, "DATUM", 18)
 	_plumb(c, "plumb", PLUMB_PIVOT, PLUMB_SPRITE_PIV, 108.0)
 	# the rack's station plates, then the jars
@@ -1147,7 +1215,7 @@ func _draw_view_a(c: CanvasItem) -> void:
 
 ## The datum water layer for the plate under it.
 func datum_wash_id() -> String:
-	return DATUM_WASH_SUB if submerged() else "datum_water_r3"
+	return DATUM_WASH_SUB if submerged() and _band() >= 3 else "datum_water_r3"
 
 ## True while view A shows the sea standing at the datum (band >= 3, not after sever).
 func datum_water_on() -> bool:
@@ -1247,8 +1315,9 @@ func sea_tier() -> int:
 ## takes the painted lamp away; the lamp is redrawn above the overlays.
 func _draw_sea(c: CanvasItem, side: String) -> void:
 	var t := sea_tier()
-	if t >= 6 and not (side == "a" and submerged()):
-		_full(c, "%s_lamp_patch_s%d" % [side, mini(_band(), 7)])
+	# (view B's lamp patch is part of its backdrop: bench_backdrop())
+	if t >= 6 and side == "a" and not submerged():
+		_full(c, "a_lamp_patch_s%d" % mini(_band(), 7))
 	for k in [2, 3, 4, 6, 7]:
 		if t >= k:
 			_full(c, "%s_sea_b%d" % [side, k])
@@ -1375,15 +1444,20 @@ func _ring(c: CanvasItem, centre: Vector2, rx: float, ry: float, col: Color, w: 
 func _draw_view_b(c: CanvasItem) -> void:
 	var p13: bool = r.state.p13_complete
 	var p14: bool = r.state.p14_complete
-	_full(c, plate_id())
+	# the plate is room_back's; under the surface, the balance down on its pan, then the surface
 	_draw_sea(c, "b")
 	_draw_stage(c, "b2_tidemark_bench")
 	_draw_stage(c, "b4_lamp_pool_cold")
+	for id in sub_layers("bench") if _side() == "b" else []:
+		_full(c, id)
 	if sea_tier() >= 6:
 		_full(c, "b_lamp_low")
-	_full(c, "b_stand_empty" if p14 else "b_frame")
+	if not p14:
+		_full(c, "b_frame")
 	_full(c, "b_lid_open" if p13 and not p14 else "b_lid_closed")
 	_full(c, "b_shells_rings" if r.shells_aligned() else "b_shells_loose")
+	if under_surface("bench"):
+		_full(c, "bench_liquid")
 	if r.thumb_shown():
 		_full(c, "b_thumb", thumb_alpha())
 	if p13 and not p14:
@@ -1419,6 +1493,42 @@ func _inscription(c: CanvasItem, a: float) -> void:
 # ---------------------------------------------------------------------------
 # drawing: close-ups (layer 5)
 # ---------------------------------------------------------------------------
+## View B's backdrop, bottom to top: the plate, from band 6 the wall where the painted lamp hung,
+## and after P14 the wall where the frame stood. What repaints the plate's own wall is here, so
+## it takes the wall's value. (The balance down on its pan, bench_scale, is composed with the
+## overlays already over it and is laid after them: sub_layers.)
+func bench_backdrop() -> Array:
+	var out := [plate_id()]
+	if sea_tier() >= 6:
+		out.append("b_lamp_patch_s%d" % mini(_band(), 7))
+	if r.state.p14_complete:
+		out.append("b_stand_empty")
+	return out
+
+## room_back: view B's backdrop through the keep shader (view A draws its own plate: its water is
+## composed from it).
+func _draw_room_back() -> void:
+	_set_keep(room_back, "bench")
+	if _side() != "b":
+		return
+	for id in bench_backdrop():
+		_full(room_back, id)
+
+## close_back: the open close-up's plate, through the keep shader.
+func _draw_close_back() -> void:
+	var v := _view()
+	if not v in ["c_tilt_rack", "c_balance", "c_frame"]:
+		return
+	_set_keep(close_back, v)
+	_full(close_back, v)
+
+func _set_keep(n: CanvasItem, v: String) -> void:
+	var m := n.material as ShaderMaterial
+	if m == null:
+		return
+	m.set_shader_parameter("dim", backdrop_dim(v))
+	m.set_shader_parameter("keep", _tex("keep_" + v))
+
 func _draw_close() -> void:
 	match _view():
 		"c_tilt_rack":
@@ -1451,7 +1561,9 @@ func _close_theta(j: String, rot: float, centre: Vector2, rule_k := 0.0) -> floa
 
 func _draw_rack(c: CanvasItem) -> void:
 	var st: Dictionary = r.state
-	_full(c, "c_tilt_rack")
+	if under_surface("c_tilt_rack"):
+		_full(c, "sub_c_tilt_rack")
+	_datum_rail(c, 150.0, RACK_RAIL)
 	_on_plate(c, Rect2(120, 124, 110, 26), "DATUM", 18)
 	_plumb(c, "c_plumb", C_PLUMB_PIVOT, Vector2(24, 4), 96.0)
 	# station plates and the jars at rest
@@ -1496,7 +1608,26 @@ func _draw_rack(c: CanvasItem) -> void:
 
 const REF_ANGLES := {"gravity": -8.0, "jar": 90.0, "datum": 0.0}
 const REF_PATTERN := {"gravity": [], "jar": [12.0, 8.0], "datum": [16.0, 6.0, 3.0, 6.0]}
-const REF_WORD := {"gravity": "GRAVITY", "jar": "JAR", "datum": "DATUM"}
+## The TEST card's legend: the three line styles alone, no words. The dot-dash is told only by the
+## brass DATUM rail on the wall, which is ruled in the same dot-dash (_datum_rail).
+const LEGEND_X := [690.0, 830.0, 970.0]
+const LEGEND_LEN := 80.0
+## The rail's visible runs (x spans at its centre line), between the objects painted over it:
+## view A at y 300 (the wall lamp's arm, the plumb bracket), c_tilt_rack at y 150 (the plumb
+## bracket, the DATUM plate, the test and reference cards).
+const ROOM_RAIL := [[0.0, 525.0], [562.0, 988.0], [1020.0, 1448.0]]
+const RACK_RAIL := [[0.0, 40.0], [80.0, 117.0], [234.0, 560.0], [1081.0, 1110.0], [1351.0, 1448.0]]
+const RAIL_W := 3.0
+## The rail's brass face, laid again inside its painted ink contour (6 of its 8 px) so the bar
+## and its dot-dash read at full value even where the plate under it has gone under the surface.
+const RAIL_BRASS := Color8(156, 126, 70)
+const RAIL_FACE := 6.0
+
+## The brass DATUM rail ruled in the TEST card's dot-dash, along its centre line `y`.
+func _datum_rail(c: CanvasItem, y: float, spans: Array) -> void:
+	for sp in spans:
+		c.draw_rect(Rect2(sp[0], y - RAIL_FACE / 2.0, sp[1] - sp[0], RAIL_FACE), RAIL_BRASS)
+		_dashed(c, Vector2(sp[0], y), Vector2(sp[1], y), INK, RAIL_W, REF_PATTERN.datum)
 
 func _ref_line(c: CanvasItem, box: Rect2, rule: String, col: Color, w: float) -> void:
 	var ends := _line_in_box(box.get_center(), REF_ANGLES[rule], box.grow(-6))
@@ -1518,18 +1649,16 @@ static func _line_in_box(centre: Vector2, deg: float, box: Rect2) -> Array:
 
 func _draw_test_card(c: CanvasItem) -> void:
 	_ctext(c, "TEST", 620, 138, 24, INK, narrow)
-	# the legend: each line's own style, then its word
-	var lx := 690.0
-	for rule in ["gravity", "jar", "datum"]:
-		var a := Vector2(lx, 131)
-		var b := Vector2(lx + 44, 131)
-		var pat: Array = REF_PATTERN[rule]
+	# the legend: the three line styles, unnamed
+	var rules := ["gravity", "jar", "datum"]
+	for k in rules.size():
+		var a := Vector2(LEGEND_X[k], 129)
+		var b := a + Vector2(LEGEND_LEN, 0)
+		var pat: Array = REF_PATTERN[rules[k]]
 		if pat.is_empty():
-			c.draw_line(a, b, INK, 2.5)
+			c.draw_line(a, b, INK, 3.0)
 		else:
-			_dashed(c, a, b, INK, 2.5, pat)
-		c.draw_string(narrow, Vector2(lx + 52, 138), REF_WORD[rule], HORIZONTAL_ALIGNMENT_LEFT, -1, 18, INK)
-		lx += 128.0
+			_dashed(c, a, b, INK, 3.0, pat)
 	var cells := test_cell_texts()
 	for k in 3:
 		var j: String = R07Sim.JARS[k]
@@ -1567,7 +1696,8 @@ func _sample_sprite(c: CanvasItem, _s: String, bottom_centre: Vector2) -> void:
 func _draw_balance(c: CanvasItem) -> void:
 	var st: Dictionary = r.state
 	var p13: bool = st.p13_complete
-	_full(c, "c_balance")
+	if under_surface("c_balance"):
+		_full(c, "sub_c_balance")
 	_draw_sample_cards(c)
 	# the beam, its pan and the control tray, hung plumb from its ends
 	var bt := _tex("c_beam")
@@ -1713,16 +1843,24 @@ func print_pts(order: Array) -> PackedVector2Array:
 		x += (piece[-1].x - piece[0].x) * PRINT_SCALE.x
 	return pts
 
+## What the frame's plates read: nothing until it is built and sealed, then its printed category.
+func frame_plate_text() -> String:
+	return "CATEGORY: " + R07Sim.CATEGORY if r.state.p14_complete else ""
+
 func _draw_frame(c: CanvasItem) -> void:
 	var st: Dictionary = r.state
-	_full(c, "c_frame")
-	# the frame's plate: its category, and what it printed at the last full SEAL
+	if under_surface("c_frame"):
+		_full(c, "sub_c_frame")
+	# the frame's plate: blank, what it printed at the last full SEAL, and its category once sealed
 	# an enamel plate with a thin brass rim, as tools/art/rooms/R07.py plate() paints them
 	c.draw_rect(PLATE_LABEL.grow(3), PLATE_RIM)
 	c.draw_rect(PLATE_LABEL.grow(3), INK, false, 2.4)
 	c.draw_rect(PLATE_LABEL, PLATE_ENAMEL)
 	c.draw_rect(PLATE_LABEL, PLATE_EDGE, false, 1.4)
-	_on_plate(c, PLATE_LABEL, "CATEGORY: " + R07Sim.CATEGORY, 22)
+	# blank until the frame is built: the category is printed with the seal (R07Sim.P14_TAIL)
+	var label := frame_plate_text()
+	if label != "":
+		_on_plate(c, PLATE_LABEL, label, 22)
 	var printed := plate_print()
 	if not printed.is_empty():
 		c.draw_polyline(print_pts(printed), INK, 3.0, true)
@@ -1747,7 +1885,8 @@ func _draw_frame(c: CanvasItem) -> void:
 		_sprite(c, "c_strip", Vector2(560, 594))
 		for k in 3:
 			_ctext(c, ["0 dr", "3 dr", "0 dr"][k], 560 + 2 + 112 * k + 56, 638, 22, INK, Ink.serif())
-	_on_plate(c, Rect2(940, 596, 340, 64), "CATEGORY: " + R07Sim.CATEGORY, 22)
+	if label != "":
+		_on_plate(c, Rect2(940, 596, 340, 64), label, 22)
 	if st.p14_complete:
 		_sprite(c, "c_frame_glass", Vector2(140, 340))
 	var down := seal_t > 0.0

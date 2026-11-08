@@ -476,7 +476,7 @@ func test_p14_unseen_reference() -> void:
 	var g := frame_game(false)
 	check(says(g.dispatch("ref_card")) == "Her work card isn't here. It hangs in the kitchen, by the range.", "ref_card unseen")
 	var s := frame_game(true)
-	check(says(s.dispatch("ref_card")) == "A blank plate. CATEGORY: BODY. It prints what I build. Her trace is on her work card, in my notebook.",
+	check(says(s.dispatch("ref_card")) == "A blank plate. It prints what I build. Her trace is on her work card, in my notebook.",
 		"ref_card seen: the plate is blank, the trace is on her card")
 	place(s, ["pause", "short", "long"])
 	complete_frame(s)
@@ -492,7 +492,7 @@ func test_p14_unseen_reference() -> void:
 			o.observe("R05", "nora_work_card")
 		o.dispatch("to_bench")
 		var line := says(o.dispatch("frame_stand"))
-		check(line.begins_with("The frame's plate is blank but for its category.")
+		check(line.begins_with("The frame's plate is blank. Her trace")
 			and line.contains("my notebook" if seen else "by the range") and not line.contains("short")
 			and not line.contains("beside the frame"), "first open (card seen %s): %s" % [seen, line])
 
@@ -776,7 +776,7 @@ func test_notices() -> void:
 const REF_HINTS := {
 	"p10": ["The laboratory's three jars look alike at rest. The tilt rack tests them.",
 		"The card wants the brass: a surface that keeps the datum's level, whatever the jar does. Tip each one.",
-		"The TEST card draws three lines: gravity, jar, datum. Tip each jar and watch which line its water keeps.",
+		"The TEST card's three lines carry no names. The brass DATUM rail on the wall is ruled dot-dash. Tip each jar and watch which line its water keeps.",
 		"Test all three. C stays parallel to the datum. Put C in the reference socket."],
 	"wait_p12": ["The laboratory has given the stair what it needs.", "The stair gate wants the socket's target: 2.",
 		"Take target 2 to the dry stair gate, through the chart room hatch."],
@@ -1063,7 +1063,7 @@ func test_view_scene() -> void:
 const P14_TAIL := "CATEGORY: BODY. Printed, not written. The frame was waiting to be filled."
 const VAULT_AJAR := "The vault door's open a hand's width."
 const RULE_WORDS := ["GRAVITY", "JAR", "DATUM"]
-const REF_CARD_W2 := "A valid sample keeps the station's own level: the brass, not the bob, not the glass."
+const REF_CARD_W2 := "A valid sample keeps the station's own level."
 
 func _has_rule_word(t: String) -> bool:
 	for w in RULE_WORDS:
@@ -1173,7 +1173,8 @@ func test_w2_view() -> void:
 	await process_frame
 	var v: RoomView = scene.room_view
 	var r := scene.room_sim() as R07Sim
-	var words: Dictionary = v.c("REF_WORD", {})
+	var words := {"gravity": "GRAVITY", "jar": "JAR", "datum": "DATUM"}
+	check(v.c("REF_WORD", null) == null, "the TEST legend carries no words")
 	r.local_view = "c_tilt_rack"
 	for j in R07Sim.JARS:
 		r.state.cradle = j
@@ -1235,8 +1236,10 @@ func test_w3_visual_results() -> void:
 	for k in ["test_a", "test_b", "test_c"]:
 		for w in ["A follows gravity.", "C follows the datum.", "follows its jar."]:
 			check(not obs[k].contains(w), "%s names no rule: %s" % [k, w])
-	check(R07Sim.OBSERVATIONS.rack.contains("GRAVITY (solid), JAR (dashed), DATUM (dot-dash)"),
+	check(R07Sim.OBSERVATIONS.rack.contains("three printed lines: solid, dashed and dot-dash"),
 		"the test card keeps its three printed lines")
+	for w in ["GRAVITY", "DATUM", "JAR ("]:
+		check(not R07Sim.OBSERVATIONS.rack.contains(w), "the test card's note names no rule: %s" % w)
 
 func test_w3_holder_names() -> void:
 	for n in REF_NAMES:
@@ -1515,8 +1518,8 @@ func test_p1_view() -> void:
 		check(v.plate_id() == want_plate and v._tex(want_plate) != null, "band %d: bench plate %s (got %s)" % [r.band(), want_plate, v.plate_id()])
 		r.local_view = "room"
 		var want_a: String = "view_a" + v.stage_suffix()
-		if r.band() >= 3:
-			want_a = "r07_submerged_b5" if r.band() >= 5 else "r07_submerged_b3"
+		if r.band() >= 2:
+			want_a = "r07_submerged_b5" if r.band() >= 5 else ("r07_submerged_b3" if r.band() >= 3 else "r07_submerged_b2")
 		check(v.plate_id() == want_a and v._tex(want_a) != null, "band %d: view A plate %s (got %s)" % [r.band(), want_a, v.plate_id()])
 		# the water: band 4-6 every surface in the room leans 12 degrees toward the stair door
 		var deg := []
@@ -1631,6 +1634,8 @@ func test_p3_view() -> void:
 			want = "r07_submerged_b5"
 		elif b >= 3:
 			want = "r07_submerged_b3"
+		elif b >= 2:
+			want = "r07_submerged_b2"
 		check(v.plate_id() == want and v._tex(want) != null, "band %d: plate %s (got %s)" % [b, want, v.plate_id()])
 		check(ResourceLoader.exists("res://assets/stages/R07/%s.png" % want) or b < 3, "band %d: %s is a stage file" % [b, want])
 		var ids := []
@@ -1664,3 +1669,187 @@ func test_p3_view() -> void:
 	await process_frame
 	check(not v.submerged() and v.plate_id() == "view_a_sever", "sever drains the plate")
 	await free_scene(scene)
+
+# ---------------------------------------------------------------------------------------------
+# P4: the bench and its close-ups under the surface; the bench's wrongness; the unnamed TEST
+# legend and the dot-dash DATUM rail; the frame blank until built
+# ---------------------------------------------------------------------------------------------
+const REF_CARD_P4 := "A valid sample keeps the station's own level."
+
+func test_p4_sim() -> void:
+	check(R07Sim.REF_CARD == REF_CARD_P4, "P10: the reference card, verbatim")
+	check(R07Sim.OBSERVATIONS.reference_card == "Reference card above the socket: '%s'" % REF_CARD_P4,
+		"P10: the notebook quotes the card verbatim")
+	check(R07Sim.OBSERVATIONS.datum.contains("ruled dot-dash"), "the datum note keeps the dot-dash rail")
+	var g := fresh()
+	g.dispatch("tilt_rack")
+	check(says(g.dispatch("ref_card")) == "'%s'" % REF_CARD_P4, "the card read aloud")
+	var line := says(g.dispatch("test_card"))
+	for w in ["GRAVITY", "JAR ", "DATUM"]:
+		check(not line.contains(w), "the TEST card's look names no rule: %s (%s)" % [w, line])
+	check(line.contains("solid") and line.contains("dashed") and line.contains("dot-dash"), "it keeps the three styles")
+	check(not R07Sim.HINTS.p10[2].contains("gravity, jar, datum"), "the evidence hint names the rail, not the lines")
+	check(R07Sim.HINTS.p10[2].contains("dot-dash"), "the evidence hint points to the rail's dot-dash")
+	# P14: the plate reads blank until built
+	var f := GameSim.new()
+	r07(f).debug_jump(6)
+	f.dispatch("to_bench")
+	for a in ["frame_stand", "ref_card"]:
+		var l := says(f.dispatch(a))
+		check(not l.to_upper().contains("CATEGORY"), "before the seal, %s names no category (%s)" % [a, l])
+	for k in R07Sim.OBSERVATIONS:
+		if k != "p14" and k != "frame_done":
+			check(not str(R07Sim.OBSERVATIONS[k]).contains("CATEGORY: BODY") or k.begins_with("p14"),
+				"%s does not name the category before it is printed" % k)
+
+## Image of a res:// texture, RGBA8 (null when it has no readable image).
+func _img(path: String) -> Image:
+	var t := load(path) as Texture2D
+	if t == null:
+		return null
+	var im := t.get_image()
+	if im == null or im.is_empty():
+		return null
+	if im.is_compressed():
+		im.decompress()
+	im.convert(Image.FORMAT_RGBA8)
+	return im
+
+const STAGE := "res://assets/stages/R07/%s.png"
+## Points on each view's hotspot and clue art the keep mask must cover (they are never dimmed),
+## and points on its bare tiles it must leave out.
+const KEEP_ON := {
+	"bench": [Vector2(94, 260), Vector2(230, 676), Vector2(600, 520), Vector2(380, 576), Vector2(1076, 500),
+		Vector2(1300, 520), Vector2(850, 560)],
+	"c_tilt_rack": [Vector2(175, 137), Vector2(1230, 230), Vector2(820, 250), Vector2(190, 872), Vector2(785, 830),
+		Vector2(945, 830), Vector2(1230, 590)],
+	"c_balance": [Vector2(132, 190), Vector2(175, 745), Vector2(790, 730), Vector2(1240, 700), Vector2(724, 878),
+		Vector2(725, 600), Vector2(724, 445)],
+	"c_frame": [Vector2(725, 210), Vector2(350, 470), Vector2(1100, 470), Vector2(350, 629), Vector2(730, 629),
+		Vector2(1110, 628), Vector2(725, 805), Vector2(1360, 810)],
+}
+const KEEP_OFF := {
+	"bench": [Vector2(700, 250), Vector2(1300, 700)],
+	"c_tilt_rack": [Vector2(400, 300), Vector2(300, 700)],
+	"c_balance": [Vector2(900, 300), Vector2(560, 600)],
+	"c_frame": [Vector2(60, 500), Vector2(60, 300)],
+}
+
+func test_p4_view() -> void:
+	var scene = new_scene("user://room_test_R07_p4.json")
+	await process_frame
+	scene.room_jump(ROOM, 2)
+	await process_frame
+	var v: RoomView = scene.room_view
+	var r := scene.room_sim() as R07Sim
+	var views: Array = v.SUB_VIEWS
+	check(views == ["bench", "c_tilt_rack", "c_balance", "c_frame"], "the bench and the three close-ups")
+	check(v.SUB_DIM > 0.7 and v.SUB_DIM < 0.85, "the backdrop goes to about 0.78")
+	# every hotspot rect of the bench and the close-ups, taken at band 2
+	var rects := {}
+	r.local_view = "bench"
+	rects["bench"] = v._controls().duplicate(true)
+	for cid in ["c_tilt_rack", "c_balance", "c_frame"]:
+		rects[cid] = v.closeup_controls(cid).duplicate(true)
+	r.local_view = "room"
+	for t in range(4, 10):
+		scene.sim.debug_tide(t, ROOM)
+		await process_frame
+		v = scene.room_view
+		r = scene.room_sim() as R07Sim
+		var b := r.band()
+		for vid in views:
+			var under: bool = v.under_surface(vid)
+			check(under == (b >= 3), "band %d: %s under the surface %s" % [b, vid, b >= 3])
+			check(v.backdrop_dim(vid) == (v.SUB_DIM if b >= 3 else 1.0), "band %d: %s backdrop value" % [b, vid])
+			var layers: Array = v.sub_layers(vid)
+			if b >= 3:
+				var want := ["sub_" + vid]
+				if vid == "bench":
+					want = ["bench_scale_s%d" % b, "sub_bench"]
+				check(layers == want, "band %d: %s layers %s (got %s)" % [b, vid, want, layers])
+			else:
+				check(layers.is_empty(), "band %d: %s has no surface yet" % [b, vid])
+			for id in layers + ["keep_" + vid]:
+				check(v._tex(id) != null and ResourceLoader.exists(STAGE % id), "%s is a stage file and loads" % id)
+		# the bench backdrop: everything that repaints the plate's wall goes under the keep shader
+		var back: Array = v.bench_backdrop()
+		check(back[0] == v.plate_id() or r.local_view == "room", "band %d: the backdrop starts with the plate" % b)
+		check(not back.any(func(x): return str(x).begins_with("bench_scale")), "band %d: the balance patch is laid over the overlays" % b)
+		check(("b_lamp_patch_s%d" % mini(b, 7) in back) == (b >= 6), "band %d: the lamp patch in the backdrop" % b)
+		check(("b_stand_empty" in back) == bool(r.state.p14_complete), "band %d: the empty stand in the backdrop" % b)
+		check(v.room_back.material is ShaderMaterial and v.close_back.material is ShaderMaterial,
+			"the backdrops draw through the keep shader")
+		check(v.shade.color == Color.WHITE, "band %d: no CanvasModulate darkening" % b)
+		# hotspots never move
+		r.local_view = "bench"
+		check(JSON.stringify(v._controls()) == JSON.stringify(rects["bench"]), "band %d: the bench hotspots stay" % b)
+		r.local_view = "room"
+		for cid in ["c_tilt_rack", "c_balance", "c_frame"]:
+			check(JSON.stringify(v.closeup_controls(cid)) == JSON.stringify(rects[cid]), "band %d: %s controls stay" % [b, cid])
+	check(v._tex("bench_liquid") != null, "bench_liquid loads")
+	scene.sim.finish("sever")
+	await process_frame
+	for vid in views:
+		check(not v.under_surface(vid) and v.backdrop_dim(vid) == 1.0 and v.sub_layers(vid).is_empty(),
+			"sever drains %s" % vid)
+	# the frame's plates: blank until built
+	r.state.p14_complete = false
+	check(v.frame_plate_text() == "", "the frame plate is blank until built")
+	r.state.p14_complete = true
+	check(v.frame_plate_text() == "CATEGORY: BODY", "and printed once sealed")
+	r.state.p14_complete = false
+	# the legend: three styles, no words; the rail is ruled with the datum's own style
+	var m: Dictionary = v.get_script().get_script_constant_map()
+	check(not m.has("REF_WORD"), "the TEST legend has no words")
+	check(v.LEGEND_X.size() == 3, "three legend lines")
+	await free_scene(scene)
+
+## The art behind the P4 view: masks cover the clue art and the overlays leave it alone; the rail
+## the view rules dot-dash is brass under every run; the bench's wrongness is painted where it
+## should be.
+func test_p4_art() -> void:
+	for vid in KEEP_ON:
+		var keep := _img(STAGE % ("keep_" + vid))
+		var sub := _img(STAGE % ("sub_" + vid))
+		if keep == null or sub == null:
+			print("SKIP: P4 art: no image access")
+			return
+		check(keep.get_size() == Vector2i(1448, 1086) and sub.get_size() == Vector2i(1448, 1086), "%s masks are native size" % vid)
+		for q in KEEP_ON[vid]:
+			check(keep.get_pixelv(Vector2i(q)).r > 0.9, "%s: the keep mask covers %s" % [vid, q])
+			check(sub.get_pixelv(Vector2i(q)).a < 0.01, "%s: the overlay leaves %s alone" % [vid, q])
+		for q in KEEP_OFF[vid]:
+			check(keep.get_pixelv(Vector2i(q)).r < 0.1, "%s: %s is dimmed" % [vid, q])
+		# the waterline and the storm navy under it, the surface band over the top
+		var line: int = 527 if vid == "bench" else 530
+		var off: Vector2 = KEEP_OFF[vid][0]
+		var x := int(off.x)
+		check(sub.get_pixel(x, line).a > 0.9, "%s: the waterline at y %d" % [vid, line])
+		check(absf(sub.get_pixel(x, 1000).a - 0.40) < 0.03 or keep.get_pixel(x, 1000).r > 0.5,
+			"%s: 40%% storm navy below the line (got %.2f)" % [vid, sub.get_pixel(x, 1000).a])
+		check(sub.get_pixel(x, 40).a > 0.9, "%s: the surface across the top" % vid)
+		check(sub.get_pixel(x, 140).a < 0.6, "%s: the surface band ends by about 110 px" % vid)
+	# the rail: brass under every dot-dash run, in view A and the rack close-up
+	var V = load("res://game/rooms/R07/R07_view.gd")
+	for spec in [["res://assets/rooms/R07/view_a.png", 300, V.ROOM_RAIL], ["res://assets/rooms/R07/c_tilt_rack.png", 150, V.RACK_RAIL]]:
+		var im := _img(spec[0])
+		for sp in spec[2]:
+			var n := 0
+			var brass := 0
+			var x0 := int(sp[0]) + 2
+			while x0 < int(sp[1]) - 2:
+				var c := im.get_pixel(mini(x0, 1447), spec[1])
+				n += 1
+				if c.r > c.b + 0.12:
+					brass += 1
+				x0 += 5
+			check(n == 0 or brass >= n * 0.8, "%s: the rail is brass under %s (%d/%d)" % [spec[0].get_file(), sp, brass, n])
+	# the bench: the balance down on its empty pan, the water turned toward her
+	var scale := _img(STAGE % "bench_scale_s3")
+	check(scale.get_pixel(380, 575).a > 0.9, "the sample pan rests on the plinth")
+	check(scale.get_pixel(380, 545).a > 0.9, "where the level pan hung is painted over")
+	var liq := _img(STAGE % "bench_liquid")
+	check(liq.get_pixel(1076, 554).a > 0.9, "the bell jar's water shows its face")
+	check(liq.get_pixel(1214, 498).a > 0.9, "the first tube's water shows its face")
+	check(liq.get_pixel(1076, 470).a < 0.01, "the inscription's glass stays clear")

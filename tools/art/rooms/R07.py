@@ -25,6 +25,11 @@ Writes, and only writes, assets/rooms/R07/*.png and assets/stages/R07/*.png:
   view_b_s3_v2, view_b_s4_v2   the bench plates at bands 3 and 4 with the cabinet tide mark
                       painted as clear water, not a salt strip (replace view_b_s3 / view_b_s4)
   c_sample_tube       the one opaque stoppered tube every P13 stand holds (replaces c_sample_*)
+  r07_submerged_b2    assets/stages/R07: view A at band 2, the room under a surface at reduced height
+  keep_bench, keep_c_tilt_rack, keep_c_balance, keep_c_frame, sub_bench, sub_c_tilt_rack,
+  sub_c_balance, sub_c_frame, bench_scale_s3 .. s7, bench_liquid
+                      assets/stages/R07: the bench and its close-ups under the surface from band 3
+                      (see "the bench under the surface"); keep_* are greyscale masks
 
 The room is square to its brass DATUM: every tile course, shelf and the floor is level in plate
 space. Gravity is the thing that is off (the view rotates the plumb and the water); the plates
@@ -257,6 +262,14 @@ def save(im, name, opaque, out=None):
         a = im.getchannel("A")
         clear = a.point(lambda v: 255 if v == 0 else 0)
         im.paste((0, 0, 0, 0), mask=clear)
+    path = os.path.join(out, name + ".png")
+    im.save(path, optimize=False, compress_level=9)
+    print("  wrote", os.path.relpath(path, ROOT), im.size, im.mode)
+
+
+def save_mask(im, name, out):
+    """An L mask, written as a greyscale PNG."""
+    os.makedirs(out, exist_ok=True)
     path = os.path.join(out, name + ".png")
     im.save(path, optimize=False, compress_level=9)
     print("  wrote", os.path.relpath(path, ROOT), im.size, im.mode)
@@ -1119,7 +1132,10 @@ def drawer_face(p, x0, y0, x1, y1):
     screw(p, cx + 42, py + 1, 2.6)
 
 
-def balance(p):
+def balance(p, tilt=0.0):
+    """The bench balance. `tilt` (degrees, negative = the sample pan's end down) turns the beam on
+    its knife edge; the pans and the tray hang plumb from its ends, so they only move. 0 paints
+    the approved plate stroke for stroke."""
     x = BALANCE_POST
     # base plinth and key bank
     p.rect(318, 580, 664, 600, BRASS_LO, INK, 2.6, r=3)
@@ -1138,20 +1154,33 @@ def balance(p):
     p.ell(x + 36, 442, 5, 5, BRASS_HI, INK, 1.6)
     # pillar cap and beam
     p.poly([(x - 16, 372), (x + 16, 372), (x + 6, 350), (x - 6, 350)], BRASS_LO, INK, 2.4)
+    piv = (x, BEAM_Y)
+
+    def R(pts):
+        return [rot(q, piv, tilt) for q in pts] if tilt else pts
+
+    def hang(q):
+        """How far a pan hung at beam point `q` moves."""
+        r = R([q])[0]
+        return r[0] - q[0], r[1] - q[1]
+
     bl, br = PAN_L - 12, 622
-    p.poly([(bl, BEAM_Y - 4), (x - 10, BEAM_Y - 8), (x + 10, BEAM_Y - 8), (br, BEAM_Y - 4),
-            (br, BEAM_Y + 4), (x + 10, BEAM_Y + 9), (x - 10, BEAM_Y + 9), (bl, BEAM_Y + 4)], BRASS, INK, 2.6)
-    p.line([(bl + 6, BEAM_Y - 2), (br - 6, BEAM_Y - 2)], BRASS_HI, 1.6)
+    p.poly(R([(bl, BEAM_Y - 4), (x - 10, BEAM_Y - 8), (x + 10, BEAM_Y - 8), (br, BEAM_Y - 4),
+              (br, BEAM_Y + 4), (x + 10, BEAM_Y + 9), (x - 10, BEAM_Y + 9), (bl, BEAM_Y + 4)]), BRASS, INK, 2.6)
+    p.line(R([(bl + 6, BEAM_Y - 2), (br - 6, BEAM_Y - 2)]), BRASS_HI, 1.6)
     p.poly([(x - 8, BEAM_Y - 22), (x + 8, BEAM_Y - 22), (x, BEAM_Y - 2)], BRASS_HI, INK, 2.2)
     p.ell(x, BEAM_Y, 6, 6, BRASS_HI, INK, 2)
     # left sample pan
+    prev = p.at(*hang((PAN_L, BEAM_Y + 8)))
     p.ell(PAN_L, BEAM_Y + 8, 5, 5, None, INK, 2)
     for dx in (-44, 44):
         p.line([(PAN_L, BEAM_Y + 12), (PAN_L + dx, 534)], INK, 2)
     p.poly([(PAN_L - 52, 532), (PAN_L + 52, 532), (PAN_L + 38, 550), (PAN_L - 38, 550)], BRASS, INK, 2.6)
     p.line([(PAN_L - 44, 536), (PAN_L + 44, 536)], BRASS_HI, 1.8)
+    p.restore(prev)
     # right pan: the felt-lined control tray, a stitched felt cushion bedded in a brass dish
     tx0, ty0, tx1, ty1 = TRAY
+    prev = p.at(*hang((br - 12, BEAM_Y + 8)))
     p.ell(br - 12, BEAM_Y + 8, 5, 5, None, INK, 2)
     for x in (tx0 + 10, tx1 - 10):
         p.line([(br - 12, BEAM_Y + 12), (x, 492)], INK, 2)
@@ -1169,6 +1198,7 @@ def balance(p):
         [(tx0 + 36, 582)] + bezier((tx0 + 36, 582), (tx0 + 20, 582), (tx0 + 8, 572), 6)[1:]
     p.poly(dish, BRASS, INK, 2.8)
     p.line([(tx0 + 6, 555), (tx1 - 6, 555)], BRASS_HI, 1.8)
+    p.restore(prev)
 
 
 def sample_cards(p):
@@ -1299,7 +1329,7 @@ B_STREAK_AVOID = ((60, 290),)
 B_CABINET_TIDE = ((24, 482), (618, 716), (984, 1424))
 
 
-def paint_view_b(rng, stage, lamp=True, objects=True, clear_tide=False):
+def paint_view_b(rng, stage, lamp=True, objects=True, clear_tide=False, tilt=0.0):
     """The bench plate; `lamp` and `objects` as paint_view_a. `clear_tide`: where the tide mark
     stands behind or across the bench (bands 3, 4), it is a clear sea-glass water line, not the
     off-white salt strip."""
@@ -1322,7 +1352,7 @@ def paint_view_b(rng, stage, lamp=True, objects=True, clear_tide=False):
         lamp_pool(p, 724, 300, 700, 280, 0.18)
     if not objects:
         return p.done()
-    view_b_objects(p, stage, lamp, water)
+    view_b_objects(p, stage, lamp, water, tilt)
     return grade(p.done(), stage)
 
 
@@ -1336,7 +1366,7 @@ def water_line(p, y, x0=-4, x1=W + 4):
 PENDANT_B = (490, 120)
 
 
-def view_b_objects(p, stage, lamp=True, water=False):
+def view_b_objects(p, stage, lamp=True, water=False, tilt=0.0):
     if lamp:
         pendant(p, PENDANT_B[0], PENDANT_B[1], stage != "sever")
     sample_cards(p)
@@ -1350,7 +1380,7 @@ def view_b_objects(p, stage, lamp=True, water=False):
     register(p)
     easel(p)
     frame_tray(p)
-    balance(p)
+    balance(p, tilt)
     bell_jar(p)
     tube_rack(p)
     turn_plate(p)
@@ -2244,15 +2274,25 @@ def _cached(key, fn):
     return _cache[key]
 
 
+# The bench balance's tilt the view-B overlays are masked against (bench_scale: 0 for every
+# approved overlay; BENCH_TILT only while the balance-down patch is composed).
+OBJ_TILT = 0.0
+
+
 def _objects_alpha(side):
     """Where the plate's objects stand (L, 1x): painted alone, solid alpha only, so soft shadows
     and lamp pools count as wall. Lamps are left out: they are redrawn over the overlays."""
+    tilt = OBJ_TILT if side == "b" else 0.0
+
     def run():
         p = Pen(W, H, rng_for(0 if side == "a" else 10))
-        (view_a_objects if side == "a" else view_b_objects)(p, 2, lamp=False)
+        if side == "a":
+            view_a_objects(p, 2, lamp=False)
+        else:
+            view_b_objects(p, 2, lamp=False, tilt=tilt)
         a = p.done().getchannel("A").point(lambda v: 255 if v > 150 else 0)
         return a.filter(ImageFilter.MaxFilter(5))
-    return _cached(("obj", side), run)
+    return _cached(("obj", side, tilt), run)
 
 
 def tile_mask(side, y0=WALL_TOP, y1=None):
@@ -3007,36 +3047,20 @@ def _multiply_toward(im, col, k, mask):
     return Image.composite(dark, im, mask)
 
 
-def paint_submerged(stage):
-    rng = rng_for(940 + stage)
-    base = grain(paint_view_a(rng_for(0), stage, lamp=False, pool=False), rng_for(1000))
-    im = base.convert("RGB")
-    # the wash below the surface band, off the hotspot art
-    below = Image.new("L", (W, H), 0)
-    ImageDraw.Draw(below).rectangle((0, SUB_BAND, W, H), fill=255)
-    im = _multiply_toward(im, STORM, SUB_WASH[stage], ImageChops.subtract(below, _hotspot_art_alpha()))
-    # the water side of the waterline, 10% darker again (everything: it is all under it)
-    under = Image.new("L", (W, H), 0)
-    ImageDraw.Draw(under).polygon([(-4, sub_waterline_y(-4)), (W + 4, sub_waterline_y(W + 4)),
-                                   (W + 4, H + 4), (-4, H + 4)], fill=255)
-    im = _multiply_toward(im, (0, 0, 0), SUB_UNDER, under)
-    p = Pen(W, H, rng)
-    # the meniscus: a pale highlight on the air side, then 3 px navy. The card asked for 1 px; at
-    # 1024x768 that is lost on the washed tiles, so it is 2 px (1.4 px in game)
-    xs = (-8, W + 8)
-    p.line([(x, sub_waterline_y(x) - 2.5) for x in xs], SUB_CAUSTICS[1], 2.0)
-    p.line([(x, sub_waterline_y(x)) for x in xs], INK, 3.0)
+def _surface_band(p, rng, band):
+    """The underside of a water surface across the top `band` px: a flat band, a ragged navy lower
+    edge and SUB_STRIPES slow matte caustic stripes."""
     # the underside of the surface: a flat band, a ragged navy lower edge
     edge = []
     x = -8.0
     while x <= W + 8:
-        edge.append((x, SUB_BAND - 3 + rng.uniform(-2.2, 2.2) + 1.6 * math.sin(x / 53.0)))
+        edge.append((x, band - 3 + rng.uniform(-2.2, 2.2) + 1.6 * math.sin(x / 53.0)))
         x += rng.uniform(9, 16)
-    edge.append((W + 8, SUB_BAND - 3))
+    edge.append((W + 8, band - 3))
     p.poly([(-8, -8), (W + 8, -8)] + edge[::-1], SUB_SURFACE, None)
     # slow caustic stripes, matte: wide gentle waves, alternating the two tones
     for k in range(SUB_STRIPES):
-        cy = 16 + k * (SUB_BAND - 34) / (SUB_STRIPES - 1)
+        cy = 16 + k * (band - 34) / (SUB_STRIPES - 1)
         amp = rng.uniform(4, 8)
         wl = rng.uniform(320, 520)
         ph = rng.uniform(0, 6.283)
@@ -3052,10 +3076,286 @@ def paint_submerged(stage):
             x += 8
         p.poly(upper + lower[::-1], SUB_CAUSTICS[k % 2], None)
     p.line(edge, INK, 2.6)
+
+
+def paint_submerged(stage):
+    """r07_submerged_b<stage>. Bands 3 and 5: the whole room under the surface. Band 2
+    (r07_submerged_b2, the room's first tide): the same surface at reduced height, SUB_BAND_LOW
+    px, and the dark band only over what lies under the waterline: the sea has started in."""
+    rng = rng_for(940 + stage)
+    base = grain(paint_view_a(rng_for(0), stage, lamp=False, pool=False), rng_for(1000))
+    im = base.convert("RGB")
+    under = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(under).polygon([(-4, sub_waterline_y(-4)), (W + 4, sub_waterline_y(W + 4)),
+                                   (W + 4, H + 4), (-4, H + 4)], fill=255)
+    low = stage in SUB_LOW
+    # the wash below the surface band (band 2: below the waterline), off the hotspot art
+    if low:
+        below = under
+    else:
+        below = Image.new("L", (W, H), 0)
+        ImageDraw.Draw(below).rectangle((0, SUB_BAND, W, H), fill=255)
+    im = _multiply_toward(im, STORM, SUB_WASH[stage], ImageChops.subtract(below, _hotspot_art_alpha()))
+    # the water side of the waterline, 10% darker again (everything: it is all under it)
+    im = _multiply_toward(im, (0, 0, 0), SUB_UNDER, under)
+    p = Pen(W, H, rng)
+    # the meniscus: a pale highlight on the air side, then 3 px navy. The card asked for 1 px; at
+    # 1024x768 that is lost on the washed tiles, so it is 2 px (1.4 px in game)
+    xs = (-8, W + 8)
+    p.line([(x, sub_waterline_y(x) - 2.5) for x in xs], SUB_CAUSTICS[1], 2.0)
+    p.line([(x, sub_waterline_y(x)) for x in xs], INK, 3.0)
+    _surface_band(p, rng, SUB_BAND_LOW if low else SUB_BAND)
     over = p.done()
     out = im.convert("RGBA")
     out.alpha_composite(over)
     return out.convert("RGB")
+
+
+# r07_submerged_b2: band 2, view A (R07's first tide): the room under a surface at reduced
+# height. The surface band is SUB_BAND_LOW px, and the storm-navy wash only lies on what is below
+# the tank's waterline, so the upper wall, the DATUM and the doors' heads are still in the air.
+SUB_BAND_LOW = 84
+SUB_LOW = (2,)
+SUB_WASH[2] = 0.45
+
+
+# ----------------------------------------------------------------------------- the bench under the surface
+#
+# From band 3 (not after sever) the bench and the three close-ups (c_tilt_rack, c_balance, c_frame)
+# stand under the same surface as view A. The view draws each one's backdrop (its plate) at
+# SUB_DIM value through a keep mask, and lays its sub_* overlay over it:
+#
+#   keep_<view>    L, 1448x1086: 255 where the plate's hotspot and clue art stand (the bench's
+#                  balance, cards, register, frame, bell jar and tube rack; each close-up's papers,
+#                  plates, keys, dials and controls). The view never dims those pixels.
+#   sub_<view>     RGBA: the underside of the surface across the top SUB_VIEW_BAND px; on a close-up
+#                  the tide stain on its tiles, soft-topped and ending at the waterline; a 2 px
+#                  sea-glass waterline at SUB_VIEW_LINE; SUB_VIEW_FILL storm navy below it. All of it
+#                  off the keep mask.
+#   bench_scale_s3 .. s7   the bench balance resting down on its empty sample pan (BENCH_TILT): the
+#                  bench as the view lays it at that band (plate at SUB_DIM off keep_bench, then
+#                  its sea, stain and lamp-pool overlays, all masked against the tilted balance),
+#                  only the pixels that differ from the level balance, opaque.
+#   bench_liquid   the water in every vessel on the bench (the eight tubes and the bell jar) with
+#                  its surface turned toward the viewer, every one at the same impossible angle.
+
+SUB_VIEW_BAND = 110
+SUB_VIEW_LINE = {"bench": 527, "c_tilt_rack": 530, "c_balance": 530, "c_frame": 530}
+SUB_VIEW_FILL = 0.40
+SUB_DIM = 0.78              # R07_view.gd SUB_DIM: the backdrop's value off the keep mask
+# Tuned in game (tools/capture.gd, 1024x768, mean luma of rows 60-690 <= 100 at every P13/P14
+# beat and on a revisit of the rack): the close-ups carry more bright clue art (cards, the strip,
+# the sections), so their walls go further under.
+SUB_WASH_VIEW = {"bench": 0.35, "c_tilt_rack": 0.75, "c_balance": 0.65, "c_frame": 0.60}
+SUB_DEEP = 0.10
+BENCH_TILT = -16.0          # the sample pan's end down, until the pan sits on the plinth (y 580)
+LIQ_TILT = -18.0            # every surface's face, the same in every vessel
+CLOSEUPS = {  # view: seed index, painter, wall_to
+    "c_tilt_rack": (40, lambda r: paint_c_tilt_rack(r), 900),
+    "c_balance": (41, lambda r: paint_c_balance(r), 620),
+    "c_frame": (42, lambda r: paint_c_frame(r), 910),
+}
+# The close-ups' clue and control art, painted alone exactly as the plate's painter lays it (so the
+# keep mask has the art's own outline, with no halo of undimmed tile round it).
+def _keep_tilt_rack(p):
+    plate(p, 120, 124, 230, 150)                       # DATUM
+    plumb_bracket(p, 60, 150, 1.5)
+    card(p, 1110, 120, 1350, 340, PAPER_HI, ruled=0)    # the reference card
+    test_card(p)
+    for cx in (190, 390, 590):
+        plate(p, cx - 56, 860, cx + 56, 884)            # the station plates
+    tip_lever(p, 720, 770, False)
+    push_button(p, 860, 770)
+    socket_closeup(p)
+    p.ell(860, 600, 58, 58, BRASS_LO, INK, 3)           # the cradle's hub
+
+
+def _keep_balance(p):
+    for k in range(3):
+        x0 = 90 + k * 96
+        card(p, x0, 110, x0 + 84, 270, PAPER_HI, ruled=16)   # the sample cards
+    for x0 in (120, 250, 380):
+        p.rect(x0 - 6, 674, x0 + 116, 816, BRASS_LO, INK, 2.6, r=6)   # the stands
+    p.rect(548, 668, 1032, 792, STORM, INK, 2.6, r=6)  # the keys
+    p.rect(1080, 640, 1400, 820, STORM, INK, 3, r=8)    # the strip printer
+    p.rect(100, 826, 1340, 930, OAK, INK, 3, r=5)       # the register's tab recesses
+    p.rect(652, 540, 796, 656, BRASS, INK, 3, r=8)      # the gauge's pedestal
+    p.rect(644, 400, 804, 490, BRASS, INK, 3, r=6)      # the name holder
+
+
+def _keep_frame(p):
+    p.rect(180, 594, 520, 664, SLOT, INK, 2.4, r=4)     # the name tab's recess
+    p.rect(560, 594, 900, 664, BRASS_LO, INK, 2.4, r=4)  # the strip clip
+    plate(p, 940, 596, 1280, 660)                       # the label plate
+    seal_key(p, 1290, 740, False)
+
+
+KEEP_PAINT = {"c_tilt_rack": _keep_tilt_rack, "c_balance": _keep_balance, "c_frame": _keep_frame}
+# The frame's board is blank paper until the seal prints on it, so it is not kept: it takes the
+# wash with the wall, and the print (navy ink, drawn by the view) reads on it. The slots' and the
+# tray's felt beds take it too: the sections are sprites the view lays over them, undimmed.
+BENCH_PLATES = {3: ("view_b_s3_v2", 10, dict(clear_tide=True)), 4: ("view_b_s4_v2", 10, dict(clear_tide=True)),
+                5: ("view_b_s5", 10, {}), 6: ("view_b_s6", 10, {}), 7: ("view_b_s7", 10, {})}
+
+
+def _closeup_objects(view):
+    """L mask (1x): everything a close-up's painter lays over its tile wall."""
+    def run():
+        k, fn, wall_to = CLOSEUPS[view]
+        base = closeup_base(rng_for(k), wall_to).done().convert("RGB")
+        full = fn(rng_for(k)).done().convert("RGB")
+        d = ImageChops.difference(base, full).convert("L").point(lambda v: 255 if v > 18 else 0)
+        return d.filter(ImageFilter.MaxFilter(5))
+    return _cached(("cobj", view), run)
+
+
+def keep_mask(view):
+    def run():
+        if view == "bench":
+            p = Pen(W, H, rng_for(10))
+            sample_cards(p)
+            register(p)
+            easel(p)
+            frame_tray(p)
+            balance(p, BENCH_TILT)
+            bell_jar(p)
+            tube_rack(p)
+            return p.done().getchannel("A").point(lambda v: 255 if v > 128 else 0)
+        p = Pen(W, H, rng_for(CLOSEUPS[view][0]))
+        KEEP_PAINT[view](p)
+        # no dilation: the art's soft edge takes the wall's value, so no pale rim rings it
+        return p.done().getchannel("A").point(lambda v: 255 if v > 128 else 0)
+    return _cached(("keep", view), run)
+
+
+def paint_keep(view):
+    return keep_mask(view)
+
+
+def paint_sub_view(view):
+    rng = rng_for(960 + list(SUB_VIEW_LINE).index(view))
+    free = ImageChops.invert(keep_mask(view))
+    out = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    line = SUB_VIEW_LINE[view]
+    if view in CLOSEUPS:
+        wall = Image.new("L", (W, H), 0)
+        ImageDraw.Draw(wall).rectangle((0, 0, W, CLOSEUPS[view][2] - 1), fill=255)
+        tiles = ImageChops.multiply(ImageChops.subtract(wall, _closeup_objects(view)), free)
+    else:
+        tiles = ImageChops.multiply(tile_mask("b"), free)
+    # as in view A, everything under the surface band but the keep art goes toward storm navy
+    # (SUB_WASH_VIEW), a little deeper toward the waterline (+SUB_DEEP)
+    ramp = Image.new("L", (1, H), 0)
+    for y in range(SUB_VIEW_BAND, H):
+        k = min(1.0, (y - SUB_VIEW_BAND) / (line - SUB_VIEW_BAND))
+        ramp.putpixel((0, y), int(round(255 * (SUB_WASH_VIEW[view] + SUB_DEEP * k))))
+    out.alpha_composite(_alpha_layer(STORM, ImageChops.multiply(ramp.resize((W, H)), free)))
+    if view in CLOSEUPS:
+        # the tide stain on the tiles, soft-topped, ending at the waterline
+        top = ragged(rng, -20, W + 20, line - STAIN_SOFT + 18, 10, step=24, waves=3)
+        poly = Image.new("L", (W, H), 0)
+        ImageDraw.Draw(poly).polygon(top + [(W + 20, line + 60), (-20, line + 60)], fill=255)
+        soft = poly.filter(ImageFilter.GaussianBlur(14))
+        cut = Image.new("L", (W, H), 0)
+        ImageDraw.Draw(cut).rectangle((0, 0, W, line - 1), fill=255)
+        stain = _scale_mask(ImageChops.multiply(soft, cut), STAIN_ALPHA)
+        out.alpha_composite(_alpha_layer(STORM, ImageChops.multiply(stain, tiles)))
+    # storm navy below the waterline, then the line itself
+    below = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(below).rectangle((0, line + 2, W, H), fill=int(round(SUB_VIEW_FILL * 255)))
+    out.alpha_composite(_alpha_layer(STORM, ImageChops.multiply(below, free)))
+    wl = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(wl).rectangle((0, line, W, line + 1), fill=255)
+    out.alpha_composite(_alpha_layer(SEAGLASS, ImageChops.multiply(wl, free)))
+    # the underside of the surface
+    p = Pen(W, H, rng)
+    _surface_band(p, rng, SUB_VIEW_BAND)
+    out.alpha_composite(_apply_mask(p.done(), free))
+    return out
+
+
+def _bench_plate(stage, tilt):
+    name, k, kw = BENCH_PLATES[stage]
+    return grain(paint_view_b(rng_for(k), stage, tilt=tilt, **kw), rng_for(1000 + k)).convert("RGB")
+
+
+def _bench_overlays(stage):
+    """View B's overlays over the plate at `stage`, in the view's order (_draw_sea, then
+    b2_tidemark_bench, then b4_lamp_pool_cold), masked against the balance at OBJ_TILT."""
+    out = []
+    for k, fn in ((2, paint_sea_b2), (3, paint_sea_b3), (4, paint_sea_b4), (6, paint_sea_b6), (7, paint_sea_b7)):
+        if stage >= k:
+            out.append(fn("b"))
+    out.append(paint_tidemark("b"))
+    if stage >= 4:
+        out.append(paint_lamp_pool(warm=False))
+    return out
+
+
+def _bench_scene(stage, tilt):
+    """The bench at `stage` as the view lays it under the surface, up to the overlays: the plate
+    at SUB_DIM off the keep mask, then the overlays, all with the balance at `tilt`."""
+    global OBJ_TILT
+    plate_im = _bench_plate(stage, tilt).convert("RGBA")
+    dim = plate_im.point(lambda v: int(v * SUB_DIM))
+    dim.putalpha(255)
+    im = Image.composite(plate_im, dim, keep_mask("bench"))
+    prev, OBJ_TILT = OBJ_TILT, tilt
+    try:
+        for o in _bench_overlays(stage):
+            im.alpha_composite(o.convert("RGBA"))
+    finally:
+        OBJ_TILT = prev
+    return im
+
+
+def paint_bench_scale(stage):
+    """bench_scale_s<stage>: where the bench differs with the balance down on its pan, the bench as
+    the view would show it so (plate dimmed off the keep mask, every overlay masked against the
+    tilted balance), opaque. The view lays it over its own overlays, under sub_bench, so no
+    overlay keeps the level balance's silhouette."""
+    level = _bench_scene(stage, 0.0)
+    tilted = _bench_scene(stage, BENCH_TILT)
+    d = ImageChops.difference(level.convert("RGB"), tilted.convert("RGB")).convert("L").point(lambda v: 255 if v > 0 else 0)
+    out = tilted.copy()
+    out.putalpha(d.filter(ImageFilter.MaxFilter(3)))
+    return out
+
+
+def _ellipse_pts(cx, cy, rx, ry, deg, n=48):
+    return [rot((cx + rx * math.cos(2 * math.pi * i / n), cy + ry * math.sin(2 * math.pi * i / n)), (cx, cy), deg)
+            for i in range(n)]
+
+
+def _liquid(p, interior, cx, cy, rx, ry, body_a=0.5):
+    """Water in a vessel whose interior is the L mask `interior` (supersampled): the body below a
+    line through (cx, cy) at LIQ_TILT, and over it the surface's face, an ellipse turned toward
+    the viewer at the same angle, so it stands up out of the water."""
+    far = 3000
+    a = math.radians(LIQ_TILT)
+    d = (math.cos(a), math.sin(a))
+    body = [(cx - d[0] * far, cy - d[1] * far), (cx + d[0] * far, cy + d[1] * far),
+            (cx + d[0] * far, cy + far), (cx - d[0] * far, cy + far)]
+    lay = p.layer()
+    lay.poly(body, WATER_PAINT, None)
+    p.put(lay, body_a, ImageChops.multiply(poly_mask(body), interior))
+    face = _ellipse_pts(cx, cy, rx, ry, LIQ_TILT)
+    top = p.layer()
+    top.poly(face, SEAGLASS_HI, INK, 1.8 if rx < 20 else 2.6)
+    top.line([rot((cx - rx * 0.55, cy - ry * 0.35), (cx, cy), LIQ_TILT),
+              rot((cx + rx * 0.1, cy - ry * 0.62), (cx, cy), LIQ_TILT)], GLASS_HI, 1.4 if rx < 20 else 2.4)
+    p.put(top, 1.0, interior)
+
+
+def paint_bench_liquid():
+    p = Pen(W, H, rng_for(970))
+    for t in TUBES:
+        inner = Image.new("L", (W * SS, H * SS), 0)
+        ImageDraw.Draw(inner).rounded_rectangle(((t - TUBE_HW + 2) * SS, (TUBE_Y[0] + 6) * SS,
+                                                 (t + TUBE_HW - 2) * SS, (TUBE_Y[1] - 3) * SS), radius=8 * SS, fill=255)
+        _liquid(p, inner, t, 498, 8.0, 6.0, 0.42)
+    _liquid(p, poly_mask(jar_body_pts(6)), 1076, 554, 72, 22, 0.5)
+    return p.done()
 
 
 STAGE_ASSETS = [  # name, painter: assets/stages/R07/<name>.png, RGBA, no grain
@@ -3068,6 +3368,21 @@ STAGE_ASSETS = [  # name, painter: assets/stages/R07/<name>.png, RGBA, no grain
     ("datum_water_sub", lambda: paint_datum_water(STORM, 0.30)),
     ("r07_submerged_b3", lambda: paint_submerged(3)),
     ("r07_submerged_b5", lambda: paint_submerged(5)),
+    ("r07_submerged_b2", lambda: paint_submerged(2)),
+    ("keep_bench", lambda: paint_keep("bench")),
+    ("keep_c_tilt_rack", lambda: paint_keep("c_tilt_rack")),
+    ("keep_c_balance", lambda: paint_keep("c_balance")),
+    ("keep_c_frame", lambda: paint_keep("c_frame")),
+    ("sub_bench", lambda: paint_sub_view("bench")),
+    ("sub_c_tilt_rack", lambda: paint_sub_view("c_tilt_rack")),
+    ("sub_c_balance", lambda: paint_sub_view("c_balance")),
+    ("sub_c_frame", lambda: paint_sub_view("c_frame")),
+    ("bench_scale_s3", lambda: paint_bench_scale(3)),
+    ("bench_scale_s4", lambda: paint_bench_scale(4)),
+    ("bench_scale_s5", lambda: paint_bench_scale(5)),
+    ("bench_scale_s6", lambda: paint_bench_scale(6)),
+    ("bench_scale_s7", lambda: paint_bench_scale(7)),
+    ("bench_liquid", paint_bench_liquid),
 ]
 
 
@@ -3175,7 +3490,10 @@ def main(argv):
     for name, fn in STAGE_ASSETS:
         if any(fnmatch.fnmatch(name, pat) for pat in pats):
             im = fn()
-            save(im, name, im.mode == "RGB", STAGE_OUT)
+            if im.mode == "L":
+                save_mask(im, name, STAGE_OUT)
+            else:
+                save(im, name, im.mode == "RGB", STAGE_OUT)
 
 
 if __name__ == "__main__":
