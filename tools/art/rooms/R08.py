@@ -1609,7 +1609,7 @@ def paint_toggle(rng, up):
     return p
 
 
-SEAL_AT = (880, 800)    # c_seal_cut's top-left in the close-up: it hangs off INDEX's socket lug
+SEAL_AT = (880, 800)    # c_seal_cut's top-left relative to a socket at 875 (the view now hangs it off the first socket, 305: (310, 800))
 
 
 def paint_seal_cut(rng):
