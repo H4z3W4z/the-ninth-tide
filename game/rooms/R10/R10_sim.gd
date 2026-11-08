@@ -113,6 +113,10 @@ const STRIP_RECORD_OPEN := "RECORD OPEN"
 const STRIP_NO_INPUT := "NO INPUT"
 const LEAD_START := "The lead starts at the triangle."
 const STAMPED_OPEN := "It's stamped OPEN. In ink."
+## An item from the catalogue wall that does not fit once its close-up is open.
+const NEED_FOLDERS := "I'll need to open the folders first."
+const NEED_MODEL := "I'll need to open the model first."
+const AMENDED_ON_MODEL := "I hold her amended card to the model's strip. No slot takes paper. It only tests whether a record can take a correction and stay open."
 const GLANCE_STAFF := [420, 370, 220, 160]
 
 # --- escalation ------------------------------------------------------------------------------
@@ -132,6 +136,14 @@ const FLOOD_LINE := "The lower shelves aren't lit. They're reflected."
 ## The STAFF drawer, shut: the first look and the second.
 const STAFF_FIRST := "STAFF. The drawer's shut. What's coming out of it is running up."
 const STAFF_SECOND := "It's warm. The label's in my handwriting."
+## From band 6 the water stands in the room (the view's r10_flood_b6 plates): the STAFF look.
+const STAFF_FLOOD_BAND := 6
+const STAFF_FLOODED := "The water stands at the same height in every room. The STAFF drawer is the only one they built above it."
+## The echo: on the first return after P16, the vault plays back what the recorder took down
+## of her (P05's frozen trace), in order. The sim decides it; the core plays the footsteps.
+const ECHO_LINE := "Footsteps. Mine. What the recorder took down of me, done again, in the order I did it. Nobody is there."
+const ECHO_DELAY := 6.4
+const ECHO_MOVES := 3
 
 const OBSERVATIONS := {
 	"shelves": "The shelves go back further than the floor plan allows. Past where the laboratory wall should be they keep going, each bay a little smaller, all labelled in the same hand.",
@@ -171,6 +183,7 @@ const OBSERVATIONS := {
 	"witness_test": "On the model: the triangle to the two squares closes the record. The triangle to the hollow circle takes an amendment and stays open. The circle is the witness. The witness has to be a person, and the person has to stay.",
 	"aperture_wider": "After the test the stripe running up from STAFF is wider than it was. Nothing touched it.",
 	"aperture_wide": "The stripe up from STAFF is wider again. The drawer is still shut.",
+	"echo": "In the archive I heard my own recorded movements played back to me, in the order I made them. Nobody was walking.",
 }
 const OBJECTIVES := {
 	"p16": "Put the 1927 contact sheet back in order and uncover the faces.",
@@ -224,7 +237,7 @@ const ITEMS := {
 
 const SAVED_BOOLS := ["clipped", "cover_off", "p16_complete", "p18_complete", "staff_open", "drawer_open",
 	"input", "copy", "witness", "p23_complete", "bridge_taken", "strip2", "not_yet_seen", "folders_seen",
-	"flood_seen"]
+	"flood_seen", "echo_heard"]
 
 ## Transient, never saved: what the view shows after the last action.
 var held := ""          # the panel letter in hand in c_contact
@@ -241,7 +254,7 @@ func initial_state() -> Dictionary:
 		"input": false, "copy": false, "witness": false, "stamp": "", "p23_complete": false,
 		"bridge_taken": false, "strip2": false,
 		"notices": [], "catalogue_notices": [], "not_yet_seen": false, "folders_seen": false,
-		"flood_seen": false,
+		"flood_seen": false, "echo_heard": false,
 	}
 
 func is_closeup(v := local_view) -> bool:
@@ -397,7 +410,21 @@ func arrive(ev: Array, first: bool) -> void:
 			_mark_notice(n)
 		_flood_notice(ev, 4.8)
 		return
+	_echo_trace(ev)
 	_room_notice(ev)
+
+## Once, on the first return after P16: her own recorded movements, played back in order.
+func _echo_trace(ev: Array) -> void:
+	if not state.p16_complete or state.echo_heard:
+		return
+	var moves: Array = game.value("p05_trace").slice(0, ECHO_MOVES)
+	if moves.is_empty():
+		var m: Array = game.value("movement_events")
+		moves = m.slice(maxi(m.size() - ECHO_MOVES, 0))
+	state.echo_heard = true
+	_fx(ev, "echo_trace", {"moves": moves})
+	_say(ev, ECHO_LINE, ECHO_DELAY, true)
+	_observe("echo")
 
 func back(ev: Array) -> void:
 	_sync()
@@ -548,15 +575,13 @@ func _catalogue(action: String, ev: Array) -> void:
 				_sfx(ev, "staff_settle")
 				_say(ev, STAFF_SECOND)
 				_observe("staff_label")
+			elif band() >= STAFF_FLOOD_BAND:
+				# the widened stripe (P23, band 7) is seen; the water is what she says
+				_say(ev, STAFF_FLOODED)
+				if aperture_width() == 2:
+					_observe("aperture_wide")
 			else:
-				match aperture_width():
-					2:
-						_say(ev, "Wider again. Still running up.")
-						_observe("aperture_wide")
-					1:
-						_say(ev, "Wider than it was. I didn't see it change.")
-					_:
-						_say(ev, "Still running up. The drawer stays shut.")
+				_say(ev, "Still running up. The drawer stays shut.")
 		"tray":
 			_say(ev, "A brass tray in front of STAFF, the size of a record card. Worn bright in the middle.")
 			_observe("staff_tray")
@@ -570,27 +595,37 @@ func _catalogue(action: String, ev: Array) -> void:
 		"wrapped_photo":
 			_wrapped_photo(ev)
 		"model":
-			_go("c_model", ev)
-			_say(ev, MODEL_OPEN_LINE)
-			_observe("model")
-			if shutter_open():
-				_observe("faceplate")
-			else:
-				_observe("model_shutter")
+			_open_model(ev)
 		"folders":
-			_go("c_folders", ev)
-			if state.p18_complete:
-				_say(ev, "The folders. They've done their demonstration.")
-			elif not state.folders_seen:
-				state.folders_seen = true
-				_say(ev, "Rook's folders. BODY, PLACE, NAME. The date dial's set to today.")
-			else:
-				_say(ev, "BODY, PLACE, NAME.")
-			_observe("folders")
+			_open_folders(ev)
 		"to_shelves":
 			_say(ev, "The shelves.")
 			_go("room", ev)
 			_room_notice(ev)
+
+## Opens c_model. `quiet` (an item in hand): only a first look is spoken.
+func _open_model(ev: Array, quiet := false) -> void:
+	_go("c_model", ev)
+	if not quiet or not has_seen("model"):
+		_say(ev, MODEL_OPEN_LINE)
+	_observe("model")
+	if shutter_open():
+		_observe("faceplate")
+	else:
+		_observe("model_shutter")
+
+## Opens c_folders. `quiet` (an item in hand): only the first look is spoken.
+func _open_folders(ev: Array, quiet := false) -> void:
+	_go("c_folders", ev)
+	if state.p18_complete:
+		if not quiet:
+			_say(ev, "The folders. They've done their demonstration.")
+	elif not state.folders_seen:
+		state.folders_seen = true
+		_say(ev, "Rook's folders. BODY, PLACE, NAME. The date dial's set to today.")
+	elif not quiet:
+		_say(ev, "BODY, PLACE, NAME.")
+	_observe("folders")
 
 func _wrapped_photo(ev: Array) -> void:
 	if not state.p18_complete:
@@ -1039,6 +1074,18 @@ func use_item(item: String, target: String, ev: Array) -> bool:
 	_sync()
 	if target.begins_with("go:"):
 		return false
+	# From the catalogue wall, an item on a folder spine or on the model opens that close-up and
+	# is used there in the same action.
+	if local_view == "catalogue" and (FOLDERS.has(target) or target == "folders"):
+		_open_folders(ev, true)
+		if not use_item(item, target, ev):
+			_say(ev, NEED_FOLDERS)
+		return true
+	if local_view == "catalogue" and target == "model":
+		_open_model(ev, true)
+		if not use_item(item, target, ev):
+			_say(ev, NEED_MODEL)
+		return true
 	if item == "venn_correspondence":
 		_say(ev, "These belong on the office board.")
 		return true
@@ -1094,6 +1141,13 @@ func use_item(item: String, target: String, ev: Array) -> bool:
 		"amended_nora_card":
 			if in_folders and FOLDERS.has(target):
 				_say(ev, "Not into Rook's folders again.")
+				return true
+			if local_view == "c_model" and (target == "model" or target in MODEL_CONTROLS):
+				if not shutter_open():
+					_say(ev, NEED_MODEL)
+				else:
+					_say(ev, AMENDED_ON_MODEL)
+					_observe("faceplate")
 				return true
 		"witness_bridge":
 			if in_model and target in ["t_witness", "bridge"] and state.p23_complete:
@@ -1230,6 +1284,9 @@ func load_state(d: Variant) -> void:
 	if not state.input:
 		state.copy = false
 		state.witness = false
+	# The echo plays back what P16 set going: never heard before it.
+	if not state.p16_complete:
+		state.echo_heard = false
 
 ## P16, P18 and P23 are R10's: a flag set elsewhere (tests, debug) is honoured, then the flags
 ## follow the state. A load always lands in "room", so Nora's records come out of the folders.
