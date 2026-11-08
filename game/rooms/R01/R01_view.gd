@@ -54,12 +54,15 @@ const MIX := {
 	"s7": {"pressure_hum": 0.35, "sea_thin": 0.2},
 	"A": {"sea_jetty": 1.0, "gulls": 0.7, "engine_idle": 0.6, "wind_jetty": 0.4},
 }
+## Arrival and boat while the sea is out (drained()): only its thin far edge, and the wind.
+const MIX_DRAINED := {"sea_thin": 0.6, "wind_jetty": 0.6}
 const CLOSEUP_MIX := 0.7
 
 ## The first visit is dusk (back_b0_dusk): a flat banded overcast, the lighthouse dark.
 ## Bands 1-2 are darker than that, not friendlier: storm-navy matte overcast, the lighthouse
-## unlit. Band 1 is the mud flats (the sea went out after the boat; back_b1_sea stands in
-## while it withdraws); band 2 the sea back, high and rain-pocked (with high_water).
+## unlit. From Tide II until P09 (arrival in Tide II, the boat, band 1) the drained plate
+## (DRAINED) replaces these; back_b1_mud is only band 1's fallback. Band 2 is the sea back,
+## high and rain-pocked (with high_water).
 const BACKDROP := {"arrival": "back_b0_dusk", "boat": "back_b0_dusk", "s1": "back_b1_mud", "s2": "back_b2_high",
 	"s3": "back_b3", "s4": "back_b4", "s5": "back_b5", "s6": "back_b5", "s7": "back_b7",
 	"A": "back_end_a"}
@@ -124,17 +127,14 @@ const WATERLINE := 870.0
 const WITHDRAW_END := 15.0
 const LOOP_CUT := 2.6
 const FIGURE_FADE := 0.8
-## Band 1: the sea goes out after the TIDE III card is up (it waits for the knock), so the
-## capsule rises out of water and the player watches the mud come up under the card.
-const DRAIN_AT := 16.0
-const DRAIN_TIME := 4.0
 const PULL_TIME := 0.4
-## P06's "The sea's gone out to the horizon.": the drained flats (assets/stages/R01) come
-## up over the mud as the line does, and stay for the rest of band 1. Motion off: a cut.
-const FLATS := "p06_flats"
-const FLATS_FADE := 1.2
+## Tide II until P09 (R01Sim.drained()): the sea is out. One plate stands in for the sea,
+## its marks and the bell's calm: mud to the horizon, bare dripping pilings, the bell's
+## standing cylinder of water. The boat (its own layer) rests level over untouched mud.
+const DRAINED := "jetty_drained_r3"
 ## Plates that live outside assets/rooms/R01/.
-const STAGE_PLATES := {"p06_flats": "res://assets/stages/R01/p06_flats.png"}
+const STAGE_PLATES := {"p06_flats": "res://assets/stages/R01/p06_flats.png",
+	"jetty_drained_r3": "res://assets/stages/R01/jetty_drained_r3.png"}
 
 # --- close-up controls ------------------------------------------------------------------
 const PANEL_RECTS := {
@@ -159,10 +159,11 @@ const CAPSULE_RECTS_OPEN := {
 const HEADER_RECT := Rect2(300, 140, 848, 64)
 const TALLY_LABEL_RECTS := {"verified": Rect2(344, 420, 320, 50), "unverified": Rect2(784, 420, 320, 50)}
 const PLACARD_RECT := Rect2(344, 536, 760, 150)
-## The placard sets 19 px on 23 px leading (22/26 overflows the painted placard and runs
-## the last rule into the pencil); the Board's line sits right, clear of the rising pencil.
+## The placard sets 19 px on 20 px leading from 18 px down: seven printed rows (rule 3 wraps; see
+## placard_rows()) above the pencil; the Board's line sits right, clear of the rising pencil.
 const PLACARD_SIZE := 19
-const PLACARD_LEADING := 23
+const PLACARD_LEADING := 20
+const PLACARD_TOP := 18
 const PENCIL_AT := Vector2(360, 694)
 const ADA_AT := Vector2(380, 718)
 const KEY_TAG_AT := Vector2(624, 250)   # the paper tag on the key (a little tilted)
@@ -193,7 +194,6 @@ var figure_k := 1.0            # 0..1 fade of the figure in the boat's window
 var note_open := false
 var pull_t := INF              # seconds since a bell pull
 var pull_n := 1
-var flats_t := INF             # seconds since the flats line (INF: at rest, fully shown)
 var tide_defer := 0            # a tide card held back during the withdrawal
 var rain_hang := {}            # band -> PackedVector2Array of dash end pairs (seeded)
 
@@ -248,7 +248,6 @@ func tick(dt: float) -> void:
 	withdraw_t += dt
 	loop_t += dt
 	pull_t += dt
-	flats_t += dt
 	if figure_k < 1.0:
 		figure_k = minf(1.0, figure_k + dt / FIGURE_FADE)
 	if tide_defer > 0 and withdraw_t >= TIDE_CARD_AT:
@@ -273,8 +272,15 @@ func cutting() -> bool:
 func _state() -> String:
 	return jetty.jetty_state()
 
+## The loop targets for the jetty's state now (tests read it).
+func mix_for_state() -> Dictionary:
+	var s := _state()
+	if jetty.drained() and s in ["arrival", "boat"]:
+		return MIX_DRAINED
+	return MIX.get(s, {})
+
 func _targets() -> Dictionary:
-	var t: Dictionary = MIX.get(_state(), {}).duplicate()
+	var t: Dictionary = mix_for_state().duplicate()
 	if jetty.is_closeup():
 		for k in t:
 			t[k] *= CLOSEUP_MIX
@@ -387,28 +393,6 @@ func boat_alpha() -> float:
 	var k := (withdraw_t - BOAT_GO) / BOAT_TRAVEL
 	return clampf((1.0 - k) / 0.12, 0.0, 1.0)
 
-## Band 1's drain, 0 with the sea still in (through the withdrawal) to 1 gone out; 1 at rest,
-## on a revisit and on a load. Motion off: a cut at DRAIN_AT.
-func drain_k() -> float:
-	if withdraw_t < DRAIN_AT:
-		return 0.0
-	if not motion:
-		return 1.0
-	return clampf((withdraw_t - DRAIN_AT) / DRAIN_TIME, 0.0, 1.0)
-
-## True from the bell's "gone out to the horizon" line for the rest of band 1 (sim state,
-## so a revisit or a load shows the flats at once).
-func flats_shown() -> bool:
-	return _state() == "s1" and jetty.has_seen("sea_out")
-
-## The flats' opacity: 0 before the line, easing to 1 over FLATS_FADE after it.
-func flats_k() -> float:
-	if not flats_shown():
-		return 0.0
-	if not motion:
-		return 1.0
-	return clampf(flats_t / FLATS_FADE, 0.0, 1.0)
-
 ## The capsule close-up's control rects for the current state, in match order.
 func capsule_rects() -> Dictionary:
 	return CAPSULE_RECTS_OPEN if jetty.state.capsule_opened else CAPSULE_RECTS
@@ -438,37 +422,27 @@ func layer_stack() -> Array:
 	var pm := minf(1.0, m * PROP_LIFT) if early else m
 	var prop := Color(pm, pm, pm)
 	var out := []
-	# Band 1: the sea is in while the boat withdraws, then goes out (wet 1 -> 0).
-	# The flats (after the bell's line) cover both, so the sea's marks go with them.
-	var fk := flats_k()
-	var wet := (1.0 - drain_k()) * (1.0 - fk) if s == "s1" else 1.0
-	if fk >= 1.0:
-		out.append([FLATS, Vector2.ZERO, Color.WHITE, -1.0])
-	elif s == "s1" and wet > 0.0:
-		out.append(["back_b1_sea", Vector2.ZERO, Color.WHITE, -1.0])
-		out.append(["back_b1_mud", Vector2.ZERO, Color(1, 1, 1, drain_k()), -1.0])
-	else:
-		out.append([BACKDROP[s], Vector2.ZERO, Color.WHITE, -1.0])
-	if fk > 0.0 and fk < 1.0:
-		out.append([FLATS, Vector2.ZERO, Color(1, 1, 1, fk), -1.0])
-	if early:
+	# Tide II until P09 the sea is out: the drained plate, and no sea marks over it.
+	var dry := jetty.drained()
+	out.append([DRAINED if dry else BACKDROP[s], Vector2.ZERO, Color.WHITE, -1.0])
+	if dry or s == "s1":
+		pass
+	elif early:
 		# Every piling has its reflection; the boat, laid over them, has none.
 		out.append(["reflections_dusk", Vector2.ZERO, Color.WHITE, -1.0])
-	elif s == "s1" or s == "s2":
+	elif s == "s2":
 		# The storm sea's own dark-toned marks (the bright band-0 ones would lift it).
-		if wet > 0.0:
-			out.append(["reflections_dusk", Vector2.ZERO, Color(1, 1, 1, wet), -1.0])
+		out.append(["reflections_dusk", Vector2.ZERO, Color.WHITE, -1.0])
 	elif mid and r <= 4:
 		var rdx := Vector2(reflection_dx(s), 0)
 		out.append(["reflections", rdx, Color.WHITE, -1.0])
 		if r >= 3:
 			# Laid twice when they lag: under the rain the faint plate alone doesn't read.
 			out.append(["reflections", rdx, Color.WHITE, -1.0])
-	if early or s == "s2":
+	if dry or s == "s1":
+		pass
+	elif early or s == "s2":
 		out.append(["waves_dusk_%d" % wave_frame(s), Vector2.ZERO, Color.WHITE, -1.0])
-	elif s == "s1":
-		if wet > 0.0:
-			out.append(["waves_dusk_%d" % wave_frame(s), Vector2.ZERO, Color(1, 1, 1, wet), -1.0])
 	elif mid and r <= 6:
 		var a := 1.0 if r <= 2 else (0.8 if r <= 4 else 0.5)
 		if s == "s4":
@@ -477,7 +451,7 @@ func layer_stack() -> Array:
 			out.append(["b4_level", Vector2.ZERO, Color.WHITE, -1.0])
 		else:
 			out.append(["waves_%d" % wave_frame(s), Vector2.ZERO, Color(1, 1, 1, a), -1.0])
-	if s != "s7" and s != "A":
+	if s != "s7" and s != "A" and not dry:
 		out.append(["bell_calm", Vector2.ZERO, Color.WHITE, -1.0])
 	if not gsim().flag("P05"):
 		out.append(["launch_departing", Vector2.ZERO, Color.WHITE, -1.0])
@@ -607,6 +581,8 @@ func _centred(c: CanvasItem, s: String, r: Rect2, size: int, col: Color, font: F
 
 func _draw_panel(c: CanvasItem) -> void:
 	_blit(c, "c_mooring_panel")
+	# Each bell hangs under its painted pennant (R01Sim.BELL_PENNANTS); no numbers.
+	_blit(c, "c_panel_pennants")
 	var t := jetty.tally()
 	if t == "verified":
 		_blit(c, "c_panel_tally_v")
@@ -620,17 +596,43 @@ func _draw_panel(c: CanvasItem) -> void:
 	if t != "":
 		var plate: Rect2 = PANEL_RECTS["tally_" + t]
 		_centred(c, "SET", Rect2(plate.position.x + 130, 476, 100, 30), 22, Ink.INK, narrow)
-	var lines: Array = R01Sim.PLACARD_LINES
-	var y := PLACARD_RECT.position.y + 20
-	for i in lines.size():
-		var f: Font = bold if i == 0 else Ink.serif()
-		var last := i == lines.size() - 1
-		Ink.text(c, lines[i], Vector2(PLACARD_RECT.position.x, y), PLACARD_SIZE, Ink.INK, f,
-			PLACARD_RECT.size.x, HORIZONTAL_ALIGNMENT_RIGHT if last else HORIZONTAL_ALIGNMENT_LEFT)
+	var y := PLACARD_RECT.position.y + PLACARD_TOP
+	for row in placard_rows():
+		Ink.text(c, row[0], Vector2(PLACARD_RECT.position.x + row[1], y), PLACARD_SIZE, Ink.INK,
+			bold if row[2] else Ink.serif(), PLACARD_RECT.size.x - row[1],
+			HORIZONTAL_ALIGNMENT_RIGHT if row[3] else HORIZONTAL_ALIGNMENT_LEFT)
 		y += PLACARD_LEADING
-	for i in 4:
-		var at := Vector2(444 + 200 * i, 760)
-		_centred(c, str(i + 1), Rect2(at.x - 40, at.y - 20, 80, 40), 28, Ink.INK, narrow)
+
+## The placard as set: [text, indent, bold, right-aligned] per printed row. A rule wider than
+## the placard breaks at a word and carries on under its own text (a hanging indent past its
+## number), so no rule is ever clipped; the Board's line sits right, clear of the pencil.
+func placard_rows() -> Array:
+	var out := []
+	var lines: Array = R01Sim.PLACARD_LINES
+	var font := Ink.serif()
+	for i in lines.size():
+		var s: String = lines[i]
+		var last := i == lines.size() - 1
+		if i == 0 or last or _placard_w(font, s) <= PLACARD_RECT.size.x:
+			out.append([s, 0.0, i == 0, last])
+			continue
+		var words := s.split(" ")
+		var hang := _placard_w(font, words[0] + " ")
+		var line := ""
+		var indent := 0.0
+		for w in words:
+			var trial := w if line == "" else line + " " + w
+			if line != "" and _placard_w(font, trial) > PLACARD_RECT.size.x - indent:
+				out.append([line, indent, false, false])
+				line = w
+				indent = hang
+			else:
+				line = trial
+		out.append([line, indent, false, false])
+	return out
+
+func _placard_w(font: Font, s: String) -> float:
+	return font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, PLACARD_SIZE).x
 
 func _draw_pencil() -> void:
 	if jetty == null or jetty.local_view != R01Sim.C_PANEL:
@@ -722,7 +724,6 @@ func apply_instantly() -> void:
 	withdraw_t = INF
 	loop_t = INF
 	pull_t = INF
-	flats_t = INF
 	figure_k = 1.0
 	note_open = false
 	if mixer:
@@ -757,8 +758,6 @@ func play_fx(id: String, e: Dictionary) -> void:
 			figure_k = 0.0 if motion else 1.0
 		"note":
 			note_open = true
-		"flats":
-			flats_t = 0.0
 		"cap_off":
 			pass   # the capsule close-up draws c_capsule_open from the state
 	redraw()
@@ -803,6 +802,8 @@ func label_for(id: String) -> String:
 	var s := _state()
 	match id:
 		"launch":
+			if s == "arrival" and jetty.drained():
+				return "Mud flats"
 			return "Launch" if s == "A" else ("Boat" if s == "boat" else "Open water")
 		"stump":
 			if R01Sim.rank(s) >= 3 or gsim().tide_done(1):

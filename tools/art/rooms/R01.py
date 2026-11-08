@@ -4,8 +4,9 @@
     python3 tools/art/rooms/R01.py            # every R01 asset
     python3 tools/art/rooms/R01.py boat line  # only the named stems
 
-Writes ONLY under assets/rooms/R01/, plus the P06 drained-flats stage plate at
-assets/stages/R01/p06_flats.png (a new file; nothing else under assets/stages/). Every output is 1448x1086 so overlays register by plain
+Writes ONLY under assets/rooms/R01/, plus two stage plates under assets/stages/R01/:
+p06_flats.png (P06's drained flats) and jetty_drained_r3.png (Tide II/III; new files,
+nothing else under assets/stages/). Every output is 1448x1086 so overlays register by plain
 alpha compositing at (0, 0): backdrops and close-up plates are opaque RGB, overlays are RGBA
 with true alpha. Flat front elevation, approved palette, navy ink contours, matte fills,
 low-amplitude paper grain (max +/-6/255). No text is baked: the view draws every label.
@@ -1870,6 +1871,68 @@ def c_panel_tally(kind):
     return cv.finish(name, "RGBA", r)
 
 
+# Each bell hangs under a painted pennant (the placard names pennants, not numbers): bell 1 the
+# contract's two-stripe pennant (as on the VERIFIED tally), bell 2 the broken-outline pennant
+# (as on the UNVERIFIED RETURN tally), bell 3 the wave (weather), bell 4 the cross (fire).
+# The sim's R01Sim.BELL_PENNANTS lists the same order.
+BELL_PENNANTS = ("matching", "broken", "wave", "cross")
+PENNANT_CARD = (728, 786)    # enamel cards over the old number discs, clear of the pulls' wires
+
+
+def paint_bell_glyph(cv, cx, kind):
+    s = 0.62
+    w, h = 100 * s, 56 * s
+    px, py = cx - w / 2 + 4, (PENNANT_CARD[0] + PENNANT_CARD[1]) / 2 - h / 2
+    cv.rect(px - 7, py - 6, px - 2, py + h + 8, fill=mix(TIMBER, INK, 0.3), ink=INK, w=1.4)   # staff
+    if kind == "matching":
+        paint_pennant(cv, px, py, STRIPES_REAL, s)
+    elif kind == "broken":
+        paint_pennant(cv, px, py, (), s, dashed=True)
+    else:
+        n = 14 * s
+        pts = [(px, py), (px + w, py), (px + w - n, py + h / 2), (px + w, py + h), (px, py + h)]
+        cv.fillpoly(pts, STORM)
+        if kind == "wave":
+            for dy in (-6, 6):
+                wave = [(px + 4 + i * 4, py + h / 2 + dy + 3 * math.sin(i * 1.1)) for i in range(12)]
+                cv.stroke(wave, 3.0, PAPER, jitter=0.0)
+        else:
+            cv.stroke([(px + 8, py + 5), (px + w - 18, py + h - 5)], 4.0, PAPER, jitter=0.0)
+            cv.stroke([(px + 8, py + h - 5), (px + w - 18, py + 5)], 4.0, PAPER, jitter=0.0)
+        cv.stroke(pts, 2.0, INK, closed=True)
+
+
+def c_panel_pennants():
+    """The four bells' pennant cards, laid over the number discs of c_mooring_panel (which stays
+    as approved). Each is a small enamel card hung from the placard's foot by two brass pins;
+    bell 2's card carries the same graphite grime as its pull."""
+    name = "c_panel_pennants"
+    r = random.Random(seed_of(f"{name}.png"))
+    cv = Cv(r)
+    y0, y1 = PENNANT_CARD
+    for cx, kind in zip(PULLS, BELL_PENNANTS):
+        sh = cv.layer()
+        sh.box(cx - 58 + 5, y0 + 5, cx + 58 + 5, y1 + 5, INK)
+        cv.comp(sh, 0.4)
+        cv.rect(cx - 58, y0, cx + 58, y1, fill=BRASS, ink=INK, w=2.2)
+        cv.rect(cx - 53, y0 + 5, cx + 53, y1 - 5, fill=PAPER, ink=INK, w=1.6)
+        foxing(cv, r, cx - 53, y0 + 5, cx + 53, y1 - 5, 8)
+        for px in (cx - 50, cx + 50):
+            cv.ell(px, y0 + 3, 3, 3, fill=mix(BRASS, INK, 0.2), ink=INK, w=1.0)
+        paint_bell_glyph(cv, cx, kind)
+    g = Image.new("L", (W * S, H * S), 0)
+    gd = ImageDraw.Draw(g)
+    gr = random.Random(seed_of("R01:pennant_grime"))
+    cx = PULLS[1]
+    for i in range(18):
+        x = gr.uniform(cx - 56, cx + 56)
+        y = gr.choice((gr.uniform(y0, y0 + 10), gr.uniform(y1 - 12, y1)))
+        gd.ellipse([(x - 7) * S, (y - 4) * S, (x + 7) * S, (y + 4) * S], fill=int(gr.uniform(60, 150)))
+    m = ImageChops.multiply(g.filter(ImageFilter.GaussianBlur(2.2 * S)), cv.im.getchannel("A"))
+    tint(cv, m, mix(SOOT, (70, 74, 80), 0.3), 0.7)
+    return cv.finish(name, "RGBA", r)
+
+
 def c_panel_pull_down():
     name = "c_panel_pull_down"
     r = random.Random(seed_of(f"{name}.png"))
@@ -2930,6 +2993,236 @@ def ov_tenth_piling():
     return cv.finish(name, "RGBA", r)
 
 
+# ------------------------------------------------- Tide II/III: the drained jetty
+DRAINED_PAL = dict(top=hexc("#27333c"), hor=hexc("#56626a"), sea=hexc("#2c4046"), wave=hexc("#6a7e84"))
+DRAINED_FEET = 1012          # the mud floor under the jetty: the pilings stand bare down to here
+DRIP_FLOOR = 948             # every drip on every piling stops at this one level, flat
+# The bell's water: a standing cylinder, top flush with the bell's lip, sides plumb.
+CYL = (700, 872, 102, 13)    # cx, top y, rx, ry (the top surface seen almost edge-on)
+# Under the hull (x912-1290, keel y870) the mud is untouched: no ripple, no scour, no shadow.
+BOAT_FOOT = (900, 980, 1300, 1044)
+
+
+def drained_rock(cv):
+    """R03's lighthouse_out treatment (B_window_t2) on R01's headland: the sea gone from its
+    foot, the rock stands up out of the mud with a weed line round its waist, and the lamp is
+    dead, its glass blacked, no glow."""
+    rock = mix(mix(STORM, COPPER, 0.35), DRAINED_PAL["hor"], 0.18)
+    rock_d = mix(rock, INK, 0.3)
+    foot = [(1052, 470), (1300, 470), (1312, 492), (1318, 516), (1040, 516), (1046, 492)]
+    cv.fillpoly(foot, rock_d)
+    for k in range(4):
+        y = 482 + k * 9
+        cv.stroke([(1052 + k * 2, y), (1306 - k * 2, y + 1)], 1.2, mix(rock_d, INK, 0.35), alpha=200)
+    cv.stroke(foot[1:] + [foot[0]], 2.0, INK, jitter=0.03)
+    sk = [(1376, 470), (1448, 470), (1448, 512), (1368, 512), (1372, 490)]
+    cv.fillpoly(sk, rock_d)
+    cv.stroke(sk, 1.8, INK, jitter=0.03)
+    # the weed line where the sea used to stand: a dark green band, ragged underneath
+    weed = (52, 70, 56)
+    for x0, x1 in ((1044, 1314), (1370, 1448)):
+        band = [(x0, 466), (x1, 466)]
+        x = x1
+        while x > x0:
+            band.append((x, 478 + 3 * math.sin(x * 0.21) + 2 * math.sin(x * 0.07)))
+            x -= 6
+        band.append((x0, 478))
+        cv.fillpoly(band, weed)
+        cv.stroke([(x0, 466), (x1, 466)], 1.2, INK, alpha=200, jitter=0.02)
+    land = mix(mix(STORM, COPPER, 0.45), DRAINED_PAL["hor"], 0.2)
+    cv.wk = 0.6
+    paint_headland(cv, land, 210, mix(COPPER, DRAINED_PAL["hor"], 0.3), random.Random(seed_of("R01:headland")))
+    cv.wk = 0.8
+    paint_lighthouse(cv, "off", 0.1, DRAINED_PAL["hor"])
+    cv.rect(1190, 318, 1230, 343, fill=(26, 34, 40), ink=INK, w=2.0)   # the lantern dead
+    for mx in (1200, 1210, 1220):
+        cv.stroke([(mx, 319), (mx, 342)], 1.3, INK, alpha=220)
+    cv.wk = 1.0
+
+
+def drained_piling(cv, r, cx):
+    """One bare piling foot below the old waterline: black wet oak, barnacles, a scoured ring
+    in the mud, and its drips, every one stopped flat at DRIP_FLOOR."""
+    x0, x1 = cx - 13, cx + 13
+    wet = mix(PILE, INK, 0.5)
+    cv.rect(x0, 864, x1, DRAINED_FEET, fill=wet, ink=None)
+    cv.box(x0 + 2, 864, x0 + 6, DRAINED_FEET, mix(wet, PAPER, 0.16))
+    cv.box(x1 - 6, 864, x1, DRAINED_FEET, mix(wet, INK, 0.35))
+    # the old growth band carries on down: weed to y902, then barnacles thinning out
+    gb = [(x0, 864), (x1, 864), (x1, 900)]
+    x = x1
+    while x > x0:
+        gb.append((x, 902 + r.uniform(-4, 4)))
+        x -= 4
+    gb.append((x0, 900))
+    cv.fillpoly(gb, (52, 66, 52))
+    for k in range(9):
+        cv.ell(x0 + 4 + (k * 7) % 19, 906 + k * 9 + r.uniform(-2, 2), 2.2, 1.6,
+               fill=mix(PAPER, SEAGLASS, 0.35), ink=None)
+    cv.rect(x0, 864, x1, DRAINED_FEET, fill=None, ink=INK, w=2.2)
+    # drips: pale wet runs down the oak, each ending in a flat tick at the same level
+    pale = mix(SEAGLASS, PAPER, 0.45)
+    for k, dx in enumerate((-7, -1, 6)):
+        top = 872 + r.uniform(0, 26)
+        x = cx + dx
+        cv.stroke([(x, top), (x, DRIP_FLOOR)], 1.6, pale, alpha=210, jitter=0.0)
+        cv.stroke([(x - 4, DRIP_FLOOR + 0.5), (x + 4, DRIP_FLOOR + 0.5)], 2.0, pale, jitter=0.0)
+        cv.stroke([(x - 4, DRIP_FLOOR + 2.4), (x + 4, DRIP_FLOOR + 2.4)], 1.0, INK, alpha=200, jitter=0.0)
+    # the scour round its foot
+    cv.ell(cx, DRAINED_FEET + 2, 26, 6, fill=mix(MUD_NEAR, INK, 0.35), ink=INK, w=1.4)
+    cv.box(x0, DRAINED_FEET - 6, x1, DRAINED_FEET + 1, wet)
+    cv.stroke([(x0, DRAINED_FEET), (x1, DRAINED_FEET)], 1.6, INK, jitter=0.0)
+
+
+def bell_cylinder(cv, r):
+    """The bell's water, alone on the flats: a plumb cylinder from the mud up to the bell's
+    lip, the top a dead-flat meniscus with a hard pale edge. Inside it the two pilings stand
+    submerged and still; the sea-glass water holds the sky."""
+    cx, top, rx, ry = CYL
+    x0, x1 = cx - rx, cx + rx
+    water = mix(DRAINED_PAL["sea"], SEAGLASS, 0.42)
+    deep = mix(DRAINED_PAL["sea"], INK, 0.25)
+    body = cv.layer()
+    body.hrows(top, DRAINED_FEET + ry, water, deep, x0=x0, x1=x1, ya=top, yb=DRAINED_FEET)
+    # the pilings inside: oak gone green, perfectly still, a weed band, no drips
+    for px in (680, 785):
+        pc = mix(mix(PILE, water, 0.5), INK, 0.1)
+        body.rect(px - 13, top, px + 13, DRAINED_FEET, fill=pc, ink=mix(INK, water, 0.3), w=1.6)
+        body.box(px - 13, top, px + 13, top + 30, mix((52, 66, 52), water, 0.35))
+    # three motes hung in it, not settling
+    for (mx, my) in ((626, 930), (734, 968), (762, 912)):
+        body.ell(mx, my, 2.0, 2.0, fill=mix(water, PAPER, 0.5), ink=None)
+    # the bell's lip line seen through the surface, dead level
+    body.stroke([(cx - 32, top + 1), (cx + 32, top + 1)], 1.2, mix(water, PAPER, 0.55), jitter=0.0)
+    m = Image.new("L", (W * S, H * S), 0)
+    md = ImageDraw.Draw(m)
+    md.rectangle([x0 * S, top * S, x1 * S, DRAINED_FEET * S], fill=255)
+    md.ellipse([x0 * S, (DRAINED_FEET - ry) * S, x1 * S, (DRAINED_FEET + ry) * S], fill=255)
+    md.ellipse([x0 * S, (top - ry) * S, x1 * S, (top + ry) * S], fill=255)
+    cv.comp(body, 0.9, mask=m)
+    # the top: flat sky-tone, a pale far edge and the meniscus, a ruled pale line at the near lip
+    lid = [(cx + rx * math.cos(math.radians(a)), top + ry * math.sin(math.radians(a))) for a in range(0, 361, 4)]
+    cv.fillpoly(lid, mix(DRAINED_PAL["hor"], SEAGLASS, 0.4))
+    far = [(cx + rx * math.cos(math.radians(a)), top + ry * math.sin(math.radians(a))) for a in range(180, 361, 3)]
+    near = [(cx + rx * math.cos(math.radians(a)), top + ry * math.sin(math.radians(a))) for a in range(0, 181, 3)]
+    cv.stroke(far, 1.6, mix(SEAGLASS, PAPER, 0.5), jitter=0.0)
+    cv.stroke(near, 3.0, mix(SEAGLASS, PAPER, 0.75), jitter=0.0)
+    cv.stroke([(x, y + 2.2) for x, y in near], 1.2, INK, alpha=220, jitter=0.0)
+    # plumb sides, ruled, and its foot on the mud
+    for x in (x0, x1):
+        cv.stroke([(x, top), (x, DRAINED_FEET)], 2.2, INK, jitter=0.0)
+    cv.stroke([(x0 + 3, top + 4), (x0 + 3, DRAINED_FEET - 4)], 1.2, mix(SEAGLASS, PAPER, 0.5), alpha=180,
+              jitter=0.0)
+    bot = [(cx + rx * math.cos(math.radians(a)), DRAINED_FEET + ry * math.sin(math.radians(a)))
+           for a in range(0, 181, 4)]
+    cv.stroke(bot, 2.0, INK, jitter=0.0)
+    cv.ell(cx, DRAINED_FEET + ry + 2, rx + 8, 4, fill=mix(MUD_NEAR, INK, 0.3), ink=None, alpha=160)
+
+
+def back_jetty_drained_r3():
+    """Tide II/III (tide >= 2, P09 not done): the sea is gone. Mud flats run dead level to the
+    horizon under a matte overcast, no strip of water anywhere; the causeway stands on its
+    bare foot; the headland's rock stands out of the mud with a weed line round its waist,
+    the lamp dead (R03's lighthouse_out treatment). The pilings are bare to the mud, and their
+    drips all stop flat at one height. Under the boat's mooring the mud is untouched: the boat
+    (its own overlay) rests level on nothing. One cylinder of water stands round the bell, its
+    top flush with the lip, its meniscus a hard flat edge.
+    Written to assets/stages/R01/jetty_drained_r3.png."""
+    name = "jetty_drained_r3"
+    pal = DRAINED_PAL
+    r = random.Random(seed_of(f"{name}.png"))
+    cv = Cv(r, bg=pal["top"])
+    storm_sky(cv, random.Random(seed_of("R01:storm_sky")), pal["top"], pal["hor"])
+    sheen = mix(pal["hor"], SEAGLASS, 0.25)
+    far = mix(MUD_FAR, sheen, 0.35)
+    cv.hrows(HORIZON, 700, far, mix(MUD_FAR, MUD_NEAR, 0.4), ya=HORIZON, yb=700)
+    cv.hrows(700, H, mix(MUD_FAR, MUD_NEAR, 0.4), MUD_NEAR, ya=700, yb=H)
+    lay_r = random.Random(seed_of("R01:drained"))
+    # the sky lying on the wet far flats: long level streaks, closer together toward the horizon
+    glaze = cv.layer()
+    y = HORIZON + 4
+    while y < 640:
+        t = (y - HORIZON) / float(640 - HORIZON)
+        x = lay_r.uniform(-200, 40)
+        while x < W:
+            ln = lay_r.uniform(80, 260) * (0.5 + 1.2 * t)
+            if lay_r.random() < 0.5:
+                glaze.box(x, y, x + ln, y + 1 + 2 * t, mix(sheen, PAPER, 0.2))
+            x += ln + lay_r.uniform(30, 160)
+        y += 3 + 12 * t
+    cv.comp(glaze, 0.45)
+    # ripple marks, wider apart toward the viewer, none under the boat and none in the water
+    bx0, by0, bx1, by1 = BOAT_FOOT
+    cx, top, rx, ry = CYL
+    rip = cv.layer()
+    y = 520
+    while y < H:
+        t = (y - HORIZON) / float(H - HORIZON)
+        x = lay_r.uniform(-30, 10)
+        while x < W:
+            ln = lay_r.uniform(14, 44) * (0.6 + 1.4 * t)
+            inside = (bx0 < x + ln / 2 < bx1 and by0 - 120 < y) or (cx - rx - 6 < x + ln / 2 < cx + rx + 6 and y > top)
+            if lay_r.random() < 0.6 and not inside:
+                n = 8
+                pts = [(x + ln * i / n, y + (0.5 + 2.2 * t) * math.sin(math.pi * i / n * 2)) for i in range(n + 1)]
+                rip.stroke(pts, 0.8 + 1.4 * t, mix(MUD_NEAR, INK, 0.55), alpha=int(255 * (0.3 + 0.4 * t)),
+                           jitter=0.05)
+            x += ln + lay_r.uniform(10, 34) * (0.6 + t)
+        y += 5 + 22 * t
+    cv.comp(rip)
+    # under the boat, where its shadow and its keel mark should be: the hull's own plan laid
+    # flat on the mud, smooth and paler than the mud round it, ruled at the edge. Untouched.
+    foot = [(bx0 + 12, by0 + 18), (bx0 + 40, by0), (bx1 - 10, by0), (bx1 - 10, by1), (bx0 + 70, by1)]
+    cv.fillpoly(foot, mix(mix(MUD_NEAR, sheen, 0.45), PAPER, 0.06))
+    cv.stroke(foot, 1.4, mix(MUD_NEAR, INK, 0.5), closed=True, alpha=200, jitter=0.0)
+    # the horizon: the flats meet the sky on one hard level line
+    cv.stroke([(0, HORIZON), (W, HORIZON)], 2.2, INK, alpha=220, jitter=0.02)
+    # the causeway on its bare foot, the ladder in its middle gap going on into the mud
+    cv.box(430, 491, 1040, 498, mix(MUD_FAR, INK, 0.4))
+    for g0, g1 in CAUSEWAY_GAPS:
+        cv.box(g0, 491, g1, 498, mix(MUD_FAR, INK, 0.15))
+    props = cv.layer()
+    props.wk = 0.6
+    paint_causeway(props, 0.2, pal["hor"], random.Random(seed_of("R01:causeway")))
+    lift(props, 1.15)
+    cv.comp(props)
+    lx0, lx1 = 756, 774
+    cv.box(lx0 + 1, 494, lx1 - 1, 502, (20, 24, 26))
+    for lx in (lx0, lx1):
+        cv.stroke([(lx, 474), (lx, 502)], 1.4, INK, jitter=0.0)
+    for ly in (478, 484, 490, 496):
+        cv.stroke([(lx0, ly), (lx1, ly)], 1.0, INK, jitter=0.0)
+    drained_rock(cv)
+    # the pilings, bare to the mud (the two in the bell's water are drawn inside it)
+    cv.wk = 1.35
+    pr = random.Random(seed_of("R01:drained:pilings"))
+    for px in PILINGS:
+        if px not in (680, 785):
+            drained_piling(cv, pr, px)
+    bell_cylinder(cv, pr)
+    # the tenth piling (its own overlay above y870) carries on down dry: pale oak to the mud,
+    # no weed, no barnacles, no drips. Nothing has ever been wet on it.
+    tx0, tx1 = STUMP_X, STUMP_X + 26
+    dry = mix(PILE, PAPER, 0.22)
+    cv.rect(tx0, 866, tx1, DRAINED_FEET, fill=dry, ink=None)
+    wood_grain(cv, pr, tx0, 866, tx1, DRAINED_FEET, dry, lines=4, knots=True, alpha=0.5)
+    cv.box(tx0, 866, tx0 + 5, DRAINED_FEET, mix(dry, PAPER, 0.3))
+    cv.box(tx1 - 6, 866, tx1, DRAINED_FEET, mix(dry, INK, 0.25))
+    cv.rect(tx0, 866, tx1, DRAINED_FEET, fill=None, ink=INK, w=2.2)
+    cv.stroke([(tx0 - 8, DRAINED_FEET + 1), (tx1 + 8, DRAINED_FEET + 1)], 1.6, INK, jitter=0.0)
+    cv.wk = 1.0
+    # a buoy stranded on its side, as in R03's window
+    bx, by = 520, 1046
+    cv.ell(bx, by + 10, 40, 6, fill=mix(MUD_NEAR, INK, 0.35), ink=None)
+    cv.ell(bx, by, 28, 18, fill=(122, 52, 40), ink=INK, w=2.2)
+    cv.ell(bx - 8, by - 6, 10, 5, fill=mix((122, 52, 40), PAPER, 0.25), ink=None)
+    cv.rect(bx + 16, by - 8, bx + 46, by + 8, fill=(40, 50, 60), ink=INK, w=2.0)
+    return cv.finish(name, "RGB", r, dest=STAGE_OUT)
+
+
+STAGE_PLATES = ("p06_flats", "jetty_drained_r3")
+
+
 # =================================================================== registry
 def _bd(name, *a, **k):
     return lambda: backdrop(name, *a, **k)
@@ -2954,6 +3247,7 @@ ASSETS = {
     "back_b1_sea": lambda: back_storm_sea("back_b1_sea", STORM_B1, 0),
     "back_b1_mud": back_b1_mud,
     "p06_flats": back_p06_flats,
+    "jetty_drained_r3": back_jetty_drained_r3,
     "back_b2_high": lambda: back_storm_sea("back_b2_high", STORM_B2, 1400),
     "high_water": ov_high_water,
     "tenth_piling": ov_tenth_piling,
@@ -2996,6 +3290,7 @@ ASSETS = {
     "c_panel_tally_v": lambda: c_panel_tally("v"),
     "c_panel_tally_u": lambda: c_panel_tally("u"),
     "c_panel_pull_down": c_panel_pull_down,
+    "c_panel_pennants": c_panel_pennants,
     "c_boat_window": c_boat_window,
     "c_boat_window_figure": lambda: c_boat_window_figure(False),
     "c_boat_window_figure_turned": lambda: c_boat_window_figure(True),
@@ -3016,7 +3311,7 @@ def main(argv):
         raise SystemExit(f"unknown R01 assets: {unknown}")
     for n in names:
         ASSETS[n]()
-        print(f"  {'stages/' if n == 'p06_flats' else ''}R01/{n}.png")
+        print(f"  {'stages/' if n in STAGE_PLATES else ''}R01/{n}.png")
 
 
 if __name__ == "__main__":

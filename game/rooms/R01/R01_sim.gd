@@ -8,9 +8,13 @@ extends RoomSim
 ## (P05 done, P06 not: the three-stripe boat waits at the jetty), "s1".."s7" (after P06,
 ## one per weather band) and "A" (ending A, the real launch). Every hotspot answers in
 ## every state. P06: look at the boat through the lens (launch_mismatch), then on the
-## mooring panel set UNVERIFIED RETURN and ring bell 2. Wrong commits never consume,
+## mooring panel set UNVERIFIED RETURN and ring the bell under the broken pennant (bell 2;
+## the placard names pennants, not numbers: BELL_PENNANTS). Wrong commits never consume,
 ## take or lock anything. The reward is the capsule that rises up the mooring line: the
 ## kitchen service key and Venn's note.
+##
+## From Tide II until P09 (drained()) the sea is out: mud to the horizon, the pilings bare,
+## one standing cylinder of water round the bell, and the boat level on nothing.
 
 const ID := "R01"
 const TITLE := "Jetty"
@@ -34,7 +38,7 @@ const WINDOW_CONTROLS := ["peer"]
 const CAPSULE_CONTROLS := ["cap", "key", "note"]
 
 const TALLIES := ["", "verified", "unverified"]
-const NOTICE_IDS := ["arrival", "boat", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "A"]
+const NOTICE_IDS := ["arrival", "boat", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "A", "drained"]
 const SAVED_BOOLS := ["p06_complete", "gangway_loop", "capsule_opened", "key_taken", "note_read"]
 
 # --- what the view draws (tests read these) ---------------------------------------------
@@ -43,11 +47,15 @@ const TALLY_LABELS := {"verified": "VERIFIED", "unverified": "UNVERIFIED RETURN"
 const PLACARD_LINES := [
 	"MOORING PROCEDURE",
 	"1. Compare the vessel's pennant with the contract.",
-	"2. Matching vessel: set VERIFIED. Ring station bell 1. Board.",
-	"3. Mismatched vessel: set UNVERIFIED RETURN. Ring station bell 2. Do not board.",
-	"4. Bells 3 and 4: weather and fire only.",
+	"2. Matching: set VERIFIED, ring the bell under the matching pennant, board.",
+	"3. Mismatched: set UNVERIFIED RETURN, ring the bell under the broken pennant, do not board.",
+	"4. The wave and the cross: weather and fire only.",
 	"By order of the Board, 1919.",
 ]
+## The pennant painted over each bell, left to right (tools/art/rooms/R01.py BELL_PENNANTS):
+## the contract's two stripes (as on the VERIFIED tally), the broken outline (as on the
+## UNVERIFIED RETURN tally), the wave (weather), the cross (fire).
+const BELL_PENNANTS := ["matching", "broken", "wave", "cross"]
 const PLACARD_PENCIL := "It comes when called. Not only then.  E.V."
 const PLACARD_ADA := "It came when called.  A.M."
 const NOTE_TEXT := "If it brought you your own room, do not give it your address."
@@ -55,6 +63,8 @@ const NOTE_SIGN := "E.V."
 const KEY_TAG := "SERVICE"
 ## After Tide I (tide_done(1)) until band 3 sees it sawn down to a stump.
 const PILINGS_TEN := "Ten pilings now. I counted eight from the launch."
+## While the sea is out (drained()).
+const PILINGS_DRAINED := "Ten pilings, bare to the mud. They drip. Every drip stops at the same height, flat."
 
 const OBSERVATIONS := {
 	"bell": "The mooring bell's lip is under the water. The water round it doesn't move, and it makes no ripple.",
@@ -63,7 +73,9 @@ const OBSERVATIONS := {
 	"pilings": "Nine pilings under the jetty. From the launch I counted eight.",
 	"pilings_ten": "Ten pilings now: the tenth stands past the end of the jetty, holding nothing up. I counted eight from the launch.",
 	"tenth_piling": "The tenth piling is dry, pale oak: no weed line, no barnacles, no reflection. Nothing has ever stood on it.",
-	"sea_out": "After the boat went, the sea went out after it: mud flats to the horizon. The water round the bell stayed, standing level where the sea had been.",
+	"sea_out": "The sea has gone out from the jetty: mud flats to the horizon. The water round the bell stayed, a standing cylinder, level with the bell's lip where the sea had been.",
+	"drips": "The pilings stand bare to the mud. They drip, and every drip stops at the same height, flat, as if it met water that isn't there.",
+	"line_mud": "The mooring line runs straight down into the mud and stays taut. Something is still tied to it, below.",
 	"tenth_stump": "A tenth piling stump stands past the end of the jetty. Its reflection comes after the water moves, like all of them now.",
 	"lighthouse": "The lighthouse on the headland. Nobody is posted there. At dusk its lamp was dark.",
 	"launch_left": "The launch that brought me is just past the lighthouse. Every time I look, it is exactly there.",
@@ -71,9 +83,9 @@ const OBSERVATIONS := {
 	"lighthouse_behind": "The lighthouse stands behind the station, above the roof, where there is no land.",
 	"causeway": "The old service causeway, broken in three places. Nobody is walking out on that.",
 	"causeway_ladder": "Through the lens: an iron ladder goes down into the causeway's middle gap, and on below the water.",
-	"panel": "Mooring panel placard: compare the vessel's pennant with the contract. Matching: set VERIFIED, ring bell 1, board. Mismatched: set UNVERIFIED RETURN, ring bell 2, do not board. Bells 3 and 4 are weather and fire. In pencil, Venn: 'It comes when called. Not only then.'",
+	"panel": "Mooring panel placard: compare the vessel's pennant with the contract. Matching: set VERIFIED, ring the bell under the matching pennant, board. Mismatched: set UNVERIFIED RETURN, ring the bell under the broken pennant, do not board. The wave and the cross are weather and fire. Each bell hangs under its painted pennant; the broken one is the outline on the UNVERIFIED tally. In pencil, Venn: 'It comes when called. Not only then.'",
 	"placard_ada": "Under Venn's pencil line on the placard, a second line in my handwriting: 'It came when called. A.M.' I didn't write it.",
-	"boat": "A boat at the jetty. The water moves. The boat doesn't. It has no reflection.",
+	"boat": "A boat at the jetty, and no water under it. It sits level on nothing.",
 	"launch_mismatch": "The boat has a three-stripe pennant. The contract's launch has two. Through its window: the chart room, my chart on the table.",
 	"window_figure": "A second look through the lens: someone is standing at my chart table in the boat's window, writing on my chart, right-handed.",
 	"window_figure_turned": "A second look through the lens: someone is standing at my chart table in the boat's window. They had turned round. They were looking out at me.",
@@ -92,7 +104,7 @@ const OBSERVATIONS := {
 ## The first-time arrival hold per jetty state (rooms.md "Notice"), and what it notes.
 const NOTICE := {
 	"arrival": "The bell's lip is under the water. The water doesn't move round it.",
-	"boat": "A boat at the jetty. The water moves. The boat doesn't. It has no reflection.",
+	"boat": "A boat at the jetty, and no water under it. It sits level on nothing.",
 	"s1": "The capsule's still on the line.",
 	"s2": "I can't see the end of the jetty from here.",
 	"s3": "The reflections are late. They move after the water does.",
@@ -101,9 +113,11 @@ const NOTICE := {
 	"s6": "The lighthouse is behind the station.",
 	"s7": "There's no sea past the jetty. There's a surface, standing up.",
 	"A": "Grey water. Gulls. A launch with two stripes.",
+	## Not a jetty state: the first arrival in Tide II, when the sea is out (drained()).
+	"drained": "The sea's gone out. All of it, to the horizon. Except round the bell.",
 }
 const NOTICE_OBS := {
-	"boat": ["boat"], "s2": ["far_end"], "s3": ["late_water", "tenth_stump"],
+	"boat": ["boat", "sea_out"], "drained": ["sea_out"], "s2": ["far_end"], "s3": ["late_water", "tenth_stump"],
 	"s4": ["horizon_tilt"], "s5": ["silent_rain", "lighthouse_gone"],
 	"s6": ["lighthouse_behind", "bell_note"], "s7": ["surface"], "A": ["real_launch"],
 }
@@ -118,7 +132,7 @@ const OBJECTIVES := {
 }
 ## P06's evidence tier: what the notebook and the placard already say, short of the answer.
 const EVIDENCE_INSPECT := "The contract's launch flies two stripes; this one flies three. And I can't certify what I haven't looked into."
-const EVIDENCE_SIGNAL := "My notebook: three stripes on its pennant, the contract's launch has two. The placard's third rule is for a mismatched vessel."
+const EVIDENCE_SIGNAL := "My notebook: three stripes on its pennant, the contract's launch has two. The placard's third rule is for a mismatched vessel, and each bell hangs under a pennant."
 const HINTS := {
 	"explore": [
 		"Nothing out here needs me yet. Something may come in later.",
@@ -130,13 +144,13 @@ const HINTS := {
 		"The boat at the jetty doesn't match something you've read.",
 		"Compare its pennant with the launch on the contract. Its lit window wants a closer look.",
 		EVIDENCE_INSPECT,
-		"Use the inspection lens on the boat's window. Then set UNVERIFIED RETURN on the mooring panel and ring bell 2.",
+		"Use the inspection lens on the boat's window. Then set UNVERIFIED RETURN on the mooring panel and ring the bell under the broken pennant, second from the left.",
 	],
 	"signal": [
 		"The boat at the jetty doesn't match something you've read.",
 		"Compare its pennant with the launch on the contract, then follow the mooring panel's placard.",
 		EVIDENCE_SIGNAL,
-		"Set UNVERIFIED RETURN on the mooring panel and ring bell 2.",
+		"Set UNVERIFIED RETURN on the mooring panel and ring the bell under the broken pennant, second from the left.",
 	],
 	"capsule": [
 		"Something came up the mooring line.",
@@ -161,10 +175,12 @@ const ITEMS := {
 
 const KEY_LINE := "That's for the office's service door, not anything out here."
 const VERIFIED_MISS := "The pennant's wrong. The contract boat has two stripes. This one has three."
-const BELL_MISS := "That's not the bell for a mismatched vessel. The placard says two."
+const BELL_MISS := "That's not the bell for a mismatched vessel. The placard says the broken pennant."
 const REFUSAL := "I haven't looked at it properly. 'Do not certify an observation you have not made.'"
 const NO_TALLY := "The placard wants a tally set before a bell."
 const CAP_ON := "The cap's still on."
+const CAUSEWAY_MUD := "The causeway stands on bare mud now. A ladder goes down into the middle gap, into the mud."
+const SEA_OUT_BELL := "The sea's gone out to the horizon. The water round the bell hasn't. It stands there in a column, level with the lip, on its own."
 const NOTE_QUOTE := "\"If it brought you your own room, do not give it your address.\""
 
 func initial_state() -> Dictionary:
@@ -184,6 +200,11 @@ func jetty_state() -> String:
 	if not state.p06_complete:
 		return "boat" if game.flag("P05") else "arrival"
 	return "s%d" % maxi(1, game.weather_band())
+
+## Tide II until P09: the sea is out from the jetty (assets/stages/R01/jetty_drained_r3.png).
+## Weather from progress only: the tide and the P09 flag, never a clock.
+func drained() -> bool:
+	return game.tide() >= 2 and not game.flag("P09") and jetty_state() in ["arrival", "boat", "s1"]
 
 func boat_present() -> bool:
 	return jetty_state() == "boat"
@@ -224,6 +245,14 @@ func arrive(ev: Array, first: bool) -> void:
 			_observe(o)
 		ev.append({"type": "fx", "id": "notice", "state": s})
 		_say(ev, NOTICE[s], 1.5, true)
+		if drained() and s == "boat":
+			state.noticed.append("drained")   # the boat's notice says it: no water under it
+	elif drained() and not "drained" in state.noticed:
+		state.noticed.append("drained")
+		for o in NOTICE_OBS["drained"]:
+			_observe(o)
+		ev.append({"type": "fx", "id": "notice", "state": "drained"})
+		_say(ev, NOTICE["drained"], 1.5, true)
 	if s == "s6":
 		_sfx(ev, "bell_low", 0.8)
 
@@ -261,7 +290,7 @@ func _room(action: String, ev: Array) -> void:
 			if state.p06_complete:
 				_say(ev, "UNVERIFIED RETURN, still set.")
 			elif first:
-				_say(ev, "The mooring panel. A placard, two tallies, four bells.")
+				_say(ev, "The mooring panel. A placard, two tallies, four bells, a pennant over each.")
 			else:
 				_say(ev, "The mooring panel.")
 			if game.weather_band() >= 5 and not has_seen("placard_ada"):
@@ -271,7 +300,11 @@ func _room(action: String, ev: Array) -> void:
 		"launch": _launch(s, ev)
 		"gangway": _gangway(s, ev)
 		"pilings":
-			if n < 3 and game.tide_done(1):
+			if drained():
+				_observe("pilings_ten")
+				_observe("drips")
+				_say(ev, PILINGS_DRAINED)
+			elif n < 3 and game.tide_done(1):
 				_observe("pilings_ten")
 				_say(ev, PILINGS_TEN)
 			elif n < 3:
@@ -310,17 +343,17 @@ func _bell(s: String, ev: Array) -> void:
 	match s:
 		"s1":
 			_observe("bell")
-			if not has_seen("sea_out"):
-				# The view lays the drained flats (p06_flats) from this line for the rest of
-				# the tide: it reads has_seen("sea_out"), so a revisit or a load shows them too.
-				_fx(ev, "flats")
 			_observe("sea_out")
-			_say(ev, "The sea's gone out to the horizon. The water round the bell hasn't. It stands there, level, on its own.")
+			_say(ev, SEA_OUT_BELL)
 		"s2":
 			_observe("bell")
 			_say(ev, "The sea's back, higher than it was. Round the bell it keeps to the lip, exactly.")
 		"arrival", "boat":
-			if has_seen("bell"):
+			if drained() and not has_seen("sea_out"):
+				_observe("bell")
+				_observe("sea_out")
+				_say(ev, SEA_OUT_BELL)
+			elif has_seen("bell"):
 				_say(ev, "It doesn't swing. The water holds it.")
 			else:
 				_observe("bell")
@@ -339,6 +372,10 @@ func _bell(s: String, ev: Array) -> void:
 
 func _line(ev: Array) -> void:
 	if not state.p06_complete:
+		if drained():
+			_observe("line_mud")
+			_say(ev, "The line goes straight down into the mud, taut. Something down there is still holding it.")
+			return
 		_observe("line")
 		_say(ev, "The line goes straight down into the Sound. Something's tied to it, far down. The water shows no line.")
 		return
@@ -353,7 +390,8 @@ func _line(ev: Array) -> void:
 func _launch(s: String, ev: Array) -> void:
 	match s:
 		"arrival":
-			_say(ev, "Open water. Nothing's moored here.")
+			_say(ev, "Mud to the horizon. Nothing's moored here." if drained()
+				else "Open water. Nothing's moored here.")
 		"boat":
 			if has_seen("launch_mismatch"):
 				_say(ev, "It's waiting for an answer. The panel's on the shed wall.")
@@ -365,14 +403,14 @@ func _launch(s: String, ev: Array) -> void:
 				if game.has_seen("R02", "contract"):
 					_say(ev, "Three stripes on its pennant. The contract's launch has two.")
 				else:
-					_say(ev, "Three stripes on its pennant. The water moves under it. It doesn't.")
+					_say(ev, "Three stripes on its pennant. No water under it, and it sits level anyway.")
 			elif look == 1:
-				_say(ev, "No reflection under it. The pilings have theirs.")
+				_say(ev, "Its keel's clear of the mud. Nothing under it. Not even a shadow.")
 			else:
 				_say(ev, "The cabin window's lit. Too far to make out without a lens.")
 		"s1":
 			_observe("sea_out")
-			_say(ev, "Mud where it sat. Not a keel mark in it. The sea went out after it.")
+			_say(ev, "Mud where it sat. Not a keel mark in it. It never touched the ground.")
 		"s7":
 			_say(ev, "Where it sat, the water stops. Then the surface.")
 		"A":
@@ -431,7 +469,7 @@ func _lighthouse(s: String, ev: Array) -> void:
 				_say(ev, "The launch is exactly where it was. It hasn't got any further.")
 		"boat":
 			_observe("lighthouse")
-			_say(ev, "The lighthouse. Dark. Nobody's posted there to light it.")
+			_say(ev, "The lighthouse. Dark. Its rock stands up out of the mud, weed round its waist.")
 		"s1", "s2":
 			_observe("lighthouse")
 			_say(ev, "The lighthouse. Dark again. The storm's on it and nobody's posted there.")
@@ -454,10 +492,13 @@ func _causeway(s: String, ev: Array) -> void:
 	match s:
 		"arrival", "boat":
 			_observe("causeway")
-			_say(ev, "The old service causeway, broken in three places. Nobody's walking out on that.")
+			if drained():
+				_say(ev, CAUSEWAY_MUD)
+			else:
+				_say(ev, "The old service causeway, broken in three places. Nobody's walking out on that.")
 		"s1":
 			_observe("causeway")
-			_say(ev, "The causeway stands on bare mud now. A ladder goes down into the middle gap, into the mud.")
+			_say(ev, CAUSEWAY_MUD)
 		"s2", "s3":
 			_say(ev, "Rain over the causeway. The gaps look wider.")
 		"s4":
@@ -487,7 +528,7 @@ func _panel(action: String, ev: Array) -> void:
 				_: _say(ev, "Tally cleared.")
 		"placard":
 			_observe("panel")
-			_say(ev, "'Mismatched vessel: set UNVERIFIED RETURN. Ring station bell 2. Do not board.'")
+			_say(ev, "'Mismatched: set UNVERIFIED RETURN, ring the bell under the broken pennant, do not board.'")
 		_:
 			_ring(int(action.substr(5)), ev)
 
@@ -530,19 +571,21 @@ func _ring(n: int, ev: Array) -> void:
 func _miss() -> void:
 	state.misses = mini(int(state.misses) + 1, 99)
 
-## UNVERIFIED RETURN + bell 2, with the boat looked at through the lens.
+## UNVERIFIED RETURN + the bell under the broken pennant, with the boat looked at through the lens.
 func _commit(ev: Array) -> void:
 	state.p06_complete = true
 	if not "boat" in state.noticed:
 		state.noticed.append("boat")
 	if not "s1" in state.noticed:
 		state.noticed.append("s1")
+	if not "drained" in state.noticed:
+		state.noticed.append("drained")
 	local_view = "room"
 	_sfx(ev, "bell_pull", 0.0)
 	game.solve("P06", ev)
 	_sfx(ev, "station_bell_2_dead", 0.15)
 	_fx(ev, "withdraw")
-	_say(ev, "Bell two.", 0.4, true)
+	_say(ev, "The broken pennant's bell.", 0.4, true)
 	_say(ev, "Nothing answers it. Not even the water.", 2.4, true)
 	_say(ev, "It's going. Stern first. Its bow never leaves the station.", 5.2, true)
 	_say(ev, "Someone's standing at the chart table in its window." if state.lens_looks < 2
@@ -790,7 +833,7 @@ func debug_prepare(t: int) -> void:
 	state.capsule_opened = true
 	state.key_taken = true
 	state.note_read = true
-	state.noticed = ["arrival", "boat", "s1"]
+	state.noticed = ["arrival", "boat", "s1", "drained"]
 	for o in ["boat", "panel", "launch_mismatch", "withdrew", "venn_address_note"]:
 		_observe(o)
 	# From tide IV the key has been spent at the office's service door.
