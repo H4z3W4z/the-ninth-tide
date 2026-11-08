@@ -14,9 +14,13 @@ const RV := preload("res://game/rooms/R10/R10_view.gd")
 ## Reference tables written from the cards, independent of R10Sim's constants.
 const REF_SOLUTION := ["B", "D", "A", "C"]
 const REF_FIRST := {"B": 1, "D": 5, "A": 9, "C": 13}
-const REF_LAMPS := {"B": 8, "D": 6, "A": 3, "C": 0}
-const REF_WORD := {8: "Eight", 6: "Six", 3: "Three", 0: "None"}
-const REF_WORD_LC := {8: "eight", 6: "six", 3: "three", 0: "none"}
+const REF_LAMPS := {"B": 8, "D": 6, "A": 3, "C": 1}
+const REF_WORD := {8: "Eight", 6: "Six", 3: "Three", 1: "One"}
+const REF_WORD_LC := {8: "eight", 6: "six", 3: "three", 1: "one"}
+## P18: the chair whose lamp stays lit longest (and the chair by the door), and the session date.
+const REF_CHAIR := 6
+const CHAIR_NO := "CHAIR DOES NOT CORRESPOND."
+const DATE_NO := "DATE DOES NOT CORRESPOND."
 const REF_COUNT := {2: "two", 3: "three"}
 ## P18's reveal chain (the owner's three lines).
 const P18_CHAIN := ["The folders shut on her, all three.", "Behind me, inside the shut STAFF drawer, every card moves at once.",
@@ -24,11 +28,6 @@ const P18_CHAIN := ["The folders shut on her, all three.", "Behind me, inside th
 const RECS := ["nora_frame", "nora_spatial_strip", "nora_register_card"]
 const REF_HOME := {"nora_frame": "BODY", "nora_spatial_strip": "PLACE", "nora_register_card": "NAME"}
 const FOLDER_IDS := {"BODY": "fold_body", "PLACE": "fold_place", "NAME": "fold_name"}
-const REF_MISMATCH := {
-	"nora_frame/PLACE": "A breath isn't a bearing.", "nora_frame/NAME": "A breath isn't a name.",
-	"nora_spatial_strip/BODY": "A bearing isn't a body.", "nora_spatial_strip/NAME": "A bearing isn't a name.",
-	"nora_register_card/BODY": "A name isn't a body.", "nora_register_card/PLACE": "A name isn't a place.",
-}
 const SHUTTER := "A brass shutter over the terminals. A hollow circle on it: OBSERVER. No keyhole this side. It opens from the other side."
 const CLIP_NEEDS := "The edge needs clamping flat. My chart clips would hold it."
 const CLIP_ONLY := "Only the chart clips will hold the edge."
@@ -58,6 +57,7 @@ func run_tests() -> void:
 	test_p16_save_load()
 	test_p18_needs_session()
 	test_p18_exhaustive()
+	test_p18_self_filing()
 	test_p18_success()
 	test_p18_returns()
 	test_p18_wheels()
@@ -168,9 +168,15 @@ func set_date(g: GameSim, d: String) -> void:
 		"18 OCT 1931":
 			g.dispatch("day_up")
 
+## Her records on the tray: one record laid there files all three.
 func file_all_correct(g: GameSim) -> void:
-	for rec in RECS:
-		use(g, rec, FOLDER_IDS[REF_HOME[rec]])
+	use(g, "nora_frame", "cmp_tray")
+
+## Turn the CHAIR dial from 1 to `n`.
+func set_chair(g: GameSim, n: int) -> void:
+	var r := r10(g)
+	while int(r.state.chair) != n:
+		g.dispatch("chair_up")
 
 func inv_count(g: GameSim, item: String) -> int:
 	return g.state.inventory.count(item)
@@ -280,8 +286,8 @@ func test_p16_orders() -> void:
 	check(clipped == 1, "only one order clips")
 	# Spot checks against the card's wording.
 	check(expected_break(["B", "A", "D", "C"])[1] == "Frame 4, then frame 9. Eight, three: two lamps went out between them that I haven't got.", "B then A")
-	check(expected_break(["B", "D", "C", "A"])[1] == "Frame 8, then frame 13. Six, none: three lamps went out between them that I haven't got.", "D then C (the card's frame 8, then 13)")
-	check(expected_break(["C", "B", "D", "A"])[1] == "Frame 16, then frame 1. None, eight: lamps don't come back on.", "C then B")
+	check(expected_break(["B", "D", "C", "A"])[1] == "Frame 8, then frame 13. Six, one: three lamps went out between them that I haven't got.", "D then C (the card's frame 8, then 13)")
+	check(expected_break(["C", "B", "D", "A"])[1] == "Frame 16, then frame 1. One, eight: lamps don't come back on.", "C then B")
 
 func test_p16_incomplete() -> void:
 	for n in 4:
@@ -344,6 +350,10 @@ func test_p16_success() -> void:
 	check(r.has_seen("contact_sheet_1927"), "contact_sheet_1927 noted")
 	var obs: String = R10Sim.OBSERVATIONS.contact_sheet_1927
 	check("18 October 1927" in obs and "Sync: bell." in obs, "the observation carries the date and the sync")
+	check("'2 frames after the bell'" in obs and "'2 frames after the bell'" in str(R10Sim.ITEMS.contact_sheet.desc),
+		"the film edge's mark for P17 is in the notebook and on the sheet")
+	var vsrc: String = (load(VIEW_PATH) as Script).source_code
+	check(vsrc.find("\"2 frames after the bell\"") >= 0, "the view draws the mark on the film edge")
 	check(has_ev(ev, "sfx", "cover_slide") and has_ev(ev, "fx", "cover_off") and has_ev(ev, "fx", "last_turn")
 		and has_ev(ev, "fx", "reflection") and has_ev(ev, "sfx", "sheet_take"), "reveal events")
 	var lines := says(ev).split(" | ")
@@ -458,6 +468,7 @@ func test_p18_needs_session() -> void:
 	var r := r10(g)
 	play(g, ["to_catalogue", "folders"])
 	file_all_correct(g)
+	set_chair(g, REF_CHAIR)
 	set_date(g, "18 OCT 1927")
 	var ev := g.dispatch("compare")
 	check(says(ev) == "It wants a session. I haven't found one yet." and r.strip_text == "NO SESSION ON RECORD"
@@ -465,87 +476,93 @@ func test_p18_needs_session() -> void:
 	check(not g.flag("P18") and not r.state.p18_complete, "no P18")
 	check(r.state.filed.BODY == "nora_frame", "records stay filed")
 
-func _mappings() -> Array:
-	var out := []
-	var opts := ["", "BODY", "PLACE", "NAME"]
-	for a in opts:
-		for b in opts:
-			for c in opts:
-				var m := [a, b, c]
-				var used := []
-				var ok := true
-				for f in m:
-					if f != "":
-						ok = ok and not f in used
-						used.append(f)
-				if ok:
-					out.append(m)
-	return out
-
+## Every arrangement: subject on the tray or not, chairs 1-8, three dates. Only her records with
+## chair 6 on 18 OCT 1927 solve; chair and date are reported separately; nothing is consumed.
 func test_p18_exhaustive() -> void:
-	var maps := _mappings()
-	check(maps.size() == 34, "34 injective filings (got %d)" % maps.size())
 	var solved := 0
 	var base := folders_game()
 	var base_d := base.to_dict()
 	var base_view: String = r10(base).local_view
-	for m in maps:
-		for date in ["17 OCT 1931", "18 OCT 1927", "18 OCT 1931"]:
-			var g := GameSim.new()
-			g.from_dict(base_d.duplicate(true))
-			var r := r10(g)
-			r.local_view = base_view
-			var tag := "%s @ %s" % [m, date]
-			for i in 3:
-				if m[i] != "":
-					use(g, RECS[i], FOLDER_IDS[m[i]])
-			set_date(g, date)
-			check(r.date_text() == date, "%s: dial reads %s" % [tag, r.date_text()])
-			var ev := g.dispatch("compare")
-			check(has_ev(ev, "sfx", "compare_key") and ev[0].get("id", "") == "compare_key", "%s: compare key first" % tag)
-			var full: bool = not "" in m
-			var right: bool = m == ["BODY", "PLACE", "NAME"]
-			if right and date == "18 OCT 1927":
-				check(g.flag("P18") and r.state.p18_complete, "%s solves" % tag)
-				solved += 1
-			else:
-				check(not g.flag("P18") and not r.state.p18_complete, "%s: no P18" % tag)
-				check(not g.has_item("venn_correspondence"), "%s: no letters" % tag)
-				if not full:
-					check(says(ev) == "Three folders. One record each." and r.strip_text == "INCOMPLETE: THREE RECORDS REQUIRED", "%s: incomplete (got %s)" % [tag, says(ev)])
-				elif not right:
-					var first := ""
-					var wrong := []
-					for f in ["BODY", "PLACE", "NAME"]:
-						var rec: String = RECS[m.find(f)]
-						if REF_HOME[rec] != f:
-							if first == "":
-								first = REF_MISMATCH["%s/%s" % [rec, f]]
-							wrong.append(rec)
-					check(says(ev) == first + " | The tray has them." and r.strip_text == "CATEGORY DOES NOT CORRESPOND"
-						and has_ev(ev, "sfx", "compare_refuse"), "%s: mismatch line (got %s)" % [tag, says(ev)])
-					var tray: Array = r.state.tray.duplicate()
-					tray.sort()
-					wrong.sort()
-					check(tray == wrong, "%s: the mismatched in the tray" % tag)
-					for i in 3:
-						var f: String = m[i]
-						if REF_HOME[RECS[i]] == f:
-							check(r.state.filed[f] == RECS[i], "%s: %s stays filed" % [tag, RECS[i]])
-						else:
-							check(not RECS[i] in r.state.filed.values(), "%s: %s left its folder" % [tag, RECS[i]])
+	for filed in [false, true]:
+		for chair in range(1, 9):
+			for date in ["17 OCT 1931", "18 OCT 1927", "18 OCT 1931"]:
+				var g := GameSim.new()
+				g.from_dict(base_d.duplicate(true))
+				var r := r10(g)
+				r.local_view = base_view
+				var tag := "%s chair %d @ %s" % ["filed" if filed else "empty", chair, date]
+				if filed:
+					file_all_correct(g)
+				set_chair(g, chair)
+				set_date(g, date)
+				check(r.date_text() == date and int(r.state.chair) == chair, "%s: dials read" % tag)
+				var ev := g.dispatch("compare")
+				check(has_ev(ev, "sfx", "compare_key") and ev[0].get("id", "") == "compare_key", "%s: compare key first" % tag)
+				var chair_ok: bool = chair == REF_CHAIR
+				var date_ok: bool = date == "18 OCT 1927"
+				if filed and chair_ok and date_ok:
+					check(g.flag("P18") and r.state.p18_complete, "%s solves" % tag)
+					solved += 1
 				else:
-					var want := "Not the session date." + (" | Not yet." if date == "18 OCT 1931" else "")
-					var strip := "DATE DOES NOT CORRESPOND." + ("\nNOT YET." if date == "18 OCT 1931" else "")
-					check(says(ev) == want and r.strip_text == strip, "%s: date line (got %s)" % [tag, says(ev)])
-					check(r.has_seen("not_yet") == (date == "18 OCT 1931"), "%s: not_yet noted only for 1931" % tag)
-					check(r.state.filed.values() == RECS, "%s: records stay filed" % tag)
-			g.dispatch("cmp_tray")
-			g.dispatch("back")
-			for rec in RECS:
-				check(inv_count(g, rec) == 1, "%s: %s back in the inventory once" % [tag, rec])
-			check(r.state.filed.values() == ["", "", ""] and r.state.tray.is_empty(), "%s: folders empty" % tag)
-	check(solved == 1, "exactly one filing solves")
+					check(not g.flag("P18") and not r.state.p18_complete, "%s: no P18" % tag)
+					check(not g.has_item("venn_correspondence"), "%s: no letters" % tag)
+					if not filed:
+						check(says(ev) == "The tray's empty. It wants a subject." and r.strip_text == "NO TRAINING SUBJECT",
+							"%s: no subject (got %s)" % [tag, says(ev)])
+						check(not r.has_seen("not_yet"), "%s: not_yet needs a subject" % tag)
+					else:
+						var want := []
+						var strip := []
+						if not chair_ok:
+							want.append("Not her chair.")
+							strip.append(CHAIR_NO)
+						if not date_ok:
+							want.append("Not the session date.")
+							strip.append(DATE_NO)
+							if date == "18 OCT 1931":
+								want.append("Not yet.")
+								strip.append("NOT YET.")
+						check(says(ev) == " | ".join(want) and r.strip_text == "\n".join(strip)
+							and has_ev(ev, "sfx", "compare_refuse"), "%s: refusal (got %s / %s)" % [tag, says(ev), r.strip_text])
+						check(r.has_seen("not_yet") == (date == "18 OCT 1931"), "%s: not_yet noted only for 1931" % tag)
+						check(r.state.filed.values() == RECS, "%s: records stay filed" % tag)
+				g.dispatch("back")
+				for rec in RECS:
+					check(inv_count(g, rec) == 1, "%s: %s back in the inventory once" % [tag, rec])
+				check(r.state.filed.values() == ["", "", ""], "%s: folders empty" % tag)
+	check(solved == 1, "exactly one arrangement solves")
+
+## Her records file themselves: one record laid on the tray (or a folder) takes all three, each to
+## its own folder, as the training subject. No category is chosen and none can be chosen wrong.
+func test_p18_self_filing() -> void:
+	for rec in RECS:
+		for target in ["cmp_tray", "fold_body", "fold_place", "fold_name"]:
+			var g := folders_game()
+			var r := r10(g)
+			var ev := use(g, rec, target)
+			var tag := "%s on %s" % [rec, target]
+			check(r.state.filed == {"BODY": "nora_frame", "PLACE": "nora_spatial_strip", "NAME": "nora_register_card"},
+				"%s: all three home" % tag)
+			for x in RECS:
+				check(not g.has_item(x), "%s: %s out of hand" % [tag, x])
+			var word: String = {"nora_frame": "her frame", "nora_spatial_strip": "the bearing strip",
+				"nora_register_card": "her register card"}[rec]
+			check(says(ev) == "I lay %s on the tray. | The other two come out of my hands after it. All three file themselves." % word,
+				"%s: lines (got %s)" % [tag, says(ev)])
+			check(has_ev(ev, "fx", "self_file") and has_ev(ev, "sfx", "folder_file") and r.has_seen("self_filed")
+				and r.strip_text == "TRAINING SUBJECT: BELL, N.", "%s: staged and noted" % tag)
+			check(r.subject_filed(), "%s: subject on the tray" % tag)
+	# Without all three she cannot lay the subject: nothing is taken.
+	var g := folders_game()
+	var r := r10(g)
+	g.take("nora_register_card")
+	var ev := use(g, "nora_frame", "cmp_tray")
+	check(says(ev) == "Her records go together. I haven't got all three." and g.has_item("nora_frame")
+		and g.has_item("nora_spatial_strip") and r.state.filed.values() == ["", "", ""], "two records: refused, kept")
+	# A record on another control of the cabinet.
+	g = folders_game()
+	check(says(use(g, "nora_frame", "lid_card")) == "Her records go on the tray." and g.has_item("nora_frame"), "record on the lid card")
+	check(says(use(g, "nora_frame", "chair_up")) == "Her records go on the tray.", "record on the chair key")
 
 func test_p18_success() -> void:
 	var g := folders_game()
@@ -553,6 +570,7 @@ func test_p18_success() -> void:
 	file_all_correct(g)
 	for rec in RECS:
 		check(not g.has_item(rec), "%s taken into the folder" % rec)
+	set_chair(g, REF_CHAIR)
 	set_date(g, "18 OCT 1927")
 	var ev := g.dispatch("compare")
 	check(g.flag("P18") and r.state.p18_complete, "P18 set")
@@ -561,7 +579,7 @@ func test_p18_success() -> void:
 	check(inv_count(g, "venn_correspondence") == 1 and count_ev(ev, "fx", "item_added") == 4, "letters given once, records back")
 	check(r.has_seen("index_protocol") and r.has_seen("venn_drawer_open"), "index_protocol noted")
 	check(r.state.staff_open and r.state.drawer_open, "STAFF and Venn's drawer open")
-	check(r.state.filed.values() == ["", "", ""] and r.state.tray.is_empty(), "folders empty")
+	check(r.state.filed.values() == ["", "", ""], "folders empty")
 	check(r.strip_text == "SUBJECT COMPLETE", "strip")
 	var lines := says(ev).split(" | ")
 	check(Array(lines) == P18_CHAIN, "chain (drawer was shut): three lines (got %s)" % [lines])
@@ -584,6 +602,7 @@ func test_p18_success() -> void:
 	check(says(ev) == "It's done its demonstration. I won't file her again." and r.strip_text == "SUBJECT COMPLETE"
 		and not has_ev(ev, "fx", "item_added"), "compare again")
 	check(says(use(g, "nora_frame", "fold_body")) == "It's done its demonstration. I won't file her again." and g.has_item("nora_frame"), "no refiling")
+	check(says(use(g, "nora_frame", "cmp_tray")) == "It's done its demonstration. I won't file her again." and g.has_item("nora_frame"), "no refiling on the tray")
 	check(says(g.dispatch("release")) == "Down. It stays down.", "release after")
 	g.dispatch("back")
 	check(says(g.dispatch("folders")) == "The folders. They've done their demonstration.", "folders after")
@@ -591,25 +610,23 @@ func test_p18_success() -> void:
 	g = folders_game()
 	play(g, ["back", "staff_drawer", "folders"])
 	file_all_correct(g)
+	set_chair(g, REF_CHAIR)
 	set_date(g, "18 OCT 1927")
 	check(Array(says(g.dispatch("compare")).split(" | ")) == P18_CHAIN, "chain (after looking at STAFF)")
 
 func test_p18_returns() -> void:
 	var g := folders_game()
 	var r := r10(g)
-	use(g, "nora_frame", "fold_body")
-	use(g, "nora_register_card", "fold_place")
+	file_all_correct(g)
 	var ev := g.dispatch("release")
 	check(says(ev) == "TRAINING RELEASE. 'Training model. Release returns all records.'" and r.has_seen("training_release"), "release line")
 	for rec in RECS:
 		check(inv_count(g, rec) == 1, "release returns %s" % rec)
 	check(r.state.filed.values() == ["", "", ""], "release empties the folders")
-	# Mismatched into the tray, then back: everything returns with the line.
-	use(g, "nora_frame", "fold_place")
-	use(g, "nora_spatial_strip", "fold_body")
-	use(g, "nora_register_card", "fold_name")
+	# Refused, then back: everything returns with the line.
+	file_all_correct(g)
 	g.dispatch("compare")
-	check(r.state.tray.size() == 2 and r.state.filed.NAME == "nora_register_card", "two in the tray")
+	check(r.state.filed.values() == RECS, "refused: still filed")
 	ev = g.dispatch("back")
 	check(says(ev) == RECORDS_BACK and r.local_view == "catalogue", "back says the line")
 	for rec in RECS:
@@ -618,32 +635,33 @@ func test_p18_returns() -> void:
 	check(not RECORDS_BACK in says(ev), "nothing out, no line")
 	# Leaving by a hotspot returns them too.
 	g.dispatch("folders")
-	use(g, "nora_frame", "fold_body")
+	file_all_correct(g)
 	g.dispatch("staff_drawer")
-	check(g.has_item("nora_frame") and r.local_view == "catalogue", "a hotspot click returns them")
-	# Save mid-filing.
+	check(g.has_item("nora_frame") and g.has_item("nora_register_card") and r.local_view == "catalogue", "a hotspot click returns them")
+	# Save mid-filing, chair and date kept.
 	g.dispatch("folders")
-	use(g, "nora_frame", "fold_place")
-	use(g, "nora_spatial_strip", "fold_body")
-	use(g, "nora_register_card", "fold_name")
+	file_all_correct(g)
+	set_chair(g, 4)
 	g.dispatch("compare")
 	var t := roundtrip(g)
 	for rec in RECS:
 		check(inv_count(t, rec) == 1, "a load gives exactly one %s" % rec)
-	check(r10(t).state.filed.values() == ["", "", ""] and r10(t).state.tray.is_empty(), "a load empties the folders and tray")
-	# Folder clicks: return one, covers, occupied folder, tray.
+	check(r10(t).state.filed.values() == ["", "", ""], "a load empties the folders")
+	check(int(r10(t).state.chair) == 4, "the chair dial survives a load")
+	# Folder clicks: covers when empty; any folder returns all three.
 	g = folders_game()
 	r = r10(g)
 	check(says(g.dispatch("fold_body")) == "BODY. The cover shows a breath trace.", "empty BODY")
 	check(says(g.dispatch("fold_place")) == "PLACE. The cover shows a bearing diagram.", "empty PLACE")
 	check(says(g.dispatch("fold_name")) == "NAME. The cover shows a personal card.", "empty NAME")
-	ev = use(g, "nora_frame", "fold_body")
-	check(says(ev) == "In BODY." and has_ev(ev, "sfx", "folder_file"), "filed")
-	ev = use(g, "nora_register_card", "fold_body")
-	check(says(ev) == "Body already has one in it." and g.has_item("nora_register_card"), "occupied folder keeps the item")
-	ev = g.dispatch("fold_body")
-	check(says(ev) == "I take her frame back out." and g.has_item("nora_frame") and has_ev(ev, "sfx", "folder_return"), "take one out")
-	check(says(g.dispatch("cmp_tray")) == "The comparison tray. Empty.", "empty tray")
+	check(says(g.dispatch("cmp_tray")) == "The comparison tray. TRAINING SUBJECT, printed on the glass.", "empty tray")
+	file_all_correct(g)
+	check(says(g.dispatch("cmp_tray")) == "TRAINING SUBJECT. She's filed. I didn't choose where.", "filed tray")
+	ev = g.dispatch("fold_place")
+	check(says(ev) == "I take her records back out. All three." and has_ev(ev, "sfx", "folder_return")
+		and r.state.filed.values() == ["", "", ""], "take them out")
+	for rec in RECS:
+		check(inv_count(g, rec) == 1, "folder click returns %s" % rec)
 
 func test_p18_wheels() -> void:
 	var g := folders_game()
@@ -667,6 +685,15 @@ func test_p18_wheels() -> void:
 	check(r.state.year == 1931, "1889 down -> 1931")
 	r.state.day = 5
 	check(r.date_text() == "05 DEC 1931", "zero-padded day")
+	# The CHAIR dial: opens on 1, wraps 8 <-> 1 both ways, clicks and says nothing.
+	check(int(r.state.chair) == 1, "the chair dial opens on 1")
+	ev = g.dispatch("chair_dn")
+	check(int(r.state.chair) == 8 and has_ev(ev, "sfx", "wheel_click") and says(ev) == "", "1 down -> 8")
+	g.dispatch("chair_up")
+	check(int(r.state.chair) == 1, "8 up -> 1")
+	for i in 5:
+		g.dispatch("chair_up")
+	check(int(r.state.chair) == REF_CHAIR, "five up: chair 6")
 
 func test_p18_records_untouched() -> void:
 	var g := folders_game()
@@ -676,6 +703,7 @@ func test_p18_records_untouched() -> void:
 	g.dispatch("compare")
 	g.dispatch("release")
 	file_all_correct(g)
+	set_chair(g, REF_CHAIR)
 	set_date(g, "18 OCT 1927")
 	g.dispatch("compare")
 	check(g.flag("P18"), "solved")
@@ -693,6 +721,7 @@ func test_p17_p18_orders() -> void:
 	g.solve("P17", ev)
 	check(g.tide() == 6, "P17 alone keeps tide VI")
 	file_all_correct(g)
+	set_chair(g, REF_CHAIR)
 	set_date(g, "18 OCT 1927")
 	ev = g.dispatch("compare")
 	check(g.tide() == 7 and g.weather_band() == 5 and has_ev(ev, "fx", "tide"), "P17 then P18: tide VII, band 5")
@@ -703,6 +732,7 @@ func test_p17_p18_orders() -> void:
 	for rec in RECS:
 		g.give(rec)
 	file_all_correct(g)
+	set_chair(g, REF_CHAIR)
 	set_date(g, "18 OCT 1927")
 	ev = g.dispatch("compare")
 	check(g.flag("P18") and g.tide() == 6 and not has_ev(ev, "fx", "tide"), "P18 alone keeps tide VI")
@@ -715,11 +745,12 @@ func test_p17_p18_orders() -> void:
 func test_p18_lines() -> void:
 	var g := folders_game()
 	var r := r10(g)
-	check(says(g.dispatch("lid_card")) == "'A subject is complete when BODY, PLACE and NAME correspond on one session date.' S.R."
+	check(says(g.dispatch("lid_card")) == "'A subject is complete when BODY, PLACE and NAME correspond in one chair on one session date.' S.R."
 		and r.has_seen("protocol_card"), "protocol card")
-	check(says(use(g, "contact_sheet", "fold_name")) == "The sheet only gives the date. 18 October 1927.", "sheet on a folder")
-	check(says(use(g, "contact_sheet", "day_up")) == "The sheet only gives the date. 18 October 1927.", "sheet on a wheel")
-	check(says(use(g, "contact_sheet", "compare")) == "The sheet only gives the date. 18 October 1927.", "sheet on compare")
+	check(says(use(g, "contact_sheet", "fold_name")) == "The film edge gives the date. 18 October 1927.", "sheet on a folder")
+	check(says(use(g, "contact_sheet", "day_up")) == "The film edge gives the date. 18 October 1927.", "sheet on a wheel")
+	check(says(use(g, "contact_sheet", "compare")) == "The film edge gives the date. 18 October 1927.", "sheet on compare")
+	check(says(use(g, "contact_sheet", "chair_up")) == "The sheet's lamps go out in order. One of them stays.", "sheet on the chair dial")
 	g.give("amended_nora_card")
 	check(says(use(g, "amended_nora_card", "fold_name")) == "Not into Rook's folders again.", "amended card")
 	check(g.has_item("amended_nora_card"), "kept")
@@ -781,7 +812,7 @@ func test_p23_combinations() -> void:
 				var ev := g.dispatch("test")
 				check(ev[0].get("id", "") == "test_key", "%s: test key first" % tag)
 				if not i or not (c or w):
-					check(says(ev) == "No input." and r.model_text == "NO INPUT" and r.state.stamp == "", "%s: no input" % tag)
+					check(says(ev) == "ONE LEAD. NO RETURN." and r.model_text == "ONE LEAD. NO RETURN." and r.state.stamp == "", "%s: no input" % tag)
 					check(not g.flag("P23"), "%s: no P23" % tag)
 				elif c:
 					check(r.state.stamp == "closed" and r.model_text == "AMENDMENT 1 APPENDED. RECORD CLOSED."
@@ -933,6 +964,7 @@ func test_p18_decoy_date() -> void:
 	var r := r10(g)
 	check(r.date_text() == "17 OCT 1931", "the dial defaults to 17 OCT 1931")
 	file_all_correct(g)
+	set_chair(g, REF_CHAIR)
 	var snap := JSON.stringify(g.state.flags)
 	var ev := g.dispatch("compare")
 	check(not g.flag("P18") and not r.state.p18_complete, "the decoy date is refused")
@@ -962,12 +994,13 @@ func test_p18_p23_no_rule_text() -> void:
 	var g := model_game()
 	check(says(g.dispatch("faceplate")).find("cycle") < 0, "reading the faceplate states no rule")
 	var hints: Array = R10Sim.HINTS["p18"]
-	check(hints[1] == "Each folder takes what that instrument measured." and hints[2] == "The film edge is dated. So is the spool.",
-		"P18 hints: the instrument, then the evidence")
+	check(hints == ["Which chair was hers?", "The lamps go out in order. The last one lit is the one that stayed.",
+		"Her seat at Nora's table, by the door.", "Her records on the tray, chair 6, date 18 Oct 1927, COMPARE."],
+		"P18 hints: the question, the lamps, the door, then chair and date")
 	for k in ["p16", "p18", "p23"]:
 		check(R10Sim.HINTS[k].size() == 4, "%s: four tiers, evidence before the solution" % k)
 	var p23: Array = R10Sim.HINTS["p23"]
-	check(p23[2] == "The session log's margin has two marks. The terminals carry the same two.",
+	check(p23[2] == "The session log's margin has two marks, a triangle and a hollow circle. The terminals carry the same two.",
 		"P23 tier 3 names the notebook entry's two marks")
 	check(p23[1] != p23[2] and p23[2] != p23[3], "P23: tiers 2, 3 and 4 all differ")
 
@@ -1169,8 +1202,8 @@ func test_room_objects() -> void:
 	check(says(g.dispatch("shelves")) == "They go back past where the laboratory should be. Each bay a little smaller, labelled in the same hand.", "shelves")
 	g = game_at(7, ROOM)
 	r = r10(g)
-	check(says(g.dispatch("photographs")) == "The blanks have turned. All of them, the same way as the last face on the sheet. And a ninth: an empty chair. Nobody painted anything out of it."
-		and r.has_seen("photos_turned"), "photographs at band 5")
+	check(says(g.dispatch("photographs")) == "The blanks have turned. All of them, the same way as the last face on the sheet. Except the sixth. Chair 6's sitter is standing now, back to me, beside the chair. And a ninth: an empty chair. Nobody painted anything out of it."
+		and r.has_seen("photos_turned") and r.has_seen("sixth_standing"), "photographs at band 5")
 	g = game_at(8, ROOM)
 	r = r10(g)
 	check(says(g.dispatch("index_cards")).ends_with(" MERCER, A. At the front. There's nothing else on it.") and r.has_seen("mercer_card"), "Mercer card at band 6")
@@ -1211,13 +1244,13 @@ const REF_HINTS := {
 	"p16": ["The vault's contact table holds four panels of the same night.",
 		"The film edge numbers must run on, and the lamps go out in order.",
 		"Each panel's film edge is numbered, and its chair lamps can be counted.",
-		"B, D, A, C: eight lamps, six, three, none. Clip the edge, then slide the cover off."],
-	"p18": ["The vault's three folders want Nora's three records.",
-		"Each folder takes what that instrument measured.",
-		"The film edge is dated. So is the spool.",
-		"Frame to BODY, strip to PLACE, register card to NAME, date 18 Oct 1927, COMPARE."],
+		"B, D, A, C: eight lamps, six, three, one. Clip the edge, then slide the cover off."],
+	"p18": ["Which chair was hers?",
+		"The lamps go out in order. The last one lit is the one that stayed.",
+		"Her seat at Nora's table, by the door.",
+		"Her records on the tray, chair 6, date 18 Oct 1927, COMPARE."],
 	"p23": ["The model in the vault can be tested safely.", "A copy closes a record. A witness keeps it open.",
-		"The session log's margin has two marks. The terminals carry the same two.",
+		"The session log's margin has two marks, a triangle and a hollow circle. The terminals carry the same two.",
 		"Lead from the triangle to the hollow circle, leave the two squares empty, press TEST AMENDMENT. Take the bridge."],
 	"away_p17": ["The vault's done its part of the session.",
 		"The contact sheet says sync on the bell. The listening room has the session spool.",
@@ -1230,7 +1263,7 @@ const REF_HINTS := {
 }
 const REF_OBJ := {
 	"p16": "Put the 1927 contact sheet back in order and uncover the faces.",
-	"p18": "File Nora's three records in Rook's folders, set the session date and compare.",
+	"p18": "Lay Nora's records on Rook's tray, set her chair and the session date, and compare.",
 	"away_p17": "The vault's folders are done. The session recording waits in the listening room.",
 	"wait_p21": "The Index model's terminals are shuttered. Something else comes first.",
 	"p23": "Test the Index model: a record that takes a correction and stays open.",
@@ -1312,9 +1345,11 @@ func test_debug_jumps() -> void:
 	for rec in RECS:
 		check(not g.has_item(rec), "jump 5: %s in its folder" % rec)
 	play(g, ["to_catalogue", "folders"])
+	check(int(r.state.chair) == 1, "jump 5: the chair dial on 1")
+	set_chair(g, REF_CHAIR)
 	set_date(g, "18 OCT 1927")
 	g.dispatch("compare")
-	check(g.flag("P18"), "jump 5: date and compare solve")
+	check(g.flag("P18"), "jump 5: chair, date and compare solve")
 	for rec in RECS:
 		check(inv_count(g, rec) == 1, "jump 5: %s back once" % rec)
 	r.debug_jump(5)
@@ -1365,12 +1400,15 @@ func test_malformed_saves() -> void:
 	var init := R10Sim.new().initial_state()
 	init.notices = r10(game_at(6, ROOM)).state.notices.duplicate()
 	var r := load_with({"slots": 4, "clipped": "yes", "filed": [], "tray": "x", "day": "17", "month": true,
-		"year": [], "stamp": 3, "wrap": "2", "notices": 5, "catalogue_notices": {}, "input": 1})
+		"year": [], "stamp": 3, "wrap": "2", "notices": 5, "catalogue_notices": {}, "input": 1, "chair": "6"})
 	var got := r.state.duplicate(true)
 	got.notices = init.notices
 	check(JSON.stringify(got) == JSON.stringify(init), "wrong types load as fresh (got %s)" % JSON.stringify(r.state))
-	r = load_with({"day": 40, "month": 0, "year": 1700, "wrap": 9})
+	r = load_with({"day": 40, "month": 0, "year": 1700, "wrap": 9, "chair": 12})
 	check(r.state.day == 31 and r.state.month == 1 and r.state.year == 1889 and r.state.wrap == 0, "numbers clamped; wrap needs P18")
+	check(r.state.chair == 8, "chair clamped to 1-8")
+	r = load_with({"chair": 0})
+	check(r.state.chair == 1, "chair 0 clamps to 1")
 	r = load_with({"day": 12.5})
 	check(r.state.day == 17, "fractional day refused")
 	r = load_with({"stamp": "open", "bridge_taken": true, "strip2": true})
@@ -1388,7 +1426,7 @@ func test_malformed_saves() -> void:
 	r = load_with({"filed": {"BODY": "nora_frame", "PLACE": "nora_frame", "NAME": "chart_clips", "X": "nora_spatial_strip"},
 		"tray": ["nora_frame", "nora_register_card", "nora_register_card", "witness_bridge"]},
 		["nora_spatial_strip"])  # R09 is built: tide VI starts with the strip in hand, so set it aside
-	check(r.state.filed.values() == ["", "", ""] and r.state.tray.is_empty(), "a load always empties folders and tray")
+	check(r.state.filed.values() == ["", "", ""] and not r.state.has("tray"), "a load always empties the folders; no tray state")
 	check(r.game.has_item("nora_frame") and r.game.has_item("nora_register_card") and not r.game.has_item("nora_spatial_strip"),
 		"only the legal records come back")
 
@@ -1400,8 +1438,8 @@ func test_chain_scripts() -> void:
 	play(g, ["contact_table", "loose_b", "slot_1", "loose_d", "slot_2", "loose_a", "slot_3", "loose_c", "slot_4",
 		"item:chart_clips", "clip", "cover", "back"])
 	check(g.flag("P16") and g.has_item("contact_sheet") and r10(g).local_view == "room", "chain P16")
-	play(g, ["to_catalogue", "folders", "item:nora_frame", "fold_body", "item:nora_spatial_strip", "fold_place",
-		"item:nora_register_card", "fold_name", "day_up", "year_dn", "year_dn", "year_dn", "year_dn", "compare", "back"])
+	play(g, ["to_catalogue", "folders", "item:nora_frame", "cmp_tray", "chair_dn", "chair_dn", "chair_dn",
+		"day_up", "year_dn", "year_dn", "year_dn", "year_dn", "compare", "back"])
 	check(g.flag("P18") and g.has_item("venn_correspondence") and r10(g).local_view == "catalogue", "chain P18")
 	for f in ["P17", "P19", "P20", "P21"]:
 		g.set_flag(f)
@@ -1442,7 +1480,21 @@ func test_view_presentation() -> void:
 	check(v.edge_cells() == {0: [], 2: [3], 3: [0]}, "a gap shows no numbers either side (got %s)" % [v.edge_cells()])
 	scene.dispatch("slot_2")
 	check(2.0 * RV.LAMP_R * RV.LOOSE_SCALE >= 8.0, "a lamp is at least 8 px across on the felt")
-	check(R10Sim.lamps_lit("B") == 8 and R10Sim.lamps_lit("C") == 0, "lamps drawn from the sim's counts")
+	check(R10Sim.lamps_lit("B") == 8 and R10Sim.lamps_lit("C") == 1, "lamps drawn from the sim's counts")
+	# Each panel's lit lamps sit over named chairs; the lit sets nest in the P16 order, and the
+	# one lit longest is chair 6, the chair by the door on the CHAIR dial's plan.
+	var prev := [1, 2, 3, 4, 5, 6, 7, 8]
+	for x in REF_SOLUTION:
+		var lit := []
+		for ch in range(1, 9):
+			if R10Sim.lamp_on(x, ch):
+				lit.append(ch)
+		check(lit.size() == REF_LAMPS[x], "panel %s: %d lamps over chairs %s" % [x, REF_LAMPS[x], lit])
+		for ch in lit:
+			check(ch in prev, "panel %s: chair %d's lamp was lit before (lamps don't come back on)" % [x, ch])
+		prev = lit
+	check(prev == [REF_CHAIR] and R10Sim.NORA_CHAIR == REF_CHAIR and R10Sim.DOOR_CHAIR == REF_CHAIR,
+		"the last lamp lit is chair 6, the chair by the door")
 	scene.dispatch("item:chart_clips")
 	scene.dispatch("clip")
 	scene.dispatch("cover")
@@ -1498,6 +1550,8 @@ func test_view_p18_staging() -> void:
 			if r.local_view != "catalogue":
 				scene.dispatch("to_catalogue")
 			scene.dispatch("folders")
+		for i in 3:
+			scene.dispatch("chair_dn")
 		scene.dispatch("day_up")
 		for i in 4:
 			scene.dispatch("year_dn")
@@ -1655,25 +1709,36 @@ func test_echo_trace() -> void:
 	check(JSON.stringify(e.get("moves", [])) == JSON.stringify(["log_read", "drawer_opened", "held_still"]),
 		"no trace: the last three movement events (got %s)" % [e.get("moves")])
 
-## Band 6 on: the flood plates in both views and the STAFF line.
+## Band 4 on: the wall's dusk and the 7 px waterline. Band 5 on: the water's plates (the hard
+## sea-glass band to 40% of the wall, swollen drawers, the STAFF card-holder hanging open, chair
+## 6's sitter standing); band 6 on the deeper wash. And the STAFF line from band 6.
 func test_flood_plate() -> void:
-	for id in ["r10_flood_b6", "r10_flood_b6_a"]:
-		check(id in RV.STAGE_IDS and ResourceLoader.exists(RV.STAGE_DIR % id), "%s is stage art" % id)
+	var ids := ["r10_dusk_a", "r10_dusk_b", "r10_tide_b5_a", "r10_tide_b5_b", "r10_tide_b6_a", "r10_tide_b6_b"]
 	var py: String = FileAccess.get_file_as_string("res://tools/art/rooms/R10.py")
-	check(py.find("(\"r10_flood_b6\"") >= 0 and py.find("(\"r10_flood_b6_a\"") >= 0, "the flood plates have painter entries")
-	var img := Image.load_from_file(ProjectSettings.globalize_path("res://assets/stages/R10/r10_flood_b6.png"))
-	check(img.get_width() == 1448 and img.get_height() == 1086, "flood plate at native size")
-	# above the line clear, below it washed; STAFF's plate clear of the water
-	check(img.get_pixel(300, 300).a == 0.0 and img.get_pixel(300, 860).a > 0.3, "the wash is under the line only")
-	check(img.get_pixel(530, 406).a == 0.0, "the STAFF plate sits above the water")
+	for id in ids:
+		check(id in RV.STAGE_IDS and ResourceLoader.exists(RV.STAGE_DIR % id), "%s is stage art" % id)
+		check(py.find("(\"%s\"" % id) >= 0, "%s has a painter entry" % id)
+	var img := Image.load_from_file(ProjectSettings.globalize_path("res://assets/stages/R10/r10_tide_b5_b.png"))
+	check(img.get_width() == 1448 and img.get_height() == 1086, "water plate at native size")
+	# the band: opaque sea-glass between the office's tide height and 40% of the wall
+	check(RV.WATER_FOOT == roundf(900.0 - 0.4 * (900.0 - 46.0)), "the band's foot at 40% of the wall's height")
+	var mid := img.get_pixel(300, int((RV.FLOOD_Y + RV.WATER_FOOT) / 2.0))
+	check(mid.a > 0.85 and mid.g > mid.r, "the band is a hard sea-glass fill (got %s)" % [mid])
+	check(img.get_pixel(300, 300).a == 0.0, "nothing painted on the wall above the water")
+	check(img.get_pixel(530, 406).a == 0.0, "the STAFF label plate itself stays clear")
+	var drawer := img.get_pixel(150, 650)
+	check(drawer.a > 0.9 and drawer.get_luminance() < 0.35, "a swollen drawer below the line is dark (got %s)" % [drawer])
+	var dusk := Image.load_from_file(ProjectSettings.globalize_path("res://assets/stages/R10/r10_dusk_b.png"))
+	check(dusk.get_pixel(1300, 160).a > 0.4 and dusk.get_pixel(150, 650).a == 0.0, "the dusk is on the wall only")
 	for t in [6, 7, 8, 9]:
 		var g := game_at(t, ROOM)
 		var b := r10(g).band()
 		var v: Node = RV.new()
 		v.sim = r10(g)
-		var want := "r10_flood_b6" if b >= 6 else ""
-		check(v.flood_plate_id("b") == want and v.flood_plate_id("a") == ("r10_flood_b6_a" if b >= 6 else ""),
-			"tide %d (band %d): flood plates %s" % [t, b, want])
+		var want := "" if b < 5 else ("r10_tide_b5_%s" if b == 5 else "r10_tide_b6_%s")
+		check(v.flood_plate_id("b") == (want % "b" if want != "" else "") and v.flood_plate_id("a") == (want % "a" if want != "" else ""),
+			"tide %d (band %d): water plates %s" % [t, b, want])
+		check(v.dusk_id("a") == "r10_dusk_a" and v.dusk_id("b") == "r10_dusk_b" and v.waterline(), "tide %d: dusk and waterline from band 4" % t)
 		v.free()
 		g.dispatch("to_catalogue")
 		r10(g).state.staff_open = true
@@ -1692,15 +1757,15 @@ func test_items_from_catalogue() -> void:
 	var r := r10(g)
 	check(r.local_view == "catalogue", "at the catalogue wall")
 	var ev := use(g, "nora_frame", "fold_body")
-	check(r.local_view == "c_folders" and r.state.filed.BODY == "nora_frame" and not g.has_item("nora_frame"),
-		"the frame on BODY from the catalogue files it in one action (got %s)" % says(ev))
-	check(says(ev).find("In BODY.") >= 0 and says(ev).find("I'll need") < 0, "and says so")
+	check(r.local_view == "c_folders" and r.subject_filed() and not g.has_item("nora_frame"),
+		"the frame on BODY from the catalogue files all three in one action (got %s)" % says(ev))
+	check(says(ev).find("All three file themselves.") >= 0 and says(ev).find("I'll need") < 0, "and says so")
 	g.dispatch("back")
-	check(g.has_item("nora_frame"), "back from the folders: records return")
-	# the cabinet itself with a record: opens, and the record needs a folder
+	check(g.has_item("nora_frame") and g.has_item("nora_register_card"), "back from the folders: records return")
+	# the cabinet itself with a record: opens, and the record goes on the tray
 	ev = use(g, "nora_frame", "folders")
-	check(r.local_view == "c_folders" and says(ev).ends_with(NEED_FOLDERS) and g.has_item("nora_frame"),
-		"the frame on the cabinet: opens, then the folders line (got %s)" % says(ev))
+	check(r.local_view == "c_folders" and r.subject_filed() and says(ev).find(NEED_FOLDERS) < 0,
+		"the frame on the cabinet: opens and lays the subject (got %s)" % says(ev))
 	g.dispatch("back")
 	g.give("inspection_lens")
 	ev = use(g, "inspection_lens", "fold_name")

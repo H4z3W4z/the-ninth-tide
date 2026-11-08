@@ -614,25 +614,27 @@ func play_p16() -> void:
 	check(not has_ev(ev, "fx", "tide"), "P16 alone does not close Tide VI")
 	_qd("back")
 
-## R10 P18: her three records in BODY, PLACE and NAME, the dial to 18 OCT 1927, COMPARE.
-## The folders give everything back with Venn's letters.
+## R10 P18: one of her records laid on the tray files all three as the training subject; the
+## CHAIR dial to 6 (the last lamp lit on the contact sheet, the chair by the door), the date dial
+## to 18 OCT 1927, COMPARE. The folders give everything back with Venn's letters.
 func play_p18() -> void:
 	_r10_base("catalogue")
 	_qd("folders")
 	check(vault.local_view == "c_folders", "P18: the folders open")
-	var homes := {"nora_frame": "fold_body", "nora_spatial_strip": "fold_place", "nora_register_card": "fold_name"}
-	for rec in homes:
-		_qd("item:" + rec)
-		_qd(homes[rec])
+	_qd("item:nora_frame")
+	_qd("cmp_tray")
 	check(vault.state.filed.values() == ["nora_frame", "nora_spatial_strip", "nora_register_card"],
-		"P18: her three records filed")
+		"P18: her three records file themselves")
+	for i in 3:
+		_qd("chair_dn")
+	check(int(vault.state.chair) == 6, "P18: the chair dial at 6")
 	_qd("day_up")
 	for i in 4:
 		_qd("year_dn")
 	check(int(vault.state.day) == 18 and int(vault.state.year) == 1927, "P18: the dial at 18 OCT 1927")
 	var ev := _qd("compare")
 	check(g.flag("P18") and g.has_item("venn_correspondence"), "P18: SUBJECT COMPLETE; Venn's letters")
-	for rec in homes:
+	for rec in ["nora_frame", "nora_spatial_strip", "nora_register_card"]:
 		check(g.has_item(rec), "P18: %s back in hand" % rec)
 	check(has_ev(ev, "fx", "tide"), "P18: Tide VI closes on the folders")
 	_qd("back")

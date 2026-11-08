@@ -30,7 +30,7 @@ const CLOSEUPS := ["c_contact", "c_folders", "c_model"]
 const CONTACT_CONTROLS := ["slot_1", "slot_2", "slot_3", "slot_4", "loose_a", "loose_b", "loose_c",
 	"loose_d", "clip", "cover"]
 const FOLDER_CONTROLS := ["lid_card", "fold_body", "fold_place", "fold_name", "cmp_tray", "day_up",
-	"day_dn", "mon_up", "mon_dn", "year_up", "year_dn", "compare", "release"]
+	"day_dn", "mon_up", "mon_dn", "year_up", "year_dn", "chair_up", "chair_dn", "compare", "release"]
 const MODEL_CONTROLS := ["faceplate", "strip", "bridge", "shutter", "t_input", "t_copy", "t_witness",
 	"lead", "test", "reset", "stamp"]
 
@@ -39,9 +39,13 @@ const PANELS := ["A", "B", "C", "D"]
 const SOLUTION := ["B", "D", "A", "C"]
 ## A panel carries film frames EDGE_FIRST .. EDGE_FIRST + 3.
 const EDGE_FIRST := {"B": 1, "D": 5, "A": 9, "C": 13}
-const LAMPS := {"B": 8, "D": 6, "A": 3, "C": 0}
+const LAMPS := {"B": 8, "D": 6, "A": 3, "C": 1}
+## Which chairs (1-8, left to right on the panels) still have their lamp lit. The lamps go out
+## in order and never come back on; the one lit longest is Nora's (NORA_CHAIR), the chair by
+## the door. Each panel's lit set holds the next panel's.
+const LAMP_CHAIRS := {"B": [1, 2, 3, 4, 5, 6, 7, 8], "D": [1, 3, 4, 5, 6, 8], "A": [3, 6, 8], "C": [6]}
 const CLOCK := {"B": "21:00", "D": "21:20", "A": "21:40", "C": "22:00"}
-const LAMP_WORD := {8: "eight", 6: "six", 3: "three", 0: "none"}
+const LAMP_WORD := {8: "eight", 6: "six", 3: "three", 1: "one"}
 const COUNT_WORD := {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight"}
 const CLIPPED_HOLDS := "Clipped. It holds."
 const COVER_REGISTERED := "The cover's registered to the edge. It won't slide until the edge is clipped."
@@ -59,14 +63,6 @@ const RECORD_FOLDER := {"nora_frame": "BODY", "nora_spatial_strip": "PLACE", "no
 const RECORDS := ["nora_frame", "nora_spatial_strip", "nora_register_card"]
 const WORDS := {"nora_frame": "her frame", "nora_spatial_strip": "the bearing strip",
 	"nora_register_card": "her register card"}
-const MISMATCH := {
-	"nora_frame/PLACE": "A breath isn't a bearing.",
-	"nora_frame/NAME": "A breath isn't a name.",
-	"nora_spatial_strip/BODY": "A bearing isn't a body.",
-	"nora_spatial_strip/NAME": "A bearing isn't a name.",
-	"nora_register_card/BODY": "A name isn't a body.",
-	"nora_register_card/PLACE": "A name isn't a place.",
-}
 const COVERS := {
 	"BODY": "BODY. The cover shows a breath trace.",
 	"PLACE": "PLACE. The cover shows a bearing diagram.",
@@ -79,17 +75,29 @@ const TODAY := [17, 10, 1931]
 const DAY_RANGE := [1, 31]
 const MONTH_RANGE := [1, 12]
 const YEAR_RANGE := [1889, 1931]
+## The CHAIR dial: the eight chairs round the 1927 session table, numbered as on the panels.
+## Nora's is the one whose lamp stayed lit longest, and the one by the door (her seat at her
+## own mess table, P07). The dial opens on chair 1.
+const CHAIR_RANGE := [1, 8]
+const NORA_CHAIR := 6
+const DOOR_CHAIR := 6
 const RECORDS_BACK := "I take Nora's records back with me."
-const PROTOCOL := "'A subject is complete when BODY, PLACE and NAME correspond on one session date.' S.R."
+const PROTOCOL := "'A subject is complete when BODY, PLACE and NAME correspond in one chair on one session date.' S.R."
 const RELEASE_LINE := "TRAINING RELEASE. 'Training model. Release returns all records.'"
 const STRIP_COMPLETE := "SUBJECT COMPLETE"
 const STRIP_NO_SESSION := "NO SESSION ON RECORD"
-const STRIP_INCOMPLETE := "INCOMPLETE: THREE RECORDS REQUIRED"
-const STRIP_CATEGORY := "CATEGORY DOES NOT CORRESPOND"
+const STRIP_INCOMPLETE := "NO TRAINING SUBJECT"
+const STRIP_SUBJECT := "TRAINING SUBJECT: BELL, N."
+const STRIP_CHAIR := "CHAIR DOES NOT CORRESPOND."
 const STRIP_DATE := "DATE DOES NOT CORRESPOND."
-const STRIP_NOT_YET := "DATE DOES NOT CORRESPOND.\nNOT YET."
+const STRIP_NOT_YET := "NOT YET."
 const FOLDERS_DONE := "It's done its demonstration. I won't file her again."
-const SHEET_DATE := "The sheet only gives the date. 18 October 1927."
+const SHEET_DATE := "The film edge gives the date. 18 October 1927."
+const SHEET_CHAIR := "The sheet's lamps go out in order. One of them stays."
+## Her three records go on the tray together and file themselves: no category is chosen.
+const LAY_SUBJECT := "I lay %s on the tray."
+const SELF_FILED := "The other two come out of my hands after it. All three file themselves."
+const NEED_ALL := "Her records go together. I haven't got all three."
 const GLANCE_DRAWER := [100, 680, 240, 120]
 ## P18's reveal chain, three lines (the folders' card and the records' return are shown).
 const P18_SHUT := "The folders shut on her, all three."
@@ -110,7 +118,7 @@ const STRIP_CLOSED := "AMENDMENT 1 APPENDED. RECORD CLOSED."
 const STRIP_OPEN := "AMENDMENT 1 APPENDED. RECORD OPEN."
 const STRIP_WITNESS := "WITNESS: MERCER, A."
 const STRIP_RECORD_OPEN := "RECORD OPEN"
-const STRIP_NO_INPUT := "NO INPUT"
+const STRIP_NO_INPUT := "ONE LEAD. NO RETURN."
 const LEAD_START := "The lead starts at the triangle."
 const STAMPED_OPEN := "It's stamped OPEN. In ink."
 ## An item from the catalogue wall that does not fit once its close-up is open.
@@ -152,18 +160,20 @@ const OBSERVATIONS := {
 	"photographs": "Eight photographs of the same eight chairs, one chair each. In every chair a carefully retouched blank where a person sat. At the end of the row an empty hook, and the wall paler where a ninth frame hung.",
 	"photos_turned": "The blanks in the wall photographs have turned the same way as the last face on the contact sheet: away from the camera.",
 	"ninth_photo": "A ninth photograph on the empty hook: an empty chair, and nothing retouched. The chair is waiting, not emptied.",
+	"sixth_standing": "The sixth photograph, chair 6's (Nora's chair at the session): the sitter is out of the chair now, standing full length with their back to the camera. The others still sit.",
 	"retouch": "Under the lens the blanks are brushwork on the emulsion, fine and patient.",
 	"index_file": "The vault's hanging file: eight cards, BELL to TULL, each stamped RETAINED 18.X.27. After TULL, an empty divider. No card for Venn. He was there and never indexed.",
 	"mercer_card": "At the front of the hanging file, a new card: MERCER, A. Nothing else on it.",
 	"contact_table": "A contact table: four panel slots on lit glass, a numbered film edge under them, a clamp rail for the edge and an opaque registration cover pinned across the faces. Four loose panels, A to D, each a photograph of the same eight chairs.",
-	"panel_a": "Panel A: film frames 9 to 12. The wall clock behind the chairs reads 21:40. Three chair lamps lit.",
-	"panel_b": "Panel B: frames 1 to 4. 21:00. All eight lamps lit.",
-	"panel_c": "Panel C: frames 13 to 16. 22:00. No lamps lit.",
-	"panel_d": "Panel D: frames 5 to 8. 21:20. Six lamps lit.",
-	"contact_sheet_1927": "18 October 1927, the Index session. Eight staff seated, lamps going out one by one. Behind the camera, in the glass: an unoccupied witness station, and Venn standing outside the seating. Pencilled on the film edge: 'Sync: bell.'",
+	"panel_a": "Panel A: film frames 9 to 12. The wall clock behind the chairs reads 21:40. Three chair lamps lit, over chairs 3, 6 and 8.",
+	"panel_b": "Panel B: frames 1 to 4. 21:00. All eight lamps lit, chairs 1 to 8.",
+	"panel_c": "Panel C: frames 13 to 16. 22:00. One lamp still lit, over chair 6.",
+	"panel_d": "Panel D: frames 5 to 8. 21:20. Six lamps lit; chairs 2 and 7 are out.",
+	"contact_sheet_1927": "18 October 1927, the Index session. Eight staff seated, lamps going out one by one. Behind the camera, in the glass: an unoccupied witness station, and Venn standing outside the seating. Pencilled on the film edge: 'Sync: bell.' and '2 frames after the bell'. The chair lamps go out in order; one stays lit to the end.",
 	"venn_glass": "In the glass of the contact sheet, Venn is younger, and looking at the empty witness station, not at the chairs.",
-	"folders": "A cabinet of three folders, BODY, PLACE and NAME. Their covers show what each holds: BODY a breath trace, PLACE a bearing diagram, NAME a personal card. A comparison tray, a session-date dial set to today, a COMPARE key.",
-	"protocol_card": "Inside the cabinet lid, Rook's protocol card: 'A subject is complete when BODY, PLACE and NAME correspond on one session date.'",
+	"folders": "A cabinet of three folders, BODY, PLACE and NAME, over a comparison tray marked TRAINING SUBJECT. A session-date dial set to today, a CHAIR dial over a plan of the 1927 session table (eight chairs, the door beside chair 6), a COMPARE key.",
+	"protocol_card": "Inside the cabinet lid, Rook's protocol card: 'A subject is complete when BODY, PLACE and NAME correspond in one chair on one session date.'",
+	"self_filed": "I laid one of Nora's records on the comparison tray and all three filed themselves, BODY, PLACE and NAME. The strip printed TRAINING SUBJECT: BELL, N. I chose nothing.",
 	"training_release": "A lever on the panel, printed: 'TRAINING RELEASE. Training model. Release returns all records.'",
 	"not_yet": "Set to 18 October 1931, the folders printed DATE DOES NOT CORRESPOND, and under it: NOT YET.",
 	"index_protocol": "Rook's Index: when body, place and name agree on one date, the subject is complete. The cabinet closed a model around Nora's records. The real system did this to all eight.",
@@ -187,7 +197,7 @@ const OBSERVATIONS := {
 }
 const OBJECTIVES := {
 	"p16": "Put the 1927 contact sheet back in order and uncover the faces.",
-	"p18": "File Nora's three records in Rook's folders, set the session date and compare.",
+	"p18": "Lay Nora's records on Rook's tray, set her chair and the session date, and compare.",
 	"away_p17": "The vault's folders are done. The session recording waits in the listening room.",
 	"wait_p21": "The Index model's terminals are shuttered. Something else comes first.",
 	"p23": "Test the Index model: a record that takes a correction and stays open.",
@@ -198,18 +208,18 @@ const HINTS := {
 		"The vault's contact table holds four panels of the same night.",
 		"The film edge numbers must run on, and the lamps go out in order.",
 		"Each panel's film edge is numbered, and its chair lamps can be counted.",
-		"B, D, A, C: eight lamps, six, three, none. Clip the edge, then slide the cover off.",
+		"B, D, A, C: eight lamps, six, three, one. Clip the edge, then slide the cover off.",
 	],
 	"p18": [
-		"The vault's three folders want Nora's three records.",
-		"Each folder takes what that instrument measured.",
-		"The film edge is dated. So is the spool.",
-		"Frame to BODY, strip to PLACE, register card to NAME, date 18 Oct 1927, COMPARE.",
+		"Which chair was hers?",
+		"The lamps go out in order. The last one lit is the one that stayed.",
+		"Her seat at Nora's table, by the door.",
+		"Her records on the tray, chair 6, date 18 Oct 1927, COMPARE.",
 	],
 	"p23": [
 		"The model in the vault can be tested safely.",
 		"A copy closes a record. A witness keeps it open.",
-		"The session log's margin has two marks. The terminals carry the same two.",
+		"The session log's margin has two marks, a triangle and a hollow circle. The terminals carry the same two.",
 		"Lead from the triangle to the hollow circle, leave the two squares empty, press TEST AMENDMENT. Take the bridge.",
 	],
 	"away_p17": [
@@ -230,7 +240,7 @@ const HINTS := {
 }
 ## Items this room hands out (docs/design/puzzle-cards/flags.md section 4).
 const ITEMS := {
-	"contact_sheet": {"name": "Contact sheet, 18 Oct 1927", "short": "Contact sheet", "desc": "A contact sheet from the Index session."},
+	"contact_sheet": {"name": "Contact sheet, 18 Oct 1927", "short": "Contact sheet", "desc": "A contact sheet from the Index session. On the film edge, in pencil: 'Sync: bell.' '2 frames after the bell'."},
 	"venn_correspondence": {"name": "Venn's correspondence", "short": "Venn's letters", "desc": "Letters from Venn's drawer in the vault."},
 	"witness_bridge": {"name": "Witness bridge", "desc": "A bridge part from the Index model, marked with a hollow circle."},
 }
@@ -248,7 +258,7 @@ var model_text := ""    # the c_model strip's current line
 func initial_state() -> Dictionary:
 	return {
 		"slots": ["", "", "", ""], "clipped": false, "cover_off": false, "p16_complete": false,
-		"filed": {"BODY": "", "PLACE": "", "NAME": ""}, "tray": [],
+		"filed": {"BODY": "", "PLACE": "", "NAME": ""}, "chair": CHAIR_RANGE[0],
 		"day": TODAY[0], "month": TODAY[1], "year": TODAY[2], "p18_complete": false,
 		"staff_open": false, "drawer_open": false, "wrap": 0,
 		"input": false, "copy": false, "witness": false, "stamp": "", "p23_complete": false,
@@ -308,6 +318,17 @@ static func edge_numbers(letter: String) -> Array:
 static func lamps_lit(letter: String) -> int:
 	return LAMPS[letter]
 
+## Whether chair `chair` (1-8) still has its lamp lit on panel `letter`.
+static func lamp_on(letter: String, chair: int) -> bool:
+	return chair in LAMP_CHAIRS[letter]
+
+## Her records are on the tray (filed in all three folders): the training subject.
+func subject_filed() -> bool:
+	for f in FOLDER_ORDER:
+		if state.filed[f] == "":
+			return false
+	return true
+
 static func panel_clock(letter: String) -> String:
 	return CLOCK[letter]
 
@@ -319,6 +340,10 @@ func photos_turned() -> bool:
 
 func ninth_photo() -> bool:
 	return band() >= 5
+
+## Band 5 on (the stage plate): chair 6's sitter stands in the portrait row, back turned.
+func sixth_standing() -> bool:
+	return band() >= FLOOD_BAND
 
 func mercer_card() -> bool:
 	return band() >= 6
@@ -517,6 +542,9 @@ func _room(action: String, ev: Array) -> void:
 			if state.p16_complete:
 				line = "The blanks have turned. All of them, the same way as the last face on the sheet."
 				_observe("photos_turned")
+			if sixth_standing():
+				line += " Except the sixth. Chair 6's sitter is standing now, back to me, beside the chair."
+				_observe("sixth_standing")
 			if ninth_photo():
 				line += " And a ninth: an empty chair. Nobody painted anything out of it."
 				_observe("ninth_photo")
@@ -768,7 +796,7 @@ func _cover(ev: Array) -> void:
 	_say(ev, "Faces. The same blanks as the photographs on the wall. Eight of them, painted out.", 0.8, true)
 	_fx(ev, "last_turn", {"delay": 3.8})
 	_sfx(ev, "blank_turn", 3.8)
-	_say(ev, "The last panel. 22:00, no lamps. That one's turned.", 4.0, true)
+	_say(ev, "The last panel. 22:00, one lamp still lit. And the last one's turned.", 4.0, true)
 	_say(ev, "Not to the camera. To whatever stood behind it.", 7.0, true)
 	_fx(ev, "reflection", {"delay": 10.0})
 	_say(ev, "In the glass: an empty station behind the camera. And Venn, standing outside the chairs.", 10.0, true)
@@ -782,12 +810,11 @@ func _cover(ev: Array) -> void:
 func _folders(action: String, ev: Array) -> void:
 	if FOLDERS.has(action):
 		var f: String = FOLDERS[action]
-		var rec: String = state.filed[f]
-		if rec != "":
-			state.filed[f] = ""
-			game.give(rec, ev)
+		if state.filed[f] != "":
+			_return_records(ev)
+			strip_text = ""
 			_sfx(ev, "folder_return")
-			_say(ev, "I take %s back out." % WORDS[rec])
+			_say(ev, "I take her records back out. All three.")
 		else:
 			_say(ev, COVERS[f])
 		return
@@ -801,14 +828,14 @@ func _folders(action: String, ev: Array) -> void:
 		"year_up", "year_dn":
 			state.year = _wheel(int(state.year), 1 if action == "year_up" else -1, YEAR_RANGE)
 			_sfx(ev, "wheel_click")
+		"chair_up", "chair_dn":
+			state.chair = _wheel(int(state.chair), 1 if action == "chair_up" else -1, CHAIR_RANGE)
+			_sfx(ev, "wheel_click")
 		"cmp_tray":
-			if state.tray.is_empty():
-				_say(ev, "The comparison tray. Empty.")
+			if subject_filed():
+				_say(ev, "TRAINING SUBJECT. She's filed. I didn't choose where.")
 			else:
-				for rec in state.tray:
-					game.give(rec, ev)
-				state.tray = []
-				_say(ev, "I take them back.")
+				_say(ev, "The comparison tray. TRAINING SUBJECT, printed on the glass.")
 		"lid_card":
 			_say(ev, PROTOCOL)
 			_observe("protocol_card")
@@ -827,7 +854,7 @@ static func _wheel(v: int, step: int, r: Array) -> int:
 	var n: int = r[1] - lo + 1
 	return lo + posmod(v - lo + step, n)
 
-## Every record in the folders or the comparison tray back to the inventory. True if any was out.
+## Every record in the folders back to the inventory. True if any was out.
 func _return_records(ev: Array) -> bool:
 	var any := false
 	for f in FOLDER_ORDER:
@@ -836,24 +863,27 @@ func _return_records(ev: Array) -> bool:
 			game.give(rec, ev)
 			state.filed[f] = ""
 			any = true
-	for rec in state.tray:
-		game.give(rec, ev)
-		any = true
-	state.tray = []
 	return any
 
-func _file(rec: String, fid: String, ev: Array) -> void:
+## One of her records laid on the tray (or a folder: the cabinet takes it the same way): all three
+## leave her hands and file themselves as the training subject. No category is chosen.
+func _lay_subject(rec: String, ev: Array) -> void:
 	if state.p18_complete:
 		_say(ev, FOLDERS_DONE)
 		return
-	var f: String = FOLDERS[fid]
-	if state.filed[f] != "":
-		_say(ev, "%s already has one in it." % f.capitalize())
-		return
-	game.take(rec)
-	state.filed[f] = rec
+	for x in RECORDS:
+		if not game.has_item(x):
+			_say(ev, NEED_ALL)
+			return
+	for x in RECORDS:
+		game.take(x)
+		state.filed[RECORD_FOLDER[x]] = x
+	strip_text = STRIP_SUBJECT
 	_sfx(ev, "folder_file")
-	_say(ev, "In %s." % f)
+	_fx(ev, "self_file", {"first": rec})
+	_say(ev, LAY_SUBJECT % WORDS[rec])
+	_say(ev, SELF_FILED, 1.2, true)
+	_observe("self_filed")
 
 func _compare(ev: Array) -> void:
 	_sfx(ev, "compare_key")
@@ -865,37 +895,32 @@ func _compare(ev: Array) -> void:
 		strip_text = STRIP_NO_SESSION
 		_say(ev, "It wants a session. I haven't found one yet.")
 		return
-	for f in FOLDER_ORDER:
-		if state.filed[f] == "":
-			strip_text = STRIP_INCOMPLETE
-			_say(ev, "Three folders. One record each.")
-			return
-	var first := ""
-	for f in FOLDER_ORDER:
-		var rec: String = state.filed[f]
-		if RECORD_FOLDER[rec] != f:
-			if first == "":
-				first = MISMATCH["%s/%s" % [rec, f]]
-			state.tray.append(rec)
-			state.filed[f] = ""
-	if first != "":
-		strip_text = STRIP_CATEGORY
-		_sfx(ev, "compare_refuse")
-		_say(ev, first)
-		_say(ev, "The tray has them.", 1.4)
+	if not subject_filed():
+		strip_text = STRIP_INCOMPLETE
+		_say(ev, "The tray's empty. It wants a subject.")
 		return
+	# Chair and date are read separately and both reported; her records stay filed.
+	var lines := []
+	if int(state.chair) != NORA_CHAIR:
+		lines.append(STRIP_CHAIR)
 	if not date_is(SESSION):
-		strip_text = STRIP_DATE
-		_sfx(ev, "compare_refuse")
-		_say(ev, "Not the session date.")
+		lines.append(STRIP_DATE)
 		if date_is(NOT_YET):
-			strip_text = STRIP_NOT_YET
-			_say(ev, "Not yet.", 1.6)
+			lines.append(STRIP_NOT_YET)
+	if lines.is_empty():
+		_solve_p18(ev)
+		return
+	strip_text = "\n".join(lines)
+	_sfx(ev, "compare_refuse")
+	if int(state.chair) != NORA_CHAIR:
+		_say(ev, "Not her chair.")
+	if not date_is(SESSION):
+		_say(ev, "Not the session date.", 0.0 if int(state.chair) == NORA_CHAIR else 1.4)
+		if date_is(NOT_YET):
+			_say(ev, "Not yet.", 1.6 if int(state.chair) == NORA_CHAIR else 3.0)
 			if not state.not_yet_seen:
 				state.not_yet_seen = true
 				_observe("not_yet")
-		return
-	_solve_p18(ev)
 
 func _solve_p18(ev: Array) -> void:
 	state.p18_complete = true
@@ -1010,7 +1035,7 @@ func _test(ev: Array) -> void:
 		return
 	if not state.input or not (state.copy or state.witness):
 		model_text = STRIP_NO_INPUT
-		_say(ev, "No input.")
+		_say(ev, STRIP_NO_INPUT)
 		return
 	if state.copy:
 		# Teaching by failure: the copy appends the amendment and closes the record, and the
@@ -1078,6 +1103,9 @@ func use_item(item: String, target: String, ev: Array) -> bool:
 	# is used there in the same action.
 	if local_view == "catalogue" and (FOLDERS.has(target) or target == "folders"):
 		_open_folders(ev, true)
+		# her records laid on the cabinet go on its tray
+		if item in RECORDS and target == "folders":
+			target = "cmp_tray"
 		if not use_item(item, target, ev):
 			_say(ev, NEED_FOLDERS)
 		return true
@@ -1123,16 +1151,17 @@ func use_item(item: String, target: String, ev: Array) -> bool:
 				return true
 		"nora_frame", "nora_spatial_strip", "nora_register_card":
 			if in_folders:
-				if FOLDERS.has(target):
-					_file(item, target, ev)
-				elif target == "cmp_tray":
-					_say(ev, "The tray takes what doesn't correspond. Records go in the folders.")
+				if FOLDERS.has(target) or target == "cmp_tray":
+					_lay_subject(item, ev)
 				else:
-					_say(ev, "Records go in the folders.")
+					_say(ev, "Her records go on the tray.")
 				return true
 		"contact_sheet":
-			if in_folders and (FOLDERS.has(target) or target == "compare" or target.ends_with("_up")
-					or target.ends_with("_dn")):
+			if in_folders and target.begins_with("chair_"):
+				_say(ev, SHEET_CHAIR)
+				return true
+			if in_folders and (FOLDERS.has(target) or target in ["compare", "cmp_tray"]
+					or target.ends_with("_up") or target.ends_with("_dn")):
 				_say(ev, SHEET_DATE)
 				return true
 			if in_contact:
@@ -1230,20 +1259,20 @@ func load_state(d: Variant) -> void:
 	state.month = _whole(d.get("month"), MONTH_RANGE, TODAY[1])
 	state.year = _whole(d.get("year"), YEAR_RANGE, TODAY[2])
 	state.wrap = _whole(d.get("wrap"), [0, 2], 0)
-	var used_recs := []
+	state.chair = _whole(d.get("chair"), CHAIR_RANGE, CHAIR_RANGE[0])
+	# Any of her records a save holds out of her hands (in a folder, or an older save's comparison
+	# tray) goes to its own folder; reconcile() hands them all back.
+	var out := []
 	var fi = d.get("filed")
 	if fi is Dictionary:
 		for f in FOLDER_ORDER:
-			var rec = fi.get(f)
-			if rec is String and rec != "" and RECORD_FOLDER.has(rec) and not rec in used_recs:
-				state.filed[f] = rec
-				used_recs.append(rec)
+			out.append(fi.get(f))
 	var tr = d.get("tray")
 	if tr is Array:
-		for rec in tr:
-			if rec is String and RECORD_FOLDER.has(rec) and not rec in used_recs:
-				state.tray.append(rec)
-				used_recs.append(rec)
+		out.append_array(tr)
+	for rec in out:
+		if rec is String and RECORD_FOLDER.has(rec):
+			state.filed[RECORD_FOLDER[rec]] = rec
 	var st = d.get("stamp")
 	if st is String and st in ["", "closed", "open"]:
 		state.stamp = st
@@ -1296,11 +1325,7 @@ func reconcile() -> void:
 		var rec: String = state.filed[f]
 		if rec != "" and not game.has_item(rec):
 			game.give(rec, [])
-	for rec in state.tray:
-		if not game.has_item(rec):
-			game.give(rec, [])
 	state.filed = {"BODY": "", "PLACE": "", "NAME": ""}
-	state.tray = []
 	game.set_flag("P16", state.p16_complete)
 	game.set_flag("P18", state.p18_complete)
 	game.set_flag("P23", state.p23_complete)
@@ -1312,7 +1337,7 @@ const A_SEEN := ["shelves", "vault_clock", "photographs", "index_file"]
 const B_SEEN := ["staff_aperture", "staff_label", "staff_tray", "venn_drawer", "parcel", "model", "model_shutter"]
 const P16_SEEN := ["contact_table", "panel_a", "panel_b", "panel_c", "panel_d", "contact_sheet_1927",
 	"photos_turned"]
-const P18_SEEN := ["folders", "protocol_card", "index_protocol", "venn_drawer_open"]
+const P18_SEEN := ["folders", "protocol_card", "self_filed", "index_protocol", "venn_drawer_open"]
 const P23_SEEN := ["faceplate", "witness_test", "aperture_wider"]
 
 func _observe_all(ids: Array) -> void:
@@ -1355,7 +1380,7 @@ func _prepare_notices() -> void:
 			state.notices.append(NOTICES[i])
 
 ## Dev stages: 1 tide VI fresh at the door, 2 panels B, D, A, C placed, 3 clipped, 4 P16 done,
-## 5 three records filed (date still 17 OCT 1931), 6 P18 done (P17 not), 7 tide VIII fresh
+## 5 three records filed (chair 1, date still 17 OCT 1931), 6 P18 done (P17 not), 7 tide VIII fresh
 ## (shutter open), 8 P23 done, 9 tide IX.
 func debug_jump(n: int) -> void:
 	if n <= 6:

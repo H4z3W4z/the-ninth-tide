@@ -8368,6 +8368,24 @@
       "source_svg": null
     },
     {
+      "id": "r10_dusk_a",
+      "path": "assets/stages/R10/r10_dusk_a.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "f75343b46f37d555a2ba1dd06771b8e46479eaa96ff3831d48bafe3dcd6ceccc",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r10_dusk_b",
+      "path": "assets/stages/R10/r10_dusk_b.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "cf935ba72c0ef0b1a387b3d34415ba58a062add3d2d095a8611a4451d529e9aa",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "r10_flood_b6",
       "path": "assets/stages/R10/r10_flood_b6.png",
       "width": 1448,
@@ -8382,6 +8400,42 @@
       "width": 1448,
       "height": 1086,
       "sha256": "b6074990b8e9554ac03ed8458edc3878bae540538e8b8745e4bf809589837761",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r10_tide_b5_a",
+      "path": "assets/stages/R10/r10_tide_b5_a.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "8d658fbc48a93f9f5f1719dcb1df574a671ada04d848f099f859298cf764ef15",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r10_tide_b5_b",
+      "path": "assets/stages/R10/r10_tide_b5_b.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "ee267e7c6e799c4179c0e0160f62b65ab4ccd0a5a82d84b0e3afd2fa49d7c9f8",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r10_tide_b6_a",
+      "path": "assets/stages/R10/r10_tide_b6_a.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "b41eee7ba2870824abab254081e32d7fa4c56c971e1f2ca6c23894c17dfca4e9",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r10_tide_b6_b",
+      "path": "assets/stages/R10/r10_tide_b6_b.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "690615f17d67a031dbb9facbd174da69861dcd1d90a27464e7793aaa557683d7",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
