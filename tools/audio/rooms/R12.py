@@ -1308,9 +1308,35 @@ def paper_cover(k: int) -> list[float]:
 
 # ---------------------------------------------------------------- build
 
+def r12_mid() -> list[float]:
+    """The chamber's mid band, so the dread carries on a laptop: a beating sine pair at 311 and
+    313.5 Hz (a 2.5 Hz beat) at -24 dBFS RMS, and brown noise band-passed to 400-1200 Hz at
+    -28 dBFS RMS, both under one slow swell (0.07 Hz asked; 2 whole cycles per loop, 0.0645 Hz,
+    so the wrap is coherent). 31 s. Written at these absolute levels (ABSOLUTE below), never
+    re-mastered to LOOP_RMS."""
+    rnd = seed(7)
+    L = 31.0
+    n = n_of(L + 1)
+    fa, fb = loop_freq(311.0, L), loop_freq(313.5, L)
+    sw = loop_freq(0.07, L)
+    tone_amp = 10 ** (-24 / 20)            # the pair's RMS: two equal sines of amplitude a sum to RMS a
+    noise = bandlimit(brown(n, rnd), 400, 1200)
+    nr = rms(noise)
+    noise = [x * (10 ** (-28 / 20)) / nr for x in noise]
+    wa, wb, ws = TAU * fa / SR, TAU * fb / SR, TAU * sw / SR
+    out = []
+    for i in range(n):
+        swell = 0.8 + 0.2 * math.sin(ws * i - math.pi / 2)      # 0.6 .. 1.0
+        out.append(swell * (tone_amp * (math.sin(wa * i) + math.sin(wb * i + 0.4)) + noise[i]))
+    return out
+
+
+# Loops written at the level they were synthesized at (peak left as is), not LOOP_RMS.
+ABSOLUTE = {"r12_mid"}
+
 LOOPS = [("r12_hum", r12_hum), ("r12_pressure", r12_pressure), ("r12_pressure_low", r12_pressure_low),
          ("r12_surface", r12_surface), ("r12_terminal", r12_terminal), ("end_sea_day", end_sea_day),
-         ("end_wide", end_wide)]
+         ("end_wide", end_wide), ("r12_mid", r12_mid)]
 
 # (id, fn(k)); k for seeding is 10 + position, so the loops keep k 0-6.
 SHOTS = [
@@ -1385,6 +1411,8 @@ def main() -> None:
         if ratio > 4.0:
             raise SystemExit(f"{name}: wrap step {ratio:.1f}x the median step")
         peak = min(0.98, LOOP_RMS * peak_of(xs) / max(1e-12, rms(xs)))
+        if name in ABSOLUTE:
+            peak = peak_of(xs)
         write(OUT, name, xs, peak)
         print(f"    wrap step {ratio:.2f}x median")
     for j, (name, fn) in enumerate(SHOTS):

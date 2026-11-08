@@ -17,7 +17,8 @@ const DIR := "res://assets/rooms/R12/%s.png"
 const PAGE_TEX := {
 	"end_a_record": "res://assets/stages/R12/r12_sever_office.png",
 	"end_b_terminal": "res://assets/stages/R12/r12_continue_terminal.png",
-	"end_b_field": "res://assets/stages/R12/end_b_wide_2.png",
+	"end_b_field": "res://assets/stages/R12/end_b_wide_3.png",
+	"end_b_wide": "res://assets/stages/R12/end_b_wide_3.png",
 	"c_routing": "res://assets/rooms/R12/c_routing_preview.png",
 }
 
@@ -112,7 +113,7 @@ const SFX_SOFT := ["handle_pull", "confirm_stamp", "frames_slide", "slots_close"
 ## "Soften sudden sounds" cuts 12 dB unless listed here: the throat in the silence is capped at -18.
 const SFX_SOFT_CUT := {"throat": 4.0}
 const LOOPS := ["r12_hum", "r12_pressure", "r12_pressure_low", "r12_surface", "r12_terminal", "end_sea_day",
-	"end_wide"]
+	"end_wide", "r12_mid"]
 const CROSSFADE := 3.0          # s, a stage's loop change
 const ENDING_FADE := 4.0        # s, the chamber loops leaving at the ending's step 8
 
@@ -167,8 +168,24 @@ const BLINK_CLOSE := 0.5
 const BLINK_HOLD := 0.35
 const BLINK_OPEN := 0.65
 const BLINK_TIME := BLINK_CLOSE + BLINK_HOLD + BLINK_OPEN
-## The eye overlay (a_surface_eye.png, GLASS_IN-sized), moved by R12Sim.pupil_offset().
-const GAZE_SPEED := 30.0        # px/s with Motion; still, it is simply where it looks
+## The eye (a_surface_eye_r3.png: the surface field with the iris at its centre, wider and taller
+## than the glass so it can turn) and its slit pupil (a_pupil_r3.png), centred on EYE_C plus
+## R12Sim.pupil_offset(). An eye_look fx turns it over LOOK_TIME, eased in and out; with Motion
+## off it is simply where it looks. The pupil leads the iris a little (PUPIL_LEAD of the offset).
+const EYE_C := Vector2(724, 258)            # GLASS_IN's centre
+const LOOK_TIME := 0.8
+const PUPIL_LEAD := 0.2
+const EYE_SCALE_P26 := 1.15                 # after P26 the eye is closer
+## The window's water line: water standing inside the pane, up from the sill. After P25 it
+## stands WATER_RISE higher.
+const WATER_Y := 382.0
+const WATER_RISE := 80.0
+const WATER_COLOR := Color(0x7f / 255.0, 0x95 / 255.0, 0x90 / 255.0, 0.24)
+const WATER_EDGE := Color("a9c8b8")
+## The previews' two lamps, reflected in the pupil: offsets from its centre.
+const PUPIL_LAMPS := [Vector2(-52, -8), Vector2(52, -8)]
+## Ending B's morning: the chamber window goes grey, flat, over the eye.
+const MORNING_GREY := Color(0x9a / 255.0, 0xa4 / 255.0, 0xa8 / 255.0, 0.7)
 ## A held breath: the chamber's loops go silent over BREATH_OUT, come back over BREATH_IN.
 const BREATH_OUT := 0.15
 const BREATH_IN := 0.8
@@ -177,7 +194,6 @@ const BREATH_IN_SOFT := 1.6
 ## tools/art/rooms/R12.py PREV_*. Times are seconds after the glance.
 const PREV_FRAME_X := [112, 200, 288, 376, 464, 552, 640, 728]
 const PREV_LAMP_Y := 30.0
-const PREV_RAIL := [120.0, 640.0, 150.0]
 const PREV_IN := 0.6
 const PREV_LAMP_AT := 1.0        # the first portrait lamp goes out
 const PREV_LAMP_STEP := 0.45
@@ -236,11 +252,19 @@ const TERM_LINES := [
 const COVER_STRIP := "LOCAL SURVEY: ONE OF…"
 const COVER_LINE := "Nora Bell took her tea without sugar. Begin there."
 const COVER_LINE_ROWS := ["Nora Bell took her tea without sugar.", "Begin there."]
-## The kitchen's window in end_b_wide_2 (tools/art/rooms/R12.py wide2_lit_at()).
+## The kitchen's window in end_b_wide_2 / end_b_wide_3 (tools/art/rooms/R12.py wide2_lit_at()).
 const FIELD_GLOW := Vector2(723.5, 643)
-## The ending's 'click to continue' mark, bottom right above the subtitles.
-const CONT_RECT := Rect2(1262, 940, 150, 40)
-const CONT_HZ := 0.5
+## The ending's 'Go on' button, at the right end of the subtitle bar; it fades in over CONT_FADE.
+const CAPTION_BAR := Rect2(20, 994, 1408, 80)
+const CONT_RECT := Rect2(1256, 1008, 156, 52)
+const CONT_FADE := 0.6
+const CAPTION_W := 1150.0       # her line's wrap width, clear of the button
+const CAPTION_X := 640.0        # and its centre
+## Card faces: body text at least CARD_BODY px in plate space, wrapped.
+const CARD_BODY := 18
+## Typed strips and plaques: fitted from PLAQUE_MAX down to PLAQUE_MIN px, wrapped, never cut.
+const PLAQUE_MAX := 16
+const PLAQUE_MIN := 14
 const AUTO_NEXT := 12.0         # s after the mark appears, the page turns by itself
 
 var r: R12Sim:
@@ -291,11 +315,14 @@ var counter_t0 := -1.0
 var paper_t0 := -1.0
 var cover_line_t0 := -1.0
 var page_spoke := false        # the page's first line has gone up (ends SEVER's silence)
-var wide_second := false       # CONTINUE's wide page: its second line has gone up
-var wide_second_t := -1.0
-var cont_t0 := -1.0            # the 'continue' mark appeared (-1 = not yet)
+var cont_t0 := -1.0            # the 'Go on' button appeared (-1 = not yet)
+var cont_node: Node2D          # the button, on its own node so it can fade
 # --- the eye ----------------------------------------------------------------------------------
-var gaze_at := Vector2.ZERO    # the pupil's drawn offset, easing toward r.pupil_offset()
+var gaze_at := Vector2.ZERO    # the eye's drawn offset (R12Sim.PUPIL_OFFSET, tweened)
+var look_from := Vector2.ZERO  # the turn running: from, to, and its clock (-1 = none)
+var look_to := Vector2.ZERO
+var look_t0 := -1.0
+var look_waits := []           # [{target, from, line, due}] turns waiting for their line
 var blink_waits := []          # [{line, due}] blinks the sim has asked for, waiting for their line
 var blink_t0 := -1.0           # the lid's clock (-1 = no blink)
 var breath_waits := []         # [{seconds, line|sfx+lead|due}] held breaths waiting to start
@@ -323,6 +350,10 @@ func _ready() -> void:
 	caption_node.name = "Caption"
 	layer.add_child(caption_node)
 	caption_node.draw.connect(_draw_caption)
+	cont_node = Node2D.new()
+	cont_node.name = "GoOn"
+	layer.add_child(cont_node)
+	cont_node.draw.connect(func() -> void: _draw_cont(cont_node))
 	mixer = LoopMixer.new()
 	add_child(mixer)
 	if game != null:
@@ -404,6 +435,8 @@ func tick(dt: float) -> void:
 	tab_prev.visible = _in_ending() and prev_tab != "" and _since(fade_t0) < TAB_FADE
 	tab_cur.visible = _in_ending()
 	caption_node.visible = _in_ending()
+	cont_node.visible = _in_ending() and cont_visible()
+	cont_node.modulate.a = cont_alpha()
 	tab_cur.modulate.a = 1.0 if not tab_prev.visible else _k(fade_t0, TAB_FADE)
 	close.visible = _view() in ["c_frames", "c_routing", "c_final"]
 	_tick_audio(dt)
@@ -411,10 +444,20 @@ func tick(dt: float) -> void:
 
 ## The eye: the pupil eases to where the sim says it looks; a waiting blink or held breath
 ## starts when its line goes up (or its sound is `lead` s off); the window's preview runs out.
-func _tick_eye(dt: float) -> void:
-	var target := r.pupil_offset()
-	gaze_at = gaze_at.move_toward(target, GAZE_SPEED * dt) if motion else target
+func _tick_eye(_dt: float) -> void:
 	var cur: String = game.cur_text if game != null else ""
+	for i in range(look_waits.size() - 1, -1, -1):
+		var w: Dictionary = look_waits[i]
+		if (w.line != "" and cur == w.line) or _now() >= w.due:
+			look_waits.remove_at(i)
+			_turn_to(w.target)
+	if look_t0 >= 0.0:
+		var e := (_now() - look_t0) / LOOK_TIME
+		if not motion or e >= 1.0:
+			gaze_at = look_to
+			look_t0 = -1.0
+		else:
+			gaze_at = look_from.lerp(look_to, smoothstep(0.0, 1.0, clampf(e, 0.0, 1.0)))
 	for i in range(blink_waits.size() - 1, -1, -1):
 		var w: Dictionary = blink_waits[i]
 		if (w.line != "" and cur == w.line) or _now() >= w.due:
@@ -428,6 +471,19 @@ func _tick_eye(dt: float) -> void:
 	if win_route != "" and win_t0 >= 0.0 and _now() - win_t0 > PREV_HOLD + PREV_OUT:
 		win_route = ""
 		win_t0 = -1.0
+
+## The eye turns to `target` from wherever it is drawn now (Motion off: it is simply there).
+func _turn_to(target: String) -> void:
+	var o: Array = R12Sim.PUPIL_OFFSET.get(target, [0, 0])
+	look_from = gaze_at
+	look_to = Vector2(o[0], o[1])
+	look_t0 = _now()
+	if not motion:
+		gaze_at = look_to
+		look_t0 = -1.0
+
+func look_running() -> bool:
+	return look_t0 >= 0.0
 
 func _hold_breath(seconds: float) -> void:
 	breath_until = maxf(breath_until, _now() + seconds)
@@ -462,9 +518,6 @@ func _tick_ending() -> void:
 	var said: Array = st.lines
 	if not page_spoke and not said.is_empty() and game.cur_text == said[0][1]:
 		page_spoke = true
-	if cur_tab == "end_b_wide" and not wide_second and said.size() > 1 and game.cur_text == said[1][1]:
-		wide_second = true
-		wide_second_t = _now()
 	if page_finished():
 		if cont_t0 < 0.0:
 			cont_t0 = _now()
@@ -495,13 +548,14 @@ func captions_done() -> bool:
 func cont_visible() -> bool:
 	return cont_t0 >= 0.0
 
-## The mark's alpha: a 0.5 Hz pulse between 0.45 and 1.0, or a still 0.8 with Motion off.
+## The button's alpha: it fades in over CONT_FADE once the page is done (its last line has had
+## its read time); with Motion off it is simply there. No pulse.
 func cont_alpha() -> float:
 	if not cont_visible():
 		return 0.0
 	if not motion:
-		return 0.8
-	return lerpf(0.45, 1.0, 0.5 + 0.5 * cos(TAU * CONT_HZ * (_now() - cont_t0)))
+		return 1.0
+	return clampf((_now() - cont_t0) / CONT_FADE, 0.0, 1.0)
 
 func redraw() -> void:
 	queue_redraw()
@@ -510,6 +564,7 @@ func redraw() -> void:
 		tab_prev.queue_redraw()
 		tab_cur.queue_redraw()
 		caption_node.queue_redraw()
+		cont_node.queue_redraw()
 
 # ---------------------------------------------------------------------------------------------
 # sound
@@ -524,10 +579,13 @@ func hum_db() -> float:
 const PRESSURE_DB := -10.0
 const SURFACE_DB := -14.0
 const TERMINAL_DB := -20.0
-const R12_LOOPS := ["r12_hum", "r12_pressure", "r12_pressure_low", "r12_surface", "r12_terminal"]
+const R12_LOOPS := ["r12_hum", "r12_pressure", "r12_pressure_low", "r12_surface", "r12_terminal", "r12_mid"]
 const LINE_OUT_FADE := 0.5      # s, each eighth of the hum after its line goes out
-const WIDE_DUCK_DB := -40.0     # the silence before "Around it, more windows..."
-const WIDE_DUCK_AT := 3.0       # s into the page: the first line has been read
+const WIDE_DB := -14.0          # CONTINUE's wide dark
+
+## The mid band (r12_mid, mastered at -24/-28 dBFS): -6 dB, 2 dB up after P25 and 2 more after P26.
+func mid_db() -> float:
+	return -6.0 + 2.0 * _stage()
 
 func loop_targets() -> Dictionary:
 	var s := _stage()
@@ -539,6 +597,7 @@ func loop_targets() -> Dictionary:
 		"r12_terminal": _lin(TERMINAL_DB) if s >= 1 and not terminal_pending else 0.0,
 		"end_sea_day": 0.0,
 		"end_wide": 0.0,
+		"r12_mid": _lin(mid_db()),
 	}
 	var choice := r.chosen()
 	if choice == "":
@@ -556,6 +615,7 @@ func loop_targets() -> Dictionary:
 		if step >= 8:
 			t["r12_pressure_low"] = 0.0
 			t["r12_surface"] = 0.0
+			t["r12_mid"] = 0.0
 			t["end_sea_day"] = _lin(-12.0)
 	else:
 		t["r12_hum"] = _lin(hum_db())
@@ -563,7 +623,7 @@ func loop_targets() -> Dictionary:
 		if step >= 8:
 			for id in R12_LOOPS:
 				t[id] = 0.0
-			t["end_wide"] = _lin(WIDE_DUCK_DB) if wide_duck() else _lin(-14.0)
+			t["end_wide"] = _lin(WIDE_DB)
 	return _breath_targets(t)
 
 func _breath_targets(t: Dictionary) -> Dictionary:
@@ -582,11 +642,6 @@ func sever_silence() -> bool:
 		return lines_out >= 8
 	return step == 1 and not page_spoke
 
-## CONTINUE's wide page: the gap between its two lines is silence.
-func wide_duck() -> bool:
-	return r != null and r.chosen() == "continue" and cur_tab == "end_b_wide" and not tab_done \
-		and not wide_second and _now() - tab_t0 >= WIDE_DUCK_AT
-
 func loop_rates() -> Dictionary:
 	var rates := {}
 	for id in LOOPS:
@@ -601,10 +656,8 @@ func loop_rates() -> Dictionary:
 			# the step's sfx table); after the eighth, the rest of the bed goes as fast
 			rates["r12_hum"] = _lin(hum_db()) / 8.0 / LINE_OUT_FADE
 			if sever_silence():
-				for id in ["r12_pressure", "r12_pressure_low", "r12_surface", "r12_terminal"]:
+				for id in ["r12_pressure", "r12_pressure_low", "r12_surface", "r12_terminal", "r12_mid"]:
 					rates[id] = _lin(PRESSURE_DB) / LINE_OUT_FADE
-		if wide_duck() or (cur_tab == "end_b_wide" and wide_second and _now() - wide_second_t < 1.0):
-			rates["end_wide"] = _lin(-14.0) / 0.3
 	# a held breath: out at once, back slowly (slower still with Soften sudden sounds)
 	if breath_held():
 		for id in LOOPS:
@@ -652,6 +705,19 @@ func play_fx(id: String, e: Dictionary) -> void:
 		"surface_withdraw":
 			withdraw_pending = true
 			withdraw_t0 = -1.0
+		"eye_look":
+			var target := str(e.get("target", "centre"))
+			var line := str(e.get("line", ""))
+			var delay := float(e.get("delay", 0.0))
+			if line != "" or delay > 0.0:
+				# shown where it was until its line goes up (the entry snapped it to the new look)
+				var f: Array = R12Sim.PUPIL_OFFSET.get(str(e.get("from", "centre")), [0, 0])
+				gaze_at = Vector2(f[0], f[1])
+				look_t0 = -1.0
+				look_waits.append({"target": target, "line": line,
+					"due": _now() + delay + (30.0 if line != "" else 0.0)})
+			else:
+				_turn_to(target)
 		"blink":
 			blink_waits.append({"line": str(e.get("line", "")), "due": _now() + float(e.get("delay", 0.0)) + 30.0})
 		"hold_breath":
@@ -744,8 +810,6 @@ func _start_step(step: int, tab: String, change: String) -> void:
 	paper_t0 = -1.0
 	cover_line_t0 = -1.0
 	page_spoke = false
-	wide_second = false
-	wide_second_t = -1.0
 	cont_t0 = -1.0
 
 ## The window's glance (P26): the preview it was asked to show, and the surface drawing back
@@ -788,16 +852,17 @@ func apply_instantly() -> void:
 	fade_t0 = -99.0
 	cont_t0 = -1.0
 	page_spoke = false
-	wide_second = false
-	wide_second_t = -1.0
 	blink_waits = []
 	blink_t0 = -1.0
 	breath_waits = []
 	breath_until = -1.0
 	win_route = ""
 	win_t0 = -1.0
+	look_waits = []
+	look_t0 = -1.0
 	if r != null:
 		gaze_at = r.pupil_offset()
+		look_to = gaze_at
 	if r != null and r.chosen() != "":
 		cur_tab = r.tableau()
 		cur_step = r.ending_step()
@@ -988,18 +1053,28 @@ func _draw_view_a(c: CanvasItem, tab: String) -> void:
 	match tab:
 		"a_day":
 			_full(c, "a_daylight")
-		"a_sit", "a_morning":
-			# it stays drawn back from the glass; the morning never reaches the water
+		"a_sit":
+			# it stays drawn back from the glass
 			_full(c, "a_surface_wide")
 			_draw_eye(c)
+			_draw_water(c)
 			_draw_margin(c, 1.0)
+		"a_morning":
+			# morning reaches the windows: the chamber's goes grey, flat, over the eye
+			_full(c, "a_surface_wide")
+			_draw_eye(c)
+			_draw_water(c)
+			_draw_margin(c, 1.0)
+			_glass_rect(c, GLASS_IN, MORNING_GREY)
 		_:
 			_full(c, "a_surface_wide")
 			_draw_eye(c)
+			_draw_water(c)
 			if s >= 2:
 				_draw_margin(c, _withdraw_k())
 	if tab == "":
 		_draw_window_preview(c)
+		_draw_pupil_lamps(c)
 		_draw_lid(c)
 	# the stage marks on the chamber itself: the tide line rising up the wainscot, the gauge's
 	# bowed bezel (S2), the seat pressed hollow (S1+)
@@ -1041,9 +1116,69 @@ func _draw_lid(c: CanvasItem) -> void:
 	if k < 1.0:
 		_glass_rect(c, Rect2(g.position.x, y - 3.0, g.size.x, 3.0), LID_EDGE)
 
-## The eye: a_surface_eye at its gaze offset, clipped to the water, the room in front of it.
+## The eye's scale: closer (x1.15) once P26 is done.
+func eye_scale() -> float:
+	return EYE_SCALE_P26 if _stage() >= 2 else 1.0
+
+## The eye's centre in the room now.
+func eye_centre() -> Vector2:
+	return EYE_C + gaze_at
+
+## The pupil's centre: the iris's, led a little further the way the eye looks.
+func pupil_centre() -> Vector2:
+	return EYE_C + gaze_at * (1.0 + PUPIL_LEAD) * eye_scale()
+
+## The eye: the surface field and iris (a_surface_eye_r3) at its gaze, scaled after P26, then the
+## slit pupil (a_pupil_r3). Clipped to the water, the room in front of it.
 func _draw_eye(c: CanvasItem) -> void:
-	_glass_tex(c, _tex("a_surface_eye"), GLASS_IN.position + gaze_at)
+	var sc := eye_scale()
+	_glass_tex_scaled(c, _tex("a_surface_eye_r3"), eye_centre(), sc)
+	_glass_tex_scaled(c, _tex("a_pupil_r3"), pupil_centre(), sc)
+
+## Draws `t` centred on `centre` at scale `sc`, clipped to the water and cut round the holes.
+func _glass_tex_scaled(c: CanvasItem, t: Texture2D, centre: Vector2, sc: float, a := 1.0) -> void:
+	if t == null or a <= 0.0:
+		return
+	var size := t.get_size() * sc
+	var dest := Rect2(centre - size / 2.0, size)
+	for p in _glass_parts(dest):
+		c.draw_texture_rect_region(t, p, Rect2((p.position - dest.position) / sc, p.size / sc), Color(1, 1, 1, a))
+
+## The water line in the window: water standing inside the pane, up from the sill (higher after
+## P25). A flat band of darker water and a pale line on it; the eye still reads through it.
+func water_y() -> float:
+	return WATER_Y - (WATER_RISE if _stage() >= 1 else 0.0)
+
+func _draw_water(c: CanvasItem) -> void:
+	var y := water_y()
+	_glass_rect(c, Rect2(GLASS_IN.position.x, y, GLASS_IN.size.x, GLASS_IN.end.y - y), WATER_COLOR)
+	_glass_rect(c, Rect2(GLASS_IN.position.x, y - 1.5, GLASS_IN.size.x, 3.0), Color(WATER_EDGE, 0.85))
+
+## The previews, reflected in the pupil: two small lamp points. SEVER: both lit, then out one
+## by one with the portrait lamps. CONTINUE: his goes out as the feed moves; the kitchen's stays.
+func pupil_lamps() -> Array:
+	var a := window_preview_a()
+	if a <= 0.0:
+		return [false, false]
+	if win_route == "sever":
+		var out := window_lamps_out()
+		return [out < 4, out < 8]
+	return [window_feed()[0] < 1.0, true]
+
+func _draw_pupil_lamps(c: CanvasItem) -> void:
+	var a := window_preview_a()
+	if a <= 0.0:
+		return
+	var lit := pupil_lamps()
+	var sc := eye_scale()
+	for i in 2:
+		var at: Vector2 = pupil_centre() + PUPIL_LAMPS[i] * sc
+		if lit[i]:
+			c.draw_circle(at, 16.0 * sc, Color(Ink.AMBER, 0.3 * a))
+			c.draw_circle(at, 8.0 * sc, Color(AMBER_HI, a))
+		else:
+			c.draw_circle(at, 8.0 * sc, Color(Ink.STORM, a))
+			c.draw_arc(at, 8.0 * sc, 0.0, TAU, 20, Color(LID_EDGE, 0.55 * a), 1.5)
 
 ## Draws `t` with its corner at `at`, clipped to the water and cut round what hangs in front.
 func _glass_tex(c: CanvasItem, t: Texture2D, at: Vector2, a := 1.0) -> void:
@@ -1098,7 +1233,6 @@ func _draw_window_preview(c: CanvasItem) -> void:
 	if a <= 0.0:
 		return
 	var o := GLASS_IN.position
-	var f := Ink.serif()
 	if win_route == "sever":
 		var out := window_lamps_out()
 		var e := _now() - win_t0
@@ -1115,19 +1249,8 @@ func _draw_window_preview(c: CanvasItem) -> void:
 			if dark:
 				_glass_tex(c, dt, o, a * dk)
 	else:
+		# his oilskin comes up in the window, empty; the feed's lamps are in the pupil
 		var fd := window_feed()
-		_glass_tex(c, _tex("a_prev_feed"), o, a)
-		var y: float = o.y + PREV_RAIL[2]
-		var ev_x: float = o.x + PREV_RAIL[0]
-		var am_x: float = o.x + PREV_RAIL[1]
-		_lamp(c, Vector2(ev_x, y), fd[0] < 1.0, 0.9)
-		_lamp(c, Vector2(am_x, y), fd[0] >= 1.0, 0.9)
-		var sx := lerpf(ev_x + 26, am_x - 26, fd[0])
-		var sr := Rect2(sx - 8, y - 11, 16, 22)
-		c.draw_rect(sr, Color(BRASS, a))
-		c.draw_rect(sr, Color(INK, a), false, 1.5)
-		_rtext(c, "E.V.", Rect2(ev_x - 34, y + 26, 68, 24), 15, Color(INK, a), f)
-		_rtext(c, "A.M.", Rect2(am_x - 34, y + 26, 68, 24), 15, Color(INK, a), f)
 		_glass_tex(c, _tex("a_prev_oilskin"), o, a * fd[1])
 
 ## The margin of darker water inside the glass edge, faded in by k.
@@ -1236,10 +1359,7 @@ func _draw_view_b(c: CanvasItem, tab: String) -> void:
 	for i in 3:
 		_rtext(c, ["BODY", "PLACE", "NAME"][i], Rect2(FRAMES_B[i] + 40, 650, 260, 40), 22, INK, f)
 	if s >= 1 and (not terminal_pending or tab != ""):
-		var y := 816.0
-		for line in ["AUTOMATIC", "COUNTERSIGN", "AVAILABLE."]:
-			_ctext(c, line, 328, y, 12, INK, f)
-			y += 15.0
+		_draw_countersign(c)
 	# the cards: in a frame window or in the rack, until the record is routed. The three painted
 	# pockets are covered and the seven cards stand in a row across them, in their rack order.
 	var fr := r.frames()
@@ -1258,6 +1378,47 @@ func _draw_view_b(c: CanvasItem, tab: String) -> void:
 			var cid: String = fr[R12Sim.FRAME_IDS[i]]
 			if cid != "":
 				_sprite(c, "card", Vector2(FRAMES_B[i] + 170 - 48, 470 - 32), 1.0, 0.32)
+
+## The countersign plaque on the witness terminal (view B, after P25): the strip's two lines in
+## full on an enamel plate under the slot, as wide as they need (inside the terminal's face).
+const COUNTERSIGN_TOP := 800.0
+const COUNTERSIGN_CX := 300.0
+const COUNTERSIGN_MAX_W := 300.0
+
+func countersign_layout() -> Dictionary:
+	var f := Ink.serif()
+	var fit := fit_rows(R12Sim.STRIP_DONE, COUNTERSIGN_MAX_W - 20.0, f)
+	var w := 0.0
+	for row in fit.rows:
+		w = maxf(w, _tw(str(row), fit.size, f))
+	var lead: float = fit.size + 5.0
+	var rect := Rect2(COUNTERSIGN_CX - (w + 20.0) / 2.0, COUNTERSIGN_TOP, w + 20.0, lead * fit.rows.size() + 10.0)
+	return {"size": fit.size, "rows": fit.rows, "rect": rect, "lead": lead}
+
+func _draw_countersign(c: CanvasItem) -> void:
+	var lay := countersign_layout()
+	var rect: Rect2 = lay.rect
+	_plate(c, rect)
+	var y: float = rect.position.y + 5.0 + lay.size
+	for row in lay.rows:
+		_ctext(c, str(row), rect.get_center().x, y, lay.size, INK, Ink.serif())
+		y += lay.lead
+
+## Fits `lines` into `width`: the largest size from `hi` down to `lo` at which every line fits
+## whole, else `lo` with the long lines word-wrapped. Never cut. {size, rows}.
+static func fit_rows(lines: Array, width: float, font: Font, hi := PLAQUE_MAX, lo := PLAQUE_MIN) -> Dictionary:
+	for size in range(hi, lo - 1, -1):
+		var ok := true
+		for l in lines:
+			if _tw(str(l), size, font) > width:
+				ok = false
+				break
+		if ok:
+			return {"size": size, "rows": lines.duplicate()}
+	var rows := []
+	for l in lines:
+		rows.append_array(_wrap(str(l), width, lo, font))
+	return {"size": lo, "rows": rows}
 
 ## Each shuttered lamp's faint glow, breathing on its own tremolo (still with Motion off).
 func _draw_lamp_glow(c: CanvasItem, s := 0) -> void:
@@ -1488,20 +1649,22 @@ func _tab(c: CanvasItem, cid: String, at: Vector2, shadow := true) -> void:
 	c.draw_rect(rect, INK, false, 2.0)
 	var f := Ink.serif()
 	var cat: String = r.card_header(cid).get_slice(" ", 0)
-	_ctext(c, cat, rect.get_center().x, at.y + 26, 15, INK, f)
+	_ctext(c, cat, rect.get_center().x, at.y + 26, 16, INK, f)
 	c.draw_line(at + Vector2(8, 34), at + Vector2(TAB.x - 8, 34), Color(INK, 0.5), 1.0)
-	var y := at.y + 54
+	# the start of its face at CARD_BODY px, wrapped; what doesn't fit ends in an ellipsis (the
+	# whole face is on the card in its frame, in her voice when lifted, and in the notebook)
+	var y := at.y + 58
 	var rows := []
 	for line in r.card_text(cid):
-		rows.append_array(_wrap(str(line), TAB.x - 14, 13, f))
+		rows.append_array(_wrap(str(line), TAB.x - 12, CARD_BODY, f))
 	for k in rows.size():
-		if y > at.y + TAB.y - 10:
+		if y > at.y + TAB.y - 8:
 			break
 		var row: String = rows[k]
-		if y + 17 > at.y + TAB.y - 10 and k < rows.size() - 1:
-			row += " …"
-		_ltext(c, row, at.x + 7, y, 13, INK, f)
-		y += 17.0
+		if y + 22 > at.y + TAB.y - 8 and k < rows.size() - 1:
+			row += "…"
+		_ltext(c, row, at.x + 6, y, CARD_BODY, INK, f)
+		y += 22.0
 
 ## A card at `at` (top-left), scale s: the painted card with its printed face.
 func _card(c: CanvasItem, cid: String, at: Vector2, s := 1.0, mod := Color(1, 1, 1)) -> void:
@@ -1511,35 +1674,74 @@ func _card(c: CanvasItem, cid: String, at: Vector2, s := 1.0, mod := Color(1, 1,
 	c.draw_set_transform(at, 0.0, Vector2(s, s))
 	var f := Ink.serif()
 	var col := Color(INK.r * mod.r, INK.g * mod.g, INK.b * mod.b)
-	_ltext(c, r.card_header(cid).to_upper(), 16, 52, 13, col, f)
+	_ltext(c, r.card_header(cid).to_upper(), 16, 52, 14, col, f)
 	c.draw_line(Vector2(16, 60), Vector2(284, 60), Color(col, 0.5), 1.0)
-	var y := 82.0
+	# the face at CARD_BODY px, wrapped; the leading closes up (never under 19 px) to keep a long
+	# MOVEMENT run on the card
 	var lines := r.card_text(cid)
+	var wrapped := []
+	var n := 0
 	for i in lines.size():
 		var font: Font = Ink.hand() if cid == "trace" and i == lines.size() - 1 else f
-		for wl in _wrap(str(lines[i]), 268, 15, font):
-			_ltext(c, wl, 16, y, 15, col, font)
-			y += 20.0
+		var rows := _wrap(str(lines[i]), 268, CARD_BODY, font)
+		wrapped.append([font, rows])
+		n += rows.size()
+	var lead := clampf((188.0 - 84.0 - 2.0 * (lines.size() - 1)) / maxf(1.0, n - 1), 19.0, 22.0)
+	var y := 84.0
+	for w in wrapped:
+		for wl in w[1]:
+			_ltext(c, wl, 16, y, CARD_BODY, col, w[0])
+			y += lead
 		y += 2.0
 	c.draw_set_transform_matrix(Transform2D.IDENTITY)
 
+## The strip plaque in c_frames: wider than the painted slot, as tall as its rows, every line
+## of the strip in full (fitted from PLAQUE_MAX to PLAQUE_MIN px, then wrapped; never cut).
+const STRIP_PLAQUE_X := 1110.0
+const STRIP_PLAQUE_W := 262.0
+
+## {size, rows: [[line index, row text]], rect, lead} for the strip's full lines.
+func strip_layout() -> Dictionary:
+	var f := Ink.serif()
+	var full: Array = strip_queue if not strip_queue.is_empty() else r.strip_lines()
+	var fit := fit_rows(full, STRIP_PLAQUE_W - 16.0, f)
+	var rows := []
+	for i in full.size():
+		for row in fit_rows([full[i]], STRIP_PLAQUE_W - 16.0, f, fit.size, fit.size).rows:
+			rows.append([i, str(row)])
+	var lead: float = fit.size + 6.0
+	var rect := Rect2(STRIP_PLAQUE_X, STRIP_RECT.position.y - 6.0, STRIP_PLAQUE_W,
+		maxf(STRIP_RECT.size.y + 12.0, lead * rows.size() + 14.0))
+	return {"size": fit.size, "rows": rows, "rect": rect, "lead": lead, "full": full}
+
 func _draw_strip(c: CanvasItem) -> void:
 	var f := Ink.serif()
-	var shown := []
-	if not strip_queue.is_empty():
-		for i in strip_starts.size():
-			var s: String = strip_queue[i]
-			shown.append(s.substr(0, _typed_n(s, strip_starts[i])))
-	else:
-		shown = r.strip_lines()
-	var rows := []
-	for s in shown:
-		rows.append_array(_wrap(str(s), STRIP_RECT.size.x - 12, 15, f))
-	# a paper strip feeds upward: the newest row sits at the bottom
-	var n := mini(rows.size(), 2)
-	for i in n:
-		var line: String = rows[rows.size() - n + i]
-		_ltext(c, line, STRIP_RECT.position.x + 6, STRIP_RECT.position.y + 24 + 22 * i, 15, INK, f)
+	var lay := strip_layout()
+	if lay.rows.is_empty():
+		return
+	var rect: Rect2 = lay.rect
+	c.draw_rect(rect, Color("ece3cb"))
+	c.draw_rect(rect, INK, false, 1.5)
+	# how much of each line has typed (all of it once printed, or with Motion off)
+	var typed := []
+	for i in lay.full.size():
+		var s: String = lay.full[i]
+		if strip_queue.is_empty():
+			typed.append(s.length())
+		elif i < strip_starts.size():
+			typed.append(_typed_n(s, strip_starts[i]))
+		else:
+			typed.append(0)
+	var used := {}
+	var y: float = rect.position.y + 7.0 + lay.size
+	for row in lay.rows:
+		var i: int = row[0]
+		var text: String = row[1]
+		var left: int = typed[i] - int(used.get(i, 0))
+		used[i] = int(used.get(i, 0)) + text.length() + 1
+		if left > 0:
+			_ltext(c, text.substr(0, mini(left, text.length())), rect.position.x + 8.0, y, lay.size, INK, f)
+		y += lay.lead
 
 ## c_routing (P26): the two plates and their PREVIEW keys on c_routing_preview (no card slots,
 ## no tray, no CONFIRM). A preview runs on the plate's lamps, then in the window.
@@ -1738,14 +1940,10 @@ func _draw_terminal(c: CanvasItem, id: String, done: bool) -> void:
 		else:
 			Ink.handwriting(c, s, n, Vector2(250, y), 22, 40 + i, n < s.length(), PENCIL)
 
+## CONTINUE's wide page: the night field (end_b_wide_3). Its one lit window and its small flat
+## glow are painted; nothing here moves.
 func _draw_wide(c: CanvasItem) -> void:
 	_full(c, "end_b_field")
-	var a := 0.22
-	if motion:
-		a = 0.16 + 0.10 * (0.5 + 0.5 * sin(TAU * 0.1 * time))
-	# a smooth falloff: many faint discs, each a little smaller and stacked toward the window
-	for k in 12:
-		c.draw_circle(FIELD_GLOW, 40.0 - 3.0 * k, Color(AMBER_HI, a * 0.16))
 
 func _draw_cover(c: CanvasItem, done: bool) -> void:
 	_full(c, "end_b_cover")
@@ -1772,37 +1970,30 @@ func _draw_cover(c: CanvasItem, done: bool) -> void:
 func _draw_caption() -> void:
 	if game == null:
 		return
-	_draw_cont(caption_node)
 	if game.cur_text == "":
+		if cont_visible():
+			caption_node.draw_rect(CAPTION_BAR, Color(0.03, 0.06, 0.08, 0.9))
 		return
 	var c := caption_node
 	var f := Ink.serif()
 	var s: String = game.cur_text
 	var n := s.length() if not motion else mini(s.length(), int(game.line_t * GameView.TYPE_CPS))
-	c.draw_rect(Rect2(20, 994, 1408, 80), Color(0.03, 0.06, 0.08, 0.9))
-	var lines := _wrap(s, 1340, 24, f)
+	c.draw_rect(CAPTION_BAR, Color(0.03, 0.06, 0.08, 0.9))
+	var lines := _wrap(s, CAPTION_W, 24, f)
 	var y := 1040.0 - 15.0 * (lines.size() - 1)
 	var left := n
 	for line in lines:
 		var m := mini(left, str(line).length())
 		left = maxi(0, left - str(line).length() - 1)
 		var w := _tw(line, 24, f)
-		_ltext(c, str(line).substr(0, m), 724 - w / 2.0, y, 24, PAPER, f)
+		_ltext(c, str(line).substr(0, m), CAPTION_X - w / 2.0, y, 24, PAPER, f)
 		y += 30.0
 	if game.chain_active():
-		_ltext(c, "▸", 1392, 1040, 22, Color(PAPER, 0.55), f)
+		_ltext(c, "▸", CONT_RECT.position.x - 30.0, 1040, 22, Color(PAPER, 0.55), f)
 
-## 'continue': a small ink chevron and the word on a paper chip, pulsing at CONT_HZ between
-## 0.45 and 1.0 (Motion off: still, at 0.8).
+## 'Go on': the core's button (Ink.button: storm-navy face, sea-glass rim, paper type) at the
+## subtitle bar's right end. Its own node fades it in (cont_alpha); nothing pulses.
 func _draw_cont(c: CanvasItem) -> void:
 	if not cont_visible():
 		return
-	var a := cont_alpha()
-	var rect := CONT_RECT
-	c.draw_rect(rect, Color(PAPER, 0.92 * a))
-	c.draw_rect(rect, Color(INK, a), false, 1.5)
-	var f := Ink.serif()
-	_ltext(c, "continue", rect.position.x + 16, rect.position.y + 27, 18, Color(INK, a), f)
-	var x := rect.end.x - 26.0
-	var y := rect.get_center().y
-	c.draw_polyline(PackedVector2Array([Vector2(x, y - 8), Vector2(x + 9, y), Vector2(x, y + 8)]), Color(INK, a), 2.5)
+	Ink.button(c, CONT_RECT, "Go on ▸", false, 22)

@@ -3618,6 +3618,198 @@ def wide2_lit_at():
     return ((win[0] + win[2]) / 2, (win[1] + win[3]) / 2)
 
 
+# ============================================================================ fix p2: the eye r3, the night field, the names
+# New files only: assets/rooms/R12/a_surface_eye_r3.png, a_pupil_r3.png and
+# assets/stages/R12/end_b_wide_3.png, r12_sever_office_r2.png. Nothing above changes.
+
+# The eye r3: one flat surface field the size of the glass plus the room the gaze moves it
+# through (R12Sim.PUPIL_OFFSET: x +-150, y up to 40, then x1.15 after P26), so the wide plate's
+# painted rings never show past it; the iris fills the full GLASS_IN height.
+EYE3_PAD = (190, 90)                                   # canvas margin round GLASS_IN, x and y
+EYE3_SIZE = (GLASS_IN[2] + 2 * EYE3_PAD[0], GLASS_IN[3] + 2 * EYE3_PAD[1])   # 1404 x 500
+EYE3_C = (EYE3_SIZE[0] / 2, EYE3_SIZE[1] / 2)          # the eye's centre: the canvas centre
+EYE3_R = GLASS_IN[3] / 2                               # 160: the iris is as tall as the water
+EYE3_IRIS = (0x5F, 0x8F, 0x86)                         # sea-glass
+EYE3_LIMBUS = mix(STORM, INK, 0.4)                     # the dark ring at the iris edge
+EYE3_RINGS = ((EYE3_R - 9, 13.0), (112, 3.2), (74, 2.4))   # (radius, width): solid, concentric
+EYE3_VEIN = mix(INK, STORM, 0.35)
+PUPIL3_SIZE = (260, 70)                                # the slit, plate px
+PUPIL3_PAD = 6
+
+
+def paint_surface_eye_r3(rng):
+    """The eye in the window, r3: the surface field (flat sea-glass to storm navy, the wide plate's
+    gradient registered to the glass) with two huge faint inked bands round a sea-glass iris that
+    fills the water top to bottom. Navy radial veins, three solid concentric rings, no stations,
+    no glint, no pupil (a_pupil_r3 is its own sprite, so it can move)."""
+    w, h = EYE3_SIZE
+    gx, gy = GLASS_IN[0] - EYE3_PAD[0], GLASS_IN[1] - EYE3_PAD[1]     # canvas origin in the room
+    p = Pen(w, h, rng)
+    # the field: SURFW_TOP at the pane's top (y 86) to SURFW_BOT at its sill (y 430), held past both
+    top_t = (gy - GLASS[1]) / (GLASS[3] - GLASS[1])
+    bot_t = (gy + h - GLASS[1]) / (GLASS[3] - GLASS[1])
+    c_top = mix(SURFW_TOP, SURFW_BOT, max(0.0, min(1.0, top_t)))
+    c_bot = mix(SURFW_TOP, SURFW_BOT, max(0.0, min(1.0, bot_t)))
+    p.rect(-4, -4, w + 4, GLASS[1] - gy, c_top, None)
+    p.vgrad(-4, GLASS[1] - gy, w + 4, GLASS[3] - gy, SURFW_TOP, SURFW_BOT)
+    p.rect(-4, GLASS[3] - gy, w + 4, h + 4, c_bot, None)
+    cx, cy = EYE3_C
+    # two vast bands round it, a step darker each, inked: the eye is bigger than the window
+    for rr, t in ((EYE3_R + 250, 0.16), (EYE3_R + 120, 0.30)):
+        p.ell(cx, cy, rr, rr, mix(SURFW_TOP, STORM, t), INK, 2.6)
+    p.ell(cx, cy, EYE3_R + 34, EYE3_R + 34, mix(SURFW_TOP, STORM, 0.42), INK, 2.6)
+    # the iris
+    p.ell(cx, cy, EYE3_R, EYE3_R, EYE3_IRIS, None)
+    # radial veins: tapering navy strokes from near the pupil to the limbus, each a little bent
+    veins = p.layer()
+    n = 44
+    for i in range(n):
+        a = math.tau * (i + rng.uniform(-0.3, 0.3)) / n
+        r0 = rng.uniform(40, 62)
+        r1 = rng.uniform(EYE3_R - 30, EYE3_R - 12)
+        bend = rng.uniform(-0.09, 0.09)
+        pts = []
+        for k in range(9):
+            t = k / 8
+            rr = lerp(r0, r1, t)
+            aa = a + bend * math.sin(math.pi * t)
+            pts.append((cx + rr * math.cos(aa), cy + rr * math.sin(aa)))
+        for k in range(8):
+            veins.line([pts[k], pts[k + 1]], EYE3_VEIN, lerp(2.6, 1.0, k / 7))
+    p.put(veins, 0.7)
+    # three solid concentric rings, the outer one the dark limbus
+    for rr, wd in EYE3_RINGS:
+        p.ell(cx, cy, rr, rr, None, EYE3_LIMBUS if wd > 6 else mix(EYE3_LIMBUS, EYE3_IRIS, 0.25), wd)
+    p.ell(cx, cy, EYE3_R, EYE3_R, None, INK, 3.2)
+    return grain(p.done(), rng_for(2420), amp=3, mottle=3, speck=4)
+
+
+def paint_pupil_r3(rng):
+    """The pupil, r3: a horizontal slit 260 x 70, flat near-black with a navy ink contour and a
+    thin storm-navy inner rim. The view moves it, and puts the previews' lamps in it."""
+    pw, ph = PUPIL3_SIZE
+    w, h = pw + 2 * PUPIL3_PAD, ph + 2 * PUPIL3_PAD
+    p = Pen(w, h, rng)
+    cx, cy = w / 2, h / 2
+    pts = []
+    for i in range(73):
+        a = math.tau * i / 72
+        x, y = math.cos(a), math.sin(a)
+        # a lens drawn to points at both ends: the half-height falls off toward the tips
+        pts.append((cx + pw / 2 * x, cy + ph / 2 * y * (1 - 0.35 * abs(x) ** 3)))
+    p.poly(pts, mix(STORM, BLACK, 0.2), INK, 3.0)
+    inner = [(cx + (x - cx) * 0.9, cy + (y - cy) * 0.78) for x, y in pts]
+    p.poly(inner, BLACK, None)
+    return p
+
+
+# CONTINUE's night field, r3: end_b_wide_2's composition (same layout, same kitchen) at night.
+WIDE3_SKY_TOP = STORM                                   # #22303A
+WIDE3_SKY_LOW = (0x2E, 0x40, 0x4C)
+WIDE3_SEA_FAR = (0x1A, 0x26, 0x30)
+WIDE3_SEA_NEAR = (0x12, 0x1A, 0x22)
+WIDE3_SIL = (0x5D, 0x72, 0x80)                          # every station, lifted to read on the night
+WIDE3_WIN = (0x1D, 0x2A, 0x3A)                          # every window dark ...
+WIDE3_LIT = AMBER                                       # ... but the kitchen's, #C39959
+WIDE3_EYE = ((1.00, (0x2A, 0x3A, 0x46)), (0.70, (0x33, 0x45, 0x52)), (0.42, (0x1A, 0x24, 0x2E)))
+
+
+def paint_end_b_wide_3(rng):
+    """CONTINUE's last page and end card, at night: a storm-navy sky with the concentric eye above
+    (three solid bands, inked, a dark pupil), the stilt stations in rows to the horizon lifted to a
+    pale slate so every one reads, every window dark but the kitchen's, lit amber with a small flat
+    glow. The stations and the kitchen sit exactly where end_b_wide_2 has them (wide2_lit_at())."""
+    p = Pen(W, H, rng)
+    p.vgrad(-4, -4, W + 4, WIDE2_HOR, WIDE3_SKY_TOP, WIDE3_SKY_LOW)
+    p.vgrad(-4, WIDE2_HOR, W + 4, H + 4, WIDE3_SEA_FAR, WIDE3_SEA_NEAR)
+    eye = p.layer()
+    ec = (690, -120)
+    for k, (s, col) in enumerate(WIDE3_EYE):
+        eye.ell(ec[0], ec[1] + 40 * k, 520 * s, 520 * s, col, INK, 3.0)
+    eye.ell(ec[0], ec[1] + 150, 120, 120, mix(STORM, BLACK, 0.55), INK, 3.0)
+    p.put(eye, mask=poly_mask((W, H), [(0, 0), (W, 0), (W, WIDE2_HOR), (0, WIDE2_HOR)]))
+    p.line([(-4, WIDE2_HOR), (W + 4, WIDE2_HOR)], INK, 2.2)
+    chop = p.layer()
+    for _ in range(70):
+        x, y = rng.uniform(-20, W), rng.uniform(WIDE2_HOR + 10, H)
+        L = rng.uniform(20, 70) * (0.4 + (y - WIDE2_HOR) / 500)
+        chop.line([(x, y), (x + L * 0.5, y - 3), (x + L, y)], mix(WIDE3_SEA_FAR, SEAGLASS, 0.35), 1.6)
+    p.put(chop, 0.45)
+    im = grain(p.done(), rng_for(12170), amp=3, mottle=3, speck=4).convert("RGB")
+    d = ImageDraw.Draw(im)
+    stations = wide2_layout(random.Random(SEED + 12091))   # end_b_wide_2's own layout
+    hx, hy, hw = WIDE2_HOME
+    home_drawn = False
+    for cx, base, w in stations:
+        if not home_drawn and base > hy:
+            station_shape(d, hx, hy, hw, WIDE3_SIL, WIDE3_WIN, lit=WIDE3_LIT)
+            home_drawn = True
+        station_shape(d, cx, base, w, WIDE3_SIL, WIDE3_WIN)
+    if not home_drawn:
+        station_shape(d, hx, hy, hw, WIDE3_SIL, WIDE3_WIN, lit=WIDE3_LIT)
+    # the kitchen's glow: a small flat disc of lamplight over its wall, then the window again on top
+    gx, gy = wide2_lit_at()
+    glow = Image.new("RGBA", (W * SS, H * SS), (0, 0, 0, 0))
+    ImageDraw.Draw(glow).ellipse(((gx - 22) * SS, (gy - 22) * SS, (gx + 22) * SS, (gy + 22) * SS),
+                                 fill=rgba(AMBER, 60))
+    ImageDraw.Draw(glow).ellipse(((gx - 13) * SS, (gy - 13) * SS, (gx + 13) * SS, (gy + 13) * SS),
+                                 fill=rgba(AMBER, 72))
+    im = im.convert("RGBA")
+    im.alpha_composite(glow.resize((W, H), Image.LANCZOS))
+    im = im.convert("RGB")
+    win, _ = station_shape(ImageDraw.Draw(Image.new("RGB", (W, H))), hx, hy, hw, WIDE3_SIL, WIDE3_WIN, lit=WIDE3_LIT)
+    ImageDraw.Draw(im).rectangle(win, fill=WIDE3_LIT)
+    return im
+
+
+# SEVER's end still, r2: the drying page on the sill (end_a_page, same seeds, full colour) with
+# the nine names in her hand down the ruled lines: eight, a gap, then Venn alone.
+SEVER_NAMES = ["Bell", "Doane", "Hart", "Ives", "Lusk", "Pryce", "Rook", "Tull", None, "Venn"]
+HAND_FONT = "/usr/share/fonts/truetype/noto/NotoSerif-Italic.ttf"   # Ink.hand(): Noto Serif italic
+HAND_INK = (0x1F, 0x3F, 0x8A)                                       # Ink.BLUE_INK
+HAND_SIZE = 30
+HAND_SKEW = 0.18                                                    # Ink.HAND_SKEW
+
+
+def hand_text(im, s, x, y, size, row, col=HAND_INK):
+    """Her hand on `im` at 1x, baseline (x, y): glyph by glyph, each with Ink.handwriting's seeded
+    jitter (dy +-2 px, a small turn) and its forward slant, rendered at 4x and set down smoothly."""
+    from PIL import ImageFont
+    k = 4
+    font = ImageFont.truetype(HAND_FONT, size * k)
+    asc, desc = font.getmetrics()
+    g = random.Random(18 + row * 97)
+    for ch in s:
+        adv = font.getlength(ch) / k
+        dy = g.uniform(-2.0, 2.0)
+        turn = g.uniform(-3.4, 3.4)
+        gw, gh = int(adv * k + size * k), asc + desc + size * k // 2
+        m = Image.new("L", (gw, gh), 0)
+        ImageDraw.Draw(m).text((size * k // 2, size * k // 4), ch, font=font, fill=255)
+        # the slant: tops lean right about the baseline
+        base = size * k // 4 + asc
+        m = m.transform(m.size, Image.AFFINE, (1, HAND_SKEW, -HAND_SKEW * base, 0, 1, 0), resample=Image.BICUBIC)
+        m = m.rotate(turn, resample=Image.BICUBIC, center=(size * k // 2, base))
+        m = m.resize((gw // k, gh // k), Image.LANCZOS)
+        ox = int(round(x - size / 2))
+        oy = int(round(y + dy - base / k))
+        solid = Image.new("RGB", m.size, col)
+        im.paste(solid, (ox, oy), m)
+        x += adv
+
+
+def paint_sever_office_r2(rng):
+    """SEVER's end still: the drying page in ordinary daylight (end_a_page, its own seeds, full
+    colour), the names written down its ruled lines in her blue-black hand: eight in a column,
+    one line left empty, then Venn alone."""
+    im = grain(paint_end_a_page(rng).done(), rng_for(1000 + 703)).convert("RGB")
+    # the page's ruled lines are at y = 280 + 34 k (paint_end_a_page); the margin rule at x 544
+    for k, name in enumerate(SEVER_NAMES):
+        if name:
+            hand_text(im, name, 572, 280 + 34 * (k + 1) - 6, HAND_SIZE, k)
+    return im
+
+
 def checked_hand(painter, limit=1 / 6):
     """A page painted with brown_hand: asserts the sleeve and hand cover at most `limit` of the
     frame and enter from the bottom edge only (they touch no other edge)."""
@@ -3723,6 +3915,11 @@ ASSETS = [  # name, seed index, painter, opaque
     ("stages/r12_continue_terminal", 1215,
      checked_hand(lambda r: (lambda res: (grain(res[0].done(), rng_for(2415)), res[1]))(paint_continue_terminal(r))), True),
     ("stages/end_b_wide_2", 1216, paint_end_b_wide_2, True),
+    # fix p2: new files only
+    ("a_surface_eye_r3", 1217, paint_surface_eye_r3, False),
+    ("a_pupil_r3", 1218, paint_pupil_r3, False),
+    ("stages/end_b_wide_3", 1219, paint_end_b_wide_3, True),
+    ("stages/r12_sever_office_r2", 703, paint_sever_office_r2, True),
 ]
 
 

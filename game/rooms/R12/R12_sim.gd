@@ -9,9 +9,10 @@ extends RoomSim
 ## wall), the close-ups "c_frames" (P25), "c_routing" (P26), "c_final" (P27) and "ending" (the
 ## ending tableaux, stepped by "ending_next"). Every view but "room" is a close-up for the core.
 ##
-## The eye in the window is driven from here too: where its pupil looks (gaze(), a pure function
-## of the flags), and the two blinks (fx "blink", each once per game, saved in state.blinks), each
-## with a held breath (fx "hold_breath": the view silences the chamber for `seconds`).
+## The eye in the window is driven from here too: where it looks (fx "eye_look" when it turns,
+## state.eye_look for a load; gaze() reads it), and the two blinks (fx "blink", each once per game,
+## saved in state.blinks), each with a held breath (fx "hold_breath": the view silences the
+## chamber for `seconds`).
 
 const ID := "R12"
 const TITLE := "Observation Chamber"
@@ -144,12 +145,18 @@ const P26_MOVED := "Behind me, in the window, something moved."
 # ---------------------------------------------------------------------------------------------
 # The eye: where the pupil looks, and the two blinks.
 # ---------------------------------------------------------------------------------------------
-## The pupil's offset in the window, px, per gaze: centred until P25; toward the chair once
-## P25 is set; toward her terminal once the bridge is seated in it (P26 done).
-const PUPIL_OFFSET := {"centre": [0, 0], "chair": [-40, 0], "terminal": [40, 0]}
+## The eye's offset in the window, px, per look: "centre" before she has come in; "door" on her
+## arrival (the way she came in, below it); "chair" from the P25 commit; "routing" from the first
+## P26 preview (the routing wall, and her terminal on it). "terminal" is the old name of
+## "routing", still accepted from a save.
+const PUPIL_OFFSET := {"centre": [0, 0], "door": [0, 40], "chair": [-150, 12], "routing": [150, 12]}
+const LOOK_ORDER := ["centre", "door", "chair", "routing"]
+const LOOK_ALIASES := {"terminal": "routing"}
+const EYE_DOOR_LINE := "The eye in the window isn't on the instrument. It's on the door I came in by."
+const EYE_DOOR_AT := 5.0
 const BLINK_IDS := ["arrival", "located"]
 const BLINK_SECONDS := 1.5
-const ARRIVAL_BLINK_AT := 9.0
+const ARRIVAL_BLINK_AT := 11.8
 const ARRIVAL_BLINK := "Outside, the surface closes once, all the way, and opens. On me."
 const LOCATED_AT := 2.6
 const LOCATED_LINE := "The strip types, slowly: NINTH OBSERVER LOCATED."
@@ -250,14 +257,15 @@ const ENDING_CONTINUE := [
 		[5.4, "Yes."]],
 	"sfx": [["pencil_correct", 0.6], ["counter_type", 2.4]], "change": ""},
 	{"tableau": "a_morning", "lines": [
-		[0.0, "Morning reaches the windows."],
-		[2.6, "The station does not go back to the shore."]],
+		[0.0, "Morning reaches the windows."]],
 	"sfx": [], "change": ""},
 	{"tableau": "end_b_wide", "lines": [
-		[0.0, "Far out in the dark, one small lit window. The kitchen."],
-		# 1.2 s of silence before the count (the view ducks the ambient in the gap)
-		[4.2, "Around it, more windows than I can count. None of them lit."]],
-	"sfx": [], "change": ""},
+		[0.0, "The station does not go back to the shore."],
+		[2.8, "Out to the edge of the water, stations. Every window dark but one."],
+		[6.0, "The kitchen. Someone has put the kettle on."]],
+	"sfx": [], "change": "",
+	# the chamber falls silent as the kettle line goes up, so the end card comes in over silence
+	"breath": [{"seconds": 3.0, "delay": 6.0, "line": "The kitchen. Someone has put the kettle on."}]},
 	{"tableau": "end_b_cover", "lines": [
 		[0.0, "The recorder starts a new heading: LOCAL SURVEY: ONE OF"],
 		[3.0, "I lay a sheet of my own paper over it."],
@@ -265,9 +273,11 @@ const ENDING_CONTINUE := [
 	"sfx": [["counter_type", 0.4], ["paper_cover", 3.2], ["motif_human_b", 5.8]], "change": ""},
 ]
 const CHOSEN_LINE := "Not now. I've chosen."
-## The still the core's end card shows for an ending (CONTINUE: the kitchen among the field of
-## dark stations). Read by the core; a missing key means no still.
-const END_STILL := {"continue": "res://assets/rooms/R12/end_b_field.png"}
+## The still the core's end card shows for an ending (CONTINUE: the kitchen among the night
+## field of dark stations; SEVER: the drying page with the nine names). Read by the core; a
+## missing key means no still.
+const END_STILL := {"continue": "res://assets/stages/R12/end_b_wide_3.png",
+	"sever": "res://assets/stages/R12/r12_sever_office_r2.png"}
 
 static func end_still(choice: String) -> String:
 	return END_STILL.get(choice, "")
@@ -369,7 +379,7 @@ func initial_state() -> Dictionary:
 		"previewed": [], "p26_complete": false,
 		"yoke": "tray", "bridge_seated": false, "final_preview": "", "chosen": "",
 		"p27_complete": false, "ending_step": 0, "noticed": [], "window_looks": 0,
-		"armature_looks": 0, "opened": [], "blinks": [],
+		"armature_looks": 0, "opened": [], "blinks": [], "eye_look": "centre",
 	}
 
 func _clear_transient() -> void:
@@ -438,6 +448,12 @@ func load_state(d: Variant) -> void:
 		state.bridge_seated = false
 		state.final_preview = ""
 	_sync_final_preview()
+	var look = d.get("eye_look")
+	if look is String:
+		look = LOOK_ALIASES.get(look, look)
+		if look in PUPIL_OFFSET:
+			state.eye_look = look
+	_floor_look()
 
 ## A preview only stands for the fitting it was taken with.
 func _sync_final_preview() -> void:
@@ -486,6 +502,7 @@ func reconcile() -> void:
 	if game.flag("P27") and not state.p27_complete:
 		state.p27_complete = true
 	_bridge_net([])
+	_floor_look()
 	# A load lands every room in "room"; once she has chosen, this one stands in the ending.
 	if state.chosen != "":
 		local_view = V_ENDING
@@ -500,6 +517,29 @@ func _set_p25_state() -> void:
 func _set_p26_state() -> void:
 	state.p26_complete = true
 	state.previewed = ["sever", "continue"]
+
+## The least the eye can be looking at, for how far she has got: the door once she has come in,
+## the chair after P25, the routing wall once a route has been previewed. A save (or a flag set
+## from outside) never leaves it looking somewhere it has already turned from.
+func _floor_look() -> void:
+	var least := "centre"
+	if "arrival" in state.noticed:
+		least = "door"
+	if state.p25_complete or (game != null and game.flag("P25")):
+		least = "chair"
+	if not state.previewed.is_empty() or state.p26_complete or (game != null and game.flag("P26")):
+		least = "routing"
+	if LOOK_ORDER.find(state.eye_look) < LOOK_ORDER.find(least):
+		state.eye_look = least
+
+## The eye turns to `target`: the state a load keeps, and the fx the view tweens the pupil by.
+## `extra` times it to a line ({delay, line}); without one it turns at once.
+func _look(ev: Array, target: String, extra := {}) -> void:
+	var e := {"target": target, "from": gaze()}
+	state.eye_look = target
+	for k in extra:
+		e[k] = extra[k]
+	_fx(ev, "eye_look", e)
 
 func _spend_blink(id: String) -> void:
 	if not id in state.blinks:
@@ -660,16 +700,13 @@ func tableau() -> String:
 func endings_seen() -> Array:
 	return game.value("endings_seen")
 
-## Where the eye in the window looks: "centre" before P25, "chair" once P25 is set, "terminal"
-## once P26 is done and the bridge is seated in her terminal (and through the CONTINUE ending).
+## Where the eye in the window looks: the last eye_look (state.eye_look, saved and validated).
+## A pure function of state, so a load puts the eye exactly where it was.
 func gaze() -> String:
-	if p26_done() and (state.bridge_seated or state.chosen == "continue"):
-		return "terminal"
-	if p25_done():
-		return "chair"
-	return "centre"
+	var g: String = LOOK_ALIASES.get(state.eye_look, state.eye_look)
+	return g if g in PUPIL_OFFSET else "centre"
 
-## The pupil's offset in px for gaze(): a pure function of the flags and the fitted bridge.
+## The eye's offset in px for gaze(): a pure function of state.
 func pupil_offset() -> Vector2:
 	var o: Array = PUPIL_OFFSET[gaze()]
 	return Vector2(o[0], o[1])
@@ -708,13 +745,15 @@ func arrive(ev: Array, first: bool) -> void:
 		_observe("chamber")
 		_say(ev, ARRIVAL, 0.0, true)
 		_say(ev, "Every arm of the instrument ends where a part of a seated person would be. Head. Hands. Feet.", 2.4, true)
-		_say(ev, "Through the left arch, a wall of frames. One of them already has a name on it.", 5.0, true)
-		_say(ev, "Mine.", 7.2, true)
+		_say(ev, EYE_DOOR_LINE, EYE_DOOR_AT, true)
+		_look(ev, "door", {"delay": EYE_DOOR_AT, "line": EYE_DOOR_LINE})
+		_say(ev, "Through the left arch, a wall of frames. One of them already has a name on it.", 7.8, true)
+		_say(ev, "Mine.", 10.0, true)
 		_say(ev, ARRIVAL_BLINK, ARRIVAL_BLINK_AT, true)
 		_blink(ev, "arrival", ARRIVAL_BLINK_AT, ARRIVAL_BLINK)
 	if gave:
 		if chain:
-			_say(ev, "The bridge is in my pocket. The door gave it back.", 11.4, true)
+			_say(ev, "The bridge is in my pocket. The door gave it back.", 14.2, true)
 		else:
 			_say(ev, "The bridge is in my pocket. The door gave it back.")
 
@@ -1068,6 +1107,7 @@ func _route(ev: Array) -> void:
 	_fx(ev, "frames_slide")
 	_fx(ev, "strip_print", {"lines": STRIP_DONE.duplicate(), "delays": [2.6, 5.4]})
 	_fx(ev, "terminal_lit")
+	_look(ev, "chair")
 	_blink(ev, "located", LOCATED_AT, LOCATED_LINE)
 	_breath(ev, SIGN_BREATH, SIGN_AT, {"line": SIGN_LINE})
 	for l in [[0.0, "The key turns. All three frames slide back into the wall together, like drawers into a desk."],
@@ -1139,6 +1179,7 @@ func _preview_route(r: String, ev: Array) -> void:
 		state.previewed.append(r)
 	_sfx(ev, "preview_key")
 	_sfx(ev, PREVIEW_SOUND[r], 0.3)
+	_look(ev, "routing")
 	_fx(ev, "preview", {"route": r})
 	_fx(ev, "window_preview", {"route": r})
 	if first:
@@ -1309,7 +1350,12 @@ func _emit_step(ev: Array) -> void:
 	for s in st.sfx:
 		_sfx(ev, s[0], s[1])
 	for b in st.get("breath", []):
-		_breath(ev, b.seconds, b.delay, {"sfx": b.sfx, "lead": b.lead})
+		if b.has("sfx"):
+			_breath(ev, b.seconds, b.delay, {"sfx": b.sfx, "lead": b.lead})
+		elif b.has("line"):
+			_breath(ev, b.seconds, b.delay, {"line": b.line})
+		else:
+			_breath(ev, b.seconds, b.delay)
 	_fx(ev, "ending", {"choice": state.chosen, "step": state.ending_step, "tableau": st.tableau,
 		"change": st.change})
 
@@ -1368,9 +1414,11 @@ func debug_jump(n: int) -> void:
 		state.noticed = ["arrival"]
 		_spend_blink("arrival")
 		_set_p25_state()
+		state.eye_look = "chair"
 		game.solve("P25", ev)
 	if n >= 2:
 		_set_p26_state()
+		state.eye_look = "routing"
 		game.solve("P26", ev)
 		_bridge_net(ev)
 		game.save_checkpoint()
