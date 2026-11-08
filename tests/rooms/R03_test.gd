@@ -37,6 +37,7 @@ func run_tests() -> void:
 	test_items()
 	test_objectives()
 	test_debug_jumps()
+	test_round_p1_hints()
 	test_geometry()
 	await view_checks(ROOM)
 	await test_view()
@@ -992,7 +993,9 @@ func test_objectives() -> void:
 	for n in expect:
 		var g := stage(n)
 		check(r3(g).objective() == expect[n], "stage %d objective %s (got %s)" % [n, expect[n], r3(g).objective()])
-		check(r3(g).objective_text() != "" and R03Sim.HINTS[expect[n]].size() == 3, "stage %d: text and three hints" % n)
+		var tiers := 4 if expect[n] in ["calibrate", "record", "plan"] else 3
+		check(r3(g).objective_text() != "" and R03Sim.HINTS[expect[n]].size() == tiers and r3(g).hint_tiers() == tiers,
+			"stage %d: text and %d hints" % [n, tiers])
 	var g := with_flags(["P01", "P03"], ROOM)
 	check(r3(g).objective() == "zero", "P03 without P02: zero")
 	g = with_flags(["P01", "P02", "P03", "t1x_threshold_crossed", "P04", "P05"], ROOM)
@@ -1001,6 +1004,69 @@ func test_objectives() -> void:
 	for k in R03Sim.HINTS:
 		check(R03Sim.OBJECTIVES.has(k), "objective %s has text" % k)
 	check(R03Sim.HINTS.sheet_missing[2].begins_with("Drawer: 1-8-5-2."), "the P03 card ladder")
+
+## Round p1: P04, P05 and P21 gain an evidence tier between the relationship and the answer.
+func test_round_p1_hints() -> void:
+	var cases := {3: ["calibrate", R03Sim.EVIDENCE_CALIBRATE], 4: ["record", R03Sim.EVIDENCE_RECORD],
+		6: ["plan", R03Sim.EVIDENCE_PLAN]}
+	var cards := {
+		"calibrate": ["The recorder in the chart room has two wheels and a lever.",
+			"One wheel takes the recording's zero, the other the chart's interval.",
+			"Set ZERO to 4 and INTERVAL to 3, then pull CALIBRATE."],
+		"record": ["The recorder's other panel takes three plates.",
+			"The hatch frame is carved. Read it the way you'd meet it going down.",
+			"Slots left to right: BOUNDARY, RELATION, OBSERVER. Press RECORD."],
+		"plan": ["The chart room's station plan can be reclassified.",
+			"Every instrument has been labelled body, place or name already. Group the rooms by what they measured.",
+			"BODY on laboratory and listening, PLACE on chart and lantern, NAME on office and vault, WITNESS in the centre. FIX."],
+	}
+	for n in cases:
+		var o: String = cases[n][0]
+		var evidence: String = cases[n][1]
+		var r := r3(stage(n))
+		check(r.objective() == o and r.hint_tiers() == 4, "p1: %s has four tiers" % o)
+		var card: Array = cards[o]
+		check(r.hint_line(0) == card[0] and r.hint_line(1) == card[1], "p1: %s keeps the card's first two tiers" % o)
+		check(r.hint_line(2) == evidence, "p1: %s evidence is tier 3" % o)
+		check(r.hint_line(3) == card[2] and r.hint_line(9) == card[2], "p1: %s still ends on the card's answer" % o)
+		var keys := {}
+		for i in 4:
+			keys[GameSim._hint_key(r.hint_line(i))] = true
+		check(keys.size() == 4, "p1: %s tiers are all different lines" % o)
+	# The evidence names what she has seen, never the answer itself.
+	for w in ["4", "3", "ZERO", "INTERVAL", "CALIBRATE"]:
+		check(not w in R03Sim.EVIDENCE_CALIBRATE, "p1: calibrate evidence doesn't say %s" % w)
+	check("recording" in R03Sim.EVIDENCE_CALIBRATE and "band" in R03Sim.EVIDENCE_CALIBRATE, "p1: calibrate evidence points at both sources")
+	check(R03Sim.EVIDENCE_RECORD.begins_with("The recorder printed what you actually did."), "p1: the recorder printed it")
+	for w in ["BOUNDARY", "RELATION", "OBSERVER", "RECORD."]:
+		check(not w in R03Sim.EVIDENCE_RECORD, "p1: record evidence doesn't say %s" % w)
+	check("bracket" in R03Sim.EVIDENCE_RECORD and "circle" in R03Sim.EVIDENCE_RECORD, "p1: record evidence reads the hatch marks")
+	for w in ["BODY", "PLACE", "NAME", "WITNESS", "FIX", "laboratory", "lantern", "vault"]:
+		check(not w in R03Sim.EVIDENCE_PLAN, "p1: plan evidence doesn't say %s" % w)
+	# Every other ladder keeps three tiers.
+	for o in R03Sim.HINTS:
+		var want := 4 if o in ["calibrate", "record", "plan"] else 3
+		check(R03Sim.HINTS[o].size() == want, "p1: %s has %d tiers" % [o, want])
+	for n in [0, 1, 2, 5, 7]:
+		check(r3(stage(n)).hint_tiers() == 3, "p1: stage %d has three tiers" % n)
+	# Dispatched in play: nudge, relationship, evidence, answer, then the answer again. Asking
+	# changes nothing in the room. (R03's hint_line bridges a core that clamps at level 2.)
+	for n in cases:
+		var o: String = cases[n][0]
+		var g := stage(n)
+		g.state.room = ROOM
+		g.view = "room"
+		check(g.work_elsewhere() == "", "p1: %s is work here" % o)
+		var before := JSON.stringify(g.to_dict().rooms.R03)
+		var want: Array = [cards[o][0], cards[o][1], cases[n][1], cards[o][2], cards[o][2]]
+		for i in want.size():
+			var got := says(g.dispatch("hint"))
+			check(got == want[i], "p1: %s hint %d dispatched (%s)" % [o, i, got])
+		check(JSON.stringify(g.to_dict().rooms.R03) == before, "p1: %s hints change no room state" % o)
+	# Toward the chart room from elsewhere, the ladder is the core's (three tiers, no bridge).
+	var away := stage(4)
+	away.state.hint = {"for": "R02:->R03", "level": 3}
+	check(r3(away).hint_line(2) == R03Sim.EVIDENCE_RECORD, "p1: the bridge only fires on R03's own ladder")
 
 func test_debug_jumps() -> void:
 	for n in 9:

@@ -194,6 +194,11 @@ const OBJECTIVES := {
 	"plan": "Reclassify the station plan.",
 	"done": "The plan is fixed. My name is in the middle of it.",
 }
+## Evidence tiers (hint_tiers()): what the room, the recorder and the notebook already show,
+## said before the answer and short of it. P04, P05 and P21 have one; the rest have three tiers.
+const EVIDENCE_CALIBRATE := "Venn's recording says the zero out loud. The registered curve runs through one of his numbered bands. The plate's seven and two are only its example."
+const EVIDENCE_RECORD := "The recorder printed what you actually did. The hatch frame is carved top to bottom: a bracket, two linked strokes, a circle. The plates carry the same marks."
+const EVIDENCE_PLAN := "The tiles say what they stand for: listening and breathing, bearings and charts, registers and folders. The plan draws the rooms in pairs, and one chamber on its own."
 const HINTS := {
 	"sheet_missing": [
 		"The chart room has one sheet of the pair. The other is with E.V. His desk drawer wants the hour she mended the lamp.",
@@ -218,11 +223,13 @@ const HINTS := {
 	"calibrate": [
 		"The recorder in the chart room has two wheels and a lever.",
 		"One wheel takes the recording's zero, the other the chart's interval.",
+		EVIDENCE_CALIBRATE,
 		"Set ZERO to 4 and INTERVAL to 3, then pull CALIBRATE.",
 	],
 	"record": [
 		"The recorder's other panel takes three plates.",
 		"The hatch frame is carved. Read it the way you'd meet it going down.",
+		EVIDENCE_RECORD,
 		"Slots left to right: BOUNDARY, RELATION, OBSERVER. Press RECORD.",
 	],
 	"jetty": [
@@ -238,6 +245,7 @@ const HINTS := {
 	"plan": [
 		"The chart room's station plan can be reclassified.",
 		"Every instrument has been labelled body, place or name already. Group the rooms by what they measured.",
+		EVIDENCE_PLAN,
 		"BODY on laboratory and listening, PLACE on chart and lantern, NAME on office and vault, WITNESS in the centre. FIX.",
 	],
 	"done": [
@@ -1113,6 +1121,24 @@ func objective() -> String:
 	if not game.flag("P21"):
 		return "plan"
 	return "done"
+
+## P04, P05 and P21 have four tiers (nudge, relationship, evidence, answer); the rest three.
+func hint_tiers() -> int:
+	return 4 if HINTS.get(objective(), []).size() >= 4 else 3
+
+## The tier at `level`. Bridge for a core that still clamps the ladder at level 2: when it
+## asks for level 2 again after saying it here (its stored level for this room+objective has
+## reached 3), the fourth tier (the answer) is said. A core that asks for level 3 directly
+## never takes this branch.
+func hint_line(level: int) -> String:
+	var ladder: Array = HINTS.get(objective(), [])
+	if ladder.is_empty():
+		return super.hint_line(level)
+	if level == 2 and ladder.size() >= 4:
+		var h: Dictionary = game.state.get("hint", {})
+		if str(h.get("for", "")) == ID + ":" + objective() and int(h.get("level", 0)) >= 3:
+			level = 3
+	return ladder[mini(level, ladder.size() - 1)]
 
 ## Before the lamp the instrument doors are latched; after it, she's free to come.
 func locked_line() -> String:
