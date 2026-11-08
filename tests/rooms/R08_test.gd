@@ -41,14 +41,17 @@ const REF_PUMP := {
 }
 const REF_RESPIRATION := "With the gate loop running, one belt stopped. The diaphragm kept breathing without it. Under the belt, a nameplate: REFERENCE RESPIRATION."
 const REF_HINTS := [
-	"The drawing above the valve board is the circuit: a pump, four numbered valves, the stair gate, and one capped stub.",
+	"The drawing above the valve board is the circuit: a pump, four valves, the stair gate, and one capped stub.",
 	"The capped stub on the drawing is the line that must never be fed. Find its valve.",
-	"On the drawing, 07, 12 and 31 carry the loop out to the stair gate and back. The capped stub hangs off 44, and Venn's tag for 44 says 'Do not open.'",
+	"The drawing names nothing. The valve heads carry the same bands. And Venn tagged one of them 'Do not open.'",
 	"07, 12 and 31 open, 44 shut. Then the pump.",
 ]
 ## The words the drawing may never carry: the lines' names live only on Venn's tags.
 const LINE_NAMES := ["SUPPLY", "RETURN", "INDEX"]
-const REF_DRAWING := "From the pump through 07 and 12 to the stair gate, back through 31. A stub off 44, capped: SEALED. NEVER FEED."
+const REF_DRAWING := "From the pump, a green-banded run out to the stair gate, a brass run on, a brown run back. A hatched stub hangs off the loop, capped."
+## The band on each run of the drawing and on its valve's head, and the board's shuffled order.
+const REF_BANDS := {"SUPPLY": "sea-glass", "GATE": "brass", "RETURN": "brown", "INDEX": "hatched navy"}
+const REF_BOARD_ORDER := ["INDEX", "SUPPLY", "RETURN", "GATE"]
 ## The stamped tag number on each toggle, and the four valve tags, written out independently.
 const REF_VALVE_TAGS := {"SUPPLY": "07", "GATE": "12", "RETURN": "31", "INDEX": "44"}
 const REF_TAG_LINES := [
@@ -822,7 +825,7 @@ func test_valve_tags() -> void:
 	check(R08Sim.TAGS[R08Sim.TAG_LAST] == "18 OCT 31", "the stamped tag is last")
 	check(R08Sim.TAGS.find("3 NOV 27. Fitted restraining bolts, twelve. Rim weeps oil. E.V.") < R08Sim.TAGS.find(
 		"30 JAN 29. Replaced bolt 5, sheared. Sheared outward. E.V."), "dated tags in order")
-	# the drawing is topology only: numbers, the stair gate, the capped stub; no line names,
+	# the drawing is topology and bands only: no numbers, no line names, no warning words,
 	# in its line, its notebook entry, its lens entry or the fault window printed on it
 	check(R08Sim.DRAWING_LINE == REF_DRAWING, "DRAWING_LINE exact")
 	var on_drawing := [R08Sim.DRAWING_LINE, R08Sim.OBSERVATIONS.drawing, R08Sim.OBSERVATIONS.lens_index_ink,
@@ -833,9 +836,47 @@ func test_valve_tags() -> void:
 		for n in LINE_NAMES:
 			check(not text.contains(n), "the drawing never names %s: %s" % [n, text])
 	for num in ["07", "12", "31", "44"]:
-		check(R08Sim.DRAWING_LINE.contains(num) and R08Sim.OBSERVATIONS.drawing.contains(num), "the drawing numbers valve %s" % num)
-	check(R08Sim.OBSERVATIONS.drawing.contains("STAIR GATE") and R08Sim.OBSERVATIONS.drawing.contains("SEALED. NEVER FEED."),
-		"the drawing keeps the stair gate box and the capped stub")
+		check(not R08Sim.DRAWING_LINE.contains(num) and not R08Sim.OBSERVATIONS.drawing.contains(num)
+			and not R08Sim.OBSERVATIONS.lens_index_ink.contains(num), "the drawing carries no valve number %s" % num)
+	for text in [R08Sim.DRAWING_LINE, R08Sim.OBSERVATIONS.drawing]:
+		check(not text.contains("SEALED") and not text.contains("NEVER FEED"), "the drawing's stub carries no words: %s" % text)
+		for word in ["green", "brass", "brown", "hatched", "capped"]:
+			check(text.to_lower().contains(word), "the drawing shows the %s band: %s" % [word, text])
+	check(R08Sim.OBSERVATIONS.drawing.contains("STAIR GATE"), "the drawing keeps the stair gate box")
+	check(R08Sim.OBSERVATIONS.drawing.ends_with(R08Sim.DRAWING_LINE.trim_prefix("From the pump, a green-banded run out to the stair gate, a brass run on, a brown run back. ")),
+		"the notebook's drawing entry says what the drawing line says")
+	# the board: the same bands on the valve heads, shuffled against the drawing
+	check(R08Sim.VALVE_BANDS == REF_BANDS, "each valve's band matches its run")
+	check(R08Sim.BOARD_ORDER == REF_BOARD_ORDER, "board order 44, 07, 31, 12")
+	var nums := []
+	for v in R08Sim.BOARD_ORDER:
+		nums.append(R08Sim.VALVE_TAGS[v])
+	check(nums == ["44", "07", "31", "12"], "the board reads 44, 07, 31, 12")
+	check(R08Sim.OBSERVATIONS.valve_board.contains("No. 44, No. 07, No. 31, No. 12")
+		and R08Sim.OBSERVATIONS.valve_board.contains("hatched navy, green, brown, brass"), "the notebook keeps the board's order and bands")
+	var xs := []
+	for v in R08Sim.BOARD_ORDER:
+		xs.append(VIEW.C_SOCKETS[v])
+	check(xs == [305.0, 495.0, 685.0, 875.0], "the view seats the toggles in board order")
+	for h in VIEW.VALVE_CONTROLS:
+		if (h[0] as String).begins_with("tog_"):
+			var v: String = (h[0] as String).trim_prefix("tog_").to_upper()
+			check((h[1] as Rect2).has_point(Vector2(VIEW.C_SOCKETS[v], VIEW.C_SOCKET_Y)) and h[2] == "Toggle No. " + R08Sim.VALVE_TAGS[v],
+				"%s's control covers its socket and names its number" % h[0])
+	var run_valves := []
+	for run in VIEW.RUNS:
+		run_valves.append(run[0])
+	run_valves.sort()
+	var sorted_valves := VALVES.duplicate()
+	sorted_valves.sort()
+	check(run_valves == sorted_valves, "the drawing bands one run per valve")
+	# the hatched band leads to the tag that says 'Do not open.', and that is the valve to shut
+	var hatched := ""
+	for v in R08Sim.VALVE_BANDS:
+		if R08Sim.VALVE_BANDS[v].begins_with("hatched"):
+			hatched = v
+	check(hatched == "INDEX" and "No. %s: INDEX resealed. Wire cut again. Do not open. E.V." % R08Sim.VALVE_TAGS[hatched] in R08Sim.TAGS
+		and not SOLUTION[hatched], "the hatched head is 'Do not open.' and is the one left shut")
 	# the hints never name a line either: names come from the tags alone
 	for h in R08Sim.HINTS.p11:
 		for n in LINE_NAMES:
@@ -1084,11 +1125,12 @@ func test_view_live() -> void:
 	await process_frame
 	check(v.back_visible() and v.esc_action() == "back", "c_valves: Back and Esc go back")
 	check(not v.exits_active(), "c_valves: no exits")
-	check(v.action_at(Vector2(305, 750)) == "tog_supply", "c_valves: SUPPLY toggle answers")
+	check(v.action_at(Vector2(305, 750)) == "tog_index", "c_valves: No. 44 is the first toggle")
+	check(v.action_at(Vector2(495, 750)) == "tog_supply", "c_valves: SUPPLY toggle answers")
 	check(v.action_at(Vector2(1200, 800)) == "pump", "c_valves: PUMP answers")
 	check(v.action_at(Vector2(1060, 830)) == "preview", "c_valves: PREVIEW answers")
 	check(v.action_at(Vector2(700, 300)) == "look_drawing", "c_valves: the drawing answers")
-	check(v.hover_at(Vector2(875, 750)) == "tog_index", "c_valves: hover mirrors the click")
+	check(v.hover_at(Vector2(875, 750)) == "tog_gate", "c_valves: hover mirrors the click")
 	check(v.label_for("tog_gate") == "Toggle No. 12", "c_valves: hover label is the stamped number")
 	# SUPPLY open with INDEX open: the hold
 	scene.dispatch("tog_supply")

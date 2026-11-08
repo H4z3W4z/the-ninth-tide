@@ -241,7 +241,7 @@ The quality template. View A is the approved plate (desk, window, map, stove, ho
 
 ## R08 Machine Room
 
-**Base view (1):** belts and flywheel, the valve board (four toggles stamped only No. 07, 12, 31, 44 and the PUMP lever, with the maintenance drawing above: topology only, numbered valves, a STAIR GATE box and a capped stub, 'SEALED. NEVER FEED.'; Venn's tags give number to name), the black diaphragm behind restraining bolts, dust on the floor, O04 repair tags.
+**Base view (1):** belts and flywheel, the valve board (four toggles stamped only No. 44, 07, 31, 12 left to right, each head painted with a band, and the PUMP lever, with the maintenance drawing above: topology and colour bands only, no names or numbers, a STAIR GATE box and a hatched, capped stub; the heads carry the same bands; Venn's tags give number to name, and No. 44 'Do not open.'), the black diaphragm behind restraining bolts, dust on the floor, O04 repair tags.
 
 **Close-up (1):** `c_valves` (P11, with the circuit preview overlay).
 

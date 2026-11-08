@@ -54,10 +54,10 @@ const EXIT_RECTS := {
 	"R07": Rect2(282, 922, 250, 64),
 }
 const VALVE_CONTROLS := [
-	["tog_supply", Rect2(230, 620, 150, 260), "Toggle No. 07"],
-	["tog_gate", Rect2(420, 620, 150, 260), "Toggle No. 12"],
+	["tog_index", Rect2(230, 620, 150, 260), "Toggle No. 44"],
+	["tog_supply", Rect2(420, 620, 150, 260), "Toggle No. 07"],
 	["tog_return", Rect2(610, 620, 150, 260), "Toggle No. 31"],
-	["tog_index", Rect2(800, 620, 150, 260), "Toggle No. 44"],
+	["tog_gate", Rect2(800, 620, 150, 260), "Toggle No. 12"],
 	["preview", Rect2(1000, 780, 120, 110), "PREVIEW"],
 	["pump", Rect2(1140, 600, 120, 330), "PUMP lever"],
 	["look_drawing", Rect2(170, 100, 1108, 450), "Maintenance drawing"],
@@ -154,7 +154,11 @@ const DWG_SIZE := Vector2(1108, 450)
 const MINI_SCALE := 0.25
 
 # --- c_valves ----------------------------------------------------------------------------------
-const C_SOCKETS := {"SUPPLY": 305.0, "GATE": 495.0, "RETURN": 685.0, "INDEX": 875.0}
+## Left to right in R08Sim.BOARD_ORDER (44, 07, 31, 12): shuffled against the drawing.
+const C_SOCKETS := {"INDEX": 305.0, "SUPPLY": 495.0, "RETURN": 685.0, "GATE": 875.0}
+## The painted band round each valve head, between its socket ring and the knob's throw.
+const COLLAR_IN := 37.0
+const COLLAR_OUT := 47.0
 const C_SOCKET_Y := 790.0
 const OPEN_Y := 684.0         # word centres: clear of the knob (697-727 up, 853-883 down)
 const SHUT_Y := 906.0
@@ -166,8 +170,9 @@ const LAMP := Vector2(1060, 770)
 const PUMP_TOP := Vector2(1140, 600)
 const PUMP_TRAVEL := 190.0    # px from the up pose to the down pose (sprite y 72 -> 262)
 const FAULT_RECT := Rect2(890, 140, 360, 60)
-## c_seal_cut's top-left: its lug sits on INDEX's socket ring (tools/art/rooms/R08.py SEAL_AT).
-const SEAL_AT := Vector2(880, 800)
+## c_seal_cut's top-left: its lug sits on INDEX's socket ring (same offset as R08.py SEAL_AT
+## from its socket; the board order moved INDEX to the first socket).
+const SEAL_AT := Vector2(310, 800)
 ## A pen lift inside a trace route (the gate box's label is never drawn over).
 const BREAK := Vector2(-1, -1)
 const PAPER_CLIP := Rect2(174, 104, 1100, 442)
@@ -188,6 +193,18 @@ const D_GATE_BOX := Rect2(930, 394, 150, 72)
 const D_RETURN := Vector2(900, 500)
 const ROUTE_LOOP := [Vector2(326, 430), Vector2(1190, 430), Vector2(1190, 500), Vector2(290, 500),
 	Vector2(290, 466)]
+## The drawing's banded runs, [valve, points] (P11): the band is the only thing that ties a pipe
+## to its valve head on the board. The gate box sits over the brass run; the brass turns the far
+## corner and gives way to the brown halfway down it.
+const D_FLANGE := Vector2(1190, 465)
+const RUNS := [
+	["SUPPLY", [Vector2(326, 430), D_J]],
+	["GATE", [D_J, Vector2(1190, 430), D_FLANGE]],
+	["RETURN", [D_FLANGE, Vector2(1190, 500), Vector2(290, 500), Vector2(290, 466)]],
+	["INDEX", [D_J, Vector2(610, 200)]],
+]
+const BAND_W := 14.0
+const BAND_BROWN := Color("675d51")
 
 # --- c_tags ------------------------------------------------------------------------------------
 const TAG_RECT := Rect2(424, 300, 600, 340)
@@ -1121,9 +1138,10 @@ func _draw_room_labels(c: CanvasItem) -> void:
 	var tog: Dictionary = r.state.toggles
 	for i in 4:
 		var x: float = MINI_SOCKETS[i]
-		var valve: String = R08Sim.VALVES[i]
+		var valve: String = R08Sim.BOARD_ORDER[i]
 		var open: bool = tog[valve]
 		var tip := Vector2(x, MINI_SOCKET_Y + (-26.0 if open else 26.0))
+		_band_collar(c, Vector2(x, MINI_SOCKET_Y), valve, 9.0, 14.0, 1.5)
 		c.draw_line(Vector2(x, MINI_SOCKET_Y), tip, INK, 8.0, true)
 		c.draw_line(Vector2(x, MINI_SOCKET_Y), tip, BRASS_HI, 5.0, true)
 		c.draw_circle(tip, 4.5, BRASS_HI)
@@ -1220,22 +1238,69 @@ func _along(pts: Array, step: float, start: float) -> Array:
 		acc += seg
 	return out
 
+## A valve's band colour (INDEX is paper, hatched navy over it: _hatch_vertical, _band_collar).
+func _band_color(valve: String) -> Color:
+	match valve:
+		"SUPPLY":
+			return SEAGLASS
+		"GATE":
+			return BRASS
+		"RETURN":
+			return BAND_BROWN
+	return PAPER_HI
+
+## The ink that reads on a band: paper on the brown, navy on the rest.
+func _band_ink(valve: String) -> Color:
+	return PAPER_HI if valve == "RETURN" else INK
+
+## One banded pipe run: a contour, then the colour inside it, squared off at its corners.
+func _band_run(c: CanvasItem, pts: Array, fill: Color, edge: Color, w: float) -> void:
+	for pass_w in [w + 4.0, w]:
+		var col: Color = edge if pass_w > w else fill
+		for i in pts.size() - 1:
+			var a: Vector2 = pts[i]
+			var b: Vector2 = pts[i + 1]
+			var dir := (b - a).normalized()
+			# square the inside of each bend; the run's own two ends stay flush
+			var ea: Vector2 = a - dir * (pass_w / 2.0) if i > 0 else a
+			var eb: Vector2 = b + dir * (pass_w / 2.0) if i < pts.size() - 2 else b
+			c.draw_line(ea, eb, col, pass_w)
+
+## Diagonal navy hatching inside a straight vertical band (the capped stub).
+func _hatch_vertical(c: CanvasItem, x: float, y0: float, y1: float, w: float, col: Color) -> void:
+	var h := w / 2.0
+	var y := maxf(y0, y1)
+	var top := minf(y0, y1)
+	while y - w > top:
+		c.draw_line(Vector2(x - h, y), Vector2(x + h, y - w), col, 2.0, true)
+		y -= 8.0
+
 ## The maintenance drawing, in close-up px. `words` false for the room's quarter-scale copy.
+## No names and no numbers (P11): only the pipes, each banded the colour of its valve's head.
 func _draw_circuit(c: CanvasItem, words: bool) -> void:
 	var w := 4.0
 	var ink := INK
-	# lines first, then the symbols over them
-	c.draw_polyline(PackedVector2Array(ROUTE_LOOP), ink, w, true)
-	# the capped stub was added later, in another ink (lens_index_ink): its branch, valve 44, cap and words
+	# the capped stub was added later, in another ink (lens_index_ink): its branch, valve and cap
 	var later := INDEX_INK
-	c.draw_line(D_J, Vector2(D_J.x, D_CAP_Y), later, w, true)
+	# bands first, then the symbols over them
+	for run in RUNS:
+		var valve: String = run[0]
+		var pts: Array = run[1]
+		_band_run(c, pts, _band_color(valve), later if valve == "INDEX" else ink, BAND_W)
+		if valve == "INDEX":
+			_hatch_vertical(c, D_J.x, D_J.y - BAND_W / 2.0 - 2.0, D_CAP_Y, BAND_W, ink)
+	# the flange where the brass gives way to the brown
+	c.draw_line(D_FLANGE + Vector2(-BAND_W, 0), D_FLANGE + Vector2(BAND_W, 0), ink, 4.0)
 	if words:
-		for a in _along(ROUTE_LOOP, 160.0, 80.0):
-			var p: Vector2 = a[0]
-			if p.distance_to(D_SUPPLY) < 40 or p.distance_to(D_GATE) < 40 or p.distance_to(D_RETURN) < 40 \
-					or D_GATE_BOX.grow(12).has_point(p) or p.distance_to(D_J) < 24:
+		for run in RUNS:
+			if run[0] == "INDEX":
 				continue
-			_chevron(c, p, a[1], ink)
+			for a in _along(run[1], 160.0, 80.0):
+				var p: Vector2 = a[0]
+				if p.distance_to(D_SUPPLY) < 40 or p.distance_to(D_GATE) < 40 or p.distance_to(D_RETURN) < 40 \
+						or D_GATE_BOX.grow(12).has_point(p) or p.distance_to(D_J) < 24 or p.distance_to(D_FLANGE) < 20:
+					continue
+				_chevron(c, p, a[1], _band_ink(run[0]), 6.0)
 	# pump
 	c.draw_circle(D_PUMP, D_PUMP_R, PAPER_HI)
 	c.draw_arc(D_PUMP, D_PUMP_R, 0, TAU, 48, ink, w, true)
@@ -1244,27 +1309,38 @@ func _draw_circuit(c: CanvasItem, words: bool) -> void:
 	_bowtie(c, D_GATE, false, ink, w)
 	_bowtie(c, D_RETURN, false, ink, w)
 	_bowtie(c, D_INDEX, true, later, w)
-	c.draw_circle(D_J, 7.0, ink)
+	c.draw_circle(D_J, 9.0, ink)
 	c.draw_line(Vector2(D_J.x - 30, D_CAP_Y), Vector2(D_J.x + 30, D_CAP_Y), later, w + 2.0)
-	c.draw_rect(D_CAP_BLOCK, Color(BRASS_LO, 0.25))
+	c.draw_rect(D_CAP_BLOCK, PAPER_HI)
 	c.draw_rect(D_CAP_BLOCK, later, false, w * 0.75)
 	for k in 6:
 		var x0 := D_CAP_BLOCK.position.x + k * 12.0
 		c.draw_line(Vector2(x0, D_CAP_BLOCK.end.y), Vector2(minf(x0 + 24.0, D_CAP_BLOCK.end.x),
-			D_CAP_BLOCK.end.y - minf(24.0, D_CAP_BLOCK.end.x - x0)), later, 2.0)
+			D_CAP_BLOCK.end.y - minf(24.0, D_CAP_BLOCK.end.x - x0)), ink, 2.0)
 	c.draw_rect(D_GATE_BOX, PAPER_HI)
 	c.draw_rect(D_GATE_BOX, ink, false, w)
 	if not words:
 		return
 	_text(c, "GATE PRESSURE CIRCUIT  -  MAINT. DWG. 4", Vector2(200, 140), 20, ink)
 	_mtext(c, "PUMP", D_PUMP.x, D_PUMP.y, 16, ink)
-	# topology only: the valves carry their stamped numbers, never the lines' names (P11)
-	_mtext(c, R08Sim.VALVE_TAGS.SUPPLY, D_SUPPLY.x, 392, 20, ink)
-	_mtext(c, R08Sim.VALVE_TAGS.GATE, D_GATE.x, 392, 20, ink)
-	_mtext(c, R08Sim.VALVE_TAGS.RETURN, D_RETURN.x, 534, 20, ink)
-	_text(c, R08Sim.VALVE_TAGS.INDEX, Vector2(642, D_INDEX.y + 7), 20, later)
-	_text(c, "SEALED. NEVER FEED.", Vector2(660, 196), 20, later)
+	# topology and bands only: no valve numbers, no line names, no warning on the stub (P11)
 	_mtext(c, "STAIR GATE", D_GATE_BOX.get_center().x, D_GATE_BOX.get_center().y, 18, ink)
+
+## A valve head's painted band on the board: the same colour (or hatching) as its run.
+func _band_collar(c: CanvasItem, center: Vector2, valve: String, r_in: float, r_out: float, edge_w := 2.0) -> void:
+	var mid := (r_in + r_out) / 2.0
+	var bw := r_out - r_in
+	c.draw_arc(center, mid, 0, TAU, 64, _band_color(valve), bw, true)
+	if valve == "INDEX":
+		var n := int(TAU * mid / 9.0)
+		for i in n:
+			var a := TAU * i / n
+			c.draw_line(center + Vector2.from_angle(a) * r_in, center + Vector2.from_angle(a + 0.22) * r_out,
+				INK, maxf(1.0, edge_w * 0.9), true)
+	c.draw_arc(center, r_in, 0, TAU, 64, INK, edge_w, true)
+	c.draw_arc(center, r_out, 0, TAU, 64, INK, edge_w, true)
+	# a worn paint lip so the darker bands still read against the navy plate
+	c.draw_arc(center, r_out + edge_w, 0, TAU, 64, Color(PAPER_HI, 0.5), edge_w * 0.75, true)
 
 ## The route a circuit code traces, the X stop mark (or none) and whether the cap is ringed.
 func _trace_route(code: String) -> Array:
@@ -1312,8 +1388,8 @@ func _draw_trace(c: CanvasItem, code: String, k: float) -> void:
 		if solid:
 			var e := clampf(upto - acc, 0.0, seg)
 			if e > 0.0:
-				c.draw_line(a, a + dir * e, Color(INK, 0.9), 10.0, true)
-				c.draw_line(a, a + dir * e, col, 6.0, true)
+				c.draw_line(a, a + dir * e, Color(INK, 0.9), 9.0, true)
+				c.draw_line(a, a + dir * e, col, 5.0, true)
 		else:
 			var d := 0.0
 			while d < seg and acc + d < upto:
@@ -1402,7 +1478,9 @@ func _draw_valves(c: CanvasItem) -> void:
 	_draw_fault(c, code if trace_k >= 1.0 else "")
 	# toggles
 	var tog: Dictionary = r.state.toggles
-	for valve in R08Sim.VALVES:
+	for valve in R08Sim.BOARD_ORDER:
+		_band_collar(c, Vector2(C_SOCKETS[valve], C_SOCKET_Y), valve, COLLAR_IN, COLLAR_OUT)
+	for valve in R08Sim.BOARD_ORDER:
 		var cx: float = C_SOCKETS[valve]
 		var open: bool = tog[valve]
 		_toggle_number(c, "No. " + R08Sim.VALVE_TAGS[valve], cx, 647)

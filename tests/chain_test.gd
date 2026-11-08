@@ -435,17 +435,22 @@ func play_p10() -> void:
 	check(not g.flag("P12"), "P10 alone does not open the stair work")
 
 ## R08 P11: SUPPLY, GATE, RETURN open, INDEX shut; the pump.
-## Played as she would: the drawing shows numbers only, and the capped stub's number is the
-## toggle to shut; every other numbered valve opens. The lines' names never enter into it.
+## Played as she would: the drawing names and numbers nothing, only bands its pipes; the capped
+## stub is the hatched one, the board's hatched head is the toggle to shut (Venn's tag for that
+## number says 'Do not open.'), and every other banded valve opens.
 func play_p11() -> void:
 	_qd("valve_board")
 	var drawing := says(_qd("look_drawing"))
-	for name in ["SUPPLY", "RETURN", "INDEX"]:
-		check(not drawing.contains(name), "P11: the drawing doesn't name %s" % name)
-	var at := drawing.find("stub off ")
-	check(at >= 0, "P11: the drawing shows a capped stub")
-	var stub := drawing.substr(at + 9, 2)
-	for v in R08Sim.VALVES:
+	for name in ["SUPPLY", "RETURN", "INDEX", "07", "12", "31", "44", "SEALED"]:
+		check(not drawing.contains(name), "P11: the drawing doesn't carry %s" % name)
+	check(drawing.contains("hatched stub") and drawing.contains("capped"), "P11: the drawing shows a hatched, capped stub")
+	var stub := ""
+	for v in R08Sim.BOARD_ORDER:
+		if R08Sim.VALVE_BANDS[v].begins_with("hatched"):
+			stub = R08Sim.VALVE_TAGS[v]
+	check(stub != "" and R08Sim.TAGS.any(func(t): return t.begins_with("No. %s:" % stub) and t.contains("Do not open.")),
+		"P11: the hatched head's tag says 'Do not open.'")
+	for v in R08Sim.BOARD_ORDER:
 		var open: bool = R08Sim.VALVE_TAGS[v] != stub
 		if machine.state.toggles[v] != open:
 			_qd("tog_" + v.to_lower())

@@ -39,11 +39,16 @@ const CLOSEUPS := ["c_valves", "c_tags"]
 ## true = OPEN.
 const VALVES := ["SUPPLY", "GATE", "RETURN", "INDEX"]
 const SOLUTION := {"SUPPLY": true, "GATE": true, "RETURN": true, "INDEX": false}
-## Neither the board nor the drawing names a line: each toggle is stamped with Venn's tag number,
-## and the drawing (MAINT. DWG. 4) shows only topology: the pump, four valve symbols numbered
-## the same, the STAIR GATE box, and a capped stub, 'SEALED. NEVER FEED.' His repair tags
-## (c_tags) say which number is which line.
+## Neither the board nor the drawing names a line. The drawing (MAINT. DWG. 4) carries no
+## words or numbers on its pipes: only topology and a coloured band per run (the loop out
+## sea-glass, the gate run brass, the return brown, the capped stub hatched navy). Each toggle
+## is stamped with Venn's tag number and its head painted with its run's band; his repair tags
+## (c_tags) say which number is which line, and that No. 44 is 'Do not open.'
 const VALVE_TAGS := {"SUPPLY": "07", "GATE": "12", "RETURN": "31", "INDEX": "44"}
+## The band painted on each run of the drawing and on its valve's head.
+const VALVE_BANDS := {"SUPPLY": "sea-glass", "GATE": "brass", "RETURN": "brown", "INDEX": "hatched navy"}
+## The toggles left to right on the board: shuffled against the drawing (44, 07, 31, 12).
+const BOARD_ORDER := ["INDEX", "SUPPLY", "RETURN", "GATE"]
 ## The circuit codes circuit() can return, in evaluation order.
 const CIRCUITS := ["no_supply", "index", "gate_shut", "dead_gate", "loop"]
 ## Printed on the drawing's fault window (the view draws them).
@@ -69,7 +74,7 @@ const PUMP_REFUSALS := {
 	"gate_shut": ["lever_spring", "Dead end before the gate. It springs back."],
 	"dead_gate": ["lever_spring", "Dead end at the gate. It springs back."],
 }
-const DRAWING_LINE := "From the pump through 07 and 12 to the stair gate, back through 31. A stub off 44, capped: SEALED. NEVER FEED."
+const DRAWING_LINE := "From the pump, a green-banded run out to the stair gate, a brass run on, a brown run back. A hatched stub hangs off the loop, capped."
 
 # --- O04: Venn's repair tags -------------------------------------------------------------------
 ## Pages 0-11 are handwritten (backward slant), in the order they hang; the four valve tags
@@ -121,8 +126,8 @@ const OBSERVATIONS := {
 	"flywheel": "A flywheel taller than I am, turning slow.",
 	"bolts": "Twelve restraining bolts round the ring. A white paint stripe runs across each head onto the flange, so you'd see if one turned.",
 	"dust": "Fine grey dust on the floor, swept and settled again. Nobody's walked through it but me.",
-	"valve_board": "Valve board: four toggles with no names, only stamped numbers, No. 07, No. 12, No. 31, No. 44, each OPEN or SHUT. A PUMP lever, and a PREVIEW key that lights the active circuit on the drawing.",
-	"drawing": "Maintenance drawing, MAINT. DWG. 4. No line names, only numbers: from the pump through valve 07, out through 12 to the STAIR GATE, and back through 31 to the pump. A stub branches off before the gate through valve 44, drawn capped: 'SEALED. NEVER FEED.'",
+	"valve_board": "Valve board: four toggles with no names, only stamped numbers, left to right No. 44, No. 07, No. 31, No. 12, each OPEN or SHUT. Each head is painted with a band: hatched navy, green, brown, brass. A PUMP lever, and a PREVIEW key that lights the active circuit on the drawing.",
+	"drawing": "Maintenance drawing, MAINT. DWG. 4. No names, no numbers, only the pipes, banded in colour: from the pump, a green-banded run out to the STAIR GATE, a brass run on, a brown run back. A hatched stub hangs off the loop, capped.",
 	"index_seal_cut": "No. 44 was left OPEN. The lead seal wire on its toggle has been cut, cleanly.",
 	"tag_07": "Repair tag No. 07: 'SUPPLY valve reseated, 11 Jan 1926.' The SUPPLY toggle is No. 07.",
 	"tag_12": "Repair tag No. 12: 'GATE valve repacked, 3 Mar 1926.' The GATE toggle is No. 12.",
@@ -142,7 +147,7 @@ const OBSERVATIONS := {
 	"late_reflection": "The diaphragm's surface doesn't hold the room. It holds a horizon: one long curve with nine pale points along it, moving a moment after the breath.",
 	"far_horizon": "The horizon in its surface is further back than the wall goes. A long way further.",
 	"lens_pores": "Under the lens it isn't rubber. It has pores, and they close when it breathes in.",
-	"lens_index_ink": "On the drawing, the capped stub and valve 44 are in a different ink. Added after the rest, then capped.",
+	"lens_index_ink": "On the drawing, the capped stub and its valve are in a different ink. Added after the rest, then capped.",
 	"end_sever": "It hangs slack in its ring. The dust lies where it fell.",
 	"end_continue": "It breathes evenly now. The room in its surface has caught up.",
 }
@@ -152,9 +157,9 @@ const OBJECTIVES := {
 }
 const HINTS := {
 	"p11": [
-		"The drawing above the valve board is the circuit: a pump, four numbered valves, the stair gate, and one capped stub.",
+		"The drawing above the valve board is the circuit: a pump, four valves, the stair gate, and one capped stub.",
 		"The capped stub on the drawing is the line that must never be fed. Find its valve.",
-		"On the drawing, 07, 12 and 31 carry the loop out to the stair gate and back. The capped stub hangs off 44, and Venn's tag for 44 says 'Do not open.'",
+		"The drawing names nothing. The valve heads carry the same bands. And Venn tagged one of them 'Do not open.'",
 		"07, 12 and 31 open, 44 shut. Then the pump.",
 	],
 	"done": [
