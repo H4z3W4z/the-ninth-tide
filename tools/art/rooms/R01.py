@@ -4,7 +4,8 @@
     python3 tools/art/rooms/R01.py            # every R01 asset
     python3 tools/art/rooms/R01.py boat line  # only the named stems
 
-Writes ONLY under assets/rooms/R01/. Every output is 1448x1086 so overlays register by plain
+Writes ONLY under assets/rooms/R01/, plus the P06 drained-flats stage plate at
+assets/stages/R01/p06_flats.png (a new file; nothing else under assets/stages/). Every output is 1448x1086 so overlays register by plain
 alpha compositing at (0, 0): backdrops and close-up plates are opaque RGB, overlays are RGBA
 with true alpha. Flat front elevation, approved palette, navy ink contours, matte fills,
 low-amplitude paper grain (max +/-6/255). No text is baked: the view draws every label.
@@ -203,7 +204,7 @@ class Cv:
             self.d.line([(x0 * S, row), (x1 * S - 1, row)], fill=mix(c0, c1, t) + (255,))
 
     # -- output
-    def finish(self, name, mode, rng=None, grain=True):
+    def finish(self, name, mode, rng=None, grain=True, dest=None):
         img = self.im.resize((W, H), Image.LANCZOS)
         if grain:
             img = add_grain(img, rng or self.r)
@@ -218,8 +219,9 @@ class Cv:
             rgb = Image.composite(rgb, Image.new("RGB", (W, H), (0, 0, 0)), keep)
             out = rgb.copy()
             out.putalpha(a)
-        OUT.mkdir(parents=True, exist_ok=True)
-        out.save(OUT / f"{name}.png", optimize=False)
+        dest = OUT if dest is None else dest
+        dest.mkdir(parents=True, exist_ok=True)
+        out.save(dest / f"{name}.png", optimize=False)
         return out
 
 
@@ -2699,6 +2701,49 @@ def back_storm_sea(name, pal, pocks):
     return cv.finish(name, "RGB", r)
 
 
+def mud_furniture(cv, pal):
+    """What the drained sea leaves standing, shared by back_b1_mud and the P06 flats plate:
+    the causeway's bare foot and its ladder, the pilings' wet feet, the slack line, the
+    stranded buoy, the bell's water and the far props."""
+    # the causeway's foot, bare now, and a ladder down into its middle gap: it goes on below
+    cv.box(430, 491, 1040, 497, mix(MUD_FAR, INK, 0.4))
+    for g0, g1 in CAUSEWAY_GAPS:
+        cv.box(g0, 491, g1, 497, mix(MUD_FAR, INK, 0.15))
+    lx0, lx1 = 756, 774
+    cv.box(lx0 + 1, 494, lx1 - 1, 500, (20, 24, 26))
+    for lx in (lx0, lx1):
+        cv.stroke([(lx, 474), (lx, 500)], 1.4, INK, jitter=0.0)
+    for ly in (478, 484, 490, 496):
+        cv.stroke([(lx0, ly), (lx1, ly)], 1.0, INK, jitter=0.0)
+    # the pilings' feet: black wet wood down into the mud, a scoured ring round each
+    feet = cv.layer()
+    for cx in PILINGS:
+        if cx in (680, 785):
+            continue   # they stand in the bell's water
+        x0, x1 = cx - 13, cx + 13
+        wet = mix(PILE, INK, 0.45)
+        feet.rect(x0, 864, x1, MUD_AT, fill=wet, ink=INK, w=2.0)
+        feet.box(x0 + 2, 864, x0 + 6, MUD_AT, mix(wet, PAPER, 0.18))
+        for k in range(6):
+            feet.ell(x0 + 4 + (k * 7) % 20, 880 + k * 8, 2.2, 1.6, fill=mix(PAPER, SEAGLASS, 0.4), ink=None)
+        feet.ell(cx, MUD_AT + 2, 24, 6, fill=mix(MUD_NEAR, INK, 0.35), ink=INK, w=1.4)
+        feet.box(x0, MUD_AT - 6, x1, MUD_AT + 1, wet)
+        feet.stroke([(x0, MUD_AT), (x1, MUD_AT)], 1.6, INK, jitter=0.0)
+    cv.comp(feet)
+    # the line from the cleat, slack on the mud
+    cv.stroke(smooth([(CLEAT_X, 980), (CLEAT_X + 6, 1000), (CLEAT_X + 30, 1008), (CLEAT_X + 80, 1010)], 5),
+              4.0, mix(TIMBER, MUD_NEAR, 0.3), jitter=0.05)
+    # a buoy stranded on its side, as in R03's window
+    bx, by = 1120, 1004
+    cv.ell(bx, by + 10, 40, 6, fill=mix(MUD_NEAR, INK, 0.35), ink=None)
+    cv.ell(bx, by, 28, 18, fill=(122, 52, 40), ink=INK, w=2.2)
+    cv.ell(bx - 8, by - 6, 10, 5, fill=mix((122, 52, 40), PAPER, 0.25), ink=None)
+    cv.rect(bx + 16, by - 8, bx + 46, by + 8, fill=(40, 50, 60), ink=INK, w=2.0)
+    # the bell's water, standing level, alone
+    paint_calm(cv, pal["sea"], pal["hor"])
+    storm_props(cv, pal["hor"])
+
+
 def back_b1_mud():
     """Band 1, after the withdrawal: the sea has gone out from under the jetty. Mud flats run
     to a thin pale line of water at the horizon; ripple marks, a few flat pools holding the
@@ -2751,44 +2796,79 @@ def back_b1_mud():
         y += 5 + 22 * t
     cut_calm(rip, 3.0)
     cv.comp(rip)
-    # the causeway's foot, bare now, and a ladder down into its middle gap: it goes on below
-    cv.box(430, 491, 1040, 497, mix(MUD_FAR, INK, 0.4))
-    for g0, g1 in CAUSEWAY_GAPS:
-        cv.box(g0, 491, g1, 497, mix(MUD_FAR, INK, 0.15))
-    lx0, lx1 = 756, 774
-    cv.box(lx0 + 1, 494, lx1 - 1, 500, (20, 24, 26))
-    for lx in (lx0, lx1):
-        cv.stroke([(lx, 474), (lx, 500)], 1.4, INK, jitter=0.0)
-    for ly in (478, 484, 490, 496):
-        cv.stroke([(lx0, ly), (lx1, ly)], 1.0, INK, jitter=0.0)
-    # the pilings' feet: black wet wood down into the mud, a scoured ring round each
-    feet = cv.layer()
-    for cx in PILINGS:
-        if cx in (680, 785):
-            continue   # they stand in the bell's water
-        x0, x1 = cx - 13, cx + 13
-        wet = mix(PILE, INK, 0.45)
-        feet.rect(x0, 864, x1, MUD_AT, fill=wet, ink=INK, w=2.0)
-        feet.box(x0 + 2, 864, x0 + 6, MUD_AT, mix(wet, PAPER, 0.18))
-        for k in range(6):
-            feet.ell(x0 + 4 + (k * 7) % 20, 880 + k * 8, 2.2, 1.6, fill=mix(PAPER, SEAGLASS, 0.4), ink=None)
-        feet.ell(cx, MUD_AT + 2, 24, 6, fill=mix(MUD_NEAR, INK, 0.35), ink=INK, w=1.4)
-        feet.box(x0, MUD_AT - 6, x1, MUD_AT + 1, wet)
-        feet.stroke([(x0, MUD_AT), (x1, MUD_AT)], 1.6, INK, jitter=0.0)
-    cv.comp(feet)
-    # the line from the cleat, slack on the mud
-    cv.stroke(smooth([(CLEAT_X, 980), (CLEAT_X + 6, 1000), (CLEAT_X + 30, 1008), (CLEAT_X + 80, 1010)], 5),
-              4.0, mix(TIMBER, MUD_NEAR, 0.3), jitter=0.05)
-    # a buoy stranded on its side, as in R03's window
-    bx, by = 1120, 1004
-    cv.ell(bx, by + 10, 40, 6, fill=mix(MUD_NEAR, INK, 0.35), ink=None)
-    cv.ell(bx, by, 28, 18, fill=(122, 52, 40), ink=INK, w=2.2)
-    cv.ell(bx - 8, by - 6, 10, 5, fill=mix((122, 52, 40), PAPER, 0.25), ink=None)
-    cv.rect(bx + 16, by - 8, bx + 46, by + 8, fill=(40, 50, 60), ink=INK, w=2.0)
-    # the bell's water, standing level, alone
-    paint_calm(cv, pal["sea"], pal["hor"])
-    storm_props(cv, pal["hor"])
+    mud_furniture(cv, pal)
     return cv.finish(name, "RGB", r)
+
+
+STAGE_OUT = ROOT / "assets" / "stages" / "R01"
+WET_SAND = (120, 116, 104)   # restrained brown, lifted by the sky it holds
+FLATS_SAND_TO = 640          # the wet sand gives way to mud about here
+# The furrow the boat left going out stern first: dead straight from its mooring to the
+# point on the horizon where the arrival launch's dot sat (the view's BOAT_END).
+FURROW_NEAR = ((1150, 900), (1236, 900))
+FURROW_FAR = (1352, 471)
+
+
+def back_p06_flats():
+    """P06, on the bell's line "The sea's gone out to the horizon.": the same storm sky over
+    flats with no water left at all. Wet sand holds the sky's tone out to a dead-level ink
+    horizon; mud and ripple marks toward the viewer; one straight furrow, the boat's keel
+    dragged stern first, runs from the mooring to the horizon. The bell's water still stands
+    on its own. Written to assets/stages/R01/p06_flats.png."""
+    name = "p06_flats"
+    pal = STORM_B1
+    r = random.Random(seed_of(f"{name}.png"))
+    cv = Cv(r, bg=pal["top"])
+    storm_sky(cv, random.Random(seed_of("R01:storm_sky")), pal["top"], pal["hor"])
+    sheen = mix(pal["hor"], SEAGLASS, 0.3)
+    # wet sand to the horizon, then mud: no strip of sea anywhere
+    cv.hrows(HORIZON, FLATS_SAND_TO, mix(WET_SAND, sheen, 0.45), WET_SAND, ya=HORIZON, yb=FLATS_SAND_TO)
+    cv.hrows(FLATS_SAND_TO, H, WET_SAND, MUD_NEAR, ya=FLATS_SAND_TO, yb=H)
+    lay_r = random.Random(seed_of("R01:flats"))
+    # the sky lying on the wet sand: long flat streaks, thinner and closer toward the horizon
+    glaze = cv.layer()
+    y = HORIZON + 4
+    while y < FLATS_SAND_TO + 60:
+        t = (y - HORIZON) / float(FLATS_SAND_TO + 60 - HORIZON)
+        x = lay_r.uniform(-200, 40)
+        while x < W:
+            ln = lay_r.uniform(80, 260) * (0.5 + 1.2 * t)
+            if lay_r.random() < 0.55:
+                glaze.box(x, y, x + ln, y + 1 + 3 * t, mix(sheen, PAPER, 0.18))
+            x += ln + lay_r.uniform(30, 160)
+        y += 3 + 14 * t
+    cut_calm(glaze, 3.0)
+    cv.comp(glaze, 0.5)
+    # ripple marks on the mud, wider apart toward the viewer
+    rip = cv.layer()
+    y = FLATS_SAND_TO - 40
+    while y < H:
+        t = (y - HORIZON) / float(H - HORIZON)
+        x = lay_r.uniform(-30, 10)
+        while x < W:
+            ln = lay_r.uniform(14, 44) * (0.6 + 1.4 * t)
+            if lay_r.random() < 0.6:
+                n = 8
+                pts = [(x + ln * i / n, y + (0.5 + 2.2 * t) * math.sin(math.pi * i / n * 2)) for i in range(n + 1)]
+                rip.stroke(pts, 0.8 + 1.4 * t, mix(MUD_NEAR, INK, 0.55), alpha=int(255 * (0.3 + 0.4 * t)),
+                           jitter=0.05)
+            x += ln + lay_r.uniform(10, 34) * (0.6 + t)
+        y += 5 + 22 * t
+    cut_calm(rip, 3.0)
+    cv.comp(rip)
+    # the furrow: a dark trough with a lit far lip and a thread of water along its floor
+    (lx, ly), (rx_, ry_) = FURROW_NEAR
+    fx, fy = FURROW_FAR
+    trough = mix(MUD_NEAR, INK, 0.45)
+    cv.fillpoly([(lx, ly), (rx_, ry_), (fx + 1.5, fy), (fx - 1.5, fy)], trough)
+    cv.stroke([(lx, ly), (fx - 1.5, fy)], 2.2, INK, jitter=0.02)
+    cv.stroke([(rx_, ry_), (fx + 1.5, fy)], 1.6, mix(WET_SAND, PAPER, 0.35), jitter=0.02)
+    mid = ((lx + rx_) / 2.0, ly)
+    cv.stroke([(mid[0] + 4, mid[1] - 2), (fx, fy + 1)], 2.0, mix(sheen, PAPER, 0.3), alpha=200, jitter=0.02)
+    # the horizon: the flats meet the sky on one hard level line
+    cv.stroke([(0, HORIZON), (W, HORIZON)], 2.0, INK, alpha=210, jitter=0.02)
+    mud_furniture(cv, pal)
+    return cv.finish(name, "RGB", r, dest=STAGE_OUT)
 
 
 def ov_high_water():
@@ -2873,6 +2953,7 @@ ASSETS = {
                    cloud_ink=50),
     "back_b1_sea": lambda: back_storm_sea("back_b1_sea", STORM_B1, 0),
     "back_b1_mud": back_b1_mud,
+    "p06_flats": back_p06_flats,
     "back_b2_high": lambda: back_storm_sea("back_b2_high", STORM_B2, 1400),
     "high_water": ov_high_water,
     "tenth_piling": ov_tenth_piling,
@@ -2935,7 +3016,7 @@ def main(argv):
         raise SystemExit(f"unknown R01 assets: {unknown}")
     for n in names:
         ASSETS[n]()
-        print(f"  R01/{n}.png")
+        print(f"  {'stages/' if n == 'p06_flats' else ''}R01/{n}.png")
 
 
 if __name__ == "__main__":

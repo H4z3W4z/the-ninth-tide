@@ -32,9 +32,11 @@ func run_tests() -> void:
 	test_service_door()
 	test_round_w1_lines()
 	test_round_w2_lines()
+	test_round_p1_lines()
 	await view_checks(ROOM)
 	await test_view_presentation()
 	await test_view_w2()
+	await test_view_p1()
 
 # ---------------------------------------------------------------------------
 # helpers
@@ -559,11 +561,11 @@ func test_view_presentation() -> void:
 	check(v.reflection_dx("s3") == 6.0 and v.wave_frame("s3") == 0 and v.rain_frame("s3") == 0,
 		"V: still s3 is displaced reflections, wave 0, rain 0")
 	scene.sim.settings.motion = true
-	# The arrival hold: exits off, hover off, a line up ends it, the timer ends it.
+	# The arrival hold: hover off, exits live (p1), a line up ends it, the timer ends it.
 	v.play_fx("notice", {"state": "s3"})
-	check(not v.exits_active() and v.hover_at(Vector2(700, 700)) == "", "V: the hold suppresses exits and hover")
+	check(v.exits_active() and v.hover_at(Vector2(700, 700)) == "", "V: the hold suppresses hover, never the exits")
 	v.tick(1.6)
-	check(v.exits_active(), "V: the hold ends after 1.5 s")
+	check(not v.holding(), "V: the hold ends after 1.5 s")
 	v.play_fx("notice", {"state": "s3"})
 	scene.cur_text = R01Sim.NOTICE["s3"]
 	v.tick(0.01)
@@ -613,9 +615,9 @@ func test_view_presentation() -> void:
 	var cl := layer(v, "capsule_closed")
 	check(not cl.is_empty() and cl[1].y > 0.0 and cl[3] == 870.0, "V: the capsule rises, clipped at the waterline")
 	v.withdraw_t = 14.9
-	check(not v.exits_active(), "V: exits wait for 15 s")
+	check(v.exits_active(), "V: exits stay live through the withdrawal (p1)")
 	v.withdraw_t = 15.1
-	check(v.exits_active() and layer(v, "capsule_closed")[1].y == 0.0, "V: the capsule at the cleat, exits back")
+	check(v.exits_active() and layer(v, "capsule_closed")[1].y == 0.0, "V: the capsule at the cleat")
 	# Hush, then restore.
 	v.withdraw_t = 1.0
 	v.tick(0.016)
@@ -727,7 +729,8 @@ func test_view_w1(scene) -> void:
 		var d1: PackedVector2Array = v.rain_hang_dashes(n)
 		v.rain_hang.clear()
 		check(d1 == v.rain_hang_dashes(n) and d1.size() > 600, "W1: %s dashes are deterministic" % s)
-		check(not v.MIX[s].has("rain_planks"), "W1: %s the rain is silent" % s)
+		# Round p1 (lead's mix table): the planks are heard under the hanging rain at 5 and 6.
+		check(v.MIX[s].get("rain_planks", 0.0) == (0.55 if s == "s5" else 0.4), "W1: %s rain on the planks (p1 mix)" % s)
 	check(scene.room_view.rain_hang_dashes(5) != scene.room_view.rain_hang_dashes(6), "W1: seeded per band")
 	# band 7: something under the hum that small speakers can play
 	scene_in(scene, "s7")
@@ -872,4 +875,141 @@ func test_view_w2() -> void:
 	check(v.dev_rects().size() == 3 and v.dev_rects()[0] == v.CAPSULE_RECTS_OPEN["note"], "W2: dev rects follow")
 	scene.dispatch("note")
 	check(v.note_open, "W2: the overlap click reads the note")
+	await free_scene(scene)
+
+# ---------------------------------------------------------------------------
+# round p1
+# ---------------------------------------------------------------------------
+## Round p1: P06's evidence tier, and the flats fx on the bell's line.
+func test_round_p1_lines() -> void:
+	# The hint ladder: four tiers for P06 (nudge, relationship, evidence, answer), three elsewhere.
+	var games := {"inspect": boat_game(), "signal": lensed_game(), "explore": game_at(1, ROOM)}
+	for o in games:
+		var r := r01(games[o])
+		check(r.objective() == o, "p1: objective %s" % o)
+		var want := 4 if o in ["inspect", "signal"] else 3
+		check(r.hint_tiers() == want and R01Sim.HINTS[o].size() == want, "p1: %s has %d tiers" % [o, want])
+		for i in want:
+			check(r.hint_line(i) == R01Sim.HINTS[o][i], "p1: %s tier %d" % [o, i])
+	var ri := r01(games.inspect)
+	var rs := r01(games.signal)
+	check(ri.hint_line(2) == R01Sim.EVIDENCE_INSPECT and rs.hint_line(2) == R01Sim.EVIDENCE_SIGNAL,
+		"p1: the evidence tier sits before the answer")
+	check(ri.hint_line(3).contains("UNVERIFIED RETURN") and rs.hint_line(3).contains("bell 2"),
+		"p1: the last tier is still the answer")
+	for e in [R01Sim.EVIDENCE_INSPECT, R01Sim.EVIDENCE_SIGNAL]:
+		check(e.contains("two stripes") or e.contains("has two"), "p1: the evidence names the contract's two stripes")
+		check(not e.contains("UNVERIFIED") and not e.contains("bell 2"), "p1: the evidence tier doesn't give the answer")
+	# The hint is said without changing the room, and the first three tiers dispatch as before.
+	var g: GameSim = lensed_game()
+	var before := JSON.stringify(g.to_dict().rooms.R01)
+	if g.work_elsewhere() == "":
+		for i in 3:
+			check(says(g.dispatch("hint")) == R01Sim.HINTS.signal[i], "p1: signal hint %d dispatched" % i)
+	check(JSON.stringify(g.to_dict().rooms.R01) == before, "p1: hints change no room state")
+	# The bell's s1 line raises the flats once; the notebook keeps sea_out.
+	var s1 := game_at(3, ROOM)
+	check(r01(s1).jetty_state() == "s1" and not r01(s1).has_seen("sea_out"), "p1: s1, the flats not yet seen")
+	var ev := s1.dispatch("bell")
+	check(has_ev(ev, "fx", "flats") and says(ev).begins_with("The sea's gone out to the horizon."),
+		"p1: the bell's line raises the flats")
+	check(r01(s1).has_seen("sea_out"), "p1: sea_out in the notebook")
+	ev = s1.dispatch("bell")
+	check(not has_ev(ev, "fx", "flats") and says(ev).begins_with("The sea's gone out"), "p1: once only")
+	var d := s1.to_dict()
+	var s1b := GameSim.new()
+	s1b.from_dict(d)
+	check(r01(s1b).has_seen("sea_out") and r01(s1b).jetty_state() == "s1", "p1: the flats survive a save")
+
+## Round p1 presentation: the flats plate, the s5/s6 mix, exits through the holds.
+func test_view_p1() -> void:
+	var scene = new_scene("user://room_test_R01_p1.json")
+	await process_frame
+	# The flats: a new stage plate, up on the bell's line for the rest of band 1.
+	scene_in(scene, "s1")
+	var v = scene.room_view
+	check(v._tex("p06_flats") != null, "P1: assets/stages/R01/p06_flats.png loads")
+	check(not layer_ids(v).has("p06_flats") and not v.flats_shown(), "P1: s1 before the line, the mud")
+	scene.dispatch("bell")
+	check(v.flats_shown() and v.flats_t < 0.1, "P1: the line starts the flats")
+	v.tick(0.6)
+	var mid: Array = layer(v, "p06_flats")
+	check(not mid.is_empty() and mid[2].a > 0.0 and mid[2].a < 1.0 and layer_ids(v)[0] == "back_b1_mud",
+		"P1: they come up over the mud")
+	v.tick(0.8)
+	var ids := layer_ids(v)
+	check(ids[0] == "p06_flats" and not ids.has("back_b1_mud") and not ids.has("back_b1_sea")
+		and not ids.any(func(i): return str(i).begins_with("waves_")), "P1: then they are the ground (%s)" % [ids.slice(0, 3)])
+	check(ids.has("bell_calm") and ids.has("line") and ids.has("fg_jetty"), "P1: the bell's water, line and jetty stay")
+	scene.sim.settings.motion = false
+	v.play_fx("flats", {})
+	check(layer_ids(v)[0] == "p06_flats", "P1: motion off, a cut")
+	scene.sim.settings.motion = true
+	v.apply_instantly()
+	check(layer_ids(v)[0] == "p06_flats", "P1: a revisit shows them at once")
+	for h in v.HOTSPOTS:
+		check(scene.action_at(h[1].get_center()) == h[0], "P1: flats, %s answers" % h[0])
+	# Mid-drain: the flats lay over the sea and the mud, and the sea's waves go with them.
+	v.withdraw_t = 17.0
+	v.flats_t = 0.6
+	var fl: Array = layer(v, "p06_flats")
+	check(layer_ids(v)[0] == "back_b1_sea" and fl[2].a > 0.0 and fl[2].a < 1.0, "P1: over a sea still going out")
+	v.apply_instantly()
+	# The rest of that tide only: band 2 is the high sea again.
+	scene_in(scene, "s2")
+	check(not layer_ids(scene.room_view).has("p06_flats"), "P1: band 2, the sea's back")
+	# The mix: rain on the planks you can hear at 5 and 6, the wind at 5.
+	var mx: Dictionary = v.MIX
+	check(mx.s5 == {"sea_thin": 0.5, "rain_planks": 0.55, "wind_jetty": 0.35}, "P1: s5 mix")
+	check(mx.s6 == {"sea_thin": 0.4, "rain_planks": 0.4}, "P1: s6 mix")
+	await free_scene(scene)
+	await test_view_p1_exits()
+
+func test_view_p1_exits() -> void:
+	var scene = new_scene("user://room_test_R01_p1x.json")
+	await process_frame
+	# A notice hold (s3, first time): one click on the Office tab travels.
+	scene_in(scene, "s3")
+	var v = scene.room_view
+	scene.sim.room(ROOM).state.noticed.erase("s3")
+	scene.sim.room(ROOM).state.noticed.erase("s2")
+	scene.dispatch("go:R02")
+	scene.time += 1.0
+	scene.dispatch("go:R01")
+	v = scene.room_view
+	check(scene.sim.state.room == ROOM and v.holding(), "P1x: back on the jetty, the notice holds")
+	scene.time += 0.5
+	var tab: Rect2 = v.live_exit_rects()["R02"]
+	check(scene.action_at(tab.get_center()) == "go:R02" and not v.consume_click(tab.get_center()),
+		"P1x: the tab is the core's during the hold")
+	scene.click(tab.get_center())
+	check(scene.sim.state.room == "R02", "P1x: one click on the Office tab ends the hold and travels")
+	# After the P06 reveal: one click on the Office tab travels.
+	scene.room_jump(ROOM, 2)
+	scene.dispatch("panel")
+	scene.dispatch("bell_2")
+	v = scene.room_view
+	check(scene.sim.flag("P06") and v.withdrawing(), "P1x: the reveal plays")
+	# Read through the reveal at a reader's pace, clicking empty water to move it on.
+	var n := 0
+	while scene.chain_active() and n < 200:
+		scene._process(0.1)
+		if n % 10 == 9:
+			scene.click(Vector2(1000, 200))
+		n += 1
+	check(not scene.chain_active() and v.withdrawing(), "P1x: the reveal read, the boat still going (%.1f s)" % v.withdraw_t)
+	scene.time += 1.0
+	tab = v.live_exit_rects()["R02"]
+	scene.click(tab.get_center())
+	check(scene.sim.state.room == "R02", "P1x: one click on the Office tab travels after the reveal (%s)" % scene.sim.state.room)
+	# And after the whole withdrawal has played out at its own speed.
+	scene.room_jump(ROOM, 2)
+	scene.dispatch("panel")
+	scene.dispatch("bell_2")
+	v = scene.room_view
+	for i in 260:
+		scene._process(0.1)
+	check(not v.withdrawing() and not scene.chain_active(), "P1x: the reveal over")
+	scene.click(v.live_exit_rects()["R02"].get_center())
+	check(scene.sim.state.room == "R02", "P1x: one click travels after the full reveal")
 	await free_scene(scene)

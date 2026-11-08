@@ -48,8 +48,8 @@ const MIX := {
 	"s2": {"sea_jetty": 0.9, "wind_jetty": 0.7, "wind_whistle": 0.5, "rain_planks": 0.8},
 	"s3": {"sea_slap": 0.9, "wind_jetty": 0.6, "wind_whistle": 0.4, "rain_planks": 0.8},
 	"s4": {"sea_thin": 0.7, "wind_jetty": 0.5, "wind_whistle": 0.3, "rain_planks": 0.7},
-	"s5": {"sea_thin": 0.5},
-	"s6": {"sea_thin": 0.4},
+	"s5": {"sea_thin": 0.5, "rain_planks": 0.55, "wind_jetty": 0.35},
+	"s6": {"sea_thin": 0.4, "rain_planks": 0.4},
 	## The hum alone is all sub-bass: laptop speakers would play nothing. A thin sea under it.
 	"s7": {"pressure_hum": 0.35, "sea_thin": 0.2},
 	"A": {"sea_jetty": 1.0, "gulls": 0.7, "engine_idle": 0.6, "wind_jetty": 0.4},
@@ -129,6 +129,12 @@ const FIGURE_FADE := 0.8
 const DRAIN_AT := 16.0
 const DRAIN_TIME := 4.0
 const PULL_TIME := 0.4
+## P06's "The sea's gone out to the horizon.": the drained flats (assets/stages/R01) come
+## up over the mud as the line does, and stay for the rest of band 1. Motion off: a cut.
+const FLATS := "p06_flats"
+const FLATS_FADE := 1.2
+## Plates that live outside assets/rooms/R01/.
+const STAGE_PLATES := {"p06_flats": "res://assets/stages/R01/p06_flats.png"}
 
 # --- close-up controls ------------------------------------------------------------------
 const PANEL_RECTS := {
@@ -187,6 +193,7 @@ var figure_k := 1.0            # 0..1 fade of the figure in the boat's window
 var note_open := false
 var pull_t := INF              # seconds since a bell pull
 var pull_n := 1
+var flats_t := INF             # seconds since the flats line (INF: at rest, fully shown)
 var tide_defer := 0            # a tide card held back during the withdrawal
 var rain_hang := {}            # band -> PackedVector2Array of dash end pairs (seeded)
 
@@ -229,7 +236,7 @@ func _build_audio() -> void:
 
 func _tex(id: String) -> Texture2D:
 	if not textures.has(id):
-		var path := "res://assets/rooms/R01/%s.png" % id
+		var path: String = STAGE_PLATES.get(id, "res://assets/rooms/R01/%s.png" % id)
 		textures[id] = load(path) as Texture2D if ResourceLoader.exists(path) else null
 	return textures[id]
 
@@ -241,6 +248,7 @@ func tick(dt: float) -> void:
 	withdraw_t += dt
 	loop_t += dt
 	pull_t += dt
+	flats_t += dt
 	if figure_k < 1.0:
 		figure_k = minf(1.0, figure_k + dt / FIGURE_FADE)
 	if tide_defer > 0 and withdraw_t >= TIDE_CARD_AT:
@@ -388,6 +396,19 @@ func drain_k() -> float:
 		return 1.0
 	return clampf((withdraw_t - DRAIN_AT) / DRAIN_TIME, 0.0, 1.0)
 
+## True from the bell's "gone out to the horizon" line for the rest of band 1 (sim state,
+## so a revisit or a load shows the flats at once).
+func flats_shown() -> bool:
+	return _state() == "s1" and jetty.has_seen("sea_out")
+
+## The flats' opacity: 0 before the line, easing to 1 over FLATS_FADE after it.
+func flats_k() -> float:
+	if not flats_shown():
+		return 0.0
+	if not motion:
+		return 1.0
+	return clampf(flats_t / FLATS_FADE, 0.0, 1.0)
+
 ## The capsule close-up's control rects for the current state, in match order.
 func capsule_rects() -> Dictionary:
 	return CAPSULE_RECTS_OPEN if jetty.state.capsule_opened else CAPSULE_RECTS
@@ -418,12 +439,18 @@ func layer_stack() -> Array:
 	var prop := Color(pm, pm, pm)
 	var out := []
 	# Band 1: the sea is in while the boat withdraws, then goes out (wet 1 -> 0).
-	var wet := (1.0 - drain_k()) if s == "s1" else 1.0
-	if s == "s1" and wet > 0.0:
+	# The flats (after the bell's line) cover both, so the sea's marks go with them.
+	var fk := flats_k()
+	var wet := (1.0 - drain_k()) * (1.0 - fk) if s == "s1" else 1.0
+	if fk >= 1.0:
+		out.append([FLATS, Vector2.ZERO, Color.WHITE, -1.0])
+	elif s == "s1" and wet > 0.0:
 		out.append(["back_b1_sea", Vector2.ZERO, Color.WHITE, -1.0])
-		out.append(["back_b1_mud", Vector2.ZERO, Color(1, 1, 1, 1.0 - wet), -1.0])
+		out.append(["back_b1_mud", Vector2.ZERO, Color(1, 1, 1, drain_k()), -1.0])
 	else:
 		out.append([BACKDROP[s], Vector2.ZERO, Color.WHITE, -1.0])
+	if fk > 0.0 and fk < 1.0:
+		out.append([FLATS, Vector2.ZERO, Color(1, 1, 1, fk), -1.0])
 	if early:
 		# Every piling has its reflection; the boat, laid over them, has none.
 		out.append(["reflections_dusk", Vector2.ZERO, Color.WHITE, -1.0])
@@ -695,6 +722,7 @@ func apply_instantly() -> void:
 	withdraw_t = INF
 	loop_t = INF
 	pull_t = INF
+	flats_t = INF
 	figure_k = 1.0
 	note_open = false
 	if mixer:
@@ -729,6 +757,8 @@ func play_fx(id: String, e: Dictionary) -> void:
 			figure_k = 0.0 if motion else 1.0
 		"note":
 			note_open = true
+		"flats":
+			flats_t = 0.0
 		"cap_off":
 			pass   # the capsule close-up draws c_capsule_open from the state
 	redraw()
@@ -748,8 +778,21 @@ func on_view_changed(_before: String) -> void:
 	if jetty.local_view != R01Sim.C_CAPSULE:
 		note_open = false
 
+## The exits stay live through the arrival and notice holds, the withdrawal and the gangway
+## cut: an exit click ends the hold and travels in the same press (the core's exits always
+## act; a playing chain advances first).
 func exits_active() -> bool:
-	return jetty.local_view == "room" and not holding() and not withdrawing() and not cutting()
+	return jetty.local_view == "room"
+
+## A click on an exit tab is never the room's: it ends the hold and goes to the core, which
+## travels. Anything else is not taken here either: during the hold the noticed line is a
+## queued story line, so the core's advance() brings it up and tick() ends the hold.
+func consume_click(p: Vector2) -> bool:
+	for r in live_exit_rects().values():
+		if (r as Rect2).has_point(p):
+			notice_t = INF
+			return false
+	return false
 
 func hover_at(p: Vector2) -> String:
 	if holding():
