@@ -85,6 +85,15 @@ const FRAME_ACTIONS := {"frame_body": "BODY", "frame_place": "PLACE", "frame_nam
 const RECORD_CATEGORY := {"nora_frame": "BODY", "nora_spatial_strip": "PLACE", "amended_nora_card": "NAME",
 	"nora_register_card": "NAME"}
 const BRIDGE := "witness_bridge"
+## BODY and PLACE come pre-seated on the live door: the folders sent her trace and her bearing
+## down. The puzzle is the NAME card and where the bridge goes.
+const SEATED := {"BODY": "nora_frame", "PLACE": "nora_spatial_strip"}
+const SEATED_LINE := "Her trace and her bearing are already in the frames. The folders sent them down."
+const SEATED_STAY := {"BODY": "Her trace, seated behind the glass. The clips won't give.",
+	"PLACE": "Her bearing, seated behind the glass. The clips won't give."}
+const SEATED_FULL := {"BODY": "The BODY frame already holds her trace.",
+	"PLACE": "The PLACE frame already holds her bearing."}
+const LIVE_DOOR_LINE := "Her trace. Her bearing. The NAME frame, the bridge, and the port I leave alone."
 const COMPLETE_CARD := "nora_register_card"
 const DOOR_LOCKED := "The glass is locked down. Stencilled under it: AWAITING PREPARED RECORD."
 const WANT_LINES := {
@@ -202,10 +211,10 @@ const HINTS := {
 		"Nothing to mount yet. Her records aren't ready.",
 	],
 	"p24": [
-		"The lower door has three frames and a socket.",
-		"Mount Nora's three records, the amended card among them, and use the witness bridge. Leave the automatic port alone.",
-		"One of her NAME cards is finished. One isn't.",
-		"Frame to BODY, strip to PLACE, amended card to NAME, bridge to WITNESS, COPY empty, OPEN ACCESS.",
+		"Her trace and her bearing are already in the door. It still wants a name and a witness.",
+		"One NAME card closes her record; the other leaves it open. The bridge keeps a record open; the automatic port closes it.",
+		"Two NAME cards: the one the COPY port pushed out, and the one I amended in the bunk room.",
+		"Amended card to NAME, bridge to WITNESS, COPY empty, OPEN ACCESS.",
 	],
 	"done": [
 		"The chamber's below. The lower door is open.",
@@ -257,13 +266,9 @@ func hint_line(level: int) -> String:
 		return super(level)
 	return ladder[clampi(_hint_tier(level), 0, ladder.size() - 1)]
 
-## The tier to say for `level`. A core that clamps every ladder at three tiers asks for level 2
-## again on the fourth ask, with its saved level already at 3: read that, so the fourth tier
-## (the solution) is still reached. A core that honours hint_tiers() passes the saved level.
+## The tier to say for `level`: the level itself. The core honours hint_tiers() and builds the
+## ladder press by press from hint_line(0..3), so nothing here reads its saved level.
 func _hint_tier(level: int) -> int:
-	var h = game.state.get("hint", {})
-	if game.state.get("room", "") == ID and h is Dictionary and str(h.get("for", "")) == ID + ":" + objective():
-		return maxi(level, int(h.get("level", 0)))
 	return level
 
 func objective() -> String:
@@ -660,8 +665,7 @@ func _l2(action: String, ev: Array) -> void:
 				elif not door_live():
 					_say(ev, "Three frames and a witness. The plan's procedure, in iron.")
 				else:
-					_say(ev, "Her three records. The bridge. And the port I leave alone.")
-					_offer_original(ev)
+					_live_door_opened(ev)
 			_observe("lower_door")
 			_observe("copy_port")
 
@@ -836,18 +840,55 @@ func _shutter_moved(was: bool, ev: Array) -> void:
 	if now:
 		_observe("record_closed")
 
+## The live door's close-up opening: her trace and bearing seated in BODY and PLACE (said the
+## first time they settle), then, the first time only, the COPY port's card.
+func _live_door_opened(ev: Array, said := false) -> void:
+	if state.p24_complete or not door_live():
+		return
+	var at := 0.0
+	if _seat_records(ev):
+		_say(ev, SEATED_LINE, 0.0 if not said else 1.2, said)
+		at = 2.6 if not said else 3.8
+	elif not said:
+		_say(ev, LIVE_DOOR_LINE)
+		at = 1.6
+	_offer_original(ev, at)
+
+## Seats her trace in BODY and her bearing in PLACE: taken from her hand if she holds them,
+## simply there if she doesn't. Anything else in those frames (an older save) comes back to
+## her. True when anything was newly seated.
+func _seat_records(ev: Array) -> bool:
+	var moved := false
+	for f in SEATED:
+		var it: String = SEATED[f]
+		if state.frames[f] == it:
+			continue
+		if state.frames[f] != "":
+			game.give(state.frames[f], ev)
+		if game.has_item(it):
+			game.take(it)
+		state.frames[f] = it
+		moved = true
+	if moved:
+		_sfx(ev, "r11_frame_mount", 0.3)
+	return moved
+
+## A frame the folders filled.
+func seated(f: String) -> bool:
+	return SEATED.has(f) and state.frames.get(f, "") == SEATED[f]
+
 ## The live door, the first time she stands at it: if she has no unamended card of her own,
 ## the COPY port puts one out. Once only; she keeps it (reconcile and _sync see to that).
-func _offer_original(ev: Array) -> void:
+func _offer_original(ev: Array, at := 0.0) -> void:
 	if state.original_kept or state.p24_complete or not door_live():
 		return
 	state.original_kept = true
 	if _original_held():
 		return
 	game.give(COMPLETE_CARD, ev)
-	_sfx(ev, "r11_copy_out", 0.6)
-	_say(ev, COPY_OUT_LINES[0], 0.8, true)
-	_say(ev, COPY_OUT_LINES[1], 3.0, true)
+	_sfx(ev, "r11_copy_out", at + 0.6)
+	_say(ev, COPY_OUT_LINES[0], at + 0.8, true)
+	_say(ev, COPY_OUT_LINES[1], at + 3.0, true)
 	_observe("copy_card")
 
 ## The unamended card is hers somewhere: in hand, on the door, or filed.
@@ -866,7 +907,9 @@ func _door_action(action: String, ev: Array) -> void:
 	match action:
 		"frame_body", "frame_place", "frame_name":
 			var f: String = FRAME_ACTIONS[action]
-			if state.frames[f] != "":
+			if seated(f):
+				_say(ev, SEATED_STAY[f])
+			elif state.frames[f] != "":
 				_unmount(state.frames[f], ev)
 				state.frames[f] = ""
 			else:
@@ -1064,12 +1107,15 @@ func _door_item_use(item: String, target: String, ev: Array) -> bool:
 		local_view = "c_chamber_door"
 		landing = 2
 		_say(ev, "It goes in a frame, or the socket.")
-		_offer_original(ev)
+		_live_door_opened(ev, true)
 		return true
 	if FRAME_ACTIONS.has(target):
 		var f: String = FRAME_ACTIONS[target]
 		if not is_record:
 			_say(ev, "It's a plug, not a record.")
+			return true
+		if seated(f):
+			_say(ev, SEATED_FULL[f])
 			return true
 		_mount(item, state.frames[f], ev)
 		state.frames[f] = item

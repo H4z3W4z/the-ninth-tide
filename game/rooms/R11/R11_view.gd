@@ -137,8 +137,9 @@ const HINGE_X := 600.0
 ## mirrored about the bearing when it tips toward the lower door).
 const BELL_PIVOT := Vector2(456, 374)
 const BELL_BODY := Vector2(415, 446)
-## One thin navy ring off the bell each time it sounds: radius from/to over RING_TIME (Motion
-## off: one still ring at RING_STILL_R for RING_TIME).
+## One thin navy ring off the bell when it first sounds (the reveal, ahead of the glance), never
+## on the loop's later tolls: radius from/to over RING_TIME, fading to nothing (Motion off: a
+## still ring at RING_STILL_R that fades out over RING_TIME).
 const RING_TIME := 1.5
 const RING_R := [70.0, 240.0]
 const RING_STILL_R := 120.0
@@ -387,7 +388,6 @@ func _tick_bell(dt: float) -> void:
 	if bell_pos >= 0.0 and pos >= 0.0 and landing() == 2 and r11.local_view == "room" and cut == "":
 		var crossed := (bell_pos < BELL_CUE and pos >= BELL_CUE) or (pos < bell_pos and pos >= BELL_CUE)
 		if crossed:
-			ring_t = 0.0
 			if motion and dir == "above":
 				mote_t = 0.0
 			elif motion and dir == "below":
@@ -1040,14 +1040,15 @@ func _draw_bell() -> void:
 		draw_texture(t, Vector2.ZERO)
 	_draw_ring()
 
-## The ring's radius and alpha now, or [] for none: one thin ring off the bell per toll,
-## expanding over 1.5 s (Motion off: one still ring held for 1.5 s).
+## The ring's radius and alpha now, or [] for none: one thin ring off the bell's first toll,
+## expanding and fading over 1.5 s (Motion off: still, fading out over 1.5 s). The loop's later
+## tolls leave the bell bare: no outline lingers round it once the glance has shown it.
 func ring_now() -> Array:
 	if ring_t < 0.0 or ring_t >= RING_TIME:
 		return []
-	if not motion:
-		return [RING_STILL_R, 0.7]
 	var k := ring_t / RING_TIME
+	if not motion:
+		return [RING_STILL_R, 0.7 * (1.0 - k)]
 	return [lerpf(RING_R[0], RING_R[1], k), 0.85 * (1.0 - k)]
 
 func _draw_ring() -> void:
