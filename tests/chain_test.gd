@@ -16,6 +16,9 @@ extends "res://tests/rooms/room_test_base.gd"
 ## Wave 3 (depths and endings): R09, R10, R11 and R12 are played too: P12, P15, P16, P18,
 ## P23, P24, P25, P26 and P27 (SEVER first, then the checkpoint replays to CONTINUE).
 ## Every puzzle is now played by its room; GIVES and the flag path stay for a future room.
+## Fix p3 (CORE, R07, R12, R10, R09, R03, R02, R04, R05, R06, R08, R11 merged): the whole graph
+## still plays from the title through both endings with no flags; also driven on the real
+## scene by the integrator's capture driver (51 captures, 0 chain failures).
 
 ## [step, room, prerequisites] in canonical order (flags.md section 2, GDD section 5,
 ## T1X-closure.md: the corridor opens on P01 and T1X waits for tide_done(1)).
