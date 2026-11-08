@@ -22,6 +22,7 @@ const REVEAL := [
 	"Something passed across the whole of it. Like a lid.",
 	"The rain has stopped where it was. It's waiting too.",
 	"It hasn't closed again.",
+	"One of the lit windows is this one. Someone in it is standing at the rail.",
 ]
 
 func run_tests() -> void:
@@ -55,6 +56,8 @@ func run_tests() -> void:
 	test_observation_ids()
 	await test_hit_purity()
 	await test_view_standing()
+	test_unconfirmed_station()
+	await test_refusal_flushed()
 	test_canonical_chain()
 	test_debug_jumps()
 	test_invariant_over_play()
@@ -288,8 +291,15 @@ func test_apertures() -> void:
 	ev = g.dispatch("scope_view")
 	check(says(ev) == "The mess table, in the glass. Bowls along it. I can't make out a rim from here.", "(g) unconfirmed scope view: %s" % says(ev))
 	ev = g.dispatch("record")
-	check(R09Sim.NO_SUBJECT in says(ev) and R09Sim.CONTRACT_RULE in says(ev), "(g) STATION 3 unconfirmed: NO SUBJECT and the rule: %s" % says(ev))
-	check(r9(g).last_record == "nosubject" and has_ev(ev, "fx", "no_subject"), "(g) STATION 3 unconfirmed prints empty")
+	check(says(ev) == R09Sim.UNCONFIRMED + " | I can't tell from here which bowl it is."
+		and not R09Sim.NO_SUBJECT in says(ev), "(g) STATION 3 unconfirmed: SUBJECT UNCONFIRMED: INSPECT, and which bowl: %s" % says(ev))
+	check(R09Sim.UNCONFIRMED == "SUBJECT UNCONFIRMED: INSPECT", "(g) the unconfirmed stamp")
+	check(r9(g).last_record == "nosubject" and has_ev(ev, "fx", "no_subject") and r9(g).has_seen("no_subject"),
+		"(g) STATION 3 unconfirmed prints empty; no_subject observed")
+	check(r9(g).state.frame_mounted and not g.has_item("nora_frame") and g.has_item("inspection_lens"),
+		"(g) STATION 3 unconfirmed consumes nothing")
+	var ev_again := g.dispatch("record")
+	check(says(ev_again) == says(ev), "(g) STATION 3 unconfirmed says the same each time")
 	check(not r9(g).relation_lit(), "(g) the relation mark stays dark")
 	check(not g.flag("P15") and not g.has_item("nora_spatial_strip"), "(g) unconfirmed STATION 3 does not solve")
 	# With the lens: the square patch, and the only line that confirms.
@@ -356,7 +366,7 @@ func test_confirmation_resets() -> void:
 	var ev := g.dispatch("sel_3")
 	check(says(ev) == "Station, aperture three. The mess table.", "(h) repeat STATION 3 line: %s" % says(ev))
 	ev = g.dispatch("record")
-	check(R09Sim.NO_SUBJECT in says(ev) and not g.flag("P15") and not r9(g).relation_lit(), "(h) RECORD refused after re-aiming")
+	check(R09Sim.UNCONFIRMED in says(ev) and not g.flag("P15") and not r9(g).relation_lit(), "(h) RECORD refused after re-aiming")
 	ev = g.dispatch("sel_3")
 	check(says(ev) == "STATION 3. It's already there.", "(h) already there")
 
@@ -441,12 +451,14 @@ func test_reveal_on_back() -> void:
 	var r := r9(g)
 	check(r.local_view == "room", "(l) back to the room")
 	check(has_ev(ev, "fx", "reveal_upright") and has_ev(ev, "sfx", "deep_tone") and has_ev(ev, "sfx", "lid_pass"), "(l) reveal events")
-	check(story_lines(ev) == REVEAL, "(l) the six reveal lines exact: %s" % [story_lines(ev)])
+	check(story_lines(ev) == REVEAL, "(l) the seven reveal lines exact: %s" % [story_lines(ev)])
 	var delays := []
 	for e in ev:
 		if e.type == "say":
 			delays.append(e.delay)
-	check(delays == [0.6, 6.8, 9.6, 13.4, 15.4, 18.0], "(l) reveal delays")
+	check(delays == [0.6, 6.8, 9.6, 13.4, 15.4, 18.0, 21.0], "(l) reveal delays")
+	check(story_lines(ev)[5] == "It hasn't closed again." and story_lines(ev)[6].begins_with("One of the lit windows is this one."),
+		"(l) the window line comes after 'It hasn't closed again.'")
 	var fx := {}
 	var lid_sfx := -1.0
 	for e in ev:
@@ -458,8 +470,9 @@ func test_reveal_on_back() -> void:
 		"(l) the rain freezes on the first line (fx rain_freeze, delay 0.6)")
 	check(fx.has("lid_pass") and is_equal_approx(float(fx.lid_pass.get("delay", -1)), 13.4) and is_equal_approx(lid_sfx, 13.4),
 		"(l) the lid passes on its line (fx lid_pass and its sfx at 13.4)")
-	check(fx.has("hold_breath") and is_equal_approx(float(fx.hold_breath.get("delay", -1)), 18.0)
-		and is_equal_approx(float(fx.hold_breath.get("seconds", -1)), 2.5), "(l) the core holds its breath for 2.5 s at 18.0")
+	check(fx.has("hold_breath") and is_equal_approx(float(fx.hold_breath.get("delay", -1)), 21.0)
+		and is_equal_approx(float(fx.hold_breath.get("seconds", -1)), 2.5), "(l) the core holds its breath for 2.5 s at 21.0, on the window line")
+	check("someone is standing at its rail" in R09Sim.OBSERVATIONS.upright, "(l) the notebook keeps the window")
 	check(index_of(ev, "fx", "reveal_upright") < index_of(ev, "fx", "rain_freeze"), "(l) the beat's fx follow reveal_upright")
 	check("The rain has stopped where it was. It's waiting too." in R09Sim.OBSERVATIONS.upright, "(l) the notebook keeps the new line")
 	check(r.rain_frozen(), "(l) from P15 on the rain is frozen")
@@ -797,11 +810,15 @@ func test_view_standing() -> void:
 		scene.tide_jump(t, ROOM)
 		await process_frame
 		v = scene.room_view
-		var want: String = {6: "p15_surface_on_end", 7: "p15_surface_on_end", 8: "p15_surface_on_end_b6", 9: ""}[t]
+		var want: String = {6: "p15_plane_r3", 7: "p15_plane_r3", 8: "p15_plane_r3_b6", 9: ""}[t]
 		check(v.standing_plate() == want, "(vw) tide %d plate %s (got %s)" % [t, want, v.standing_plate()])
 		check(want == "" or ResourceLoader.exists("res://assets/stages/R09/%s.png" % want), "(vw) %s exists" % want)
 		check(want == "" or v._tex(want) != null, "(vw) %s loads" % want)
-		check(v.lens_alpha() == 0.35 and v.lid_y() < 0.0 and v.lid_line_k() == 0.0, "(vw) tide %d: no lid, lens 0.35" % t)
+		var rooms: String = v.rooms_plate()
+		check(rooms == want.replace("plane", "rooms") and (rooms == "" or v._tex(rooms) != null), "(vw) tide %d: the rooms overlay %s loads" % [t, rooms])
+		check(want == "" or (v.lid_line_k() == 1.0 and v.surface_rain_alpha() == 0.0),
+			"(vw) tide %d: the lid line rests for good; no streaks over the surface" % t)
+		check(v.lens_alpha() == 0.35 and v.lid_y() < 0.0, "(vw) tide %d: no lid band, lens 0.35" % t)
 		check(v.plate_k() == (1.0 if want != "" else 0.0), "(vw) tide %d: plate settled" % t)
 		for m in [true, false]:
 			scene.sim.settings.motion = m
@@ -840,7 +857,7 @@ func _beat_checks(scene, m: bool) -> void:
 	# the beat follows its lines in the core's queue: here they wait behind RECORD's own lines
 	var z: float = v.freeze_at - 0.6
 	check(v.reveal_running() and z >= 0.0 and is_equal_approx(v.lid_at - z, 13.4)
-		and is_equal_approx(v.hush_at - z, 20.5), "(vb) %s: the beat keeps the sim's spacing, on its lines (+%.2f s)" % [tag, z])
+		and is_equal_approx(v.hush_at - z, 23.5), "(vb) %s: the beat keeps the sim's spacing, on its lines (+%.2f s)" % [tag, z])
 	var due0 := -1.0
 	for l in scene.lines:
 		if l.text == "The horizon's standing up.":
@@ -854,34 +871,49 @@ func _beat_checks(scene, m: bool) -> void:
 	scene.time += 2.0
 	v.tick(0.5)
 	check(v.rain_offset() == o1, "(vb) %s: and stays exactly where it stopped" % tag)
-	check(v.standing_plate() == "p15_surface_on_end", "(vb) %s: the surface on end from the line" % tag)
+	check(v.standing_plate() == "p15_plane_r3" and v.rooms_plate() == "p15_rooms_r3", "(vb) %s: the surface on end from the line" % tag)
 	if m:
 		check(v.plate_k() > 0.0 and v.plate_k() < 1.0, "(vb) Motion on: it comes up the glass")
+		check(v.surface_rain_alpha() > 0.0 and v.surface_rain_alpha() < 1.0, "(vb) Motion on: the streaks over it fading (%f)" % v.surface_rain_alpha())
+		var o0: float = v.p15_chop_offset()
+		scene.time += 1.0
+		check(is_equal_approx(v.p15_chop_offset() - o0, 6.0), "(vb) Motion on: the whitecaps drift 6 px/s")
 	else:
 		check(v.plate_k() == 1.0, "(vb) Motion off: it is simply there")
+		check(v.surface_rain_alpha() == 0.0, "(vb) Motion off: the streaks over it are gone at once")
+		var o0: float = v.p15_chop_offset()
+		scene.time += 1.0
+		check(v.p15_chop_offset() == o0, "(vb) Motion off: the whitecaps stand still")
+	check(is_equal_approx(v.P15_CHOP_A, 0.40), "(vb) the whitecaps at 0.40")
+	v.reveal_t = z + 0.6 + 1.01
+	check(v.surface_rain_alpha() == 0.0, "(vb) %s: after 1.0 s no streak shows over the surface" % tag)
 	v.reveal_t = z + 13.3
 	check(v.lid_y() < 0.0 and v.lid_line_k() == 0.0, "(vb) %s: no lid before 13.4" % tag)
 	var ys := []
 	for k in 5:
-		v.reveal_t = z + 13.4 + 0.001 + k * (1.2 - 0.002) / 4.0
+		v.reveal_t = z + 13.4 + 0.001 + k * (0.6 - 0.002) / 4.0
 		ys.append(v.lid_y())
 	var mid: float = v.A_GLASS.get_center().y
 	if m:
 		var mono := true
 		for k in 4:
 			mono = mono and ys[k + 1] > ys[k]
-		check(mono and ys[0] <= v.A_GLASS.position.y - v.LID_H / 2.0 + 1.0 and ys[4] >= v.A_GLASS.end.y + v.LID_H / 2.0 - 1.0,
-			"(vb) Motion on: the band sweeps the whole glass top to bottom in 1.2 s: %s" % [ys])
+		check(mono and ys[0] <= v.A_GLASS.position.y - v.LID_H / 2.0 + 3.0 and ys[4] >= v.A_GLASS.end.y + v.LID_H / 2.0 - 3.0,
+			"(vb) Motion on: the band sweeps the whole glass top to bottom in 0.6 s: %s" % [ys])
 	else:
-		check(ys.all(func(y): return is_equal_approx(y, mid)), "(vb) Motion off: the band stands at the middle for 1.2 s")
-	check(is_equal_approx(v.LID_H, 90.0) and v.LID_COL == Ink.INK and v.LINE_COL == Color("a9c8b8") and v.LINE_W == 2.0,
-		"(vb) an ink band 90 px tall; a 2 px sea-glass line")
-	v.reveal_t = z + 14.61
+		check(ys.all(func(y): return is_equal_approx(y, mid)), "(vb) Motion off: the band covers the glass for 0.6 s")
+	check(is_equal_approx(v.LID_H, v.A_GLASS.size.y) and v.LID_COL.b > v.LID_COL.r and v.LID_COL.v < 0.2,
+		"(vb) a dark storm-navy band as tall as the glass")
+	check(is_equal_approx(v.LID_REST_Y - v.A_GLASS.get_center().y, 60.0) and v.LINE_COL.v < v.LID_COL.v + 0.01,
+		"(vb) the lid line rests a hand-width (60 px) under the old middle line, darker")
+	v.reveal_t = z + 13.42
+	check(v.lid_line_k() == 0.0, "(vb) %s: no lid line while the band is still above it" % tag)
+	v.reveal_t = z + 14.01
 	check(v.lid_y() < 0.0 and v.lid_line_k() == 1.0, "(vb) %s: after the band, the line" % tag)
-	v.reveal_t = z + 20.4
+	v.reveal_t = z + 23.4
 	check(v.lid_line_k() == 1.0, "(vb) %s: the line stays through the hold" % tag)
 	check(not v.hushed and v.loop_targets().get("r09_room", 0.0) > 0.0, "(vb) %s: the bed until the hold" % tag)
-	v.tick(0.2)   # across 20.5: the hold is over
+	v.tick(0.2)   # across 23.5: the hold is over
 	check(v.hushed, "(vb) %s: hushed after the hold" % tag)
 	var lt: Dictionary = v.loop_targets()
 	var loud := []
@@ -894,8 +926,8 @@ func _beat_checks(scene, m: bool) -> void:
 		or is_equal_approx(linear_to_db(lt.r09_pressure), -24.0), "(vb) %s: the pressure 6 dB under its level" % tag)
 	v.reveal_t = v.reveal_len() + 0.01
 	v.tick(0.01)
-	check(not v.reveal_running() and v.hushed and v.rain_frozen() and v.plate_k() == 1.0 and v.lid_line_k() == 0.0,
-		"(vb) %s: after the beat, still frozen, still the overlay, still hushed" % tag)
+	check(not v.reveal_running() and v.hushed and v.rain_frozen() and v.plate_k() == 1.0 and v.lid_line_k() == 1.0
+		and v.surface_rain_alpha() == 0.0, "(vb) %s: after the beat, still frozen, still the overlay, the lid line resting, still hushed" % tag)
 	# a save/load after P15 keeps the frozen rain and the overlay
 	var g2 := GameSim.new()
 	check(g2.from_dict(JSON.parse_string(JSON.stringify(scene.sim.to_dict()))), "(vb) %s: the save loads" % tag)
@@ -904,8 +936,74 @@ func _beat_checks(scene, m: bool) -> void:
 	scene._reset_presentation()
 	await process_frame
 	v = scene.room_view
-	check(r9(scene.sim).state.reveal_seen and v.standing_plate() == "p15_surface_on_end" and v.plate_k() == 1.0
-		and v.rain_frozen() and v.rain_speed() == 0.0, "(vb) %s: a load after P15 keeps the overlay and the frozen rain" % tag)
+	check(r9(scene.sim).state.reveal_seen and v.standing_plate() == "p15_plane_r3" and v.plate_k() == 1.0
+		and v.lid_line_k() == 1.0 and v.rain_frozen() and v.rain_speed() == 0.0, "(vb) %s: a load after P15 keeps the overlay and the frozen rain" % tag)
+
+## P0: RECORD on STATION 3 before the lens: SUBJECT UNCONFIRMED: INSPECT, and which bowl; on
+## LAND 1, NO SUBJECT ON BEARING. Nothing is consumed either way.
+func test_unconfirmed_station() -> void:
+	var g := mounted()
+	g.dispatch("sel_3")
+	var ev := g.dispatch("record")
+	var lines := []
+	for e in ev:
+		if e.type == "say":
+			lines.append(e.text)
+	check(lines == [R09Sim.UNCONFIRMED, "I can't tell from here which bowl it is."], "(u) record at 3 without the lens: %s" % [lines])
+	check(not g.flag("P15") and r9(g).state.frame_mounted and g.has_item("inspection_lens") and r9(g).has_seen("no_subject"),
+		"(u) nothing consumed; no_subject observed")
+	g.dispatch("sel_1")
+	ev = g.dispatch("record")
+	check(R09Sim.NO_SUBJECT in says(ev) and not R09Sim.UNCONFIRMED in says(ev), "(u) record at 1: NO SUBJECT ON BEARING")
+	g.dispatch("sel_3")
+	play_lens(g)
+	g.dispatch("record")
+	check(g.flag("P15"), "(u) then the lens and RECORD solve it")
+
+## P2: RECORD before the lens, the lens, RECORD, Back, all at once, while STATION 3's first
+## look is still being told (so the core queues the refusal behind it, after the lens's own
+## confirmation): the commit drops the refusal still queued, so nothing refused comes after the
+## confirmation or "Recorded.", and the reveal ends on "It hasn't closed again." and the window
+## line. The stamp reads in the view.
+func test_refusal_flushed() -> void:
+	var scene = new_scene("user://room_test_R09_refusal.json")
+	await process_frame
+	scene.room_jump(ROOM, 2)
+	await process_frame
+	var v = scene.room_view
+	for i in 80:
+		scene._process(0.1)
+	scene.shown_log.clear()
+	for a in ["scope", "item:nora_frame", "mount", "sel_3", "record"]:
+		scene.dispatch(a)
+	check(v.no_subject_text() == R09Sim.UNCONFIRMED, "(rf) the STATION 3 stamp reads SUBJECT UNCONFIRMED: INSPECT")
+	for a in ["item:inspection_lens", "scope_view", "record"]:
+		scene.dispatch(a)
+	await process_frame   # the deferred flush
+	var queued := []
+	for l in scene.lines:
+		queued.append(l.text)
+	var refusals: Array = v.refusal_lines()
+	check(not queued.any(func(t): return t in refusals), "(rf) no refusal left queued after the commit: %s" % [queued])
+	scene.dispatch("back")
+	for i in 900:
+		if scene.lines.is_empty() and scene.cur_text == "" and scene.pending_fx.is_empty():
+			break
+		scene._process(0.1)
+	var log: Array = scene.shown_log
+	var rec := -1
+	var conf := -1
+	for i in log.size():
+		if str(log[i]).begins_with("Recorded."):
+			rec = i
+		if conf < 0 and log[i] == R09Sim.PATCH_LINE:
+			conf = i
+	check(rec >= 0 and conf >= 0 and conf < rec, "(rf) the confirmation, then 'Recorded.', were shown: %s" % [log])
+	var after := log.slice(conf + 1) if conf >= 0 else []
+	check(not after.any(func(t): return t in refusals), "(rf) no refusal after the confirmation or 'Recorded.': %s" % [log])
+	check(log.size() >= 2 and log[log.size() - 2] == "It hasn't closed again."
+		and log[log.size() - 1] == R09Sim.REVEAL_LINES[6][1], "(rf) the reveal ends on 'It hasn't closed again.' and the window: %s" % [log])
+	await free_scene(scene)
 
 func test_canonical_chain() -> void:
 	var g := game_at(5, "R11")
