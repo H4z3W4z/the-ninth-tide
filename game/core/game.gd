@@ -6,8 +6,8 @@ extends Node2D
 ##   world (layer 0): the current room view (game/rooms/<rid>/<rid>_view.tscn). A room may
 ##                    add its own CanvasModulate, lights and CanvasLayers (close-ups at 5).
 ##   CanvasLayer 8 "over":  title, menu, notebook, end card (always fully readable)
-##   CanvasLayer 9 "card":  the tide card that marks a tide change
 ##   CanvasLayer 10 "hud":  subtitles, HUD buttons, inventory bar, Back, hover names
+##   CanvasLayer 11 "card": the tide card that marks a tide change (a band over the exit row)
 ##
 ## All story state lives in `sim` (GameSim). This node only presents it: the subtitle /
 ## typewriter / chain scheduler, one-shot sounds, saves, input routing. Everything timed
@@ -34,20 +34,25 @@ const HUD_BUTTONS := [
 ## reaches this slot too: a room bug for R11, tracked in core_test's PLAN_OVERLAP_KNOWN.)
 const PLAN_BUTTON := ["plan", Rect2(1272, 80, 154, 40), "Plan"]
 const PLAN_LABEL_SIZE := 18
+const PLAN_BACK_CLEAR := 24.0
 ## A Plan press this soon after a Back is the second half of a double click: ignored.
 const PLAN_AFTER_BACK := 0.4
 const HUD_ACTIONS := ["notebook", "hint", "menu", "plan"]
 const BACK_RECT := Rect2(952, 22, 150, 50)
-## Inventory slots run left to right along the top-left of the HUD.
-const INV_ORIGIN := Vector2(20, 22)
-const INV_SLOT := Vector2(140, 50)
-const INV_GAP := 10.0
-const INV_MAX := 6
-## More items than slots: five items a page and a pager in the sixth slot.
-const INV_PER_PAGE := 5
+## Inventory slots run left to right along the top-left of the HUD, from INV_ORIGIN to
+## INV_RIGHT (left of Back and the Notebook): each min(INV_SLOT.x, span / n - INV_GAP) wide,
+## so up to INV_MAX items show at once without a pager.
+const INV_ORIGIN := Vector2(14, 22)
+const INV_RIGHT := 770.0
+const INV_SLOT := Vector2(98, 50)
+const INV_GAP := 8.0
+const INV_MAX := 8
+## More items than slots: seven items a page and a pager in the eighth slot.
+const INV_PER_PAGE := 7
 ## The end card's buttons. New game is small, dim and out of the way, and takes two clicks:
-## the first arms it (END_NEW_GAME_ARMED: the warning, wider), the second within RESTART_ARM
-## starts over. Only then is the checkpoint at the final decision given up.
+## the first arms it (END_NEW_GAME_ARMED: the warning, wider), the second, at least ARM_MIN
+## and less than RESTART_ARM later, starts over. Only then is the checkpoint at the final
+## decision given up. Every end-card press in its first END_SWALLOW is swallowed.
 const END_BUTTONS := [["return_decision", Rect2(364, 990, 340, 66), "Return to final decision"],
 	["new_game", Rect2(1188, 1010, 220, 50), "New game"]]
 const END_NEW_GAME_ARMED := ["new_game", Rect2(788, 1010, 620, 50),
@@ -61,6 +66,12 @@ const LINE_LINGER := 4.0      # a line with nothing after it clears this long af
 const ADVANCE_SWALLOW := 0.35 # a click this soon after a story line went up is swallowed
 const VOICE_CAP := 2          # live copies of one one-shot at most
 const RESTART_ARM := 3.0      # seconds the menu's restart stays armed after the first click
+## A confirming press sooner than this after arming is the second half of a double click:
+## swallowed, and the button stays armed (the menu's Restart, the end card's New game).
+const ARM_MIN := 0.6
+## The end card's buttons answer nothing for this long after it appears (a carried-over click
+## from the ending's 'Go on' never arms New game). Its buttons are drawn from then on.
+const END_SWALLOW := 1.5
 const FEEDBACK_HOLD := 1.2    # a click's line stays up at least this long before the next replaces it
 const BACKLOG_SQUEEZE := 0.6  # read-time factor for older story lines when a new reveal arrives
 ## (and for a reveal rushed by an exit or a hotspot click: see _rush_chain)
@@ -71,14 +82,16 @@ const TIDE_CARD_TIME := 2.2
 const TIDE_CARD_FADE := 0.5
 const TIDE_CARD_STILL := 2.2  # Motion off: the card is simply there this long
 const TIDE_CARD_QUIET := 1.0  # the card waits this long after the last story line's hold
-## The card sits in the lower-left third of the room; the upper band when that would cover
-## an exit tab or the glance. It never starts over a close-up, so it never covers a control.
-const TIDE_CARD_RECT := Rect2(40, 840, 560, 110)
-const TIDE_CARD_UPPER_RECT := Rect2(40, 110, 560, 110)
+## The card: a full-width band directly above the subtitle strip (y 640-704 at 1024x768).
+## It never starts over a close-up (it waits for Back), so it never covers a close-up control.
+const TIDE_CARD_RECT := Rect2(20, 904, 1408, 90)
 const TRAVEL_DEBOUNCE := 0.4  # an exit or plan click this soon after arriving is ignored
 ## An exit clicked while a reveal still has lines to say: the rest of it plays this far
-## apart, and she goes this long after its last line went up (a second exit click: at once).
+## apart, and she goes this long after its last line went up.
 const EXIT_LINE_STEP := 0.6
+## A second exit or plan click while she waits to go travels at once only this long after
+## the first; sooner, it is the other half of a double click and is ignored.
+const EXIT_SECOND_MIN := 0.6
 ## The glance: corner brackets that show where a commit's reward is (when the room has no
 ## glance of its own). Storm navy, on the HUD layer.
 const GLANCE_TIME := 2.5
@@ -201,6 +214,13 @@ var cur_click := 0
 var line_t := 0.0
 var hover_id := ""
 var time := 0.0
+## The story clock: `time` less every second the chain was held (menu, notebook). Room views
+## read it as their `time`, so a reveal stands still under the menu and goes on from where it
+## was on Resume. Audio keeps real time.
+var story_held := 0.0
+var story_time: float:
+	get:
+		return time - story_held
 var pending_sfx: Array = []    # [id, time_left, beat]
 var oneshots: Array = []
 var dev := false
@@ -236,9 +256,13 @@ var hover_ctx: Array = []
 var hover_recheck := false
 var seen_inv_size := 0
 var shown_rooms: Array = []    # the room each shown_log line went up in (tests read it)
+var shown_views: Array = []    # ... and the game view on show as it went up
 ## An exit clicked during a reveal: the action, sent once the reveal's last line has been up
 ## EXIT_LINE_STEP (a second exit click goes at once). "" = none.
 var pending_travel := ""
+var pending_travel_at := -INF  # when that first exit click came (EXIT_SECOND_MIN)
+## True while "Return to final decision" restores the checkpoint: no tide fx or card.
+var restoring := false
 ## A room hotspot clicked while a story chain still had lines queued: sent when the chain ends.
 var pending_action := ""
 var last_back_at := -INF
@@ -300,8 +324,10 @@ func _build_nodes() -> void:
 	over = Node2D.new()
 	over_layer.add_child(over)
 	over.draw.connect(_draw_over)
+	# The tide card's band shares the row of the exit tabs: for its 2.2 s it reads over them
+	# (they still answer clicks underneath), so it sits above the HUD layer.
 	var card_layer := CanvasLayer.new()
-	card_layer.layer = 9
+	card_layer.layer = 11
 	add_child(card_layer)
 	card = Node2D.new()
 	card_layer.add_child(card)
@@ -372,9 +398,9 @@ func _tick_title_audio(dt: float) -> void:
 
 ## Shows the current room's view, replacing any other. A room without a view of its own
 ## gets the placeholder.
-func _mount_room(travel := false) -> void:
+func _mount_room(travel := false, fresh := false) -> void:
 	var rid: String = sim.state.room
-	if room_view and is_instance_valid(room_view) and room_view.rid == rid:
+	if not fresh and room_view and is_instance_valid(room_view) and room_view.rid == rid:
 		return
 	if room_view and is_instance_valid(room_view):
 		if travel:
@@ -491,6 +517,15 @@ func _save_progress() -> void:
 			if c:
 				c.store_string(cp)
 
+## New game or Restart: the checkpoint at the final decision is gone, in the sim (reset())
+## and on disk.
+func _forget_checkpoint() -> void:
+	sim.checkpoint = {}
+	last_checkpoint = ""
+	var p := save_path.get_basename() + CHECKPOINT_SUFFIX
+	if FileAccess.file_exists(p):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(p))
+
 ## Removes every file this scene writes for `path` (tests and capture runs).
 static func remove_saves(path: String) -> void:
 	for p in [path, path.get_basename() + SETTINGS_SUFFIX, path.get_basename() + PREV_SUFFIX,
@@ -503,7 +538,9 @@ static func remove_saves(path: String) -> void:
 # ---------------------------------------------------------------------------
 func _process(dt: float) -> void:
 	time += dt
-	if chain_paused():
+	var held := chain_paused()
+	if held:
+		story_held += dt
 		_hold_chain(dt)
 	else:
 		_tick_lines(dt)
@@ -515,7 +552,11 @@ func _process(dt: float) -> void:
 		_tick_glance()
 		_tick_pending()
 	if room_view:
-		room_view.tick(dt)
+		# Held, the room's own story clocks stand still with the chain; its beds go on.
+		if held:
+			room_view.tick_held(dt)
+		else:
+			room_view.tick(dt)
 	_apply_trim()
 	_tick_breath()
 	_tick_title_audio(dt)
@@ -540,14 +581,14 @@ func _process(dt: float) -> void:
 	hud.queue_redraw()
 
 ## The pause menu over a game, and the notebook opened from the room: the story chain
-## (lines, timed sounds and fx, hold_breath, a glance, a deferred exit or hotspot) waits under
-## them, so nothing is said or played while she reads or the subtitles are hidden. The
-## notebook's own clock (the stranger's line writing itself) keeps running.
+## (lines, timed sounds and fx, hold_breath, a glance, a deferred exit or hotspot) and the
+## story clock (story_time) wait under them, so nothing is said or played while she reads or
+## the subtitles are hidden. The notebook's own clock (the stranger's line writing itself)
+## keeps running. A plan row clicked mid-reveal first puts the notebook down (click()).
 func chain_paused() -> bool:
 	if sim.view == "menu" and sim.return_view != "title":
 		return true
-	# A plan row clicked mid-reveal: the rest of it plays out (rushed) and she goes.
-	return sim.view == "notebook" and sim.return_view == "room" and not pending_travel.begins_with("plan:")
+	return sim.view == "notebook" and sim.return_view == "room"
 
 ## Holds the chain still for `dt`: every queued line and the one on screen keep their place,
 ## and so does every core timer keyed to them (timed sounds and fx simply don't count down).
@@ -624,16 +665,8 @@ func _start_tide_card() -> void:
 	tide_card_at = _card_rect_now()
 	card.queue_redraw()
 
-## TIDE_CARD_RECT, or the upper band when the low one would cover an exit tab or the glance.
+## Where the card goes: always the band above the subtitle strip.
 func _card_rect_now() -> Rect2:
-	var avoid := []
-	if glance_rect.size != Vector2.ZERO and glance_t < GLANCE_TIME:
-		avoid.append(glance_rect)
-	if room_view:
-		avoid.append_array(room_view.live_exit_rects().values())
-	for a in avoid:
-		if TIDE_CARD_RECT.intersects(a):
-			return TIDE_CARD_UPPER_RECT
 	return TIDE_CARD_RECT
 
 ## True while a tide card is waiting or on screen (rooms that hold their own beat for it).
@@ -880,6 +913,7 @@ func _story_queued() -> bool:
 ## `action` once the last line has had its hold.
 func _defer_travel(action: String) -> void:
 	pending_travel = action
+	pending_travel_at = time
 	_rush_chain(EXIT_FULL_LAST)
 
 ## A rushed line's hold: its squeezed read time (never under EXIT_LINE_STEP), or its full
@@ -982,8 +1016,10 @@ func advance() -> void:
 ## an open close-up, and the notebook's tabs and pages always act (a playing chain advances
 ## first, in the same press; anything the action says waits after the chain).
 ##   - An exit (or a plan row) while a reveal still has lines queued: the rest of the reveal
-##     plays out quickly where it was said, then she goes (pending_travel); a second exit
-##     click goes at once. With only the line on screen left, she goes at once.
+##     plays out quickly where it was said, then she goes (pending_travel). A plan row first
+##     puts the notebook down, so the reveal plays over its own room. A second exit click
+##     EXIT_SECOND_MIN or more later goes at once; sooner, it is ignored. With only the line
+##     on screen left, she goes at once.
 ##   - A room hotspot while a chain plays: with only the line on screen left, that line is
 ##     finished and the hotspot acts in the same press; with more queued, the chain advances
 ##     and the hotspot acts when the chain ends (pending_action).
@@ -1011,10 +1047,16 @@ func click(p: Vector2) -> void:
 		if time - arrived_at < TRAVEL_DEBOUNCE:
 			return   # a double click on an exit moves one room, not two
 		if pending_travel != "":
+			if time - pending_travel_at < EXIT_SECOND_MIN:
+				return   # the other half of a double click: the reveal still plays out
 			pending_travel = ""
-			dispatch(a)   # the second click: at once (travel drops what the old room had left)
+			dispatch(a)   # a second click, later: at once (travel drops what the old room had left)
 			return
 		if _chain_gates() and _story_queued():
+			if a.begins_with("plan:") and sim.view == "notebook":
+				# A plan row mid-reveal: the notebook goes down first, so the rest of the
+				# reveal plays (rushed) over its own room, then she goes by the plan.
+				dispatch("back")
 			_defer_travel(a)
 			return
 		if _chain_gates() and chain_active():
@@ -1038,7 +1080,8 @@ func click(p: Vector2) -> void:
 		dispatch(a)
 		return
 	if always_acts(a) or _closeup_acts(a):
-		if _chain_gates() and chain_active():
+		# Under the notebook the chain is held: its tabs, pages and Back never bring a line up.
+		if _chain_gates() and chain_active() and sim.view != "notebook":
 			advance()
 		if not _local_action(a):
 			dispatch(a)
@@ -1161,6 +1204,7 @@ func _show_line(text: String, story: bool, hold := -1.0, from_click := -1) -> vo
 	subtitle.text = text
 	shown_log.append(text)
 	shown_rooms.append(sim.state.room)
+	shown_views.append(sim.view)
 	subtitle.add_theme_font_size_override("font_size", 24 if text.length() > 90 else 27)
 	subtitle.visible_characters = 0
 
@@ -1225,6 +1269,17 @@ func dispatch(action: String) -> void:
 	var before_closeup: bool = room_sim() != null and room_sim().is_closeup()
 	var ev := sim.dispatch(action)
 	last_events = ev
+	if action in ["new_game", "restart"] and before_game != sim.view:
+		_forget_checkpoint()
+	restoring = action == "return_decision" and before_game == "end" and sim.view != "end"
+	if restoring:
+		# Back to the decision: no tide card from the run that ended, and a fresh room view,
+		# so nothing of the ending on show (its last page, a crossfade from it) carries over.
+		ev = ev.filter(func(e): return not (e.type == "fx" and e.id == "tide"))
+		tide_card_pending = 0
+		tide_card_n = 0
+		tide_card_t = 99.0
+		_mount_room(false, true)
 	if action == "hint":
 		ev = _hint_to_card(ev)
 	if before_game != sim.view and "end" in [before_game, sim.view]:
@@ -1235,6 +1290,7 @@ func dispatch(action: String) -> void:
 		subtitle.text = ""
 		chain_was = false
 	play_events(ev, chain_was)
+	restoring = false
 	_mount_room()
 	var after_room := room_sim().view if room_sim() else ""
 	if before_room != after_room or before_game != sim.view:
@@ -1420,8 +1476,14 @@ func _play_fx(e: Dictionary, late := 0.0, from_queue := false) -> void:
 				room_view.play_fx(e.id, e)   # untimed: the room hears it now, too
 		"tide":
 			# The card waits for the reveal that earned it (_tick_tide_card), after the room
-			# has had the chance to take it over (_settle_card_offer).
-			tide_card_pending = int(e.get("tide", sim.tide()))
+			# has had the chance to take it over (_settle_card_offer). Each tide's card goes up
+			# once (the sim keeps the set, saved and checkpointed); none while a checkpoint
+			# is being restored.
+			var n := int(e.get("tide", sim.tide()))
+			if restoring or sim.tide_card_shown(n):
+				return
+			sim.note_tide_card(n)
+			tide_card_pending = n
 			tide_card_n = tide_card_pending
 			tide_card_t = 0.0
 			card_offered = true
@@ -1497,6 +1559,8 @@ func _reset_presentation() -> void:
 	pending_travel = ""
 	pending_action = ""
 	shown_rooms.clear()
+	shown_views.clear()
+	pending_travel_at = -INF
 	_clear_echo()
 	echo_log.clear()
 	plan_hud_t = 99.0
@@ -1730,9 +1794,7 @@ func _unhandled_input(event: InputEvent) -> void:
 						advance()   # Back is one press: the line finishes and she steps back
 					dispatch(esc)
 				elif sim.view in ["notebook", "menu"]:
-					if _chain_gates() and chain_active():
-						advance()
-					dispatch("back")
+					dispatch("back")   # the chain waits under them; it goes on from where it was
 			KEY_N:
 				if not _cinematic():
 					dispatch("notebook")
@@ -1755,11 +1817,15 @@ func _unhandled_input(event: InputEvent) -> void:
 ## end), whatever the room's own esc_action says.
 const ESC_MENU_VIEWS := ["ending", "threshold", "end"]
 
-## What Esc does in the room (after the item in hand is put away): Back wherever Back is on
-## show, or in any view other than the room's own that has a way back; else the room's
-## esc_action(), and the menu when that is "" (a hold or a cut: the menu holds the chain).
+## What Esc does in the room (after the item in hand is put away): the menu while a reveal
+## is playing with more of it queued (the menu holds the chain and story_time, so Resume goes
+## on with it where it was); else Back wherever Back is on show, or in any view other than
+## the room's own that has a way back; else the room's esc_action(), and the menu when that
+## is "" (a hold or a cut).
 func esc_room_action() -> String:
 	if room_view == null:
+		return "menu"
+	if _chain_gates() and _story_queued() and chain_active():
 		return "menu"
 	var lv: String = room_sim().local_view if room_sim() else "room"
 	if room_view.back_visible():
@@ -1845,16 +1911,23 @@ func _core_action_at(p: Vector2) -> String:
 		"title":
 			return "begin"
 		"end":
-			if end_t < 1.5:
-				return ""
+			if end_t < maxf(END_SWALLOW, ARM_MIN):
+				return ""   # a click carried over from the ending ('Go on') never lands here
 			for b in end_buttons():
 				if b[1].has_point(p):
-					if b[0] == "new_game" and not new_game_armed():
+					if b[0] == "new_game":
+						# Armed, the button is wider, but for its first ARM_MIN nothing in it
+						# answers: the second half of a double click hits nothing.
+						if new_game_arming():
+							return "new_game" if new_game_armed() else ""
 						return "new_game_arm"
 					return b[0]
 			return ""
 		"menu":
-			var items := ["resume", "toggle_motion", "toggle_soft", "restart" if _restart_armed() else "restart_arm"]
+			var restart := "restart_arm"
+			if _restart_arming():
+				restart = "restart" if _restart_armed() else ""
+			var items := ["resume", "toggle_motion", "toggle_soft", restart]
 			for i in items.size():
 				if _menu_rect(i).has_point(p):
 					return items[i]
@@ -1896,11 +1969,13 @@ func hud_buttons() -> Array:
 		out.append(PLAN_BUTTON)
 	return out
 
-## The Plan button: after P05, in the room view (never in a cinematic, the title, the end
-## card or the menu, and not over a close-up or the notebook, which has its own Plan tab).
+## The Plan button: after P05, in every view of the room but a close-up (its sub-views too:
+## R05's kitchen, R10's catalogue, R09's rail), under the same rule as the exits. Never in a
+## cinematic, the title, the end card, the menu or the notebook (which has its own Plan tab).
+## PLAN_BUTTON sits PLAN_BACK_CLEAR or more clear of Back.
 func plan_button_shown() -> bool:
 	return sim.plan_unlocked() and sim.state.started and sim.view == "room" and room_view != null \
-		and not room_view.hud_hidden() and not room_view.back_visible() and not room_sim().is_closeup()
+		and not room_view.hud_hidden() and not room_sim().is_closeup()
 
 func _hud_shown() -> bool:
 	return sim.view == "notebook" or (sim.view == "room" and (room_view == null or not room_view.hud_hidden()))
@@ -1908,28 +1983,36 @@ func _hud_shown() -> bool:
 ## Slot `i` of the bar: the layout's rect when it has one, else where slot i would be.
 func _inv_rect(i: int) -> Rect2:
 	var layout := _inv_layout()
-	return layout[i][0] if i < layout.size() else _slot_rect(i)
+	return layout[i][0] if i < layout.size() else _slot_rect(i, maxi(layout.size(), i + 1))
 
-static func _slot_rect(i: int) -> Rect2:
-	return Rect2(INV_ORIGIN + Vector2(i * (INV_SLOT.x + INV_GAP), 0), INV_SLOT)
+## How wide each slot is with `n` slots on the bar: INV_SLOT.x, or narrower so that n of them
+## (INV_MAX at most) fit between INV_ORIGIN.x and INV_RIGHT.
+static func slot_width(n: int) -> float:
+	n = clampi(n, 1, INV_MAX)
+	return minf(INV_SLOT.x, (INV_RIGHT - INV_ORIGIN.x) / n - INV_GAP)
+
+## Slot `i` of a bar of `n` slots.
+static func _slot_rect(i: int, n: int) -> Rect2:
+	var w := slot_width(n)
+	return Rect2(INV_ORIGIN + Vector2(i * (w + INV_GAP), 0), Vector2(w, INV_SLOT.y))
 
 ## The inventory bar, shared by hit-testing, hover and drawing: [rect, action] per
-## slot. Up to INV_MAX items show as they are; more go five to a page with a pager in the
-## sixth slot ("inv_page").
+## slot. Up to INV_MAX items show as they are; more go INV_PER_PAGE to a page with a pager in
+## the last slot ("inv_page").
 func _inv_layout() -> Array:
 	var inv: Array = bar_items()
 	var out := []
 	if inv.size() <= INV_MAX:
 		for i in inv.size():
-			out.append([_slot_rect(i), _slot_action(inv[i])])
+			out.append([_slot_rect(i, inv.size()), _slot_action(inv[i])])
 		return out
 	var page := _inv_page_shown()
 	for k in INV_PER_PAGE:
 		var i := page * INV_PER_PAGE + k
 		if i >= inv.size():
 			break
-		out.append([_slot_rect(k), _slot_action(inv[i])])
-	out.append([_slot_rect(INV_PER_PAGE), "inv_page"])
+		out.append([_slot_rect(k, INV_MAX), _slot_action(inv[i])])
+	out.append([_slot_rect(INV_PER_PAGE, INV_MAX), "inv_page"])
 	return out
 
 ## A slot's action: "item:<id>", or "" for a ghost (nothing to click).
@@ -1974,17 +2057,32 @@ func _keep_inv_page() -> void:
 	if sim.selected_item != "":
 		_show_item_page(sim.selected_item)
 
+## Turns the bar to the page that holds `item`. Never while a close-up is open: the page
+## under her pointer stays put (she turns it herself with the pager).
 func _show_item_page(item: String) -> void:
+	if room_sim() != null and room_sim().is_closeup():
+		return
 	var i: int = bar_items().find(item)
 	if i >= 0 and _inv_pages() > 1:
 		inv_page = i / INV_PER_PAGE
 
-func _restart_armed() -> bool:
+## The menu's Restart after its first click: armed (and shown so) for RESTART_ARM.
+func _restart_arming() -> bool:
 	return time - restart_armed_at < RESTART_ARM
 
-## The end card's New game: armed by its first click, for RESTART_ARM.
-func new_game_armed() -> bool:
+## ... and a second click restarts: only from ARM_MIN after the first.
+func _restart_armed() -> bool:
+	var since := time - restart_armed_at
+	return since >= ARM_MIN and since < RESTART_ARM
+
+## The end card's New game after its first click: armed (the warning) for RESTART_ARM.
+func new_game_arming() -> bool:
 	return time - new_game_armed_at < RESTART_ARM
+
+## ... and a second click starts over: only from ARM_MIN after the first.
+func new_game_armed() -> bool:
+	var since := time - new_game_armed_at
+	return since >= ARM_MIN and since < RESTART_ARM
 
 ## The end card's buttons on show, [action, rect, label]: Return to final decision (when a
 ## checkpoint is kept) and New game (wider, with its warning, while armed).
@@ -1993,7 +2091,7 @@ func end_buttons() -> Array:
 	for b in END_BUTTONS:
 		if b[0] == "return_decision" and sim.checkpoint.is_empty():
 			continue
-		out.append(END_NEW_GAME_ARMED if b[0] == "new_game" and new_game_armed() else b)
+		out.append(END_NEW_GAME_ARMED if b[0] == "new_game" and new_game_arming() else b)
 	return out
 
 func _menu_rect(i: int) -> Rect2:
@@ -2067,7 +2165,7 @@ func _draw_menu(c: Node2D) -> void:
 	Ink.text(c, "Paused" if sim.return_view != "title" else "Options", Vector2(0, 260), 40, Ink.PAPER, serif, SIZE.x)
 	var labels := ["Resume", "Motion & flicker: " + ("on" if sim.settings.motion else "off"),
 		"Soften sudden sounds: " + ("on" if sim.settings.soft_audio else "off"),
-		"Restart? Click again" if _restart_armed() else "New game"]
+		"Restart? Click again" if _restart_arming() else "New game"]
 	for i in labels.size():
 		Ink.button(c, _menu_rect(i), labels[i])
 
@@ -2388,6 +2486,7 @@ func _draw_end(c: Node2D) -> void:
 	# A panel in the lower band: the painted still stays the picture. CONTINUE writes navy ink
 	# on paper; SEVER, the unrecorded shore, paper on storm-navy ink.
 	var cols := end_panel_colors(sim.state.ending)
+	c.draw_rect(lay.panel, END_UNDERPLATE)
 	c.draw_rect(lay.panel, Color(cols.fill, cols.fill.a * a))
 	c.draw_rect(lay.panel, Color(Ink.BRASS, a), false, 2.0)
 	var x: float = lay.panel.position.x
@@ -2397,11 +2496,11 @@ func _draw_end(c: Node2D) -> void:
 	for i in e.lines.size():
 		Ink.text(c, e.lines[i], Vector2(x, lay.line_ys[i]), END_LINE_SIZE, Color(ink, a), hand, w)
 	Ink.text(c, end_seen_text(), Vector2(x, lay.seen_y), END_SEEN_SIZE, Color(ink, 0.8 * a), serif, w)
-	if end_t >= 1.5:
+	if end_t >= END_SWALLOW:
 		for b in end_buttons():
 			if b[0] == "new_game":
 				# Dim until armed; armed, the warning reads at full strength.
-				Ink.button(c, b[1], b[2], false, END_BUTTON_SIZE, not new_game_armed())
+				Ink.button(c, b[1], b[2], false, END_BUTTON_SIZE, not new_game_arming())
 			else:
 				Ink.button(c, b[1], b[2])
 
@@ -2410,9 +2509,13 @@ const END_TEXT_FADE := 1.0
 const END_PANEL_X := 274.0
 const END_PANEL_W := 900.0
 const END_PANEL_TOP := 760.0
-const END_PANEL_ALPHA := 0.96
+## Both panels are opaque: no station silhouette shows through the words. Under each, from
+## the first frame, a storm-navy under-plate at full strength (END_UNDERPLATE), so the panel
+## fading in over it never lets the still through either.
+const END_PANEL_ALPHA := 1.0
 ## SEVER's panel: storm-navy ink, paper text (CONTINUE keeps the paper panel).
-const END_PANEL_INK_ALPHA := 0.94
+const END_PANEL_INK_ALPHA := 1.0
+const END_UNDERPLATE := Color("22303a")
 const END_PANEL_PAD := 40.0       # the panel runs this far below the "Endings seen" line
 const END_TITLE_Y := 812.0
 const END_TITLE_MAX := 40
@@ -2477,8 +2580,7 @@ func tide_card_alpha() -> float:
 		return 0.0
 	return clampf(minf(tide_card_t, TIDE_CARD_TIME - tide_card_t) / TIDE_CARD_FADE, 0.0, 1.0)
 
-## Where the card on show sits: TIDE_CARD_RECT, low on the left of the room, or the upper
-## band when that would cover an exit tab or the glance (chosen as the card starts).
+## Where the card on show sits: TIDE_CARD_RECT, the full-width band over the subtitles.
 func tide_card_rect() -> Rect2:
 	return tide_card_at
 
@@ -2487,12 +2589,20 @@ func _draw_card() -> void:
 	if a <= 0.0:
 		return
 	var r := tide_card_rect()
-	card.draw_rect(r, Color(Ink.INK, 0.88 * a))
-	card.draw_rect(r, Color(Ink.BRASS, 0.8 * a), false, 2)
-	Ink.text(card, "TIDE " + GameSim.NUMERALS[tide_card_n - 1], r.position + Vector2(0, 48), 36,
-		Color(Ink.PAPER, a), serif, r.size.x)
-	Ink.text(card, GameSim.TIDE_TITLES[tide_card_n - 1], r.position + Vector2(0, 90), 26,
-		Color(Ink.PAPER, 0.8 * a), hand, r.size.x)
+	card.draw_rect(r, Color(Ink.INK, 0.9 * a))
+	card.draw_line(r.position + Vector2(0, 1), Vector2(r.end.x, r.position.y + 1), Color(Ink.BRASS, 0.8 * a), 2)
+	card.draw_line(Vector2(r.position.x, r.end.y - 1), r.end - Vector2(0, 1), Color(Ink.BRASS, 0.8 * a), 2)
+	# One line, centred: the numeral in the serif, the tide's name in her hand beside it.
+	var num: String = "TIDE " + GameSim.NUMERALS[tide_card_n - 1]
+	var title: String = GameSim.TIDE_TITLES[tide_card_n - 1]
+	var gap := 28.0
+	var w1 := serif.get_string_size(num, HORIZONTAL_ALIGNMENT_LEFT, -1, 36).x
+	var w2 := hand.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
+	var x := r.position.x + (r.size.x - w1 - gap - w2) * 0.5
+	var y := r.position.y + r.size.y * 0.5 + 13.0
+	card.draw_string(serif, Vector2(x, y), num, HORIZONTAL_ALIGNMENT_LEFT, -1, 36, Color(Ink.PAPER, a))
+	card.draw_string(hand, Vector2(x + w1 + gap, y), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 30,
+		Color(Ink.PAPER, 0.85 * a))
 
 # ---------------------------------------------------------------------------
 # drawing: HUD
@@ -2502,10 +2612,12 @@ func _draw_hud() -> void:
 	if sim.view in ["title", "end", "menu"] or (sim.view == "room" and room_view and room_view.hud_hidden()):
 		subtitle.visible = false
 		return
-	subtitle.visible = true
-	if slab_a > 0.0:
+	# The notebook over the room holds the chain: no story line is on show under its page.
+	var story_under_page: bool = sim.view == "notebook" and cur_story
+	subtitle.visible = not story_under_page
+	if slab_a > 0.0 and not story_under_page:
 		c.draw_rect(Rect2(20, 994, 1408, 80), Color(0.03, 0.06, 0.08, 0.9 * slab_a))
-	if chain_active() and _chain_gates():
+	if chain_active() and _chain_gates() and not story_under_page:
 		# More to come: a click brings the next line up.
 		var pulse := 0.75 + 0.25 * sin(time * 2.0) if sim.settings.motion else 1.0
 		c.draw_string(serif, Vector2(1392, 1040), "▸", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(Ink.PAPER, 0.55 * pulse))

@@ -220,8 +220,12 @@ order, a room's opening survey (`explore`) only when nothing else is waiting. "N
 (in room order) whose objective works toward a puzzle that is open now (its prerequisites set,
 its flag not): an objective id `pNN` / `pNN_...`, an entry in `GameSim.OBJECTIVE_PUZZLES`, or
 your `objective_puzzle()` override (`"P07"`; default `""`). The Hint toward a room she hasn't
-been in first says where: "The <title> is through the <neighbour>." when a room that leads
-there is one she has visited, else `WAY_IN_HINT` (or "The way into the <title> is open now.").
+been in first says where, from where she stands (`game.way_to(rid)`): "The <title> is through
+the <this room> door." when this room opens onto it; else "The <title> is through the <first
+room on the way>." (BFS over open exits); `WAY_IN_HINT` (or "The way into the <title> is open
+now.") only when no open way leads there. Names are `HINT_NAME` when a room declares one, else
+its `TITLE` up to " and ", lower case ("Kitchen and Mess": "kitchen"). The last two raw tiers of
+every `HINTS` ladder must say different things (core_test).
 Toward a room she has been in there is no where-step (the Now: line names it already), and
 your own "Something in the ... has changed." tiers are dropped. Then it climbs that room's own
 ladder; no line is said twice, and the ladder's level is clamped to 0..4 and survives saves. So: return `""` (or an idle id) when your room is done for
@@ -261,7 +265,9 @@ test walks through. Your view stops being a skeleton the moment it overrides any
 
 ### Hooks
 
-`tick(dt)` (every frame), `apply_instantly()` (snap to state on entry, load, jump),
+`tick(dt)` (every frame the chain runs), `tick_held(dt)` (every frame the menu or notebook
+holds the chain instead of `tick`: by default your `_tick_audio(dt)`, so beds keep real time
+while every story clock you keep in `tick` stands still), `apply_instantly()` (snap to state on entry, load, jump),
 `reset_presentation()`, `play_fx(id, e)`, `on_sfx(id)`, `on_sfx_pending(id, left)`,
 `action_at(p)` (your close-ups' controls), `hover_at(p)`, `label_for(id)`, `back_visible()`,
 `chain_gates()`, `hud_hidden()`, `esc_action()`, `exits_active()`, `draw_hud(c)`, `dev_rects()`,
@@ -303,7 +309,7 @@ after (when there is one); on travel; and when the pointer leaves every rect. Th
 else `name`) are 14 characters at most (`tests/core_test.gd`).
 Draw with `Ink` (`game/core/ink.gd`): palette, fonts, `button`, `text`, `wrapped`, `handwriting`.
 Close-ups go on your own `CanvasLayer` at layer 5 (R02 does this); the core's notebook, menu and
-title are on layer 8, the tide card 9, the HUD 10.
+title are on layer 8, the HUD 10, the tide card 11 (over the exit row for its 2.2 s).
 
 ### Sound
 
@@ -500,10 +506,16 @@ first (R02's photograph during the drawer chain only advances).
 
 **The tide card.** It never starts over a close-up, while a story line is queued or held,
 while the room's arrival chain is up, or while an exit is deferred; then it waits a further
-second. It shows for 2.2 s at `GameView.TIDE_CARD_RECT` (40, 840, 560, 110), lower left, or
-`TIDE_CARD_UPPER_RECT` (40, 110, 560, 110) when the low one would cover an exit tab or the
-glance. Keep the lower-left third of your room free of anything the player must read in the
-two seconds after a tide changes, or take the card over from `play_fx` (R01).
+second. It shows for 2.2 s at `GameView.TIDE_CARD_RECT` (20, 904, 1408, 90): a full-width
+band directly above the subtitle strip. A close-up open when it is due holds it until Back.
+Each tide's card goes up once (`state.tide_cards`, saved and checkpointed; the P26 checkpoint
+marks Tide IX's as shown, and "Return to final decision" never puts one up). Take the card
+over from `play_fx` (R01) if your room must time it to its own beat.
+
+**The story clock.** `RoomView.time` is `game.story_time`: real time less every second the
+menu or the notebook held the chain. Keep reveal clocks on it (or in `tick`, which is not
+called while held); never mix it with `game.time`, `game.cur_since` or a line's `due`, which
+run on the real clock.
 
 **"Now:" through the Plan.** When the plan is hers and the objective's room
 (`game.objective_room()`) is 3 or more open exits away (`game.hops(from, to)`, BFS over
