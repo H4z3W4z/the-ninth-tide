@@ -7153,6 +7153,15 @@
       "source_svg": null
     },
     {
+      "id": "R11/c_name_shutter",
+      "path": "assets/rooms/R11/c_name_shutter.png",
+      "width": 300,
+      "height": 220,
+      "sha256": "580e0a874f312d4708bc6f34b09c45dfa071c84836c059c8461d8a5efbc8e80e",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R11/c_port_shutter",
       "path": "assets/rooms/R11/c_port_shutter.png",
       "width": 200,
@@ -7959,6 +7968,15 @@
       "width": 420,
       "height": 140,
       "sha256": "7aa3748be0a4ac34d5aea7dee3f1f70451e6a57c43cf9ed6a416165c5fcffa82",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "p12_water_slab",
+      "path": "assets/stages/R11/p12_water_slab.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "36afbb373895c96309ddde1310a1b80bc1cd9b1bd3bc37d2054e89d65a8e39f1",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },

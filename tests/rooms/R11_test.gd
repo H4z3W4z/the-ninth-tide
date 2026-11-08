@@ -55,6 +55,9 @@ func run_tests() -> void:
 	test_p24_copy_blocks()
 	test_p24_no_witness()
 	test_p24_complete_card()
+	test_p24_original_card()
+	test_door_plate()
+	test_hint_tiers()
 	test_p24_wrong_items()
 	test_p24_inventory()
 	test_p24_success()
@@ -75,6 +78,8 @@ func run_tests() -> void:
 		await test_view_p24_clicks()
 		await test_view_presentation()
 		await test_view_gauge_and_bell()
+		await test_view_water_slab()
+		await test_view_name_shutter()
 	else:
 		print("SKIP: R11 view_checks: the R11 view does not yet declare rects for every sim hotspot (view team)")
 
@@ -265,10 +270,13 @@ func test_constants() -> void:
 			check(R11Sim.OBSERVATIONS.has(o), "notice %s evidence %s is an observation" % [n[0], o])
 	for o in ["tide_hatch", "plane_shelves", "finger_marks", "copy_refusal", "chamber_open", "false_landing"]:
 		check(R11Sim.OBSERVATIONS.has(o), "observation %s declared" % o)
+	check(r.hint_tiers() == 4, "four hint tiers")
 	for k in R11Sim.OBJECTIVES:
-		check(R11Sim.HINTS.has(k) and R11Sim.HINTS[k].size() == 3, "objective %s has a three-step ladder" % k)
-	check(R11Sim.HINTS.p12[2] == "Pressure 2. Bracket-1 plate in UPPER, its closing bracket in LOWER. Pull OPEN.", "P12 card hint 3")
-	check(R11Sim.HINTS.p24[2] == "Frame to BODY, strip to PLACE, amended card to NAME, bridge to WITNESS, COPY empty, OPEN ACCESS.", "P24 card hint 3")
+		check(R11Sim.HINTS.has(k) and R11Sim.HINTS[k].size() == 4, "objective %s has a four-step ladder" % k)
+	check(R11Sim.HINTS.p12[0] == "The gate on the dry stair needs pressure and a landing.", "P12 card hint 1")
+	check(R11Sim.HINTS.p12[3] == "Pressure 2. Bracket-1 plate in UPPER, its closing bracket in LOWER. Pull OPEN.", "P12 card hint 3, as the fourth tier")
+	check(R11Sim.HINTS.p24[2] == "One of her NAME cards is finished. One isn't.", "P24 evidence tier")
+	check(R11Sim.HINTS.p24[3] == "Frame to BODY, strip to PLACE, amended card to NAME, bridge to WITNESS, COPY empty, OPEN ACCESS.", "P24 card hint 3, as the fourth tier")
 	var fresh := r.initial_state()
 	check(fresh.pressure == 0 and fresh.slots == ["", ""] and fresh.witness == "" and fresh.copy == "", "initial state")
 
@@ -791,17 +799,136 @@ func test_p24_no_witness() -> void:
 
 func test_p24_complete_card() -> void:
 	var g := door_game()
-	g.give("nora_register_card")
 	var r := r11(g)
+	check(g.has_item("nora_register_card") and g.has_item("amended_nora_card"), "both of her NAME cards in hand")
 	use(g, "nora_frame", "frame_body")
 	use(g, "nora_spatial_strip", "frame_place")
-	use(g, "nora_register_card", "frame_name")
+	var ev := use(g, "nora_register_card", "frame_name")
+	check(says(ev) == "In the NAME frame." and r.frame_item("NAME") == "nora_register_card", "the door takes the original card")
 	use(g, "witness_bridge", "socket_witness")
-	var ev := g.dispatch("lever_access")
-	check(r.door_note == "RECORD COMPLETE. ACCESS DENIED TO COMPLETE RECORDS.", "the unamended card: RECORD COMPLETE")
-	check(says(ev) == "RECORD COMPLETE. ACCESS DENIED TO COMPLETE RECORDS. It won't open for a finished record.", "complete-record line")
+	check(not r.name_shut(), "no shutter before a pull")
+	ev = g.dispatch("lever_access")
+	check(r.door_note == "RECORD CLOSED. ACCESS REFUSED.", "the original card: RECORD CLOSED. ACCESS REFUSED. (%s)" % r.door_note)
+	check(says(ev) == "RECORD CLOSED. ACCESS REFUSED. A shutter drops over her name.", "closed-record line (%s)" % says(ev))
+	check(r.name_shut() and has_ev(ev, "sfx", "r11_shutter_drop") and has_ev(ev, "fx", "name_shutter"), "the shutter drops")
+	check(r.frame_results.NAME == "RECORD CLOSED" and r.frame_results.BODY == "ACCEPTED", "the NAME tag says so")
+	check(r.has_seen("record_closed"), "record_closed noted")
 	check(not g.flag("P24") and inv_consistent(g, DOOR_ITEMS), "nothing consumed")
 	check(says(g.dispatch("preview")) == r.door_note, "the preview re-reads the note")
+	# The same refusal with the witness out, or with COPY loaded: COPY still speaks first.
+	g.dispatch("socket_witness")
+	check(r.door_note == "RECORD CLOSED. ACCESS REFUSED." and r.name_shut(), "witness out: still closed")
+	use(g, "witness_bridge", "port_copy")
+	check(r.door_note == "WOULD FINALIZE SUBJECT" and not r.name_shut(), "COPY loaded: the copy refusal, shutter up")
+	g.dispatch("port_copy")
+	use(g, "witness_bridge", "socket_witness")
+	check(r.name_shut(), "COPY bare again: closed again")
+	# Reversible: take the original out, the shutter lifts, the card comes back.
+	ev = g.dispatch("frame_name")
+	check(says(ev) == "Out." and g.has_item("nora_register_card") and not r.name_shut(), "the card out, the shutter up")
+	check(has_ev(ev, "sfx", "r11_shutter_lift") and has_ev(ev, "fx", "name_shutter"), "the shutter winds up")
+	check(r.door_note == "RECORD INCOMPLETE: NAME", "the strip reprints for an empty NAME")
+	# Swapping in the amended card lifts it too, and gives the original back.
+	use(g, "nora_register_card", "frame_name")
+	g.dispatch("lever_access")
+	check(r.name_shut(), "closed again")
+	ev = use(g, "amended_nora_card", "frame_name")
+	check(not r.name_shut() and g.has_item("nora_register_card") and r.frame_item("NAME") == "amended_nora_card",
+		"the amended card swapped in: the original back in hand, the shutter up")
+	check(inv_consistent(g, DOOR_ITEMS), "consistent after the swap")
+	ev = g.dispatch("lever_access")
+	check(g.flag("P24"), "only the amended card opens the door")
+	check(g.has_item("nora_register_card") and g.has_item("amended_nora_card"), "both cards still hers after P24")
+	check(not r.name_shut(), "no shutter on the open door")
+	# The shutter is presentation of a refusal: it is never saved.
+	var h := door_game()
+	use(h, "nora_frame", "frame_body")
+	use(h, "nora_spatial_strip", "frame_place")
+	use(h, "nora_register_card", "frame_name")
+	use(h, "witness_bridge", "socket_witness")
+	h.dispatch("lever_access")
+	var t := roundtrip(h)
+	check(not r11(t).name_shut() and r11(t).frame_item("NAME") == "nora_register_card" and inv_consistent(t, DOOR_ITEMS),
+		"a load: the card still mounted, the shutter up until the next pull")
+
+## R06's P22 turns her register card into the amended one. The live door's COPY port then
+## gives her the card as first printed, once; she keeps it alongside the amended card.
+func test_p24_original_card() -> void:
+	var g := game_at(8, ROOM)
+	var r := r11(g)
+	grant(g, "R06", "P22")
+	grant(g, "R10", "P23")
+	check(g.has_item("amended_nora_card") and not g.has_item("nora_register_card"), "after P22: only the amended card")
+	for it in ["nora_frame", "nora_spatial_strip", "witness_bridge"]:
+		g.give(it)
+	g.dispatch("descend")
+	var ev := g.dispatch("lower_door")
+	check(g.has_item("nora_register_card") and g.has_item("amended_nora_card"), "the COPY port gives the original card")
+	check(R11Sim.COPY_OUT_LINES[0] in says(ev) and has_ev(ev, "sfx", "r11_copy_out") and r.has_seen("copy_card"),
+		"said, heard and noted (%s)" % says(ev))
+	check(r.state.original_kept, "kept")
+	g.dispatch("back")
+	ev = g.dispatch("lower_door")
+	check(not R11Sim.COPY_OUT_LINES[0] in says(ev), "once only")
+	# R06 files the original under the amended card whenever it reconciles; she keeps it, in place.
+	var before: Array = g.state.inventory.duplicate()
+	var t := roundtrip(g)
+	check(t.state.inventory == before, "a load keeps the original card in its place (%s vs %s)" % [t.state.inventory, before])
+	check(same_save(t, g), "and round-trips byte-identical")
+	# A dead door gives nothing; neither does a door she reaches already holding the original.
+	var d := door_game(false)
+	check(not r11(d).state.original_kept and not r11(d).has_seen("copy_card"), "a dead door: nothing comes out")
+	var k := game_at(8, ROOM)
+	k.give("nora_register_card")
+	grant(k, "R10", "P23")
+	k.set_flag("P22")
+	k.give("amended_nora_card")
+	k.dispatch("descend")
+	ev = k.dispatch("lower_door")
+	check(not R11Sim.COPY_OUT_LINES[0] in says(ev) and r11(k).state.original_kept, "held already: nothing comes out")
+	check(k.state.inventory.count("nora_register_card") == 1, "one original card")
+	# Through to the end: after P24 she keeps both.
+	for it in ["nora_frame", "nora_spatial_strip", "amended_nora_card"]:
+		use(g, it, FRAME_T[NORA_CAT[it]])
+	use(g, "witness_bridge", "socket_witness")
+	g.dispatch("lever_access")
+	check(g.flag("P24") and g.has_item("nora_register_card") and g.has_item("amended_nora_card"), "after P24: both cards")
+	check(same_save(roundtrip(g), g), "after P24: round-trips byte-identical")
+
+## The INDEX ACCESS plate carries the port labels and no rules.
+func test_door_plate() -> void:
+	var g := door_game()
+	var line := says(g.dispatch("door_plate"))
+	check(line == "INDEX ACCESS. Two ports, labelled: WITNESS. COPY.", "the plate's line (%s)" % line)
+	for w in ["person present", "acknowledgement", "admitted", "agree"]:
+		check(not w in line, "no rule text: %s" % w)
+
+## Four tiers on the Hint, the evidence tier third, and the solution still reached with a core
+## that clamps its ladder at three.
+func test_hint_tiers() -> void:
+	var g := door_game()
+	var r := r11(g)
+	check(r.objective() == "p24", "at the live door")
+	var got := []
+	for i in 4:
+		got.append(says(g.dispatch("hint")))
+	check(got == R11Sim.HINTS.p24, "four asks: the four tiers in order (%s)" % [got])
+	check(says(g.dispatch("hint")) == R11Sim.HINTS.p24[3], "a fifth ask repeats the solution")
+	for o in ["explore", "wait_power", "p12", "wait_door", "p24"]:
+		var ladder: Array = R11Sim.HINTS[o]
+		check(ladder[2] != ladder[3] and ladder[2] != ladder[1], "%s: an evidence tier of its own" % o)
+		for i in 4:
+			for j in 4:
+				if i < j:
+					check(GameSim._hint_key(ladder[i]) != GameSim._hint_key(ladder[j]), "%s: tiers %d and %d differ" % [o, i, j])
+	check(r.hint_line(2) == "One of her NAME cards is finished. One isn't." or r.hint_line(3) == R11Sim.HINTS.p24[3], "hint_line by level")
+	var p := gate_game()
+	grant(p, "R08", "P11")
+	grant(p, "R07", "P10")
+	var pl := []
+	for i in 4:
+		pl.append(says(p.dispatch("hint")))
+	check(pl == R11Sim.HINTS.p12, "P12: four tiers in order (%s)" % [pl])
 
 func test_p24_wrong_items() -> void:
 	var g := door_game()
@@ -995,7 +1122,7 @@ func test_room_lines() -> void:
 	grant(f, "R06", "P22")
 	f.set_flag("P23")
 	f.dispatch("back")
-	check(says(f.dispatch("lower_door")) == "Her three records. The bridge. And the port I leave alone.", "the live door")
+	check(says(f.dispatch("lower_door")).begins_with("Her three records. The bridge. And the port I leave alone."), "the live door")
 	check(r11(f).bell_dir() == "below" and r11(f).shoes_state() == "facing", "band 6 helpers")
 	var top := game_at(9, ROOM)
 	check(r11(top).tide_lines() == 5 and r11(top).door_open(), "band 7 helpers")
@@ -1521,4 +1648,77 @@ func test_view_gauge_and_bell() -> void:
 	r = scene.room_sim() as R11Sim
 	r.landing = 2
 	check(v.bell_mirrored() and v.bell_centre().x > v.BELL_PIVOT.x, "band 7: the same bell, tipped toward the lower door")
+	await free_scene(scene)
+
+# ---------------------------------------------------------------------------------------------
+# p1 fixes
+# ---------------------------------------------------------------------------------------------
+## P12's visible wrongness: the water standing in the gateway as a slab, from the cut's line on.
+func test_view_water_slab() -> void:
+	check(FileAccess.file_exists("res://assets/stages/R11/p12_water_slab.png"), "the slab overlay is on disk")
+	var scene = await view_scene(5)   # ready to OPEN: no slab yet
+	var v = scene.room_view
+	var r := scene.room_sim() as R11Sim
+	check(v.textures.has("p12_water_slab"), "the slab overlay loads")
+	check(not r.water_slab(), "before P12: no slab")
+	var ev: Array = scene.sim.dispatch("gate")
+	ev = scene.sim.dispatch("lever_open")
+	check(scene.sim.flag("P12") and r.water_slab(), "after P12: the slab stands")
+	var line := say_ev(ev, "The water's standing up in the gateway. Thick as glass. My hand goes through it, and comes out dry.")
+	check(not line.is_empty() and is_equal_approx(float(line.get("delay", 0)), v.SLAB_AT),
+		"the slab arrives with its line (%s vs %s)" % [line.get("delay", -1), v.SLAB_AT])
+	var tex: Texture2D = v.textures.get("p12_water_slab")
+	check(tex != null and tex.get_size() == Vector2(1448, 1086), "the overlay is a full plate")
+	if tex:
+		var img := tex.get_image()
+		var c := img.get_pixelv(v.WATER_SLAB.get_center())
+		check(c.a > 0.6, "the slab is solid where it stands (alpha %.2f)" % c.a)
+		check(img.get_pixel(int(v.WATER_SLAB.get_center().x), 200).a == 0.0, "its top stands clear of the lintel")
+		check(img.get_pixel(40, 600).a == 0.0, "nothing outside the gateway")
+	scene.sim.settings.motion = false
+	check(v.shimmer_k() == -1.0, "Motion off: no shimmer, the slab is static")
+	scene.sim.settings.motion = true
+	check(v.shimmer_k() >= 0.0 and v.shimmer_k() < 1.0, "Motion on: a slow shimmer")
+	# On the gate landing after P12, at every later band.
+	for t in [5, 7, 9]:
+		scene.tide_jump(t, ROOM)
+		await process_frame
+		r = scene.room_sim() as R11Sim
+		check(r.water_slab(), "tide %d: the slab still stands" % t)
+	await free_scene(scene)
+
+## The NAME shutter drops over the refused original and winds up again (Motion off: at once).
+func test_view_name_shutter() -> void:
+	var scene = await view_scene(8)
+	var v = scene.room_view
+	var r := scene.room_sim() as R11Sim
+	scene.sim.dispatch("descend")
+	scene.sim.dispatch("lower_door")
+	check(scene.sim.has_item("nora_register_card"), "the original card is in hand at the live door")
+	scene.sim.dispatch("frame_name")
+	scene.sim.dispatch("item:nora_register_card")
+	scene.sim.dispatch("frame_name")
+	check(r.frame_item("NAME") == "nora_register_card", "the original in NAME")
+	scene.sim.dispatch("lever_access")
+	check(r.name_shut() and v.shutter_k == 0.0, "refused: the shutter starts down")
+	scene._process(0.1)
+	check(v.shutter_k > 0.0 and v.shutter_k < 1.0, "dropping (%.2f)" % v.shutter_k)
+	scene._process(0.3)
+	check(v.shutter_k == 1.0, "down")
+	check(v.textures.has("c_name_shutter"), "the shutter sprite loads")
+	check(v.action_at(v.control_rect("frame_name").get_center()) == "frame_name", "the NAME frame stays clickable under it")
+	scene.sim.dispatch("frame_name")
+	scene._process(0.1)
+	check(v.shutter_k < 1.0 and v.shutter_k > 0.0, "winding up")
+	scene._process(0.6)
+	check(v.shutter_k == 0.0, "up")
+	scene.sim.settings.motion = false
+	scene.sim.dispatch("item:nora_register_card")
+	scene.sim.dispatch("frame_name")
+	scene.sim.dispatch("lever_access")
+	scene._process(0.016)
+	check(v.shutter_k == 1.0, "Motion off: down at once")
+	v.reset_presentation()
+	check(v.shutter_k == 1.0, "reset keeps the state's shutter")
+	scene.sim.settings.motion = true
 	await free_scene(scene)
