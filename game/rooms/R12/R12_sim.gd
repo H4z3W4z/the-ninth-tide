@@ -40,8 +40,11 @@ const ROUTING_HOTSPOTS := ["plate_sever", "plate_continue", "cards", "handle", "
 const FRAMES_CONTROLS := ["f_body", "f_place", "f_name", "look_body", "look_place", "look_name",
 	"rack_position_b", "rack_trace_a", "rack_identity", "rack_trace", "rack_identity_b", "rack_trace_b",
 	"rack_position", "look_strip", "switch", "route"]
-## P26 is 'preview both routes': the plates' looks and PREVIEW keys. No cards, no CONFIRM.
-const ROUTING_CONTROLS := ["look_sever", "look_continue", "preview_sever", "preview_continue"]
+## P26 is 'rehearse both routes': the plates' looks and PREVIEW keys, and the patch field under
+## them: four cords (cord_<id>, lifted and put back at their contacts) and three sockets
+## (jack_<id>). A cord in hand dropped on a socket is the action patch:<cord>:<socket>.
+const ROUTING_CONTROLS := ["look_sever", "look_continue", "preview_sever", "preview_continue",
+	"cord_feed_a", "cord_feed_b", "cord_ev", "cord_am", "jack_open", "jack_am", "jack_terminal"]
 const FINAL_CONTROLS := ["contacts", "look_lamps", "bridge_seat", "tray", "preview", "look_handle",
 	"btn_sever", "btn_continue"]
 const ENDING_CONTROLS := ["ending_next"]
@@ -73,27 +76,30 @@ const CARD_FRAME := {
 	"position": "place", "position_b": "place",
 	"identity": "name", "identity_b": "name",
 }
+## Every card is headed with her name and nothing else: no category is printed. She sorts them
+## by what they say.
 const CARD_HEADER := {
-	"trace": "MOVEMENT · A. MERCER", "trace_a": "MOVEMENT · A. MERCER", "trace_b": "MOVEMENT · A. MERCER",
-	"position": "POSITION · A. MERCER", "position_b": "POSITION · A. MERCER",
-	"identity": "CONTRACT · A. MERCER", "identity_b": "CONTRACT · A. MERCER",
+	"trace": "A. MERCER", "trace_a": "A. MERCER", "trace_b": "A. MERCER",
+	"position": "A. MERCER", "position_b": "A. MERCER",
+	"identity": "A. MERCER", "identity_b": "A. MERCER",
 }
 ## The fixed card faces; the MOVEMENT cards are body_card_lines() / decoy_card_lines().
 const CARD_TEXT := {
 	"position": "Ninth position. Centre of the station outline.",
-	"position_b": "Eighth position. Seat beside the window.",
+	"position_b": "Ninth position. Seat beside the window.",
 	"identity": "Miss Ada Mercer, cataloguer. Requested by E. Venn.",
-	"identity_b": "Miss Ada Mercer, cataloguer. Requested by S. Rook.",
+	"identity_b": "Miss Ada Mercer, cataloguer. Requested by the Board.",
 }
-## What she says lifting a card the first time. Neutral: the card is in her name, not hers yet.
-const CARD_LIFT := {
-	"position": "A POSITION card: 'Ninth position. Centre of the station outline.'",
-	"position_b": "A POSITION card: 'Eighth position. Seat beside the window.'",
-	"identity": "A CONTRACT card: 'Miss Ada Mercer, cataloguer. Requested by E. Venn.'",
-	"identity_b": "A CONTRACT card: 'Miss Ada Mercer, cataloguer. Requested by S. Rook.'",
-}
-## Decoy MOVEMENT runs when swapping the real trace can't make two that differ from it (a trace
-## under three events, or one whose swaps repeat it): fixed whitelist runs, taken in order.
+## What she says lifting a card: its whole face, read aloud, and no category. Neutral: the card
+## is in her name, not hers yet.
+const CARD_LIFT_PREFIX := "A card in my name: '"
+## The decoy MOVEMENT runs differ from her trace only in the middle event: the first two moves
+## in this fixed order that are none of the trace's three take its place (trace_a, trace_b).
+const DECOY_MIDDLE := ["held_still", "turned_round", "log_read", "interval_set", "drawer_opened",
+	"lamp_mended", "charts_aligned", "report_signed", "recording_played", "zero_turned", "hatch_opened",
+	"stair_looked"]
+## Decoy MOVEMENT runs for a trace under three events (it has no middle to change): fixed
+## whitelist runs, taken in order, never the trace itself.
 const DECOY_FALLBACK := [["held_still", "turned_round", "log_read"],
 	["interval_set", "charts_aligned", "lamp_mended"], ["report_signed", "recording_played", "drawer_opened"]]
 ## The plate of a frame holding a card of its own category that is not hers.
@@ -120,6 +126,20 @@ const FRAMES_READ_ONLY := "It has its record of me. The frames won't open again.
 # previewed is P26.
 # ---------------------------------------------------------------------------------------------
 const ROUTES := ["sever", "continue"]
+## The patch field: each cord's plug rests in its own line ("home") or is patched into a socket.
+const CORDS := ["feed_a", "feed_b", "ev", "am"]
+const JACKS := ["home", "open", "am", "terminal"]
+const CORD_LABEL := {"feed_a": "FEED A", "feed_b": "FEED B", "ev": "E.V.", "am": "A.M."}
+const JACK_LABEL := {"home": "its own line", "open": "OPEN", "am": "A.M.", "terminal": "TERMINAL"}
+## What Venn's answers say each route does, as a patch: SEVER ends every line (both subject feeds
+## and his witness feed open); CONTINUE moves the witness feed to A.M. and A.M. into the terminal.
+## A preview runs only on its route's patch; cords a route doesn't name may be anywhere.
+const PATCH_ROUTES := {
+	"sever": {"feed_a": "open", "feed_b": "open", "ev": "open"},
+	"continue": {"ev": "am", "am": "terminal"},
+}
+const ROUTE_INCOMPLETE := "ROUTE INCOMPLETE"
+const PATCH_WRONG := "Not like that. He said what each one does."
 const ROUTING_SEALED := "I've seen both. I know what each one does."
 const ROUTING_LATER := "Not until I know exactly what each one does."
 const WINDOW_RECT := [474, 96, 500, 290]
@@ -147,10 +167,12 @@ const P26_MOVED := "Behind me, in the window, something moved."
 # ---------------------------------------------------------------------------------------------
 ## The eye's offset in the window, px, per look: "centre" before she has come in; "door" on her
 ## arrival (the way she came in, below it); "chair" from the P25 commit; "routing" from the first
-## P26 preview (the routing wall, and her terminal on it). "terminal" is the old name of
-## "routing", still accepted from a save.
-const PUPIL_OFFSET := {"centre": [0, 0], "door": [0, 40], "chair": [-150, 12], "routing": [150, 12]}
-const LOOK_ORDER := ["centre", "door", "chair", "routing"]
+## P26 preview (the routing wall, and her terminal on it, low enough to clear the conduit at
+## x ~976); "final" when the final panel opens (down, at the switches). "terminal" is the old name
+## of "routing", still accepted from a save.
+const PUPIL_OFFSET := {"centre": [0, 0], "door": [0, 40], "chair": [-150, 12], "routing": [95, 40],
+	"final": [0, 60]}
+const LOOK_ORDER := ["centre", "door", "chair", "routing", "final"]
 const LOOK_ALIASES := {"terminal": "routing"}
 const EYE_DOOR_LINE := "The eye in the window isn't on the instrument. It's on the door I came in by."
 const EYE_DOOR_AT := 5.0
@@ -168,10 +190,14 @@ const SIGN_BREATH := 2.5
 # Endings: steps of {tableau, lines [[delay, text]], sfx [[id, delay]], change}. `change` is
 # the sfx whose play switches the tableau from its before to its after state ("" = none).
 # ---------------------------------------------------------------------------------------------
+## SEVER's first page is the frames wall (c_sever_wall): each line_out_N (a sound, and a timed fx
+## at the same moment) puts out indicator N.
+const SEVER_LAST_LINE := "Eight names on brass. Nothing behind any of them now."
 const ENDING_SEVER := [
-	{"tableau": "c_sever", "lines": [
+	{"tableau": "c_sever_wall", "lines": [
 		[0.0, "I pull the handle. It is heavier than it looks, and then it isn't."],
-		[2.6, "Above the frames the eight indicators go out. Not together. One, and a wait, and the next."]],
+		[2.6, "Above the frames the eight indicators go out. Not together. One, and a wait, and the next."],
+		[18.2, SEVER_LAST_LINE]],
 	# each wait a little longer than the last; the view spaces the lamps from this table
 	"sfx": [["handle_pull", 0.0], ["line_out_1", 3.0], ["line_out_2", 3.8], ["line_out_3", 4.9],
 		["line_out_4", 6.3], ["line_out_5", 8.0], ["line_out_6", 10.1], ["line_out_7", 12.6],
@@ -226,7 +252,9 @@ const ENDING_SEVER := [
 		[3.0, "There's a small water stain at its corner. Nothing is reflected in it."]],
 	"sfx": [["page_dry", 0.4], ["motif_human_a", 3.6]], "change": ""},
 ]
+const KETTLE_LINE := "The kitchen. Someone has put the kettle on."
 const ENDING_CONTINUE := [
+
 	{"tableau": "c_continue", "lines": [
 		[0.0, "I press it. The lit line leaves the terminal marked E.V. and comes into mine."],
 		[3.0, "It's warm. At my own temperature."]],
@@ -261,11 +289,13 @@ const ENDING_CONTINUE := [
 	"sfx": [], "change": ""},
 	{"tableau": "end_b_wide", "lines": [
 		[0.0, "The station does not go back to the shore."],
-		[2.8, "Out to the edge of the water, stations. Every window dark but one."],
-		[6.0, "The kitchen. Someone has put the kettle on."]],
-	"sfx": [], "change": "",
-	# the chamber falls silent as the kettle line goes up, so the end card comes in over silence
-	"breath": [{"seconds": 3.0, "delay": 6.0, "line": "The kitchen. Someone has put the kettle on."}]},
+		[2.8, "Out to the edge of the water, stations. Every window dark but one."]],
+		"sfx": [], "change": ""},
+	# the one lit window, close: the kitchen. The chamber falls silent as its line goes up.
+	{"tableau": "m_kettle", "lines": [
+		[0.0, KETTLE_LINE]],
+		"sfx": [], "change": "",
+		"breath": [{"seconds": 3.0, "delay": 0.0}]},
 	{"tableau": "end_b_cover", "lines": [
 		[0.0, "The recorder starts a new heading: LOCAL SURVEY: ONE OF"],
 		[3.0, "I lay a sheet of my own paper over it."],
@@ -273,11 +303,12 @@ const ENDING_CONTINUE := [
 	"sfx": [["counter_type", 0.4], ["paper_cover", 3.2], ["motif_human_b", 5.8]], "change": ""},
 ]
 const CHOSEN_LINE := "Not now. I've chosen."
-## The still the core's end card shows for an ending (CONTINUE: the kitchen among the night
-## field of dark stations; SEVER: the drying page with the nine names). Read by the core; a
-## missing key means no still.
-const END_STILL := {"continue": "res://assets/stages/R12/end_b_wide_3.png",
-	"sever": "res://assets/stages/R12/r12_sever_office_r2.png"}
+## The still the end card shows for an ending, its subject kept above y 740 (the card's paper
+## panel starts at 760). CONTINUE: the kitchen's one lit window among the dark stations, under
+## the eye; SEVER: the corrected inquiry page, nine names in full, the refusal and her name, the
+## water stain at its corner. A missing key means no still.
+const END_STILL := {"continue": "res://assets/stages/R12/end_b_card.png",
+	"sever": "res://assets/stages/R12/end_a_card.png"}
 
 static func end_still(choice: String) -> String:
 	return END_STILL.get(choice, "")
@@ -301,13 +332,13 @@ const OBSERVATIONS := {
 	"nameplate": "Over three empty frames, a freshly engraved brass plate: ADA MERCER.",
 	"frames_procedure": "Three frames, BODY, PLACE, NAME; a rack of seven cards, all in my name; a switch, WITNESS or COPY; a ROUTE key.",
 	"frame_categories": "The frame plates: BODY, what the subject did, in the order it was done. PLACE, where the subject stands in the survey. NAME, who the subject is, and who asked for them.",
-	"card_trace": "My MOVEMENT card: the recorder's departure record word for word, the three things I did and its fourth line under them.",
-	"card_position": "My POSITION card: 'Ninth position. Centre of the station outline.'",
-	"card_identity": "My CONTRACT card: 'Miss Ada Mercer, cataloguer. Requested by E. Venn.'",
-	"card_trace_a": "A second MOVEMENT card in my name, with a different run of moves on it.",
-	"card_trace_b": "A third MOVEMENT card in my name, with another run of moves on it.",
-	"card_position_b": "A second POSITION card: 'Eighth position. Seat beside the window.'",
-	"card_identity_b": "A second CONTRACT card: 'Miss Ada Mercer, cataloguer. Requested by S. Rook.'",
+	"card_trace": "A card in my name with three moves on it, and a line about me under them.",
+	"card_position": "A card in my name: 'Ninth position. Centre of the station outline.'",
+	"card_identity": "A card in my name: 'Miss Ada Mercer, cataloguer. Requested by E. Venn.'",
+	"card_trace_a": "A card in my name with three moves on it, and a line about me under them.",
+	"card_trace_b": "A card in my name with three moves on it, and a line about me under them.",
+	"card_position_b": "A card in my name: 'Ninth position. Seat beside the window.'",
+	"card_identity_b": "A card in my name: 'Miss Ada Mercer, cataloguer. Requested by the Board.'",
 	"plate_mismatch": "A frame given a card of its own kind that isn't mine lights its plate: DOES NOT CORRESPOND TO OBSERVER.",
 	"copy_port": "A COPY port under a warm brass dust cap.",
 	"copy_uncapped": "After the record was routed, the COPY port's cap came off by itself.",
@@ -317,6 +348,8 @@ const OBSERVATIONS := {
 	"routing_plates": "Two routing plates, SEVER and CONTINUE, behind shutters until a record is routed.",
 	"yoke": "A severance yoke in a tray on the routing wall, always there.",
 	"feed_contacts": "Two feed contacts: FEED A, subjects 1 to 4; FEED B, subjects 5 to 8.",
+	"patch_field": "Under the routing plates, a patch field: cords from FEED A (subjects 1 to 4), FEED B (5 to 8), E.V. and A.M., and three sockets, OPEN, A.M. and TERMINAL. A PREVIEW only runs on a route patched the way it works.",
+	"route_incomplete": "A PREVIEW on the wrong patch lights ROUTE INCOMPLETE and shows nothing. Venn's answers say what each route does to each line.",
 	"ada_terminal": "My terminal: A. MERCER · WITNESS, with a seat shaped for the bridge from the model.",
 	"preview_sever": "SEVER, previewed: the eight subject lines go out one by one, then the witness feed. The outer door marker turns to OPEN. In the window, the eight portrait lamps and the kitchen's bowls went dark. Nothing in the preview comes back.",
 	"preview_continue": "CONTINUE, previewed: the eight subject lines stay lit. The witness feed moves from E.V.'s terminal to mine. His lamp goes out; mine comes on. In the window, his oilskin, empty.",
@@ -344,10 +377,10 @@ const HINTS := {
 		"Trace to BODY, position to PLACE, identity to NAME, switch to WITNESS, then ROUTE.",
 	],   # hint_at() spells the last step out card by card
 	"routing": [
-		"Before choosing, make sure you know what each choice does.",
-		"Each plate has a PREVIEW key. Press it, then watch the window.",
-		"Venn said breaking the line ends every trace. The witness test said someone must remain. The previews show what that means.",
-		"Press PREVIEW on the SEVER plate and PREVIEW on the CONTINUE plate, and watch the window each time.",
+		"The routing plates, right of the chair. Each route has to be patched before its PREVIEW will run.",
+		"Venn's three answers say where each line goes.",
+		"In the listening room Venn said: 'If you break it, they end, every trace. If you don't, someone has to stay. Physically. Here.' In the vault the model said the witness has to be a person, and the person has to stay.",
+		"For SEVER: FEED A, FEED B and E.V. into OPEN, then PREVIEW SEVER. For CONTINUE: E.V. into A.M. and A.M. into TERMINAL, then PREVIEW CONTINUE. Watch the window each time.",
 	],
 	"decide": [
 		"Both choices are ready. The chamber is waiting for your hands.",
@@ -368,6 +401,10 @@ const HINTS := {
 # ---------------------------------------------------------------------------------------------
 var _held_card := ""
 var _held_yoke := false
+## The patch cord in her hand (a CORDS id), or "".
+var _held_cord := ""
+## The routing plate lit ROUTE INCOMPLETE by the last refused PREVIEW ("sever" / "continue"), or "".
+var incomplete_route := ""
 ## The frame whose category plate lit on the last refused ROUTE, or "".
 var last_lamp_frame := ""
 ## The P27 button last refused with "Preview first.", or "".
@@ -376,15 +413,23 @@ var refused_button := ""
 func initial_state() -> Dictionary:
 	return {
 		"frames": {"body": "", "place": "", "name": ""}, "switch": "copy", "p25_complete": false,
-		"previewed": [], "p26_complete": false,
+		"previewed": [], "p26_complete": false, "patch": _home_patch(),
 		"yoke": "tray", "bridge_seated": false, "final_preview": "", "chosen": "",
 		"p27_complete": false, "ending_step": 0, "noticed": [], "window_looks": 0,
 		"armature_looks": 0, "opened": [], "blinks": [], "eye_look": "centre",
 	}
 
+static func _home_patch() -> Dictionary:
+	var out := {}
+	for c in CORDS:
+		out[c] = "home"
+	return out
+
 func _clear_transient() -> void:
 	_held_card = ""
 	_held_yoke = false
+	_held_cord = ""
+	incomplete_route = ""
 	last_lamp_frame = ""
 	refused_button = ""
 
@@ -415,6 +460,7 @@ func load_state(d: Variant) -> void:
 		for r in d.previewed:
 			if r is String and r in ROUTES and not r in state.previewed:
 				state.previewed.append(r)
+	state.patch = _load_patch(d.get("patch"))
 	if d.get("yoke") in ["tray", "contacts"]:
 		state.yoke = d.yoke
 	if d.get("final_preview") in ["", "sever", "continue"]:
@@ -454,6 +500,18 @@ func load_state(d: Variant) -> void:
 		if look in PUPIL_OFFSET:
 			state.eye_look = look
 	_floor_look()
+
+## The patch field from a save: each known cord in a known socket, never A.M. into itself; anything
+## else rests in its own line.
+static func _load_patch(v: Variant) -> Dictionary:
+	var out := _home_patch()
+	if not v is Dictionary:
+		return out
+	for c in CORDS:
+		var j = v.get(c)
+		if j is String and j in JACKS and not (c == "am" and j == "am"):
+			out[c] = j
+	return out
 
 ## A preview only stands for the fitting it was taken with.
 func _sync_final_preview() -> void:
@@ -588,6 +646,35 @@ func held_card() -> String:
 func held_yoke() -> bool:
 	return _held_yoke
 
+## The patch cord in her hand, or "".
+func held_cord() -> String:
+	return _held_cord
+
+## The socket cord `c` is plugged into ("home" for its own line).
+func patch_of(c: String) -> String:
+	return state.patch.get(c, "home")
+
+func patch() -> Dictionary:
+	return state.patch.duplicate()
+
+## The cords plugged into socket `j`, in CORDS order.
+func cords_in(j: String) -> Array:
+	var out := []
+	for c in CORDS:
+		if state.patch[c] == j:
+			out.append(c)
+	return out
+
+## True when the patch is what Venn's answers say route `r` does (PATCH_ROUTES).
+func patch_matches(r: String) -> bool:
+	var want: Dictionary = PATCH_ROUTES.get(r, {})
+	if want.is_empty():
+		return false
+	for c in want:
+		if state.patch[c] != want[c]:
+			return false
+	return true
+
 ## True while the card sits in the rack (not in a frame, not in her hand).
 func card_in_rack(cid: String) -> bool:
 	return cid in CARD_IDS and not cid in state.frames.values() and _held_card != cid
@@ -608,30 +695,27 @@ func _move_lines(trace: Array) -> Array:
 	out.append(line4())
 	return out
 
-## The two decoy MOVEMENT runs for `trace`: the first two events swapped, and the last two
-## swapped. A decoy that would repeat the trace or the other decoy, or any decoy of a trace
-## under three events, is the next DECOY_FALLBACK run that differs from both. Deterministic.
+## The two decoy MOVEMENT runs for `trace`: the trace with its middle event (trace[1]) replaced
+## by the first, then the second, DECOY_MIDDLE move that is none of trace[0..2]. Each differs from
+## the trace in that one event only, so she has to check it against the departure record. A
+## trace under three events has no middle: its decoys are the first DECOY_FALLBACK runs that
+## differ from it. Deterministic.
 static func decoys_for(trace: Array) -> Array:
-	var made := []
-	if trace.size() >= 3:
-		var a := trace.duplicate()
-		a[0] = trace[1]
-		a[1] = trace[0]
-		var b := trace.duplicate()
-		b[-2] = trace[-1]
-		b[-1] = trace[-2]
-		made = [a, b]
-	else:
-		made = [[], []]
 	var out := []
-	for d in made:
-		var pick: Array = d
-		if pick.size() < 3 or pick == trace or pick in out:
-			for f in DECOY_FALLBACK:
-				if f != trace and not f in out:
-					pick = f.duplicate()
-					break
-		out.append(pick)
+	if trace.size() >= 3:
+		for m in DECOY_MIDDLE:
+			if out.size() == 2:
+				break
+			if m == trace[0] or m == trace[1] or m == trace[2]:
+				continue
+			var d := trace.duplicate()
+			d[1] = m
+			out.append(d)
+	while out.size() < 2:
+		for f in DECOY_FALLBACK:
+			if f != trace and not f in out:
+				out.append(f.duplicate())
+				break
 	return out
 
 ## The move ids printed on MOVEMENT card `cid` ("trace", "trace_a" or "trace_b").
@@ -667,6 +751,18 @@ func card_text(cid: String) -> Array:
 	if cid in ["trace_a", "trace_b"]:
 		return _move_lines(movement_of(cid))
 	return [CARD_TEXT[cid]] if CARD_TEXT.has(cid) else []
+
+## What she reads aloud lifting card `cid`: its whole face, no category.
+func card_lift_line(cid: String) -> String:
+	return CARD_LIFT_PREFIX + " ".join(card_text(cid)) + "'"
+
+## The notebook text for an observation: a MOVEMENT card's entry quotes its own face (computed
+## from the stored trace, so it reads the same after a save and load).
+func observation_text(obs: String) -> String:
+	if obs in ["card_trace", "card_trace_a", "card_trace_b"] and game != null:
+		return card_lift_line(obs.substr(5))
+	return OBSERVATIONS.get(obs, "")
+
 
 func previewed(route: String) -> bool:
 	return route in state.previewed
@@ -846,7 +942,7 @@ func objective() -> String:
 func _known(action: String) -> bool:
 	return action in HOTSPOTS or action in FRAMES_HOTSPOTS or action in ROUTING_HOTSPOTS \
 		or action in FRAMES_CONTROLS or action in ROUTING_CONTROLS or action in FINAL_CONTROLS \
-		or action in ENDING_CONTROLS
+		or action in ENDING_CONTROLS or action.begins_with("patch:")
 
 ## Moves to a base view; leaving a close-up puts whatever is in her hand back.
 func _goto(v: String) -> void:
@@ -871,6 +967,11 @@ func act(action: String, ev: Array) -> void:
 		C_ROUTING:
 			if action in ROUTING_CONTROLS:
 				_routing_control(action, ev)
+				return
+			if action.begins_with("patch:"):
+				var parts := action.split(":")
+				if parts.size() == 3:
+					_patch(parts[1], parts[2], ev)
 				return
 		C_FINAL:
 			if action in FINAL_CONTROLS:
@@ -1019,14 +1120,9 @@ func _rack(cid: String, ev: Array) -> void:
 		return
 	_held_card = cid
 	_sfx(ev, "card_lift")
-	# every lift reads the card aloud: seven cards in her name, told apart only by their words
+	# every lift reads the card aloud, whole: seven cards in her name, told apart only by their words
 	_observe("card_" + cid)
-	if CARD_FRAME[cid] == "body":
-		var moves := card_text(cid)
-		moves.pop_back()
-		_say(ev, "A MOVEMENT card: '" + " ".join(moves) + "' And under them: '" + line4() + "'")
-	else:
-		_say(ev, CARD_LIFT[cid])
+	_say(ev, card_lift_line(cid))
 
 func _frame(f: String, ev: Array) -> void:
 	if _held_card != "":
@@ -1146,10 +1242,12 @@ func _routing_wall(action: String, ev: Array) -> void:
 		if first:
 			state.opened.append(C_ROUTING)
 		local_view = C_ROUTING
+		if first:
+			_observe("patch_field")
 		if p26_done():
 			_say(ev, ROUTING_SEALED)
 		elif first:
-			_say(ev, "Two plates, SEVER and CONTINUE, each with a PREVIEW key. Nothing to sign, nothing to slot. It only wants me to watch.")
+			_say(ev, "Two plates, SEVER and CONTINUE, each with a PREVIEW key. Under them a patch field: four cords, FEED A, FEED B, E.V. and A.M., and three sockets. It wants each route wired before it will show me.")
 		else:
 			_say(ev, "The routing plates.")
 		return
@@ -1160,6 +1258,12 @@ func _routing_wall(action: String, ev: Array) -> void:
 
 # ----- c_routing (P26) ------------------------------------------------------------------------
 func _routing_control(action: String, ev: Array) -> void:
+	if action.begins_with("cord_"):
+		_cord(action.substr(5), ev)
+		return
+	if action.begins_with("jack_"):
+		_jack(action.substr(5), ev)
+		return
 	match action:
 		"preview_sever":
 			_preview_route("sever", ev)
@@ -1170,10 +1274,72 @@ func _routing_control(action: String, ev: Array) -> void:
 		"look_continue":
 			_say(ev, "CONTINUE. Subject lines one to eight, the witness feed from E.V. to A.M., the outer door.")
 
-## A preview: the plate's lamps run it (fx "preview"), then the window shows it (fx
-## "window_preview" and the glance, which puts the close-up down once her lines are read).
-## The first time each route is shown she says what she sees; both shown is P26.
+## A cord's contact: lifts its plug (from wherever it is patched); with that plug already in
+## hand, puts it back in its own line; with another in hand, swaps.
+func _cord(c: String, ev: Array) -> void:
+	if not c in CORDS:
+		return
+	if _held_cord == c:
+		_patch(c, "home", ev)
+		return
+	_held_cord = c
+	_sfx(ev, "cc_lift")
+	var at: String = state.patch[c]
+	_say(ev, "The %s cord. %s" % [CORD_LABEL[c], "Its plug was in its own line." if at == "home"
+		else _stop("Its plug was in " + JACK_LABEL[at])])
+
+## A socket: with a plug in hand, patches it there (patch:<cord>:<socket>); else says what is in it.
+func _jack(j: String, ev: Array) -> void:
+	if not j in JACKS or j == "home":
+		return
+	if _held_cord != "":
+		_patch(_held_cord, j, ev)
+		return
+	var in_it := []
+	for c in cords_in(j):
+		in_it.append(CORD_LABEL[c])
+	_say(ev, "%s %s" % [_stop(JACK_LABEL[j]), "Nothing in it." if in_it.is_empty() else _stop("In it: " + ", ".join(in_it))])
+
+## `s` ended with one full stop (a label like "A.M." already has it).
+static func _stop(s: String) -> String:
+	return s if s.ends_with(".") else s + "."
+
+## patch:<cord>:<socket>: the cord's plug goes into the socket ("home" = its own line). Nothing
+## is consumed; the plate's ROUTE INCOMPLETE goes out with any change.
+func _patch(c: String, j: String, ev: Array) -> void:
+	if not c in CORDS or not j in JACKS:
+		return
+	_held_cord = ""
+	if c == "am" and j == "am":
+		_say(ev, "Not into itself.")
+		return
+	incomplete_route = ""
+	var moved: bool = state.patch[c] != j
+	state.patch[c] = j
+	_sfx(ev, "cc_return" if j == "home" else "cc_seat")
+	if moved:
+		_fx(ev, "patch", {"cord": c, "jack": j})
+	if j == "home":
+		_say(ev, "%s back in its own line." % CORD_LABEL[c])
+	else:
+		_say(ev, _stop("%s into %s" % [CORD_LABEL[c], JACK_LABEL[j]]))
+
+## A preview: only on its route's patch (else ROUTE INCOMPLETE, and nothing runs). The plate's
+## lamps run it (fx "preview"), then the window shows it (fx "window_preview" and the glance,
+## which puts the close-up down once her lines are read). The first time each route is shown
+## she says what she sees; both rehearsed with a correct patch is P26.
 func _preview_route(r: String, ev: Array) -> void:
+	if not patch_matches(r):
+		_held_cord = ""
+		incomplete_route = r
+		_observe("route_incomplete")
+		_sfx(ev, "preview_key")
+		_sfx(ev, "mismatch_lamp", 0.2)
+		_fx(ev, "route_incomplete", {"route": r})
+		_say(ev, PATCH_WRONG)
+		return
+	incomplete_route = ""
+	_held_cord = ""
 	var first: bool = not has_seen("preview_" + r)
 	if not r in state.previewed:
 		state.previewed.append(r)
@@ -1213,6 +1379,8 @@ func _open_final(ev: Array) -> void:
 	if first:
 		state.opened.append(C_FINAL)
 	local_view = C_FINAL
+	if state.eye_look != "final":
+		_look(ev, "final")
 	_say(ev, "The feed contacts, my terminal, the preview lamps. Two buttons, each with its whole meaning printed on it."
 		if first else "The yoke, the bridge, the two buttons.")
 	var seen_e := endings_seen()
@@ -1349,6 +1517,10 @@ func _emit_step(ev: Array) -> void:
 		_say(ev, l[1], l[0], true)
 	for s in st.sfx:
 		_sfx(ev, s[0], s[1])
+		if str(s[0]).begins_with("line_out_"):
+			# the indicator goes out on its own sound: the view darkens it from this fx alone
+			_fx(ev, s[0], {"delay": s[1]})
+
 	for b in st.get("breath", []):
 		if b.has("sfx"):
 			_breath(ev, b.seconds, b.delay, {"sfx": b.sfx, "lead": b.lead})
@@ -1369,6 +1541,16 @@ func _ending_next(ev: Array) -> void:
 # ---------------------------------------------------------------------------------------------
 # items
 # ---------------------------------------------------------------------------------------------
+## Wall hotspots that open a close-up: an item used on one opens it (when it can be opened) and
+## is applied there in the same action.
+const FRAMES_OPENERS := ["frame_body", "frame_place", "frame_name", "card_rack", "terminal"]
+const ROUTING_OPENERS := ["plate_sever", "plate_continue", "cards"]
+const FINAL_OPENERS := ["handle", "yoke_tray", "contacts", "bridge_seat"]
+const OPEN_FIRST := "I'll need to open it first."
+const FRAMES_NO_ITEM := "Nothing from my pocket goes in the frames. Only the cards in the rack."
+const ROUTING_NO_ITEM := "The patch field only takes its own cords."
+const UPSTAIRS := "That belongs upstairs."
+
 func use_item(item: String, target: String, ev: Array) -> bool:
 	if target.begins_with("go:") or not _known(target):
 		return false
@@ -1376,25 +1558,75 @@ func use_item(item: String, target: String, ev: Array) -> bool:
 		local_view = V_ENDING
 		_emit_step(ev)
 		return true
-	if item != BRIDGE:
-		_say(ev, "That belongs upstairs.")
+	# a frame or the rack on the record wall: the frames open, and take only their own cards
+	if target in FRAMES_OPENERS and local_view != C_FRAMES:
+		_goto(V_FRAMES)
+		_enter_frames()
+		_say(ev, FRAMES_NO_ITEM)
 		return true
-	match target:
-		"bridge_seat":
-			if not p26_done():
-				_say(ev, "Not yet. I don't know yet what it would do.")
-			else:
-				if local_view != C_FINAL:
-					_goto(V_ROUTING)
-					if not C_FINAL in state.opened:
-						state.opened.append(C_FINAL)
-					local_view = C_FINAL
-				_bridge_seat(ev)
-		"contacts":
+	if local_view == C_FRAMES and target in FRAMES_CONTROLS:
+		_say(ev, FRAMES_NO_ITEM)
+		return true
+	# a routing plate: the plates open once a record is routed, and take only their own cords
+	if target in ROUTING_OPENERS and local_view != C_ROUTING:
+		_goto(V_ROUTING)
+		if not p25_done():
+			_say(ev, OPEN_FIRST)
+			return true
+		_enter_routing()
+		_say(ev, ROUTING_NO_ITEM)
+		return true
+	if local_view == C_ROUTING and (target in ROUTING_CONTROLS or target.begins_with("patch:")):
+		_say(ev, ROUTING_NO_ITEM)
+		return true
+	# the final hardware: open once both routes are understood; her terminal takes the bridge
+	var final_target: bool = (target in FINAL_OPENERS and local_view != C_FINAL) \
+		or (local_view == C_FINAL and target in FINAL_CONTROLS)
+	if final_target:
+		if not p26_done():
+			_goto(V_ROUTING)
+			_say(ev, "Not yet. I don't know yet what it would do." if item == BRIDGE and target == "bridge_seat"
+				else OPEN_FIRST)
+			return true
+		if local_view != C_FINAL:
+			_goto(V_ROUTING)
+			_enter_final(ev)
+		if item != BRIDGE:
+			_say(ev, UPSTAIRS)
+		elif target == "bridge_seat":
+			_bridge_seat(ev)
+		elif target == "contacts":
 			_say(ev, "The bridge goes in my terminal, not across the feed.")
-		_:
+		else:
 			_say(ev, "Not here. The bridge is for my terminal.")
+		return true
+	if item != BRIDGE:
+		_say(ev, UPSTAIRS)
+	else:
+		_say(ev, "Not here. The bridge is for my terminal.")
 	return true
+
+## c_frames, opened without its spoken line (an item in hand opened it).
+func _enter_frames() -> void:
+	if not C_FRAMES in state.opened:
+		state.opened.append(C_FRAMES)
+		_observe("frames_procedure")
+	local_view = C_FRAMES
+
+## c_routing, opened without its spoken line.
+func _enter_routing() -> void:
+	if not C_ROUTING in state.opened:
+		state.opened.append(C_ROUTING)
+		_observe("patch_field")
+	local_view = C_ROUTING
+
+## c_final, opened without its spoken line; the eye still looks down at the switches.
+func _enter_final(ev: Array) -> void:
+	if not C_FINAL in state.opened:
+		state.opened.append(C_FINAL)
+	local_view = C_FINAL
+	if state.eye_look != "final":
+		_look(ev, "final")
 
 # ---------------------------------------------------------------------------------------------
 # debug
@@ -1418,7 +1650,12 @@ func debug_jump(n: int) -> void:
 		game.solve("P25", ev)
 	if n >= 2:
 		_set_p26_state()
+		# the last rehearsal left the CONTINUE patch in (cords listed in CORDS order, as a load does)
+		for c in PATCH_ROUTES["continue"]:
+			state.patch[c] = PATCH_ROUTES["continue"][c]
+
 		state.eye_look = "routing"
+
 		game.solve("P26", ev)
 		_bridge_net(ev)
 		game.save_checkpoint()

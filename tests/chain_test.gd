@@ -711,20 +711,29 @@ func _r12_room() -> void:
 		guard += 1
 	check(chamber.local_view == "room", "R12: in the chamber")
 
-## R12 P26: preview both routes and watch each in the window; the second preview is P26.
-## The checkpoint.
+## R12 P26: rehearse both routes on the patch field and watch each in the window. An unpatched
+## PREVIEW first (ROUTE INCOMPLETE, nothing shown); then SEVER patched as Venn's answers say
+## (FEED A, FEED B and E.V. into OPEN) and previewed; then CONTINUE (E.V. into A.M., A.M. into
+## TERMINAL). The second rehearsal is P26, and the checkpoint.
 func play_p26() -> void:
 	_r12_room()
 	var ev := []
 	for a in ["to_routing", "plate_sever", "preview_sever"]:
 		ev = _qd(a)
-	check(not g.flag("P26") and chamber.previewed("sever"), "P26: one route seen is not enough")
+	check(not g.flag("P26") and not chamber.previewed("sever") and chamber.incomplete_route == "sever"
+		and not has_ev(ev, "fx", "glance"), "P26: an unpatched PREVIEW lights ROUTE INCOMPLETE and shows nothing")
+	for a in ["cord_feed_a", "patch:feed_a:open", "cord_feed_b", "patch:feed_b:open", "cord_ev", "patch:ev:open"]:
+		_qd(a)
+	ev = _qd("preview_sever")
+	check(not g.flag("P26") and chamber.previewed("sever"), "P26: one route rehearsed is not enough")
 	check(has_ev(ev, "fx", "eye_look") and chamber.gaze() == "routing", "P26: a preview turns the eye to the routing wall")
 	_r12_room()   # the SEVER preview's window glance may have put the close-up down
-	for a in ["to_routing", "plate_continue", "preview_continue"]:
+	for a in ["to_routing", "plate_continue", "cord_ev", "patch:ev:am", "cord_am", "patch:am:terminal", "preview_continue"]:
 		_qd(a)
-	check(g.flag("P26") and chamber.previewed("sever") and chamber.previewed("continue"), "P26: both routes seen")
+	check(g.flag("P26") and chamber.previewed("sever") and chamber.previewed("continue"), "P26: both routes rehearsed")
 	check(not g.checkpoint.is_empty(), "P26: the pre-ending checkpoint is stored")
+	check(g.checkpoint.rooms.R12.patch == {"feed_a": "open", "feed_b": "open", "ev": "am", "am": "terminal"},
+		"P26: the checkpoint keeps the patch (%s)" % [g.checkpoint.rooms.R12.patch])
 
 ## R12 P27, played as SEVER: the yoke across the feed contacts, preview, SEVER; then every
 ## page of the ending to the end card. _endings() replays the checkpoint to CONTINUE.
@@ -929,6 +938,9 @@ func _endings() -> void:
 	check(g.flag("P26") and not g.flag("P27") and g.value("ending_choice") == "" and g.state.room == "R12",
 		"replay returns to the P26 decision")
 	check(g.has_item("witness_bridge"), "replay: the bridge is back in hand")
+	check(chamber.patch() == {"feed_a": "open", "feed_b": "open", "ev": "am", "am": "terminal"} and chamber.held_cord() == "",
+		"replay: the patch field as the last rehearsal left it")
+
 	_r12_room()   # the checkpoint is taken at the second preview, on the routing wall
 	for a in ["to_routing", "bridge_seat", "bridge_seat", "preview"]:
 		_qd(a)

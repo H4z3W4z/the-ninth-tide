@@ -3714,7 +3714,7 @@ WIDE3_LIT = AMBER                                       # ... but the kitchen's,
 WIDE3_EYE = ((1.00, (0x2A, 0x3A, 0x46)), (0.70, (0x33, 0x45, 0x52)), (0.42, (0x1A, 0x24, 0x2E)))
 
 
-def paint_end_b_wide_3(rng):
+def paint_end_b_wide_3(rng, eye_y=-120):
     """CONTINUE's last page and end card, at night: a storm-navy sky with the concentric eye above
     (three solid bands, inked, a dark pupil), the stilt stations in rows to the horizon lifted to a
     pale slate so every one reads, every window dark but the kitchen's, lit amber with a small flat
@@ -3723,7 +3723,7 @@ def paint_end_b_wide_3(rng):
     p.vgrad(-4, -4, W + 4, WIDE2_HOR, WIDE3_SKY_TOP, WIDE3_SKY_LOW)
     p.vgrad(-4, WIDE2_HOR, W + 4, H + 4, WIDE3_SEA_FAR, WIDE3_SEA_NEAR)
     eye = p.layer()
-    ec = (690, -120)
+    ec = (690, eye_y)
     for k, (s, col) in enumerate(WIDE3_EYE):
         eye.ell(ec[0], ec[1] + 40 * k, 520 * s, 520 * s, col, INK, 3.0)
     eye.ell(ec[0], ec[1] + 150, 120, 120, mix(STORM, BLACK, 0.55), INK, 3.0)
@@ -3824,6 +3824,285 @@ def checked_hand(painter, limit=1 / 6):
     return run
 
 
+# ============================================================================ fix p3: new files only
+# c_final, r2: the six panels hang FINAL_DY lower, in front of the sill of the eye's window (the
+# view draws the eye in the strip above y 300; this plate is open there but for the panels), and
+# the two cream buttons are brass knife-switch plates. The view stamps their lettering into the
+# band at KNIFE_BAND (R12_view.gd knife_band()).
+FINAL_DY = 120
+FINAL_SILL = 296
+FINAL_PANELS = ((100, 140, 540, 400), (560, 140, 888, 400), (908, 140, 1348, 400))
+KNIFE_Y = 760
+KNIFE_X = (100, 748)
+TARNISH = mix(BRASS, VERD, 0.45)
+
+
+def final_panels(p, dy):
+    """paint_c_final's six panels (contacts, lamps, terminal, yoke well, PREVIEW key, handle
+    housing), `dy` lower."""
+    p.rect(100, 140 + dy, 540, 400 + dy, SLATE, INK, 3, 6)
+    p.line([(106, 146 + dy), (534, 146 + dy)], SLATE_HI, 1.8)
+    for (cx, cy) in ((220, 280 + dy), (420, 280 + dy)):
+        p.ell(cx, cy, 58, 58, mix(SLATE, BLACK, 0.3), None)
+        p.ell(cx, cy, 50, 50, BRASS, INK, 3)
+        p.ell(cx, cy, 36, 36, BRASS_LO, INK, 2)
+        p.arc(cx, cy, 44, 44, 200, 300, BRASS_HI, 2.4)
+        p.ell(cx, cy, 13, 13, BRASS_HI, INK, 1.6)
+        enamel_plate(p, cx - 60, 348 + dy, cx + 60, 376 + dy)
+    for (sx, sy) in ((116, 156), (524, 156), (116, 384), (524, 384)):
+        screw(p, sx, sy + dy, 4)
+    p.rect(560, 140 + dy, 888, 400 + dy, IRON, INK, 3, 6)
+    p.rect(568, 148 + dy, 880, 392 + dy, mix(IRON, BULK, 0.4), INK, 1.4, 4)
+    for i in range(4):
+        for y in (200, 270):
+            lamp_socket(p, 600 + 64 * i, y + dy, 16, dead=True)
+    p.line([(576, 316 + dy), (872, 316 + dy)], INK, 1.6)
+    for x in (620, 820):
+        lamp_socket(p, x, 350 + dy, 16, dead=True)
+    p.rect(908, 140 + dy, 1348, 400 + dy, IRON, INK, 3, 6)
+    p.rect(916, 148 + dy, 1340, 392 + dy, mix(IRON, BULK, 0.45), INK, 1.4, 4)
+    rx0, ry0, rx1, ry1 = 1008, 250 + dy, 1248, 310 + dy
+    p.rect(rx0 - 8, ry0 - 8, rx1 + 8, ry1 + 8, BRASS_LO, INK, 2.6, 4)
+    p.rect(rx0, ry0, rx1, ry0 + 28, BLACK, INK, 2, 3)
+    for px in (rx0 + 48, rx1 - 48):
+        p.rect(px - 10, ry0 + 28, px + 10, ry1, BLACK, INK, 2, 2)
+    enamel_plate(p, 1008, 176 + dy, 1248, 206 + dy)
+    for (sx, sy) in ((924, 156), (1332, 156), (924, 384), (1332, 384)):
+        screw(p, sx, sy + dy, 4)
+    p.rect(100, 440 + dy, 540, 610 + dy, BRASS_LO, INK, 3, 6)
+    p.rect(114, 454 + dy, 526, 596 + dy, FELT, INK, 2, 4)
+    p.rect(150, 488 + dy, 490, 512 + dy, FELT_DK, None, r=8)
+    for x in (170, 470):
+        p.rect(x - 12, 496 + dy, x + 12, 584 + dy, FELT_DK, None, r=4)
+    p.rect(604, 460 + dy, 844, 580 + dy, BRASS_LO, INK, 2.8, 20)
+    p.ell(724, 520 + dy, 42, 42, BRASS, INK, 2.8)
+    p.arc(724, 520 + dy, 36, 36, 200, 290, BRASS_HI, 2.2)
+    p.ell(724, 520 + dy, 14, 14, BRASS_DK, None)
+    p.rect(908, 440 + dy, 1348, 610 + dy, IRON, INK, 3, 6)
+    p.rect(916, 448 + dy, 1340, 602 + dy, mix(IRON, BULK, 0.4), INK, 1.4, 4)
+    p.rect(940, 515 + dy, 1316, 537 + dy, BLACK, INK, 2, 8)
+    p.ell(1128, 526 + dy, 22, 22, BRASS, INK, 2.4)
+    p.ell(1128, 526 + dy, 8, 8, BRASS_DK, None)
+
+
+def knife_switch(p, x0, y0):
+    """A knife-switch plate, 600 x 200: a tarnished brass frame round a dark iron face (no paper),
+    a lettering band across the top (left blank: the view stamps the words), and below it the
+    switch itself on its slate base: the hinge on the left, the blade lying shut in the jaw, its
+    turned brown grip past the jaw."""
+    sh = p.layer()
+    sh.rect(x0 + 8, y0 + 10, x0 + 608, y0 + 210, BLACK, None, r=8)
+    p.put_soft(sh, 8, 0.35)
+    p.rect(x0, y0, x0 + 600, y0 + 200, TARNISH, INK, 3, 8)
+    p.line([(x0 + 6, y0 + 194), (x0 + 6, y0 + 6), (x0 + 594, y0 + 6)], mix(TARNISH, BRASS_HI, 0.5), 2.0)
+    p.line([(x0 + 7, y0 + 194), (x0 + 594, y0 + 194), (x0 + 594, y0 + 7)], mix(TARNISH, BRASS_DK, 0.5), 2.0)
+    p.rect(x0 + 18, y0 + 18, x0 + 582, y0 + 182, mix(IRON, BULK_DK, 0.3), INK, 2.2, 5)
+    # the lettering band
+    p.rect(x0 + 40, y0 + 30, x0 + 560, y0 + 80, mix(BRASS_HI, VERD, 0.22), INK, 2.0, 3)
+    p.line([(x0 + 44, y0 + 34), (x0 + 556, y0 + 34)], mix(BRASS_HI, PAPER_HI, 0.3), 1.2)
+    p.line([(x0 + 44, y0 + 76), (x0 + 556, y0 + 76)], mix(TARNISH, BRASS_DK, 0.5), 1.2)
+    # the slate base
+    p.rect(x0 + 70, y0 + 108, x0 + 530, y0 + 160, SLATE, INK, 2.2, 4)
+    p.line([(x0 + 74, y0 + 112), (x0 + 526, y0 + 112)], SLATE_HI, 1.4)
+    # the jaw's back cheek, the blade, the jaw's front cheek
+    p.rect(x0 + 452, y0 + 92, x0 + 466, y0 + 150, BRASS_LO, INK, 2.0, 2)
+    p.rect(x0 + 108, y0 + 105, x0 + 472, y0 + 119, BRASS_HI, INK, 2.0, 3)
+    p.line([(x0 + 116, y0 + 108), (x0 + 464, y0 + 108)], BARE, 1.4)
+    p.rect(x0 + 430, y0 + 92, x0 + 444, y0 + 150, BRASS, INK, 2.0, 2)
+    # the hinge: two cheeks and the pivot pin
+    p.rect(x0 + 96, y0 + 92, x0 + 132, y0 + 150, BRASS, INK, 2.0, 3)
+    p.ell(x0 + 114, y0 + 112, 9, 9, BRASS_HI, INK, 1.8)
+    p.ell(x0 + 114, y0 + 112, 3, 3, BRASS_DK, None)
+    # the grip
+    p.rect(x0 + 476, y0 + 98, x0 + 552, y0 + 126, LEATHER, INK, 2.2, 12)
+    p.line([(x0 + 486, y0 + 104), (x0 + 542, y0 + 104)], LEATHER_HI, 1.6)
+    for (sx, sy) in ((x0 + 9, y0 + 9), (x0 + 591, y0 + 9), (x0 + 9, y0 + 191), (x0 + 591, y0 + 191)):
+        screw(p, sx, sy, 3.6, BRASS_LO)
+
+
+def paint_c_final_r2(rng):
+    p = Pen(W, H, rng)
+    closeup_ground(p, rng)
+    # the sill of the eye's window
+    p.rect(-4, FINAL_SILL, W + 4, FINAL_SILL + 18, IRON, INK, 2.6)
+    p.line([(-4, FINAL_SILL + 4), (W + 4, FINAL_SILL + 4)], IRON_HI, 1.4)
+    final_panels(p, FINAL_DY)
+    for x0 in KNIFE_X:
+        knife_switch(p, x0, KNIFE_Y)
+    im = grain(p.done(), rng_for(2500))
+    # open above the sill, but for the three panels that hang in front of it
+    keep = Image.new("L", (W, H), 255)
+    d = ImageDraw.Draw(keep)
+    d.rectangle((0, 0, W, FINAL_SILL - 1), fill=0)
+    for (x0, y0, x1, y1) in FINAL_PANELS:
+        d.rectangle((x0 - 3, y0 + FINAL_DY - 3, x1 + 3, y1 + FINAL_DY + 3), fill=255)
+    im.putalpha(ImageChops.multiply(im.getchannel("A"), keep))
+    return im
+
+
+# m_cup, r2: Nora's white china teacup on its saucer (R06's P22 sketch): a bowl narrowing to a
+# foot, a sea-glass band under the rim, and at the handle's root a crack with two small navy
+# staple marks across it. The squat green mug is gone.
+CHINA = (236, 232, 220)
+CHINA_DK = (204, 200, 188)
+TEA = (104, 74, 50)
+
+
+def paint_m_cup_r2(rng, warm):
+    p = sprite_pen(rng)
+    kitchen(p, rng)
+    cloth(p, 120, 400, 780, 580)
+    rc = AMBER if warm else mix(PAPER, INK, 0.3)
+    p.ell(250, 476, 64, 20, None, rc, 4 if warm else 2.6)
+    if warm:
+        lay = p.layer()
+        lay.ell(250, 476, 64, 20, None, AMBER_HI, 8)
+        p.put_soft(lay, 4, 0.6)
+        p.ell(250, 476, 64, 20, None, AMBER, 3.4)
+    cx = 520
+    # the saucer
+    p.ell(cx + 4, 492, 176, 30, mix(PAPER, INK, 0.25), None)
+    p.ell(cx, 482, 170, 28, CHINA, INK, 2.6)
+    p.ell(cx, 478, 120, 16, CHINA_DK, None)
+    p.arc(cx, 482, 150, 22, 200, 340, PAPER_HI, 2.0)
+    # the handle, behind the bowl's right side: a loop from the rim down to the waist
+    hx, hy = cx + 118, 382
+    p.arc(hx, hy, 40, 44, 262, 458, INK, 18)
+    p.arc(hx, hy, 40, 44, 262, 458, CHINA, 12)
+    # the bowl
+    left = bezier([(cx - 116, 326), (cx - 112, 418), (cx - 58, 452)], 30)
+    right = bezier([(cx + 58, 452), (cx + 112, 418), (cx + 116, 326)], 30)
+    p.poly(left + right, CHINA, INK, 2.8)
+    shade = bezier([(cx + 60, 332), (cx + 92, 412), (cx + 46, 450)], 24)
+    p.poly(shade + [(cx + 58, 450), (cx + 108, 414), (cx + 112, 332)], CHINA_DK, None)
+    p.line([(cx - 112, 352), (cx + 112, 352)], SEAGLASS, 6)
+    p.line([(cx - 112, 358), (cx + 112, 358)], INK, 1.2)
+    p.line([(cx - 96, 372), (cx - 84, 432)], (250, 248, 240), 3.0)
+    p.ell(cx, 326, 116, 18, CHINA, INK, 2.6)
+    p.ell(cx, 329, 104, 12, TEA, None)
+    # the foot ring
+    p.rect(cx - 50, 450, cx + 50, 468, CHINA_DK, INK, 2.2, 3)
+    # the crack at the handle's root (where it leaves the bowl under the rim) and the two staples
+    root = (cx + 112, 348)
+    p.line([(root[0] - 6, root[1] - 10), (root[0] + 2, root[1] - 2), (root[0] - 3, root[1] + 5),
+            (root[0] + 6, root[1] + 13)], INK, 1.8)
+    for sy in (-6, 6):
+        p.line([(root[0] - 11, root[1] + sy - 2), (root[0] + 11, root[1] + sy + 2)], INK, 3.6)
+    if warm:
+        for dx in (-30, 24):
+            steam = bezier([(cx + dx, 300), (cx + dx - 40, 230), (cx + dx + 30, 180), (cx + dx - 10, 90)], 40)
+            p.line(steam, INK, 7)
+            p.line(steam, mix(PAPER_HI, AMBER_HI, 0.2), 4)
+    return p
+
+
+# m_kettle: CONTINUE's lit window, close. The kitchen at night: the range, the kettle on its plate,
+# the one window lit, and three flat sea-glass strokes of steam from the spout.
+def paint_m_kettle(rng):
+    p = sprite_pen(rng)
+    panelled_wall(p, rng, mix(SEA_WALL, STORM, 0.35), 300, None, tiles=True)
+    p.rect(20, 300, 880, 640, mix(TIMBER, SOOT, 0.35), None)
+    p.line([(20, 300), (880, 300)], INK, 2.6)
+    # the window, lit: four amber panes in a timber frame, a small flat glow round it
+    gl = p.layer()
+    gl.rect(66, 46, 270, 236, AMBER_HI, None, r=6)
+    p.put_soft(gl, 26, 0.35)
+    p.rect(80, 60, 256, 222, TIMBER, INK, 2.8, 3)
+    p.rect(92, 72, 244, 210, AMBER_HI, INK, 2.0)
+    p.rect(162, 72, 174, 210, TIMBER, INK, 1.6)
+    p.rect(92, 136, 244, 146, TIMBER, INK, 1.6)
+    p.rect(70, 222, 266, 236, mix(TIMBER, PAPER, 0.25), INK, 2.2)
+    # the range: black iron, a rail, two oven doors, the hot plate
+    p.rect(330, 330, 820, 640, SOOT, INK, 3, 4)
+    p.rect(318, 316, 832, 336, mix(SOOT, IRON_HI, 0.4), INK, 2.6, 3)
+    p.line([(340, 362), (810, 362)], BRASS_LO, 4)
+    for (x0, x1) in ((350, 566), (584, 800)):
+        p.rect(x0, 382, x1, 600, mix(SOOT, IRON, 0.5), INK, 2.4, 4)
+        p.rect(x0 + 80, 470, x1 - 80, 482, BRASS, INK, 1.6, 4)
+    p.ell(470, 316, 74, 9, mix(SOOT, IRON_HI, 0.2), INK, 2.0)
+    # the kettle on the left plate
+    kx = 470
+    p.ell(kx, 312, 78, 12, mix(INK, SOOT, 0.5), None)
+    body = bezier([(kx - 80, 308), (kx - 92, 230), (kx - 40, 196)], 24) + \
+        bezier([(kx + 40, 196), (kx + 92, 230), (kx + 80, 308)], 24)
+    spout = [(kx - 70, 262), (kx - 132, 214), (kx - 146, 196), (kx - 136, 190), (kx - 116, 204), (kx - 64, 236)]
+    p.poly(spout, mix(BRASS_LO, SOOT, 0.25), INK, 2.4)
+    p.poly(body, mix(BRASS_LO, SOOT, 0.2), INK, 2.8)
+    p.line([(kx - 70, 290), (kx + 70, 290)], mix(BRASS_LO, SOOT, 0.5), 2.0)
+    p.line(bezier([(kx - 74, 280), (kx - 80, 232), (kx - 38, 206)], 16), BRASS, 3.0)
+    p.ell(kx, 196, 42, 8, mix(BRASS_LO, SOOT, 0.35), INK, 2.2)
+    p.ell(kx, 186, 10, 8, BRASS, INK, 1.8)
+    p.arc(kx, 196, 58, 66, 200, 340, INK, 9)
+    p.arc(kx, 196, 58, 66, 200, 340, LEATHER, 5)
+    # three flat sea-glass strokes of steam, rising from the spout
+    for k, (dx, h) in enumerate(((0, 120), (-26, 96), (24, 84))):
+        x, y = kx - 144 + dx, 180
+        stroke = bezier([(x, y), (x - 22, y - h * 0.35), (x + 18, y - h * 0.7), (x - 6, y - h)], 30)
+        p.line(stroke, SEAGLASS_HI, 9)
+    return p
+
+
+# The end stills, r3: each ending's subject kept above y 740 (the end card's paper panel starts
+# at 760). SEVER: the corrected inquiry page (end_a_page's sill and daylight), the nine names in
+# full in station order, a line left, the refusal and her name, the water stain at its corner.
+CARD_PAGE = (464, 40, 984, 728)
+CARD_RULE0 = 104
+CARD_RULE = 44
+INQUIRY_FULL = ["Silas Rook", "Nora Bell", "T. Ives", "M. Lusk", "O. Pryce", "C. Doane", "S. Hart",
+                "A. Tull", "Elias Venn"]
+
+
+def paint_end_a_card(rng):
+    p = Pen(W, H, rng)
+    daylight_wall(p, rng, 30, (182, 190, 186))
+    p.rect(-4, 10, W + 4, 34, mix(TIMBER, PAPER, 0.3), INK, 3)
+    p.rect(-4, 34, W + 4, H + 4, TIMBER, INK, 3)
+    lay = p.layer()
+    for _ in range(40):
+        y = rng.uniform(40, H)
+        lay.line([(-4, y), (W + 4, y + rng.uniform(-3, 3))], TIMBER_DK, rng.uniform(1, 2.4))
+    p.put(lay, 0.55)
+    lt = p.layer()
+    lt.poly([(300, 34), (1300, 34), (1448, 1086), (120, 1086)], PAPER_HI, None)
+    p.put_soft(lt, 40, 0.18)
+    x0, y0, x1, y1 = CARD_PAGE
+    sh = p.layer()
+    sh.rect(x0 + 10, y0 + 12, x1 + 10, y1 + 12, BLACK, None)
+    p.put_soft(sh, 8, 0.3)
+    p.rect(x0, y0, x1, y1, PAPER_HI, INK, 2.6)
+    for k in range(14):
+        y = CARD_RULE0 + CARD_RULE * k
+        p.line([(x0 + 30, y), (x1 - 30, y)], mix(PAPER, SEAGLASS, 0.45), 1.4)
+    p.line([(x0 + 80, y0 + 20), (x0 + 80, y1 - 20)], mix(PAPER, VIOLET, 0.35), 1.4)
+    # the inkwell, the window bright in its ink
+    ix, iy = 1180, 560
+    sh = p.layer()
+    sh.ell(ix + 8, iy + 120, 90, 16, BLACK, None)
+    p.put_soft(sh, 6, 0.35)
+    p.rect(ix - 80, iy, ix + 80, iy + 116, BRASS, INK, 3, 10)
+    p.rect(ix - 70, iy + 8, ix - 50, iy + 108, BRASS_HI, None, r=6)
+    p.rect(ix + 46, iy + 8, ix + 72, iy + 108, BRASS_LO, None, r=6)
+    p.rect(ix - 80, iy, ix + 80, iy + 116, None, INK, 3, 10)
+    p.ell(ix, iy, 80, 20, BRASS_DK, INK, 2.6)
+    p.ell(ix, iy, 66, 16, (10, 12, 16), INK, 2.4)
+    p.rect(ix - 30, iy - 10, ix + 4, iy + 8, (250, 248, 240), None)
+    p.line([(ix - 13, iy - 10), (ix - 13, iy + 8)], (10, 12, 16), 2)
+    p.line([(ix - 30, iy - 1), (ix + 4, iy - 1)], (10, 12, 16), 1.6)
+    # the water stain at the page's corner: a dark tide ring, and nothing in it
+    sx, sy = x1 - 62, y1 - 26
+    p.ell(sx, sy, 30, 20, mix(PAPER_HI, PAPER_LO, 0.55), None)
+    p.ell(sx, sy, 30, 20, None, mix(PAPER_LO, TIMBER_DK, 0.55), 2.6)
+    p.arc(sx, sy, 25, 16, 200, 330, mix(PAPER_LO, TIMBER_DK, 0.3), 1.2)
+    im = grain(p.done(), rng_for(2700)).convert("RGB")
+    # her hand, baked in: the nine names on rules 1-9, the refusal on 11, her name on 13
+    tx = x0 + 100
+    for k, name in enumerate(INQUIRY_FULL):
+        hand_text(im, name, tx, CARD_RULE0 + CARD_RULE * (k + 1) - 6, HAND_SIZE, k)
+    hand_text(im, "I cannot certify their absence.", tx, CARD_RULE0 + CARD_RULE * 11 - 6, HAND_SIZE, 20)
+    hand_text(im, "A. Mercer", tx + 140, CARD_RULE0 + CARD_RULE * 13 - 6, HAND_SIZE, 21)
+    return im
+
+
 # ============================================================================ registry
 def opaque_grain(k, painter):
     return lambda rng: grain(painter(rng).done(), rng_for(1000 + k))
@@ -3920,6 +4199,15 @@ ASSETS = [  # name, seed index, painter, opaque
     ("a_pupil_r3", 1218, paint_pupil_r3, False),
     ("stages/end_b_wide_3", 1219, paint_end_b_wide_3, True),
     ("stages/r12_sever_office_r2", 703, paint_sever_office_r2, True),
+    # fix p3: new files only
+    ("c_final_r2", 1220, paint_c_final_r2, False),
+    ("m_cup_r2_cold", 626, in_oval(lambda r: paint_m_cup_r2(r, False)), False),
+    ("m_cup_r2_warm", 627, in_oval(lambda r: paint_m_cup_r2(r, True)), False),
+    ("m_kettle", 1221, in_oval(paint_m_kettle), False),
+    ("stages/end_a_card", 1222, paint_end_a_card, True),
+    # CONTINUE's end still: end_b_wide_3 (its seeds, its stations, its kitchen at y 643) with the
+    # eye let down far enough that its whole pupil shows above the horizon
+    ("stages/end_b_card", 1219, lambda r: paint_end_b_wide_3(r, eye_y=-40), True),
 ]
 
 

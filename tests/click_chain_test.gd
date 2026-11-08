@@ -22,7 +22,9 @@ extends SceneTree
 ##   godot --headless --path . --script tests/click_chain_test.gd
 
 const STEP := 0.1
-const WAIT_MAX := 15.0
+## R12's SEVER first page turns only after its last line (18.2 s, two seconds after the eighth
+## indicator goes out) has been read: about 21 s.
+const WAIT_MAX := 25.0
 ## A held click waits for the whole chain: R12's CONTINUE preview (blinks and held breaths)
 ## plays ~15.2 s of story after the click.
 const HELD_MAX := 30.0
