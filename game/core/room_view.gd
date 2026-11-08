@@ -39,10 +39,12 @@ var motion: bool:
 var soft_audio: bool:
 	get:
 		return game.sim.settings.soft_audio if game else false
-## Seconds since the game scene started (presentation clock).
+## The story clock (GameView.story_time): seconds since the game scene started, less every
+## second the chain was held under the menu or the notebook, so a view's reveal stands still
+## with the chain and goes on from where it was. Audio keeps real time (tick_held).
 var time: float:
 	get:
-		return game.time if game else 0.0
+		return game.story_time if game else 0.0
 
 ## Reads a script constant declared by the view (subclass), with a default.
 func c(name: String, default: Variant = null) -> Variant:
@@ -58,6 +60,14 @@ func gsim() -> GameSim:
 func tick(_dt: float) -> void:
 	if motion:
 		queue_redraw()
+
+## The frame while the menu or the notebook holds the chain (GameView.chain_paused()): tick()
+## is not called, so every story clock the view keeps (reveal timers, holds, cuts) stands
+## still. Its beds keep real time: by default the view's own _tick_audio(dt), when it has
+## one. Override to keep anything else running.
+func tick_held(dt: float) -> void:
+	if has_method("_tick_audio"):
+		call("_tick_audio", dt)
 
 func redraw() -> void:
 	queue_redraw()

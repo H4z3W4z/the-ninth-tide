@@ -29,7 +29,8 @@ const WAIT_MAX := 25.0
 ## plays ~15.2 s of story after the click.
 const HELD_MAX := 30.0
 const GRID := 12
-const SAVE := "user://click_chain_test.json"
+## Unique to this process: user:// is shared by every checkout of the project.
+var SAVE := "user://click_chain_test_p%d.json" % OS.get_process_id()
 
 var A: GameView
 var failures: Array = []

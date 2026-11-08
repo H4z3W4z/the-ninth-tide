@@ -131,13 +131,17 @@ static func discover(dir := ROOMS_DIR) -> Array:
 	out.sort()
 	return out
 
-func reset(keep_settings := true) -> void:
+## A fresh game. The checkpoint at the final decision goes with it (New game, Restart),
+## except when a load rebuilds the state (`keep_checkpoint`: from_dict).
+func reset(keep_settings := true, keep_checkpoint := false) -> void:
+	if not keep_checkpoint:
+		checkpoint = {}
 	if not keep_settings:
 		settings = {"motion": true, "soft_audio": false, "endings_seen": [], "plan_nudged": false}
 	state = {
 		"schema": SCHEMA, "started": false, "room": start_room, "visited": [],
 		"flags": {}, "inventory": [], "notebook": [], "movement_events": [], "p05_trace": [],
-		"hint": {"for": "", "level": 0}, "rooms": {}, "ending": "", "retired": [],
+		"hint": {"for": "", "level": 0}, "rooms": {}, "ending": "", "retired": [], "tide_cards": [],
 	}
 	for rid in order:
 		var r: RoomSim = rooms[rid]
@@ -554,7 +558,9 @@ func _dispatch(action: String) -> Array:
 		_:
 			if action.begins_with("tab:") and view == "notebook":
 				nb_tab = action.substr(4)
-			elif action.begins_with("plan:") and view == "notebook" and flag("P05"):
+			elif action.begins_with("plan:") and view in ["notebook", "room"] and flag("P05"):
+				# From the room only as the end of a plan row clicked mid-reveal: the core put
+				# the notebook down so the reveal played over its own room, and now she goes.
 				var to := action.substr(5)
 				if to != state.room and rooms.has(to):
 					var before: String = state.room
@@ -683,22 +689,15 @@ static func with_confirmation(ladder: Array) -> Array:
 	return out
 
 ## The Hint's ladder toward room `away`, then that room's own ladder. For a room she hasn't
-## been in, a where-step first: "The <room> is through the <neighbour>." when a room that
-## leads there is one she knows, else its WAY_IN_HINT. For a room she has been in, no
-## where-step (the Now: line already names it) and none of its own "Something in the ...
-## has changed." tiers. No line is said twice.
+## been in, a where-step first (way_to: the nearest door that leads there). For a room she
+## has been in, no where-step (the Now: line already names it) and none of its own
+## "Something in the ... has changed." tiers. No line is said twice.
 func _elsewhere_ladder(away: String) -> Array:
 	var there := room(away)
-	var title := str(there.c("TITLE", away)).to_lower()
 	var steps := []
 	var visited: bool = away in state.visited
 	if not visited:
-		var first: String = there.c("WAY_IN_HINT", "The way into the %s is open now." % title)
-		for rid in order:
-			if rid != away and rid in state.visited and _is_exit(rid, away):
-				first = "The %s is through the %s." % [title, str(rooms[rid].c("TITLE", rid)).to_lower()]
-				break
-		steps.append(first)
+		steps.append(way_to(away))
 	for level in maxi(1, there.hint_tiers()):
 		var line := there.hint_line(level)
 		if not (visited and _changed_line(line)):
@@ -715,6 +714,48 @@ func _elsewhere_ladder(away: String) -> Array:
 	if ladder.is_empty():
 		ladder.append(there.objective_text() if there.objective_text() != "" else NOTHING_HERE)
 	return ladder
+
+## The where-step toward a room she has not been in, from where she stands: through this
+## room's own door when it opens onto `away`; else through the first room of the shortest
+## open way there; its WAY_IN_HINT only when no open way leads there.
+func way_to(away: String) -> String:
+	var title := hint_name(away)
+	var here: String = state.room
+	if exit_open(here, away):
+		return "The %s is through the %s door." % [title, hint_name(here)]
+	var hop := first_hop(here, away)
+	if hop != "":
+		return "The %s is through the %s." % [title, hint_name(hop)]
+	return rooms[away].c("WAY_IN_HINT", "The way into the %s is open now." % title)
+
+## The room's name as a hint says it: its HINT_NAME, else its TITLE up to " and "
+## ("Kitchen and Mess": "kitchen"), lower case.
+func hint_name(rid: String) -> String:
+	var r := room(rid)
+	if r == null:
+		return rid.to_lower()
+	var t := str(r.c("HINT_NAME", r.c("TITLE", rid)))
+	var cut := t.find(" and ")
+	return (t.substr(0, cut) if cut > 0 else t).to_lower()
+
+## The first room on the shortest open way from `from` to `to` (BFS over open exits, in
+## each room's EXITS order), "" when none leads there or they are the same room.
+func first_hop(from: String, to: String) -> String:
+	if from == to:
+		return ""
+	var via := {from: ""}
+	var queue := [from]
+	while not queue.is_empty():
+		var cur: String = queue.pop_front()
+		for e in exits(cur):
+			var nxt: String = e[0]
+			if via.has(nxt) or not exit_open(cur, nxt):
+				continue
+			via[nxt] = nxt if cur == from else via[cur]
+			if nxt == to:
+				return via[nxt]
+			queue.append(nxt)
+	return ""
 
 ## A "Something in the <room> has changed." line (the where-step of a ladder).
 static func _changed_line(line: String) -> bool:
@@ -876,8 +917,22 @@ func finish(ending: String) -> void:
 ## room calls save_checkpoint() when P26 is solved; the game scene keeps it on disk.
 var checkpoint := {}
 
+## The checkpoint (and the run it is taken from) records every tide card up to and including
+## Tide IX's as shown, so a replay from it never puts a tide card up again.
 func save_checkpoint() -> void:
+	for n in range(1, 10):
+		if n <= tide() or n == 9:
+			note_tide_card(n)
 	checkpoint = to_dict()
+
+## The tide cards that have gone up (presentation reads and writes it; saved and checkpointed,
+## so no tide's card is ever shown twice).
+func tide_card_shown(n: int) -> bool:
+	return n in state.tide_cards
+
+func note_tide_card(n: int) -> void:
+	if n >= 1 and n <= 9 and not n in state.tide_cards:
+		state.tide_cards.append(n)
 
 func _return_to_decision(ev: Array) -> void:
 	if checkpoint.is_empty():
@@ -920,7 +975,7 @@ func from_dict(d: Variant) -> bool:
 		d = m.progress
 	if int(d.get("schema", 0)) != SCHEMA or not d.get("rooms") is Dictionary:
 		return false
-	reset()
+	reset(true, true)
 	state.started = d.get("started") is bool and d.started
 	var saved_room = d.get("room")
 	state.room = saved_room if saved_room is String and rooms.has(saved_room) else start_room
@@ -928,6 +983,10 @@ func from_dict(d: Variant) -> bool:
 		for k in d.flags:
 			if k is String and d.flags[k] is bool and d.flags[k] and _valid_flag(k):
 				state.flags[k] = true
+	if d.get("tide_cards") is Array:
+		for n in d.tide_cards:
+			if RoomSim._all_whole([n]) and int(n) >= 1 and int(n) <= 9 and not int(n) in state.tide_cards:
+				state.tide_cards.append(int(n))
 	var defs := item_defs()
 	if d.get("retired") is Array:
 		for it in d.retired:
