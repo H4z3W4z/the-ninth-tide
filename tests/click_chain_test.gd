@@ -31,6 +31,7 @@ var failures: Array = []
 var total := 0
 var clicked := 0
 var reading := 0
+var deferred := 0   # clicks the core held until the chain ended (pending_action / pending_travel)
 var conveniences := {}
 var cur_pid := ""
 var pointer_mode := false
@@ -74,6 +75,7 @@ func run_mode(pointer: bool) -> String:
 	total = 0
 	clicked = 0
 	reading = 0
+	deferred = 0
 	conveniences = {}
 	plan_checked = false
 	var before := failures.size()
@@ -98,7 +100,7 @@ func run_mode(pointer: bool) -> String:
 	GameView.remove_saves(SAVE)
 	A.queue_free()
 	await process_frame
-	return "%s mode: %d actions, %d clicked, %d reading clicks, conveniences %s" % [tag, total, clicked, reading, conveniences]
+	return "%s mode: %d actions, %d clicked (%d held to the chain's end), %d reading clicks, conveniences %s" % [tag, total, clicked, deferred, reading, conveniences]
 
 ## The HUD's Plan button: not there before P05; after it, one click opens the notebook on
 ## the plan, and Back returns to the room as it was.
@@ -109,6 +111,7 @@ func plan_hook(pid: String, phase: String) -> void:
 		check(find("plan").x < 0, "no Plan button before P05")
 	elif pid == "P06" and not plan_checked:
 		var room_before: String = A.sim.state.room
+		wait(GameView.PLAN_AFTER_BACK + STEP)   # a Plan press right after a Back is ignored
 		var p := find("plan")
 		check(p.x >= 0, "the Plan button is on the HUD after P05")
 		if p.x < 0:
@@ -228,6 +231,9 @@ func qd(action: String) -> Array:
 		A.last_events = ev
 		return ev
 	# Click until the click lands (a playing chain or a room hold takes the clicks before it).
+	# A hotspot clicked while a chain still has lines queued, or an exit clicked mid-reveal,
+	# is held by the core (pending_action / pending_travel) and lands on its own as the chain
+	# ends: that counts as the click landing, and is never clicked a second time.
 	var t := 0.0
 	while t <= WAIT_MAX:
 		var id0: int = A.click_id
@@ -236,6 +242,16 @@ func qd(action: String) -> Array:
 			clicked += 1
 			wait(STEP)
 			return A.last_events
+		if A.pending_action == action or A.pending_travel == action:
+			var held := 0.0
+			while A.click_id == id0 and held < WAIT_MAX and (A.pending_action == action or A.pending_travel == action):
+				wait(STEP)
+				held += STEP
+			if A.click_id != id0:
+				clicked += 1
+				deferred += 1
+				wait(STEP)
+				return A.last_events
 		reading += 1
 		wait(STEP)
 		t += STEP

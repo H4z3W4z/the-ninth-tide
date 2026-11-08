@@ -87,6 +87,7 @@ play anything yourself:
 _say(ev, "The seat is wet. Still warm underneath.", 0.0, true)   # text, delay s, story
 _sfx(ev, "knock_glass", 3.4)                                      # one-shot, delay s
 _fx(ev, "lamp_on")                                                 # your view's play_fx()
+_fx(ev, "hold_breath", {"seconds": 2.0, "delay": 3.4})             # timed fx: see section 8
 ```
 
 Delays are seconds after the click. `story = true` marks a reveal chain line: the player
@@ -112,9 +113,9 @@ corner brackets round `rect` for 2.5 s (eased in with Motion on, simply there wi
 A glance waiting for its chain is dropped on travel, the title and a new game.
 
 **The tide card waits for the reveal.** `game.solve()`'s `{fx: "tide"}` no longer puts the
-card up at once: it waits until no story chain is playing and the last story line has been
-readable for a second (travel to another room starts it at once). A card that starts over a
-close-up sits low, above the subtitles, in the nearest band clear of the close-up's controls.
+card up at once: it waits until the room view shows no close-up, no story line is queued or
+held, the room's arrival chain is over, and the last of them has been readable for a second
+(section 8). Travel does not start it: it waits for the new room's arrival.
 A view that times the card to its own beat may still take it over from `play_fx` of an event
 in the same list (set `game.tide_card_t = 99.0`, release it later, as R01's withdrawal does);
 `game.tide_card_busy()` is true while a card waits or shows.
@@ -184,7 +185,9 @@ A page that outgrows the smallest layout (17 px, two columns) turns into numbere
 ### Hint ladder
 
 `objective()` returns the current objective id. `HINTS[objective]` holds three levels: a location
-nudge, the relationship to consider, the explicit solution. The core advances the ladder per
+nudge, the relationship to consider, the explicit solution (or four: `hint_tiers()` returns 4
+for a ladder of four lines). Before the last tier the core asks first ("Do you want me to just
+say it? Hint again."); only the next Hint gives it. The core advances the ladder per
 room+objective and restarts it when the objective changes. Override `hint_line(level)` /
 `hint_frozen()` for scripted moments (R02's threshold).
 
@@ -200,7 +203,7 @@ been in first says where: "The <title> is through the <neighbour>." when a room 
 there is one she has visited, else `WAY_IN_HINT` (or "The way into the <title> is open now.").
 Toward a room she has been in there is no where-step (the Now: line names it already), and
 your own "Something in the ... has changed." tiers are dropped. Then it climbs that room's own
-ladder; no line is said twice, and the ladder's level is clamped to 0..3 and survives saves. So: return `""` (or an idle id) when your room is done for
+ladder; no line is said twice, and the ladder's level is clamped to 0..4 and survives saves. So: return `""` (or an idle id) when your room is done for
 the tide, and use the `away`/`done`/`wait` prefixes for idle objectives.
 
 ### Debug
@@ -250,11 +253,12 @@ should only skip your arrival hold goes in `consume_click(p)`: the core calls it
 click it did not take itself (after the HUD, Back and the exits), before `action_at`; return
 `true` to use the click up.
 
-**Clicks are never eaten.** Exits, Back, the inventory, every control of an open close-up, and
-the notebook's tabs, plan rows and page turners always act: during a story chain the chain
-advances and the click acts, in the same press (what the action says waits after the chain).
-Only a click on empty space or the subtitle bar, or on a room hotspot outside a close-up, is
-spent advancing a chain. An exit or
+**Clicks are never eaten.** Back, the inventory, every control of an open close-up, and the
+notebook's tabs and page turners always act: during a story chain the chain advances and the
+click acts, in the same press (what the action says waits after the chain). Exits, plan rows
+and room hotspots during a chain follow the rules in section 8 (the reveal is read where it
+was said; a hotspot acts in the press, or when the chain ends). Only a click on empty space or
+the subtitle bar is spent advancing a chain and nothing else. An exit or
 plan click within 0.4 s of arriving is ignored (a double click moves one room). In a view where
 `hud_hidden()` is true, N, H and the HUD buttons do nothing.
 
@@ -280,7 +284,9 @@ One-shots come from sim `sfx` events; list levels in `SFX_DB`, the sudden ones i
 ("Soften sudden sounds" cuts them by 12 dB, or `SFX_SOFT_CUT[id]`). Ambient loops: a
 `LoopMixer` child (`game/core/mixer.gd`), `add_loop(id, game.load_audio(id))`, and `tick(targets,
 rates, dt)` each frame with targets computed from state. Respect `motion` (Motion & flicker) and
-`soft_audio`; every flicker and animation needs a still alternative.
+`soft_audio`; every flicker and animation needs a still alternative. Every `LoopMixer` under your
+view is a "bed" for `hold_breath` (section 8): the core sets its `duck` gain; never write
+`duck` yourself.
 
 ## 4. Tests (`tests/rooms/<rid>_test.gd`)
 
@@ -403,3 +409,58 @@ in §4 is declared by the room the card says it is found in.
    `t1x_turned` and `closure_report_filed` already follow R02's state.
 5. View B (entry wall: `outer_door`, `service_door`, `board`, `barometer`, `receipt`), P20, the
    six look-away changes re-timed to bands 2-7, and the photograph swap at band 1 (`rooms.md` R02).
+
+### Core hooks for the room teams (fix p1)
+
+These are the core's rules a room builds on. Each is covered by `tests/core_test.gd`.
+
+**Timed fx.** An fx event may carry `"delay"` (seconds after the click, like a `say` or `sfx`).
+For `hold_breath`, and for every id your view lists in `const TIMED_FX := ["id", ...]` (or
+`["*"]` for all), the core holds it (`game.pending_fx`) and calls your `play_fx(id, e)` at that
+moment, plus the chain offset when it arrives behind a playing chain; it moves with its beat
+when the player advances the chain, and is dropped on travel and on a reset. The event your
+view receives then has `"delay": 0.0` (its delay is spent). Any other fx is delivered at once
+with its `delay` intact, as before (R10's view times its own reveal from it).
+
+**`hold_breath`.** `_fx(ev, "hold_breath", {"seconds": 2.0, "delay": 3.4})`, or
+`game.hold_breath(seconds)` from a view: over 0.15 s every bed (each `LoopMixer` under the room
+view, and the last room's mixers still fading out) ducks to silence, or to -18 dB with "Soften
+sudden sounds"; it holds until `seconds` after it began, then the beds come back to their
+current targets over 1.2 s. One-shots scheduled during the hold still play (the knock, the
+throat). Overlapping holds run to the later end. It is presentation only: never saved, and
+cleared by travel, the title and the end card. Time it to the line it belongs to with the same
+delay as that line.
+
+**Hint tiers.** `RoomSim.hint_tiers()` is 3, or 4 when `HINTS[objective()]` lists four lines
+(override it if your `hint_line()` builds a fourth tier). `hint_line(level)` is asked for
+`0..hint_tiers()-1`. The core says `GameSim.HINT_CONFIRM` before the last tier of any ladder
+(your own, or the ladder toward another room) and gives the last tier on the next press; the
+confirmation is skipped when the last tier repeats the one before it. `state.hint.level`
+counts presses along that sequence and is clamped to 0..4 on load.
+
+**Exits during a reveal (`pending_travel`).** An exit tab or plan row clicked while story lines
+of a chain are still queued does not travel at once: the rest of the chain is re-timed to
+play 0.6 s apart (the line on screen first, the beat's timed sounds and fx moved with their
+lines), and she goes 0.6 s after the last of them went up. A second exit click meanwhile goes
+at once and drops what is left (it is not lost: your `_observe` notes were written by the
+commit). On any travel every queued and on-screen line, timed sound and timed fx of the old
+room is cleared, so the new room's arrival line is always the first thing said there. A
+change to the notebook, menu, title or end card drops a deferred exit. Make every line of a
+reveal readable on its own; never put the reward only in a line after a 6 s delay.
+
+**Hotspots during a chain (`pending_action`).** With only the line on screen left, a click on a
+room hotspot finishes that line and acts in the same press. With more of the chain queued,
+the click advances the chain and the hotspot acts when the chain ends (a later hotspot click
+replaces it; a change of view or room drops it). `consume_click(p)` still sees every click
+first (R02's photograph during the drawer chain only advances).
+
+**The tide card.** It never starts over a close-up, while a story line is queued or held,
+while the room's arrival chain is up, or while an exit is deferred; then it waits a further
+second. It shows for 2.2 s at `GameView.TIDE_CARD_RECT` (40, 840, 560, 110), lower left, or
+`TIDE_CARD_UPPER_RECT` (40, 110, 560, 110) when the low one would cover an exit tab or the
+glance. Keep the lower-left third of your room free of anything the player must read in the
+two seconds after a tide changes, or take the card over from `play_fx` (R01).
+
+**The Plan button** sits in its own slot, `GameView.PLAN_BUTTON` (1272, 80, 154, 40), under Hint
+and the menu, in the room view only. Keep room hotspots out of it (`core_test` lists the known
+offenders in `PLAN_OVERLAP_KNOWN`). A Plan press within 0.4 s of a Back is ignored.

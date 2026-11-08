@@ -11,6 +11,8 @@ extends Node
 var players := {}       # loop id -> AudioStreamPlayer
 var mix := {}           # loop id -> current linear volume
 var last_targets := {}  # the targets of the last tick (tests read these)
+## A gain over every loop (linear 0..1): the core's hold_breath ducks it. Presentation only.
+var duck := 1.0
 
 ## Adds a seamless loop. A null stream (file not built yet) is skipped silently.
 func add_loop(id: String, stream: AudioStream, bus := "Master") -> void:
@@ -34,14 +36,19 @@ func tick(targets: Dictionary, rates: Dictionary, dt: float, default_rate := 0.8
 	last_targets = targets
 	for id in players:
 		mix[id] = move_toward(mix[id], targets.get(id, 0.0), dt * rates.get(id, default_rate))
-		players[id].volume_db = linear_to_db(maxf(mix[id], 0.0001))
+	apply_duck()
 
 ## Snaps every loop to its target (on entering a room, a load or a jump).
 func snap(targets: Dictionary) -> void:
 	last_targets = targets
 	for id in players:
 		mix[id] = targets.get(id, 0.0)
-		players[id].volume_db = linear_to_db(maxf(mix[id], 0.0001))
+	apply_duck()
+
+## Sets every voice to its mix times `duck` (after a tick, a snap, or a duck change).
+func apply_duck() -> void:
+	for id in players:
+		players[id].volume_db = linear_to_db(maxf(mix[id] * duck, 0.0001))
 
 ## Moves the mixer under `to` without a cut: the voices carry on from where they were (the
 ## core hands a room's loops over to itself when she leaves, to fade them out).
