@@ -8215,6 +8215,60 @@
       "source_svg": null
     },
     {
+      "id": "bench_liquid",
+      "path": "assets/stages/R07/bench_liquid.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "67aaaf1ba5ee36eaf22d8d83bbe3d9ca45cb748761e2ff02ce321d8389060db3",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "bench_scale_s3",
+      "path": "assets/stages/R07/bench_scale_s3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "2af92d28180e53f066c40391c14c2feae0d3ad053a069ee35c8f54484856c571",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "bench_scale_s4",
+      "path": "assets/stages/R07/bench_scale_s4.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "74ea8d027249f14cfea2dd2502febf625560941c4db826d86e7e823bdb9d4a66",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "bench_scale_s5",
+      "path": "assets/stages/R07/bench_scale_s5.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "3d069bdfa1296f23d853b29fb7696b2a96029d0d1178d13349db9d113f9c5ac2",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "bench_scale_s6",
+      "path": "assets/stages/R07/bench_scale_s6.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "6e5e06861e3746d4b13a5bf01fa50dcf97902485173eabe5641d8d901c3bb019",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "bench_scale_s7",
+      "path": "assets/stages/R07/bench_scale_s7.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "35f79144bbcff82f0ff28505eae1829333582f753a80d67f37319a1f07b5fdcf",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "datum_water_r3",
       "path": "assets/stages/R07/datum_water_r3.png",
       "width": 1448,
@@ -8233,6 +8287,51 @@
       "source_svg": null
     },
     {
+      "id": "keep_bench",
+      "path": "assets/stages/R07/keep_bench.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "e0d35206fc4acdcfdc0b10d18b5c06be3c0c940687dbd184987ea95d49553192",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "keep_c_balance",
+      "path": "assets/stages/R07/keep_c_balance.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "d69ae5ec79ba3dc54037e34051727be9fee7751a6022dd3dbb7f4399a734b3d0",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "keep_c_frame",
+      "path": "assets/stages/R07/keep_c_frame.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "83136d831de8926c8bd386bfb416173f04cfd328653e4c8bc583ec5e0f001517",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "keep_c_tilt_rack",
+      "path": "assets/stages/R07/keep_c_tilt_rack.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "2dbfc69857a5a3a6fa098c156cc334d545373f0654f46b3a4c02e1f0687c8744",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r07_submerged_b2",
+      "path": "assets/stages/R07/r07_submerged_b2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "f52688a4743fb0998887b627db64082256d90af295c3f9c3385de4734a76eb01",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "r07_submerged_b3",
       "path": "assets/stages/R07/r07_submerged_b3.png",
       "width": 1448,
@@ -8247,6 +8346,42 @@
       "width": 1448,
       "height": 1086,
       "sha256": "3bfbb168bdb818b9de981dff9f3f1ed645189c8da42be231f9d157869578ab9b",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "sub_bench",
+      "path": "assets/stages/R07/sub_bench.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "8516b630baefb35c25438078d3e042ae75b11be86c660cef3e0097d689559a5d",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "sub_c_balance",
+      "path": "assets/stages/R07/sub_c_balance.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "263f8e347529e44ae77e18e8434319e2ab3e88fee13455038dc9330e0e9702c0",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "sub_c_frame",
+      "path": "assets/stages/R07/sub_c_frame.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "6dfd351870b4a365dfd01393157be87077f4cdc6cec6289780161cb130dfbc0a",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "sub_c_tilt_rack",
+      "path": "assets/stages/R07/sub_c_tilt_rack.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "71b05dedbbb1e17f1c2bd117ac4740b0fed5232d48d6f7d7ea5cf948b5c8b714",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
