@@ -621,23 +621,29 @@ func _r10_base(want: String) -> void:
 		_qd("to_catalogue" if want == "catalogue" else "to_shelves")
 	check(vault.local_view == want, "R10: at the %s" % want)
 
-## R11 P24: down to the lower door; her frame, strip and amended card in BODY, PLACE, NAME,
-## the witness bridge in WITNESS, OPEN ACCESS. Everything comes back; the chamber opens.
+## R11 P24: down to the lower door, where her trace and bearing come pre-seated in BODY and
+## PLACE; the COPY port's original card in NAME is refused (near miss); the amended card in
+## NAME, the witness bridge in WITNESS, OPEN ACCESS. Everything comes back; the chamber opens.
 func play_p24() -> void:
 	if stair.landing != 2:
 		_qd("descend")
 	check(stair.landing == 2, "P24: on the lower landing")
 	_qd("lower_door")
-	var mounts := {"nora_frame": "frame_body", "nora_spatial_strip": "frame_place",
-		"amended_nora_card": "frame_name", "witness_bridge": "socket_witness"}
-	for it in mounts:
-		_qd("item:" + it)
-		_qd(mounts[it])
-	check(stair.state.frames == {"BODY": "nora_frame", "PLACE": "nora_spatial_strip", "NAME": "amended_nora_card"}
-		and stair.state.witness == "witness_bridge" and stair.state.copy == "", "P24: three records and the witness")
+	check(stair.state.frames == {"BODY": "nora_frame", "PLACE": "nora_spatial_strip", "NAME": ""}
+		and not g.has_item("nora_frame") and not g.has_item("nora_spatial_strip"),
+		"P24: her trace and her bearing already seated")
+	check(g.has_item("nora_register_card") and g.has_item("amended_nora_card"), "P24: both NAME cards in hand")
+	# A near miss first: the card the COPY port pushed out closes her record.
+	for a in ["item:nora_register_card", "frame_name", "item:witness_bridge", "socket_witness", "lever_access"]:
+		_qd(a)
+	check(not g.flag("P24") and stair.name_shut(), "P24: the original card refused, the shutter down")
+	for a in ["item:amended_nora_card", "frame_name"]:
+		_qd(a)
+	check(stair.state.frames.NAME == "amended_nora_card" and stair.state.witness == "witness_bridge"
+		and stair.state.copy == "" and g.has_item("nora_register_card"), "P24: the amended card and the witness")
 	var ev := _qd("lever_access")
 	check(g.flag("P24") and has_ev(ev, "fx", "tide"), "P24: OPEN ACCESS; the Tide IX card")
-	for it in mounts:
+	for it in ["nora_frame", "nora_spatial_strip", "amended_nora_card", "nora_register_card", "witness_bridge"]:
 		check(g.has_item(it), "P24: %s back in hand" % it)
 	check(g.exit_open("R11", "R12") and stair.local_view == "room", "P24: the chamber door stands open")
 

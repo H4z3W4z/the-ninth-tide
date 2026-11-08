@@ -31,6 +31,11 @@ const FRAME_T := {"BODY": "frame_body", "PLACE": "frame_place", "NAME": "frame_n
 ## Plates naming a landing the chart room plan doesn't mark: '[ 2' (no closing plate) and landing 3.
 const FALSE_SET := ["o2", "o3", "c3"]
 const DOOR_ITEMS := ["nora_frame", "nora_spatial_strip", "amended_nora_card", "witness_bridge", "nora_register_card"]
+## What she can still move at the live door: BODY and PLACE come pre-seated.
+const LOOSE := ["amended_nora_card", "witness_bridge", "nora_register_card"]
+const SEATED_FRAMES := {"BODY": "nora_frame", "PLACE": "nora_spatial_strip", "NAME": ""}
+const REF_SEATED := "Her trace and her bearing are already in the frames. The folders sent them down."
+const REF_P24_EVIDENCE := "Two NAME cards: the one the COPY port pushed out, and the one I amended in the bunk room."
 
 func run_tests() -> void:
 	skeleton_checks(ROOM, EXPECT_REQUIRES, OPEN_TIDE)
@@ -275,8 +280,8 @@ func test_constants() -> void:
 		check(R11Sim.HINTS.has(k) and R11Sim.HINTS[k].size() == 4, "objective %s has a four-step ladder" % k)
 	check(R11Sim.HINTS.p12[0] == "The gate on the dry stair needs pressure and a landing.", "P12 card hint 1")
 	check(R11Sim.HINTS.p12[3] == "Pressure 2. Bracket-1 plate in UPPER, its closing bracket in LOWER. Pull OPEN.", "P12 card hint 3, as the fourth tier")
-	check(R11Sim.HINTS.p24[2] == "One of her NAME cards is finished. One isn't.", "P24 evidence tier")
-	check(R11Sim.HINTS.p24[3] == "Frame to BODY, strip to PLACE, amended card to NAME, bridge to WITNESS, COPY empty, OPEN ACCESS.", "P24 card hint 3, as the fourth tier")
+	check(R11Sim.HINTS.p24[2] == REF_P24_EVIDENCE, "P24 evidence tier: the two NAME cards")
+	check(R11Sim.HINTS.p24[3] == "Amended card to NAME, bridge to WITNESS, COPY empty, OPEN ACCESS.", "P24 card hint 3, as the fourth tier")
 	var fresh := r.initial_state()
 	check(fresh.pressure == 0 and fresh.slots == ["", ""] and fresh.witness == "" and fresh.copy == "", "initial state")
 
@@ -717,64 +722,57 @@ func test_p24_mappings() -> void:
 	var g := door_game()
 	var r := r11(g)
 	check(r.door_live() and r.objective() == "p24", "the door is live")
+	check(r.state.frames == SEATED_FRAMES, "BODY and PLACE pre-seated (%s)" % [r.state.frames])
+	check(not g.has_item("nora_frame") and not g.has_item("nora_spatial_strip"), "taken from her hand")
+	check(r.seated("BODY") and r.seated("PLACE") and not r.seated("NAME"), "seated()")
+	# Every NAME choice x every place for the bridge: only the amended card with the bridge in
+	# WITNESS opens; the original card and anything in COPY keep their own refusals.
 	var tried := 0
-	for a in [""] + NORA:
-		for b in [""] + NORA:
-			for c in [""] + NORA:
-				var pick := [a, b, c]
-				var used := []
-				var ok := true
-				for x in pick:
-					if x != "":
-						ok = ok and not x in used
-						used.append(x)
-				if not ok or pick == NORA:
-					continue
-				clear_door(g)
-				for i in 3:
-					if pick[i] != "":
-						var ev := use(g, pick[i], FRAME_T[R11Sim.FRAMES[i]])
-						check(says(ev) == "In the %s frame." % R11Sim.FRAMES[i], "mount %s" % pick[i])
+	for name in ["", "amended_nora_card", "nora_register_card"]:
+		for bridge in ["", "witness", "copy"]:
+			if name == "amended_nora_card" and bridge == "witness":
+				continue
+			clear_door(g)
+			check(r.state.frames == SEATED_FRAMES, "clearing leaves the seated frames")
+			if name != "":
+				check(says(use(g, name, "frame_name")) == "In the NAME frame.", "mount %s" % name)
+			if bridge == "witness":
 				use(g, "witness_bridge", "socket_witness")
-				var ev2 := g.dispatch("lever_access")
-				tried += 1
-				var empty := []
-				for i in 3:
-					if pick[i] == "":
-						empty.append(R11Sim.FRAMES[i])
-				var want := ""
-				if not empty.is_empty():
-					want = "RECORD INCOMPLETE: " + ", ".join(empty)
-				else:
-					for i in 3:
-						var fr: String = R11Sim.FRAMES[i]
-						if NORA_CAT[pick[i]] != fr:
-							want = "%s FRAME: NOT A %s RECORD" % [fr, fr]
-							break
-				check(r.door_note == want, "%s: %s (got %s)" % [pick, want, r.door_note])
-				check(not g.flag("P24") and has_ev(ev2, "sfx", "r11_access_lever"), "%s: no P24" % [pick])
-				check(inv_consistent(g, NORA + ["witness_bridge"]), "%s: inventory consistent" % [pick])
-				for i in 3:
-					var fr2: String = R11Sim.FRAMES[i]
-					var res := "EMPTY" if pick[i] == "" else ("ACCEPTED" if NORA_CAT[pick[i]] == fr2 else "NOT A %s RECORD" % fr2)
-					check(r.frame_results[fr2] == res, "%s: %s result %s" % [pick, fr2, res])
-	check(tried == 33, "every other mapping tried (%d)" % tried)
+			elif bridge == "copy":
+				use(g, "witness_bridge", "port_copy")
+			var ev := g.dispatch("lever_access")
+			tried += 1
+			var want := ""
+			if bridge == "copy":
+				want = "WOULD FINALIZE SUBJECT"
+			elif name == "nora_register_card":
+				want = "RECORD CLOSED. ACCESS REFUSED."
+			elif name == "":
+				want = "RECORD INCOMPLETE: NAME"
+			else:
+				want = "NO WITNESS. RECORD WILL CLOSE."
+			check(r.door_note == want, "%s/%s: %s (got %s)" % [name, bridge, want, r.door_note])
+			check(not g.flag("P24") and has_ev(ev, "sfx", "r11_access_lever"), "%s/%s: no P24" % [name, bridge])
+			check(inv_consistent(g, DOOR_ITEMS), "%s/%s: inventory consistent" % [name, bridge])
+			check(r.frame_results.BODY == "ACCEPTED" and r.frame_results.PLACE == "ACCEPTED", "%s/%s: the seated frames accepted" % [name, bridge])
+			var res := "EMPTY" if name == "" else ("RECORD CLOSED" if name == "nora_register_card" else "ACCEPTED")
+			check(r.frame_results.NAME == res, "%s/%s: NAME result %s" % [name, bridge, res])
+	check(tried == 8, "every other arrangement tried (%d)" % tried)
 	clear_door(g)
-	for i in 3:
-		use(g, NORA[i], FRAME_T[R11Sim.FRAMES[i]])
+	use(g, "amended_nora_card", "frame_name")
 	use(g, "witness_bridge", "socket_witness")
 	g.dispatch("lever_access")
-	check(g.flag("P24"), "the right mapping, the bridge and COPY bare: P24")
+	check(g.flag("P24"), "the amended card, the bridge in WITNESS and COPY bare: P24")
 
+## The amended card in NAME and the bridge in WITNESS, but for `except`.
 func set_correct(g: GameSim, except := "") -> void:
-	for i in 3:
-		if NORA[i] != except:
-			use(g, NORA[i], FRAME_T[R11Sim.FRAMES[i]])
+	if except != "amended_nora_card":
+		use(g, "amended_nora_card", "frame_name")
 	if except != "witness_bridge":
 		use(g, "witness_bridge", "socket_witness")
 
 func test_p24_copy_blocks() -> void:
-	for it in DOOR_ITEMS:
+	for it in LOOSE:
 		var g := door_game()
 		g.give("nora_register_card")
 		var r := r11(g)
@@ -801,8 +799,6 @@ func test_p24_complete_card() -> void:
 	var g := door_game()
 	var r := r11(g)
 	check(g.has_item("nora_register_card") and g.has_item("amended_nora_card"), "both of her NAME cards in hand")
-	use(g, "nora_frame", "frame_body")
-	use(g, "nora_spatial_strip", "frame_place")
 	var ev := use(g, "nora_register_card", "frame_name")
 	check(says(ev) == "In the NAME frame." and r.frame_item("NAME") == "nora_register_card", "the door takes the original card")
 	use(g, "witness_bridge", "socket_witness")
@@ -842,8 +838,6 @@ func test_p24_complete_card() -> void:
 	check(not r.name_shut(), "no shutter on the open door")
 	# The shutter is presentation of a refusal: it is never saved.
 	var h := door_game()
-	use(h, "nora_frame", "frame_body")
-	use(h, "nora_spatial_strip", "frame_place")
 	use(h, "nora_register_card", "frame_name")
 	use(h, "witness_bridge", "socket_witness")
 	h.dispatch("lever_access")
@@ -866,6 +860,11 @@ func test_p24_original_card() -> void:
 	check(g.has_item("nora_register_card") and g.has_item("amended_nora_card"), "the COPY port gives the original card")
 	check(R11Sim.COPY_OUT_LINES[0] in says(ev) and has_ev(ev, "sfx", "r11_copy_out") and r.has_seen("copy_card"),
 		"said, heard and noted (%s)" % says(ev))
+	var seat := say_ev(ev, REF_SEATED)
+	var out := say_ev(ev, R11Sim.COPY_OUT_LINES[0])
+	check(not seat.is_empty() and float(out.get("delay", 0)) > float(seat.get("delay", 0)), "her trace and bearing first, then the COPY port")
+	check(r.state.frames == SEATED_FRAMES and not g.has_item("nora_frame") and not g.has_item("nora_spatial_strip"),
+		"the trace and the bearing seated from her hand")
 	check(r.state.original_kept, "kept")
 	g.dispatch("back")
 	ev = g.dispatch("lower_door")
@@ -888,9 +887,7 @@ func test_p24_original_card() -> void:
 	check(not R11Sim.COPY_OUT_LINES[0] in says(ev) and r11(k).state.original_kept, "held already: nothing comes out")
 	check(k.state.inventory.count("nora_register_card") == 1, "one original card")
 	# Through to the end: after P24 she keeps both.
-	for it in ["nora_frame", "nora_spatial_strip", "amended_nora_card"]:
-		use(g, it, FRAME_T[NORA_CAT[it]])
-	use(g, "witness_bridge", "socket_witness")
+	set_correct(g)
 	g.dispatch("lever_access")
 	check(g.flag("P24") and g.has_item("nora_register_card") and g.has_item("amended_nora_card"), "after P24: both cards")
 	check(same_save(roundtrip(g), g), "after P24: round-trips byte-identical")
@@ -903,16 +900,16 @@ func test_door_plate() -> void:
 	for w in ["person present", "acknowledgement", "admitted", "agree"]:
 		check(not w in line, "no rule text: %s" % w)
 
-## Four tiers on the Hint, the evidence tier third, and the solution still reached with a core
-## that clamps its ladder at three.
+## Four tiers on the Hint, the evidence tier third, the solution fourth: hint_line(level) says
+## exactly that level's tier, whatever the core has saved.
 func test_hint_tiers() -> void:
 	var g := door_game()
 	var r := r11(g)
 	check(r.objective() == "p24", "at the live door")
 	var got := []
-	for i in 4:
+	for i in 5:
 		got.append(says(g.dispatch("hint")))
-	check(got == R11Sim.HINTS.p24, "four asks: the four tiers in order (%s)" % [got])
+	check(got == GameSim.with_confirmation(R11Sim.HINTS.p24), "five asks: the four tiers in order, the confirmation before the last (%s)" % [got])
 	check(says(g.dispatch("hint")) == R11Sim.HINTS.p24[3], "a fifth ask repeats the solution")
 	for o in ["explore", "wait_power", "p12", "wait_door", "p24"]:
 		var ladder: Array = R11Sim.HINTS[o]
@@ -921,14 +918,18 @@ func test_hint_tiers() -> void:
 			for j in 4:
 				if i < j:
 					check(GameSim._hint_key(ladder[i]) != GameSim._hint_key(ladder[j]), "%s: tiers %d and %d differ" % [o, i, j])
-	check(r.hint_line(2) == "One of her NAME cards is finished. One isn't." or r.hint_line(3) == R11Sim.HINTS.p24[3], "hint_line by level")
+	for i in 4:
+		check(r.hint_line(i) == R11Sim.HINTS.p24[i], "hint_line(%d) is tier %d, the saved level notwithstanding" % [i, i])
+		check(r._hint_tier(i) == i, "_hint_tier(%d) passes the level through" % i)
+	check(g.state.hint.level == GameSim.HINT_LEVEL_MAX, "the core's saved level is at the top")
+	check(r.hint_line(0) == R11Sim.HINTS.p24[0] and r.hint_line(2) == REF_P24_EVIDENCE, "a saved level never lifts a lower tier")
 	var p := gate_game()
 	grant(p, "R08", "P11")
 	grant(p, "R07", "P10")
 	var pl := []
-	for i in 4:
+	for i in 5:
 		pl.append(says(p.dispatch("hint")))
-	check(pl == R11Sim.HINTS.p12, "P12: four tiers in order (%s)" % [pl])
+	check(pl == GameSim.with_confirmation(R11Sim.HINTS.p12), "P12: four tiers in order (%s)" % [pl])
 
 func test_p24_wrong_items() -> void:
 	var g := door_game()
@@ -937,44 +938,76 @@ func test_p24_wrong_items() -> void:
 	for target in ["frame_body", "frame_place", "frame_name", "socket_witness", "port_copy"]:
 		var ev := use(g, "pencil", target)
 		check(says(ev) == "Not a record of her." and g.has_item("pencil"), "pencil on %s refused, kept" % target)
-	check(mounted(r).is_empty(), "nothing mounted by a wrong item")
-	var ev2 := use(g, "witness_bridge", "frame_body")
+	check(mounted(r) == ["nora_frame", "nora_spatial_strip"], "nothing mounted by a wrong item")
+	var ev2 := use(g, "witness_bridge", "frame_name")
 	check(says(ev2) == "It's a plug, not a record." and g.has_item("witness_bridge"), "the bridge isn't a record")
-	ev2 = use(g, "nora_frame", "socket_witness")
-	check(says(ev2) == "The socket takes a plug, not a record." and g.has_item("nora_frame"), "a record isn't a plug")
+	ev2 = use(g, "amended_nora_card", "socket_witness")
+	check(says(ev2) == "The socket takes a plug, not a record." and g.has_item("amended_nora_card"), "a record isn't a plug")
+	for f in ["BODY", "PLACE"]:
+		ev2 = use(g, "amended_nora_card", FRAME_T[f])
+		check(says(ev2) == R11Sim.SEATED_FULL[f] and g.has_item("amended_nora_card") and r.state.frames == SEATED_FRAMES,
+			"%s is already full: the card stays in hand" % f)
+		ev2 = g.dispatch(FRAME_T[f])
+		check(says(ev2) == R11Sim.SEATED_STAY[f] and r.state.frames == SEATED_FRAMES, "%s's record stays seated" % f)
 	ev2 = use(g, "inspection_lens", "port_copy")
 	check(says(ev2) == "Through the lens the COPY port's shutter is worn bright at the edges.", "lens on the door")
-	check(says(g.dispatch("frame_body")) == "An empty frame, labelled BODY. Glass front, spring clips.", "empty frame")
+	check(says(g.dispatch("frame_name")) == "An empty frame, labelled NAME. Glass front, spring clips.", "empty frame")
 	check(says(g.dispatch("socket_witness")) == "A socket under a hollow circle: WITNESS. It takes a plug.", "empty socket")
 	check(says(g.dispatch("port_copy")) == "COPY. AUTOMATIC. Its shutter is sprung open.", "empty port")
 	check(says(g.dispatch("preview")) == "Blank.", "blank preview")
 	check(says(g.dispatch("door_plate")).begins_with("INDEX ACCESS."), "door plate")
-
 func test_p24_inventory() -> void:
 	var g := door_game()
 	var r := r11(g)
-	var items := NORA + ["witness_bridge"]
-	use(g, "amended_nora_card", "frame_body")
-	check(r.state.frames.BODY == "amended_nora_card" and not g.has_item("amended_nora_card"), "any record mounts in any frame")
+	var items := DOOR_ITEMS
+	check(inv_consistent(g, items), "seated: consistent")
+	use(g, "nora_register_card", "frame_name")
+	check(r.state.frames.NAME == "nora_register_card" and not g.has_item("nora_register_card"), "a NAME card mounts")
 	check(inv_consistent(g, items), "mount: consistent")
-	var ev := use(g, "nora_frame", "frame_body")
-	check(r.state.frames.BODY == "nora_frame" and g.has_item("amended_nora_card") and has_ev(ev, "sfx", "r11_frame_mount"), "a swap gives the old record back")
+	var ev := use(g, "amended_nora_card", "frame_name")
+	check(r.state.frames.NAME == "amended_nora_card" and g.has_item("nora_register_card") and has_ev(ev, "sfx", "r11_frame_mount"), "a swap gives the old card back")
 	check(inv_consistent(g, items), "swap: consistent")
 	use(g, "witness_bridge", "port_copy")
-	use(g, "nora_spatial_strip", "port_copy")
-	check(r.state.copy == "nora_spatial_strip" and g.has_item("witness_bridge"), "COPY swaps too")
+	use(g, "nora_register_card", "port_copy")
+	check(r.state.copy == "nora_register_card" and g.has_item("witness_bridge"), "COPY swaps too")
 	check(inv_consistent(g, items), "copy swap: consistent")
 	use(g, "witness_bridge", "socket_witness")
 	ev = g.dispatch("socket_witness")
 	check(says(ev) == "Out." and g.has_item("witness_bridge") and r.state.witness == "" and has_ev(ev, "sfx", "r11_frame_unmount"), "unmount the bridge")
-	g.dispatch("frame_body")
+	g.dispatch("frame_name")
 	g.dispatch("port_copy")
-	check(mounted(r).is_empty() and inv_consistent(g, items), "everything back in hand")
-	use(g, "nora_frame", "frame_body")
+	check(mounted(r) == ["nora_frame", "nora_spatial_strip"] and inv_consistent(g, items), "everything loose back in hand")
+	use(g, "amended_nora_card", "frame_name")
 	g.dispatch("back")
-	check(r.local_view == "room" and r.state.frames.BODY == "nora_frame", "mounts stay on the door after Back")
+	check(r.local_view == "room" and r.state.frames.NAME == "amended_nora_card" and r.seated("BODY"), "mounts stay on the door after Back")
 	check(inv_consistent(roundtrip(g), items), "consistent across a load")
-
+	# She reaches the live door without the trace or the bearing in hand: drawn seated anyway.
+	var h := game_at(8, ROOM)
+	grant(h, "R06", "P22")
+	grant(h, "R10", "P23")
+	for it in ["nora_frame", "nora_spatial_strip"]:
+		if h.has_item(it):
+			h.take(it)
+	h.give("witness_bridge")
+	h.dispatch("descend")
+	ev = h.dispatch("lower_door")
+	check(r11(h).state.frames == SEATED_FRAMES and says(ev).begins_with(REF_SEATED), "not held: simply seated (%s)" % says(ev))
+	ev = h.dispatch("back")
+	ev = h.dispatch("lower_door")
+	check(not REF_SEATED in says(ev), "said once, when they settle")
+	# An older save with something else in BODY: the seat hands it back.
+	var k := door_game()
+	var rk := r11(k)
+	var raw: Dictionary = JSON.parse_string(JSON.stringify(k.to_dict()))
+	raw.rooms.R11.frames = {"BODY": "amended_nora_card", "PLACE": "", "NAME": ""}
+	raw.inventory.erase("amended_nora_card")
+	var t := GameSim.new()
+	check(t.from_dict(raw), "the older save loads")
+	t.dispatch("descend")
+	t.dispatch("lower_door")
+	check(r11(t).state.frames == SEATED_FRAMES and t.has_item("amended_nora_card") and inv_consistent(t, DOOR_ITEMS),
+		"the stray card back in hand, the records seated")
+	check(rk.state.frames == SEATED_FRAMES, "the source game untouched")
 func test_p24_success() -> void:
 	var g := door_game()
 	var r := r11(g)
@@ -996,6 +1029,7 @@ func test_p24_success() -> void:
 	check(l.get("story", false) and is_equal_approx(float(l.get("delay", 0)), 10.0), "finger marks at 10.0")
 	check(says(g.dispatch("lower_door")).begins_with("Open. The finger marks"), "the open door")
 	check(says(use(g, "nora_frame", "lower_door")) == "It's open.", "items on the open door")
+	check(r.state.frames == {"BODY": "", "PLACE": "", "NAME": ""}, "the seated records came out with the rest")
 	check(r.objective() == "done", "done")
 	ev = g.dispatch("lever_access")
 	check(not has_ev(ev, "fx", "tide"), "no second commit")
@@ -1020,16 +1054,14 @@ func test_p24_bridge_forced() -> void:
 
 func test_p24_save_load() -> void:
 	var g := door_game()
-	use(g, "nora_frame", "frame_body")
-	use(g, "amended_nora_card", "frame_place")
-	use(g, "witness_bridge", "socket_witness")
-	use(g, "nora_spatial_strip", "port_copy")
+	use(g, "amended_nora_card", "frame_name")
+	use(g, "witness_bridge", "port_copy")
 	var t := roundtrip(g)
 	check(same_save(t, g), "a save with records mounted round-trips byte-identical")
-	check(r11(t).state.frames == r11(g).state.frames and r11(t).state.copy == "nora_spatial_strip", "mounts survive")
+	check(r11(t).state.frames == r11(g).state.frames and r11(t).state.copy == "witness_bridge", "mounts survive")
+	check(r11(t).seated("BODY") and r11(t).seated("PLACE"), "the seated records survive")
 	check(same_save(roundtrip(t), t), "and again")
-	check(inv_consistent(t, NORA + ["witness_bridge"]), "loaded inventory consistent")
-
+	check(inv_consistent(t, DOOR_ITEMS), "loaded inventory consistent")
 func test_p24_reachability() -> void:
 	var g := door_game()
 	set_correct(g)
@@ -1122,7 +1154,9 @@ func test_room_lines() -> void:
 	grant(f, "R06", "P22")
 	f.set_flag("P23")
 	f.dispatch("back")
-	check(says(f.dispatch("lower_door")).begins_with("Her three records. The bridge. And the port I leave alone."), "the live door")
+	check(says(f.dispatch("lower_door")).begins_with(REF_SEATED), "the live door: her trace and bearing already seated")
+	f.dispatch("back")
+	check(says(f.dispatch("lower_door")).begins_with("Her trace. Her bearing. The NAME frame, the bridge"), "the live door again")
 	check(r11(f).bell_dir() == "below" and r11(f).shoes_state() == "facing", "band 6 helpers")
 	var top := game_at(9, ROOM)
 	check(r11(top).tide_lines() == 5 and r11(top).door_open(), "band 7 helpers")
@@ -1402,12 +1436,14 @@ func test_view_p24_clicks() -> void:
 	var r := scene.room_sim() as R11Sim
 	click_on(scene, "lower_door")
 	check(r.local_view == "c_chamber_door", "the lower door opens its close-up")
-	# A frame unmounted and mounted again, by clicks.
+	# BODY stays seated; the NAME card out and in again, by clicks.
 	click_on(scene, "frame_body")
-	check(r.frame_item("BODY") == "" and scene.sim.has_item("nora_frame"), "the frame comes out")
-	scene.dispatch("item:nora_frame")
-	click_on(scene, "frame_body")
-	check(r.frame_item("BODY") == "nora_frame", "and goes back into BODY")
+	check(r.frame_item("BODY") == "nora_frame" and not scene.sim.has_item("nora_frame"), "the seated trace stays")
+	click_on(scene, "frame_name")
+	check(r.frame_item("NAME") == "" and scene.sim.has_item("amended_nora_card"), "the NAME card comes out")
+	scene.dispatch("item:amended_nora_card")
+	click_on(scene, "frame_name")
+	check(r.frame_item("NAME") == "amended_nora_card", "and goes back into NAME")
 	click_on(scene, "lever_access")
 	check(scene.sim.flag("P24"), "P24 by clicks on c_chamber_door")
 	check(v.cut == "door" and v.finger_k == 0.0, "the door cut plays; the finger marks wait for the glance")
@@ -1561,35 +1597,29 @@ func test_p12_flags_blank() -> void:
 func test_p24_preview_live() -> void:
 	var g := door_game()
 	var r := r11(g)
-	use(g, "nora_frame", "frame_body")
-	use(g, "nora_spatial_strip", "frame_place")
 	use(g, "witness_bridge", "socket_witness")
 	g.dispatch("lever_access")
 	check(r.door_preview() == "RECORD INCOMPLETE: NAME" and r.frame_results.NAME == "EMPTY", "NAME empty: incomplete")
-	g.dispatch("frame_body")
-	check(r.door_preview() == "RECORD INCOMPLETE: BODY, NAME", "unmounting reprints it (%s)" % r.door_preview())
-	use(g, "nora_frame", "frame_name")
-	check(r.door_preview() == "RECORD INCOMPLETE: BODY", "NAME filled: reprinted (%s)" % r.door_preview())
-	check(not r.door_preview().contains("NAME"), "never INCOMPLETE: NAME with NAME filled")
-	check(r.frame_results.NAME == "NOT A NAME RECORD" and r.frame_results.BODY == "EMPTY", "the frame tags follow")
-	check(says(g.dispatch("preview")) == "RECORD INCOMPLETE: BODY", "PREVIEW reads the live strip")
+	use(g, "nora_register_card", "frame_name")
+	check(r.door_preview() == "RECORD CLOSED. ACCESS REFUSED.", "the original in NAME: reprinted (%s)" % r.door_preview())
+	check(r.frame_results.NAME == "RECORD CLOSED" and r.frame_results.BODY == "ACCEPTED", "the frame tags follow")
+	check(says(g.dispatch("preview")) == "RECORD CLOSED. ACCESS REFUSED.", "PREVIEW reads the live strip")
 	g.dispatch("frame_name")
-	use(g, "nora_frame", "frame_body")
 	check(r.door_preview() == "RECORD INCOMPLETE: NAME", "back to NAME empty (%s)" % r.door_preview())
 	use(g, "amended_nora_card", "frame_name")
 	check(r.door_preview() == "" and says(g.dispatch("preview")) == "Blank.", "a record that would open: the strip goes blank")
-	g.dispatch("frame_name")
-	use(g, "amended_nora_card", "port_copy")
-	check(r.door_preview() == "WOULD FINALIZE SUBJECT", "COPY loaded: reprinted (%s)" % r.door_preview())
+	g.dispatch("socket_witness")
+	check(r.door_preview() == "NO WITNESS. RECORD WILL CLOSE.", "the bridge out: reprinted (%s)" % r.door_preview())
+	use(g, "witness_bridge", "port_copy")
+	check(r.door_preview() == "WOULD FINALIZE SUBJECT", "the bridge in COPY: reprinted (%s)" % r.door_preview())
 	g.dispatch("port_copy")
-	use(g, "amended_nora_card", "frame_name")
+	use(g, "witness_bridge", "socket_witness")
 	g.dispatch("lever_access")
 	check(g.flag("P24") and r.door_preview() == "RECORD VALID. RECORD OPEN.", "the lever still opens it")
 	# Before any pull the strip stays blank while mounting.
 	var h := door_game()
-	use(h, "nora_frame", "frame_body")
+	use(h, "amended_nora_card", "frame_name")
 	check(r11(h).door_preview() == "", "unpulled: blank")
-
 ## The gauge faces carry no number and no reference; the plates' new hooks; the bell's ring.
 func test_view_gauge_and_bell() -> void:
 	var scene = await view_scene(5)
@@ -1606,7 +1636,8 @@ func test_view_gauge_and_bell() -> void:
 	for pid in ["o3", "c3"]:
 		check(v.action_at(v.control_rect("plate_" + pid).get_center()) == "plate_" + pid, "plate_%s clickable" % pid)
 	r.local_view = "room"
-	# The bell: one ring per sounding, expanding (Motion on) or still (Motion off), 1.5 s.
+	# The bell: one ring off its first sounding (the reveal), expanding and fading (Motion on) or
+	# still and fading (Motion off), 1.5 s; the loop's later tolls draw none.
 	scene.room_jump(ROOM, 6)
 	await process_frame
 	v = scene.room_view
@@ -1626,22 +1657,25 @@ func test_view_gauge_and_bell() -> void:
 	scene._process(0.5)
 	var s0: Array = v.ring_now()
 	scene._process(0.5)
-	check(not s0.is_empty() and s0 == v.ring_now() and s0[0] == v.RING_STILL_R, "Motion off: one still ring")
+	var s1: Array = v.ring_now()
+	check(not s0.is_empty() and not s1.is_empty() and s0[0] == v.RING_STILL_R and s1[0] == s0[0] and s1[1] < s0[1],
+		"Motion off: one still ring, fading (%s -> %s)" % [s0, s1])
 	scene._process(0.6)
-	check(v.ring_now().is_empty(), "Motion off: held 1.5 s")
-	# The toll in the bell loop rings it too, with Motion on or off. (Headless, the loops'
-	# playback never advances: stop them so the view's own 16 s clock keeps the toll.)
+	check(v.ring_now().is_empty(), "Motion off: gone after 1.5 s")
+	# The toll in the bell loop leaves the bell bare, Motion on or off: no outline lingers round
+	# it. (Headless, the loops' playback never advances: stop them so the view's own 16 s clock
+	# keeps the toll.)
 	for id in ["r11_bell_above", "r11_bell_below"]:
 		if v.mixer.players.has(id):
 			v.mixer.players[id].stop()
-	v.ring_t = -1.0
-	var rang := false
-	for i in 200:
-		scene._process(0.1)
-		if not v.ring_now().is_empty():
-			rang = true
-			break
-	check(rang, "the bell's toll draws a ring (Motion off)")
+	for m in [false, true]:
+		scene.sim.settings.motion = m
+		v.ring_t = -1.0
+		var rang := false
+		for i in 200:
+			scene._process(0.1)
+			rang = rang or not v.ring_now().is_empty()
+		check(not rang, "the loop's tolls draw no ring round the bell (Motion %s)" % m)
 	scene.sim.settings.motion = true
 	scene.tide_jump(9, ROOM)
 	v = scene.room_view
