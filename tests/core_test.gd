@@ -1740,8 +1740,11 @@ func test_reveal_leak() -> void:
 	check(is_equal_approx(scene.lines[0].hold, h2) and is_equal_approx(scene.lines[1].hold, h3), "the last two keep their full read")
 	check(is_equal_approx(scene.pending_sfx[0][1], h1 + h2), "the beat's sound moves with its line (%s)" % [scene.pending_sfx])
 	var went := -1.0
-	for i in 40:
-		scene._process(0.1)
+	# Small steps: each queued line goes up on the first frame after it is due, so a coarse
+	# step adds up to one step of lateness per line (three lines at 0.1 s missed the 0.15 s
+	# window by the phase of the scene clock alone).
+	for i in 400:
+		scene._process(0.01)
 		if scene.sim.state.room == "R01" and went < 0.0:
 			went = scene.time
 	var want := t0 + h1 + h2 + h3

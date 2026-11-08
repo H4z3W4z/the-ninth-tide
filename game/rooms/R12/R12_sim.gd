@@ -357,9 +357,9 @@ const HINTS := {
 	],
 	"finale": [
 		"I've chosen. All that's left is to watch it happen.",
-		"I've chosen. All that's left is to watch it happen.",
-		"I've chosen. All that's left is to watch it happen.",
-		"I've chosen. All that's left is to watch it happen.",
+		"Nothing in the chamber wants my hands any more.",
+		"The choice is made. The station is carrying it out.",
+		"Stand still and watch it finish.",
 	],
 }
 
