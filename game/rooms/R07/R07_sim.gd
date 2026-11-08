@@ -84,8 +84,9 @@ const SAMPLES := ["N", "W", "F"]
 const SPECIMEN := {"W": "27-03", "N": "27-11", "F": "27-19"}
 ## Left to right on the stands and the sample cards: by specimen number.
 const SAMPLE_ORDER := ["W", "N", "F"]
-## Drams across UNATTENDED / ADDRESSED / RELEASED. N answers only to BELL.
-const READINGS := {"N": [0, 3, 0], "W": [0, 0, 0], "F": [2, 2, 2]}
+## Drams across UNATTENDED / ADDRESSED / RELEASED. Only N, addressed to BELL, reads anything:
+## every other sample x name pair is a flat 0 / 0 / 0.
+const READINGS := {"N": [0, 3, 0], "W": [0, 0, 0], "F": [0, 0, 0]}
 const FLAT := [0, 0, 0]
 const NAMES := ["BELL", "DOANE", "HART", "IVES", "LUSK", "PRYCE", "ROOK", "TULL"]
 const REGISTER := {
@@ -99,22 +100,21 @@ const REGISTER := {
 	"TULL": "TULL, A. Laboratory assistant.",
 }
 const NO_EFFECTS := "No surviving personal effects."
+## Every staff card reads the same: the register never links a name to a specimen number.
+## The only link is Nora's kitchen work card (R05), stamped SPECIMEN 27-11.
 const STAMP_ALL := "INDEXED 18.X.27"
-const STAMP_N := "SPECIMEN 27-11"
+## The three samples are identical opaque stoppered tubes: only the number tells them apart.
 const SAMPLE_LINES := {
-	"N": "Specimen 27-11. A stoppered tube. It looks empty.",
-	"W": "Specimen 27-03. Seawater in a vial.",
-	"F": "Specimen 27-19. A chip of the foundation stone.",
+	"N": "Specimen 27-11. A stoppered tube, opaque. Like the other two.",
+	"W": "Specimen 27-03. A stoppered tube, opaque. Like the other two.",
+	"F": "Specimen 27-19. A stoppered tube, opaque. Like the other two.",
 }
-const SAMPLE_CARDS_LINE := "Three sample cards, in drams, by specimen number. 27-03, seawater. 27-11, a stoppered tube, contents not given. 27-19, foundation stone. The readings are left for the balance."
-## What each sample card names as its contents ("" = left blank).
-const CARD_CONTENTS := {"W": "SEAWATER", "N": "", "F": "STONE"}
+const SAMPLE_CARDS_LINE := "Three sample cards, in drams, by specimen number: 27-03, 27-11, 27-19. Three stoppered tubes, all alike, opaque. Nothing says what's in them. The readings are left for the balance."
 const RECORDED_LINE := "Recorded. I'll leave it as it is."
 const BEAM_LOCKED := "BEAM LOCKED."
 const NO_CORRESPONDENCE := "NO CORRESPONDENCE"
-const CONSTANT := "CONSTANT"
 const RECORD_INCOMPLETE := "RECORD INCOMPLETE."
-const ENVIRONMENTAL := "Environmental. It doesn't answer to a name."
+const ADDRESSED_LINE := "Three drams. Unattended, it weighed nothing."
 
 # --- P14: the specimen frame -----------------------------------------------------------------
 const SECTIONS := ["short", "pause", "long"]
@@ -132,6 +132,9 @@ const P14_TAIL := "CATEGORY: BODY. Printed, not written. The frame was waiting t
 
 # --- escalation ------------------------------------------------------------------------------
 ## First-time arrival holds in view A, oldest first. Seeing one retires every older one.
+## Band >= 3: the sea stands flat at the datum line in view A. Said once, on the first arrival
+## (first visit or a later one) at band 3 or above.
+const DATUM_WATER_LINE := "The water's at the datum line. It stays there when I move. It isn't in the room. The room is in it."
 const NOTICES := ["angles", "tank_lag", "vault_ajar", "jars_to_vault", "tank_pane", "jars_face"]
 const BENCH_NOTICES := ["shells_rings"]
 const NOTICE_LINES := {
@@ -170,6 +173,7 @@ const SEVER_LINES := {
 const OBSERVATIONS := {
 	"angles": "Three sealed jars on a canted rack, A, B and C, each half full of seawater. At rest they look alike: the tilt rack is the test.",
 	"datum": "A brass line set into the wall, labelled DATUM. The room is built square to it: tiles, shelves, floor. Beside it a plumb bob labelled GRAVITY hangs eight degrees off the wall. The station was built on the datum, not on level ground.",
+	"datum_water": "From band 3 the water stands at the datum line, flat across the whole room, and stays there when I move. Below it everything is sea-glass and a little off to one side. It isn't in the room. The room is in it.",
 	"tank": "A flotation tank. Its water lies at the plumb bob's slant, eight degrees off the room. Ordinary water: it follows gravity.",
 	"basin_drip": "The basin tap drips. Every drop falls at a slant, along the plumb line, not down the tiles.",
 	"drip_hangs": "The drop at the basin tap doesn't fall. It hangs at the spout.",
@@ -190,8 +194,8 @@ const OBSERVATIONS := {
 	"balance": "A balance: a pan for the sample, an empty control tray lined in felt opposite. Keys: ADDRESS, RELEASE, RECORD. A strip printer with three cells: UNATTENDED, ADDRESSED, RELEASED.",
 	"beam_locked": "The balance beam is pinned. The gauge on its foot reads 0. It runs off the stair circuit.",
 	"control_tray": "An empty control tray lined with green felt. Everything on the balance is weighed against it.",
-	"sample_cards": "Three sample cards, in drams, across UNATTENDED / ADDRESSED / RELEASED, the readings left blank for the balance. Each carries only a specimen number: 27-03 (seawater), 27-11 (a stoppered tube, contents not given), 27-19 (foundation stone).",
-	"register": "Specimen register: eight staff cards, BELL, DOANE, HART, IVES, LUSK, PRYCE, ROOK, TULL. Every one is stamped INDEXED 18.X.27 and reads 'No surviving personal effects.' Only Nora Bell's also carries SPECIMEN 27-11.",
+	"sample_cards": "Three sample cards, in drams, across UNATTENDED / ADDRESSED / RELEASED, the readings left blank for the balance. Each carries only a specimen number: 27-03, 27-11, 27-19. The samples are three identical stoppered tubes, opaque; nothing says what's in them.",
+	"register": "Specimen register: eight staff cards, BELL, DOANE, HART, IVES, LUSK, PRYCE, ROOK, TULL. Every one is stamped INDEXED 18.X.27 and reads 'No surviving personal effects.'",
 	"register_bell": "BELL, N. Cook and caretaker. No surviving personal effects.",
 	"nora_mass_trace": "Specimen 27-11 weighs nothing unattended, three drams when addressed as Nora Bell, nothing when released.",
 	"thumb": "A thumbprint appeared in the empty control tray, pressed into the felt. The nap hadn't risen back yet.",
@@ -217,13 +221,13 @@ const HINTS := {
 	"p10": [
 		"The laboratory's three jars look alike at rest. The tilt rack tests them.",
 		"The card wants the brass: a surface that keeps the datum's level, whatever the jar does. Tip each one.",
-		"The reference card on the rack says which line to trust.",
+		"The TEST card draws three lines: gravity, jar, datum. Tip each jar and watch which line its water keeps.",
 		"Test all three. C stays parallel to the datum. Put C in the reference socket.",
 	],
 	"p13": [
 		"The balance in the laboratory compares samples against an empty tray.",
 		"Her work card from the kitchen carries a specimen number.",
-		"The sample cards by the balance give each sample's specimen number. One is hers, and her register card carries it too.",
+		"Nora's kitchen work card, by the range, is stamped with a specimen number. One tube carries it.",
 		"Put specimen 27-11 on the balance, address it as NORA BELL, release, then RECORD 0 / 3 / 0.",
 	],
 	"p14": [
@@ -250,11 +254,11 @@ const ITEMS := {
 }
 
 const SAVED_BOOLS := ["p10_complete", "lean_seen", "tap_on", "p13_complete", "thumb_seen",
-	"p14_complete", "name_tab", "strip_clipped", "fog_seen", "frame_opened", "bench_seen", "vault_ajar_said"]
+	"p14_complete", "name_tab", "strip_clipped", "fog_seen", "frame_opened", "bench_seen", "vault_ajar_said", "datum_water_said"]
 
 ## Transient, never saved: what the view animates or highlights after the last action.
 var last_test := ""      # the jar just tipped
-var balance_note := ""   # "" | BEAM_LOCKED | NO_CORRESPONDENCE | CONSTANT | RECORD_INCOMPLETE
+var balance_note := ""   # "" | BEAM_LOCKED | NO_CORRESPONDENCE | RECORD_INCOMPLETE
 var held := ""           # the section picked up in c_frame
 var frame_miss := []     # slot indices outlined after a failed SEAL
 
@@ -265,7 +269,7 @@ func initial_state() -> Dictionary:
 		"p13_complete": false, "pan": "", "holder": "", "step": 0, "thumb_seen": false,
 		"p14_complete": false, "slots": ["", "", ""], "name_tab": false, "strip_clipped": false,
 		"fog_seen": false, "frame_opened": false, "bench_seen": false, "vault_ajar_said": false,
-		"notices": [], "bench_notices": [],
+		"datum_water_said": false, "notices": [], "bench_notices": [],
 	}
 
 func is_closeup(v := local_view) -> bool:
@@ -274,6 +278,15 @@ func is_closeup(v := local_view) -> bool:
 ## Hint tiers per puzzle ladder: location, relationship, evidence, solution.
 func hint_tiers() -> int:
 	return 4
+
+## P13 before her kitchen work card has been seen: the ladder starts at the kitchen (R05),
+## since nothing in the laboratory links a tube to a name.
+const P13_UNSEEN_HINT := "Nora's work card hangs in the kitchen, by the range. Nothing in here says which tube is hers without it."
+
+func hint_line(level: int) -> String:
+	if level == 0 and objective() == "p13" and not reference_seen():
+		return P13_UNSEEN_HINT
+	return super(level)
 
 func objective() -> String:
 	_sync()
@@ -343,6 +356,10 @@ func tank_mode() -> String:
 		return "pane"
 	return "gravity"
 
+## Band >= 3 (not after sever): the hard water surface at the DATUM in view A.
+func datum_flooded() -> bool:
+	return band() >= 3 and not _sever()
+
 func reflection_lag() -> bool:
 	return band() >= 3 and not _sever()
 
@@ -368,13 +385,15 @@ func thumb_shown() -> bool:
 func fog_shown() -> bool:
 	return state.p14_complete
 
-## The balance's readings for a sample addressed to a name.
+## The balance's readings for a sample addressed to a name: only 27-11 + BELL is not flat.
 static func reading(pan: String, holder: String) -> Array:
-	if not READINGS.has(pan):
-		return FLAT.duplicate()
-	if pan == "N" and holder != "BELL":
+	if not READINGS.has(pan) or holder != "BELL":
 		return FLAT.duplicate()
 	return READINGS[pan].duplicate()
+
+## The sample on the pan answers to the name in the holder (27-11 to BELL).
+func answers() -> bool:
+	return state.pan == "N" and state.holder == "BELL"
 
 ## The strip printer's three cells ("" = not printed).
 func strip_cells() -> Array:
@@ -446,6 +465,7 @@ func arrive(ev: Array, first: bool) -> void:
 		_say(ev, "The tank isn't level either. Or the room isn't.", 2.6, true)
 		_observe("angles")
 		_mark_notice("angles")
+		_datum_arrival(ev, 5.4)
 		return
 	var n := current_notice()
 	if n != "" and not n in state.notices:
@@ -455,7 +475,17 @@ func arrive(ev: Array, first: bool) -> void:
 			_sfx(ev, "vault_settle", 0.6)
 		if not n in SILENT_NOTICES:
 			_say(ev, NOTICE_LINES[n], 1.6)
+			_datum_arrival(ev, 3.6)
 		_observe(n)
+	_datum_arrival(ev, 0.8)
+
+## The datum water's line, once: on the first arrival at band 3 or above.
+func _datum_arrival(ev: Array, delay: float) -> void:
+	if not datum_flooded() or state.datum_water_said:
+		return
+	state.datum_water_said = true
+	_say(ev, DATUM_WATER_LINE, delay, true)
+	_observe("datum_water")
 
 func back(ev: Array) -> void:
 	_sync()
@@ -546,7 +576,12 @@ func _room(action: String, ev: Array) -> void:
 			else:
 				_say(ev, _line(action, "Jar C, in the socket. The stair circuit reads from it. The tag says 2."))
 		"datum_line":
-			_say(ev, _line(action, "A brass line set into the wall: DATUM. The room is square to it. The plumb bob beside it hangs eight degrees off, and it's marked GRAVITY."))
+			if datum_flooded():
+				_say(ev, "The brass datum. The water's surface lies along it exactly, and doesn't move when I do.")
+				_observe("datum")
+				_observe("datum_water")
+				return
+			_say(ev, _line(action,"A brass line set into the wall: DATUM. The room is square to it. The plumb bob beside it hangs eight degrees off, and it's marked GRAVITY."))
 			_observe("datum")
 		"tank":
 			_sfx(ev, "glass_tap")
@@ -857,11 +892,9 @@ func _select_name(n: String, ev: Array) -> void:
 	balance_note = ""
 	_sfx(ev, "card_flick")
 	_observe("register")
-	var line: String = REGISTER[n] + " " + NO_EFFECTS + " Stamped " + STAMP_ALL
 	if n == "BELL":
-		line += " and " + STAMP_N
 		_observe("register_bell")
-	_say(ev, line + ".")
+	_say(ev, REGISTER[n] + " " + NO_EFFECTS + " Stamped " + STAMP_ALL + ".")
 
 func _press(ev: Array) -> void:
 	_sfx(ev, "key_press")
@@ -880,12 +913,9 @@ func _address(ev: Array) -> void:
 		return
 	state.step = 1
 	_press(ev)
-	if state.pan != "N":
-		balance_note = CONSTANT
-		_say(ev, ENVIRONMENTAL)
-	elif state.holder == "BELL":
+	if answers():
 		balance_note = ""
-		_say(ev, "Three drams. On an empty tube.")
+		_say(ev, ADDRESSED_LINE)
 	else:
 		balance_note = NO_CORRESPONDENCE
 		_say(ev, "Nothing. NO CORRESPONDENCE.")
@@ -900,9 +930,7 @@ func _release(ev: Array) -> void:
 		return
 	state.step = 2
 	_press(ev)
-	if state.pan != "N":
-		_say(ev, "No change.")
-	elif state.holder == "BELL":
+	if answers():
 		_say(ev, "Back to nought.")
 	else:
 		_say(ev, "Still nothing.")
@@ -913,12 +941,7 @@ func _record(ev: Array) -> void:
 		_sfx(ev, "key_refuse")
 		_say(ev, "RECORD INCOMPLETE. Address it, release it, then record.")
 		return
-	if state.pan != "N":
-		balance_note = CONSTANT
-		_sfx(ev, "key_refuse")
-		_say(ev, ENVIRONMENTAL)
-		return
-	if state.holder != "BELL":
+	if not answers():
 		balance_note = NO_CORRESPONDENCE
 		_sfx(ev, "key_refuse")
 		_say(ev, "A flat trace. That name doesn't answer to it.")
