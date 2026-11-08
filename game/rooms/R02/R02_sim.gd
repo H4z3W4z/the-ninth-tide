@@ -162,7 +162,7 @@ const HINTS := {
 	],
 	"reread": [
 		"Something in the office has changed.",
-		"Venn's log is not finished with you.",
+		"The duty card said reconcile the records. The log is a record, and it isn't finished.",
 		"Go back to the Intake Office and open the tide log.",
 	],
 	"chair": [
