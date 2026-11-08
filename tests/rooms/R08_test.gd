@@ -43,6 +43,7 @@ const REF_RESPIRATION := "With the gate loop running, one belt stopped. The diap
 const REF_HINTS := [
 	"The valve toggles have numbers, not names. Venn tagged everything he repaired: his tags hang behind the middle belt.",
 	"Match each toggle's number to its tag, then route the drawing's loop: out through the gate and back, never into the sealed line.",
+	"Venn's tags: No. 07 SUPPLY, No. 12 GATE, No. 31 RETURN, No. 44 INDEX, 'Do not open.' The drawing caps INDEX: SEALED. NEVER FEED.",
 	"No. 07 (SUPPLY), No. 12 (GATE) and No. 31 (RETURN) open, No. 44 (INDEX) shut. Then the pump.",
 ]
 ## The stamped tag number on each toggle, and the four valve tags, written out independently.
@@ -90,6 +91,7 @@ func run_tests() -> void:
 	if _view_ready():
 		await view_checks(ROOM)
 		await test_view_live()
+		await test_view_hold_breath()
 	else:
 		print("SKIP: R08 view_checks: the R08 view does not yet declare rects for every sim hotspot (view team)")
 
@@ -192,7 +194,8 @@ func test_all_states() -> void:
 			check(not g.flag("P11"), "state %d (%s): pump does not solve" % [i, code])
 			check(JSON.stringify(r.state.toggles) == JSON.stringify(want), "state %d: pump leaves the toggles" % i)
 			check(g.state.inventory == inv, "state %d: nothing is taken" % i)
-			check(not has_ev(ev, "fx", "p11_reveal") and not has_ev(ev, "fx", "tide"), "state %d: no solve event" % i)
+			check(not has_ev(ev, "fx", "p11_reveal") and not has_ev(ev, "fx", "tide")
+				and not has_ev(ev, "fx", "hold_breath"), "state %d: no solve event" % i)
 			check(says(ev) == REF_PUMP[code][1] and has_ev(ev, "sfx", REF_PUMP[code][0]),
 				"state %d: pump refusal for %s" % [i, code])
 			check(r.view == "c_valves", "state %d: still at the board" % i)
@@ -265,6 +268,17 @@ func test_commit_chain() -> void:
 	check("breathes_alone" in r.state.notices, "the commit retires the breathes_alone notice")
 	check(r.state.toggles == SOLUTION, "the board stays in the loop")
 	check(not has_ev(ev, "fx", "tide"), "P11 alone does not end tide IV")
+	# SILENCE: the last line opens a held breath of 1.8 s, timed to that line's delay
+	var hb := {}
+	for e in ev:
+		if e.type == "fx" and e.id == "hold_breath":
+			check(hb.is_empty(), "one hold_breath")
+			hb = e
+	check(not hb.is_empty(), "fx hold_breath")
+	check(is_equal_approx(float(hb.get("seconds", 0.0)), 1.8), "hold_breath lasts 1.8 s")
+	check(is_equal_approx(float(hb.get("delay", -1.0)), REF_CHAIN[-1][1]) and R08Sim.REVEAL_LAST_AT == REF_CHAIN[-1][1],
+		"hold_breath lands with the last line (%s)" % hb.get("delay"))
+	check(JSON.parse_string(JSON.stringify(hb)) is Dictionary, "hold_breath is JSON-safe")
 
 # ---------------------------------------------------------------------------------------------
 # (6) idempotent after solving
@@ -276,7 +290,8 @@ func test_idempotent() -> void:
 	var ev := g.dispatch("valve_board")
 	check(says(ev) == "The board's locked under pressure.", "board locked line on reopening")
 	ev = g.dispatch("pump")
-	check(g.flag("P11") and not has_ev(ev, "fx", "p11_reveal"), "a second PUMP is no second solve")
+	check(g.flag("P11") and not has_ev(ev, "fx", "p11_reveal") and not has_ev(ev, "fx", "hold_breath"),
+		"a second PUMP is no second solve, and no second held breath")
 	check(says(ev) == "It's running. The gate line holds." and has_ev(ev, "sfx", "gauge_rise"), "second PUMP line")
 	for v in VALVES:
 		ev = g.dispatch("tog_" + v.to_lower())
@@ -607,12 +622,22 @@ func test_hints_objective() -> void:
 	var g := game_at(4, ROOM)
 	var r := r08(g)
 	check(r.objective() == "p11" and r.objective_text() == "Route the pump to the stair gate without feeding the INDEX line.", "p11 objective")
-	for i in 3:
+	check(r.hint_tiers() == 4, "P11's ladder has four tiers: nudge, relationship, evidence, solution")
+	check(r.hint_line(2) == REF_HINTS[2] and r.hint_line(3) == REF_HINTS[3], "P11: evidence, then solution")
+	for i in 4:
 		check(says(g.dispatch("hint")) == REF_HINTS[i], "hint %d exact" % i)
-	check(says(g.dispatch("hint")) == REF_HINTS[2], "the ladder stops at the solution")
+	check(says(g.dispatch("hint")) == REF_HINTS[3], "the ladder stops at the solution")
+	# the evidence tier names what's on the tags and the drawing, not the switch positions
+	check(not "open" in REF_HINTS[2].to_lower().replace("do not open", "")
+		and not "shut" in REF_HINTS[2].to_lower(), "the evidence tier doesn't set the board")
+	# away from the machine room its ladder stays in order (no early solution)
+	var away := game_at(4, ROOM)
+	var ra := r08(away)
+	away.state.hint = {"for": "R05:p09", "level": 3}
+	check(ra.hint_line(2) == REF_HINTS[2], "another room's hint level never skips P11's evidence tier")
 	solve_p11(g)
 	check(r.objective() == "done", "objective done after P11")
-	check(r.HINTS.done.size() == 3, "done ladder")
+	check(r.HINTS.done.size() == 3 and r.hint_tiers() == 3, "done ladder keeps three tiers")
 	var f := game_at(4, ROOM)
 	f.set_flag("P11")
 	check(r08(f).objective() == "done" and r08(f).state.toggles == SOLUTION, "a P11 flag set elsewhere is honoured")
@@ -906,6 +931,74 @@ func test_view_drop() -> void:
 	scene.sim.settings.soft_audio = false
 	v.apply_instantly()
 	check(v.drop_t < 0.0, "apply_instantly clears the duck")
+	await free_scene(scene)
+
+## SILENCE: {fx hold_breath} waits for the last line's delay, then holds every loop silent
+## for 1.8 s with the membrane and wheels still, and lets go; soft audio ducks more gently.
+func test_view_hold_breath() -> void:
+	var scene = await _scene_at(0)
+	var v = scene.room_view
+	var dt := 1.0 / 60.0
+	for id in VIEW.LOOPS:
+		v.mixer.mix[id] = float(v.loop_targets().get(id, 0.0))
+	v.play_fx("hold_breath", {"type": "fx", "id": "hold_breath", "seconds": 1.8, "delay": 0.5})
+	check(is_equal_approx(v.hb_wait, 0.5) and v.hb_t < 0.0 and is_equal_approx(v.hb_len, 1.8), "armed for its delay")
+	var t := 0.0
+	while t < 0.45:
+		v.tick(dt)
+		t += dt
+	check(v.hb_t < 0.0 and v.hold_breath_gain() == 1.0, "nothing held before the line")
+	check(v.mixer.mix["r08_breath"] > db_to_linear(-59.0), "the breath still sounds before the line")
+	while t < 0.5 + VIEW.HB_IN + 0.05:
+		v.tick(dt)
+		t += dt
+	check(v.hold_breath_silent(), "the line opens the held breath")
+	for id in VIEW.LOOPS:
+		check(v.mixer.mix.get(id, 0.0) <= db_to_linear(-59.0), "held: %s is silent (%f)" % [id, v.mixer.mix.get(id, 0.0)])
+	var mem: float = v.v
+	var fly: float = v.fly_a
+	while t < 0.5 + 1.7:
+		v.tick(dt)
+		t += dt
+	check(v.hold_breath_silent(), "still held 1.7 s in")
+	check(is_equal_approx(v.v, mem) and absf(v.fly_a - fly) < 0.001, "the membrane and the flywheel hold still")
+	for id in VIEW.LOOPS:
+		check(v.mixer.mix.get(id, 0.0) <= db_to_linear(-59.0), "1.7 s in: %s still silent" % id)
+	while t < 0.5 + 1.8 + VIEW.HB_OUT + 0.1:
+		v.tick(dt)
+		t += dt
+	check(v.hb_t < 0.0, "the held breath lets go")
+	var target: float = v.loop_targets()["r08_breath"]
+	check(absf(v.mixer.mix["r08_breath"] - target) < 0.05, "the breath is back (%f of %f)" % [v.mixer.mix["r08_breath"], target])
+	# Soften sudden sounds: the duck takes HB_IN_SOFT, not a cut
+	scene.sim.settings.soft_audio = true
+	for id in VIEW.LOOPS:
+		v.mixer.mix[id] = float(v.loop_targets().get(id, 0.0))
+	v.play_fx("hold_breath", {"type": "fx", "id": "hold_breath", "seconds": 1.8, "delay": 0.0})
+	check(v.hold_breath_silent() and is_equal_approx(v.hb_in, VIEW.HB_IN_SOFT), "soft audio: a 0.5 s duck")
+	v._tick_audio(0.0)
+	v.hb_t = 0.2
+	v._tick_audio(dt)
+	check(v.mixer.mix["r08_breath"] > db_to_linear(-59.0), "soft duck still on its way down at 0.2 s")
+	scene.sim.settings.soft_audio = false
+	v.apply_instantly()
+	check(v.hb_t < 0.0 and v.hb_wait < 0.0, "apply_instantly clears the held breath")
+	# the real commit arms it at the last line's time
+	scene.room_jump(ROOM, 0)
+	await process_frame
+	v = scene.room_view
+	scene.dispatch("valve_board")
+	for tg in ["tog_supply", "tog_gate", "tog_return", "tog_index"]:
+		scene.dispatch(tg)
+	scene.dispatch("pump")
+	await process_frame
+	await process_frame
+	var last_due := INF
+	for l in scene.lines:
+		if l.text == R08Sim.REVEAL_LAST_SAY:
+			last_due = l.due
+	check(v.hb_wait > 0.0 and absf((scene.time + v.hb_wait) - last_due) < 0.1,
+		"PUMP arms the held breath for the last line (in %f, line at %f)" % [v.hb_wait, last_due - scene.time])
 	await free_scene(scene)
 
 func _scene_at(n: int) -> Node:

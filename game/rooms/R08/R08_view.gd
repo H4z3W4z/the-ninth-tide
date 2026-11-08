@@ -90,6 +90,12 @@ const DROP_HOLD := 1.6
 const BREATH_BACK := 1.0
 const ROOM_BACK := 3.0
 const ROOM_BACK_LATEST := 20.0
+## {fx hold_breath}: with the reveal's last line the whole room stops for `seconds` (the sim's
+## HOLD_BREATH_SECONDS). Every loop ducks to silence over HB_IN (HB_IN_SOFT with "Soften sudden
+## sounds"), holds, then comes back over HB_OUT; the membrane and the wheels hold their pose.
+const HB_IN := 0.12
+const HB_IN_SOFT := 0.5
+const HB_OUT := 0.9
 
 ## Interior tint per weather band (R04's grade); the released room is a flat grey daylight.
 const TINT := [Color(1, 1, 1), Color(0.9714, 0.9771, 0.9857), Color(0.9429, 0.9543, 0.9714),
@@ -271,6 +277,14 @@ var room_back_t := -1.0
 var drop_in := DROP_IN
 var drop_from := {}            # loop id -> linear level when the duck began
 var reveal_click := -1
+## The held breath: seconds until it starts (-1 = none armed), seconds into it (-1 = none),
+## its length, its duck time, the loop levels and the membrane's pose when it began.
+var hb_wait := -1.0
+var hb_t := -1.0
+var hb_len := 0.0
+var hb_in := HB_IN
+var hb_from := {}
+var hb_v := STILL_V
 
 func _ready() -> void:
 	clock0 = time
@@ -453,6 +467,7 @@ func tick(dt: float) -> void:
 	pump_fail_t = maxf(0.0, pump_fail_t - dt)
 	tag_t += dt
 	pucker_t += dt
+	_tick_hold_breath(dt)
 	if _view() == "c_tags" and int(r.state.tag) != tag_shown:
 		tag_shown = int(r.state.tag)
 		tag_t = 0.0
@@ -494,7 +509,7 @@ func _tick_motion(dt: float, held: bool) -> void:
 		var e := 0.15
 		var into := smoothstep(HITCH.x - e, HITCH.x + e, ph) * (1.0 - smoothstep(HITCH.y - e, HITCH.y + e, ph))
 		hitch = lerpf(1.0, HITCH_MUL, into)
-	var m := mul * hitch
+	var m := mul * hitch * hold_breath_gain()
 	if run[0]:
 		fly_a = fposmod(fly_a + dt * FLY_SPEED * m, TAU)
 		pulley_a[1] = fposmod(pulley_a[1] + dt * TICK_SPEED / PULLEY_R * m, TAU)
@@ -522,6 +537,9 @@ func _tick_motion(dt: float, held: bool) -> void:
 		target_v = 1.0 if held else live
 	if _revealing() and motion:
 		target_v = _reveal_v(live)
+	if hb_t >= 0.0 and motion:
+		# the membrane holds where it was; after the silence it eases back into the breath
+		target_v = lerpf(hb_v, target_v, smoothstep(0.0, 1.0, (hb_t - hb_len) / HB_OUT))
 	v = target_v
 
 ## The reveal's breath: live until the belt drops, eases to empty, one full inhale with the rod
@@ -564,13 +582,65 @@ func _tick_audio(dt: float) -> void:
 	for id in LOOPS:
 		rates[id] = LOOP_RATE
 	if drop_t >= 0.0:
-		_tick_drop(dt)
+		if not hold_breath_silent():
+			_tick_drop(dt)   # the drop's returns wait out the held breath
 		if drop_t >= 0.0:
 			# the duck draws its own envelope: the mixer follows it exactly
 			for id in LOOPS:
 				targets[id] = drop_level(id, float(targets.get(id, 0.0)))
 				rates[id] = 1000.0
+	if hb_t >= 0.0:
+		for id in LOOPS:
+			targets[id] = hold_breath_level(id, float(targets.get(id, 0.0)))
+			rates[id] = 1000.0
 	mixer.tick(targets, rates, dt)
+
+## Arms, starts and ends the held breath. It starts when its delay runs out or when the line it
+## belongs to comes on screen, whichever is first.
+func _tick_hold_breath(dt: float) -> void:
+	if hb_wait >= 0.0:
+		hb_wait -= dt
+		var shown := game != null and game.cur_text == R08Sim.REVEAL_LAST_SAY
+		if hb_wait <= 0.0 or shown:
+			_start_hold_breath()
+	elif hb_t >= 0.0:
+		hb_t += dt
+		if hb_t >= hb_len + HB_OUT:
+			hb_t = -1.0
+
+func _start_hold_breath() -> void:
+	hb_wait = -1.0
+	hb_t = 0.0
+	hb_in = HB_IN_SOFT if soft_audio else HB_IN
+	hb_from = mixer.mix.duplicate() if mixer else {}
+	hb_v = v
+
+## True from the held breath's start until it begins to let go.
+func hold_breath_silent() -> bool:
+	return hb_t >= 0.0 and hb_t < hb_len
+
+## 1 outside the held breath; 0 while held; easing in over hb_in and back out over HB_OUT.
+func hold_breath_gain() -> float:
+	if hb_t < 0.0:
+		return 1.0
+	if hb_t < hb_len:
+		return 1.0 - clampf(hb_t / hb_in, 0.0, 1.0)
+	return clampf((hb_t - hb_len) / HB_OUT, 0.0, 1.0)
+
+## A loop's level under the held breath, given its level without it (linear). The duck runs in
+## dB from where the loop was to DROP_DB; the return rises toward `target`.
+func hold_breath_level(id: String, target: float) -> float:
+	if hb_t < 0.0:
+		return target
+	var floor_lin := db_to_linear(DROP_DB)
+	if hb_t < hb_len:
+		var from_db := linear_to_db(maxf(float(hb_from.get(id, target)), floor_lin))
+		var db := lerpf(from_db, DROP_DB, clampf(hb_t / hb_in, 0.0, 1.0))
+		return 0.0 if db <= DROP_DB else db_to_linear(db)
+	if target <= 0.0:
+		return 0.0
+	var to_db := linear_to_db(maxf(target, floor_lin))
+	return db_to_linear(lerpf(DROP_DB, to_db, hold_breath_gain()))
 
 ## Starts the belt drop's duck from the loops' current levels.
 func _start_drop() -> void:
@@ -625,7 +695,7 @@ func drop_silent() -> bool:
 # ---------------------------------------------------------------------------
 # hooks
 # ---------------------------------------------------------------------------
-func play_fx(id: String, _e: Dictionary) -> void:
+func play_fx(id: String, e: Dictionary) -> void:
 	if id.begins_with("notice_"):
 		_start_hold(id.substr(7))
 		return
@@ -636,6 +706,12 @@ func play_fx(id: String, _e: Dictionary) -> void:
 			reveal_click = int(game.click_id) if game != null else -1
 			if game != null:
 				_flush_for_reveal.call_deferred(game.click_id)
+		"hold_breath":
+			hb_len = maxf(0.0, float(e.get("seconds", R08Sim.HOLD_BREATH_SECONDS)))
+			hb_t = -1.0
+			hb_wait = maxf(0.0, float(e.get("delay", 0.0)))
+			if hb_wait <= 0.0:
+				_start_hold_breath()
 		"hold":
 			pucker_t = 0.0
 			if not motion:
@@ -705,6 +781,8 @@ func apply_instantly() -> void:
 	tag_shown = int(r.state.tag)
 	tag_t = 99.0
 	drop_t = -1.0
+	hb_wait = -1.0
+	hb_t = -1.0
 	if mixer:
 		mixer.snap(loop_targets())
 	room.scale = Vector2.ONE
@@ -721,6 +799,8 @@ func reset_presentation() -> void:
 	zoom_k = 0.0
 	tag_t = 99.0
 	drop_t = -1.0
+	hb_wait = -1.0
+	hb_t = -1.0
 
 func redraw() -> void:
 	room.queue_redraw()

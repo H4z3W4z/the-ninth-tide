@@ -21,6 +21,10 @@ const BELT_DROP_AT := 6.6
 const BREATH_ALONE_AT := 8.2
 const DUST_DRAG_AT := 8.5
 const REVEAL_LAST_SAY := "There's a plate where the belt was. REFERENCE RESPIRATION."
+## The last line's delay, and the silence it opens: the whole room holds its breath for
+## HOLD_BREATH_SECONDS from that line ({fx hold_breath}, played by the view).
+const REVEAL_LAST_AT := 12.8
+const HOLD_BREATH_SECONDS := 1.8
 const ARRIVAL := "The machine room. Belts, a flywheel, and a black diaphragm bolted into the wall. It draws in with the cycle."
 ## [to, label, extra flags]: the ways out. The target's REQUIRES also apply.
 const EXITS := [
@@ -148,6 +152,7 @@ const HINTS := {
 	"p11": [
 		"The valve toggles have numbers, not names. Venn tagged everything he repaired: his tags hang behind the middle belt.",
 		"Match each toggle's number to its tag, then route the drawing's loop: out through the gate and back, never into the sealed line.",
+		"Venn's tags: No. 07 SUPPLY, No. 12 GATE, No. 31 RETURN, No. 44 INDEX, 'Do not open.' The drawing caps INDEX: SEALED. NEVER FEED.",
 		"No. 07 (SUPPLY), No. 12 (GATE) and No. 31 (RETURN) open, No. 44 (INDEX) shut. Then the pump.",
 	],
 	"done": [
@@ -179,6 +184,20 @@ func is_closeup(v := local_view) -> bool:
 func objective() -> String:
 	_sync()
 	return "done" if state.p11_complete else "p11"
+
+## How many rungs the current objective's Hint ladder has: P11 carries an evidence tier
+## (nudge, relationship, evidence, solution); the done ladder keeps three.
+func hint_tiers() -> int:
+	return c("HINTS", {}).get(objective(), []).size()
+
+## A core that predates hint_tiers() climbs only to level 2. On the fourth press here (its
+## stored level already 3, for this room's own ladder) the solution still comes.
+func hint_line(level: int) -> String:
+	var hint: Variant = game.state.get("hint") if game else null
+	if level == 2 and hint is Dictionary and str(hint.get("for", "")) == ID + ":" + objective() \
+			and game.state.get("room", "") == ID and int(hint.get("level", 0)) >= 3:
+		level = 3
+	return super(level)
 
 # ---------------------------------------------------------------------------------------------
 # the circuit
@@ -617,7 +636,8 @@ func _pump(ev: Array) -> void:
 	_say(ev, "The diaphragm didn't.", 8.4, true)
 	_sfx(ev, "dust_drag", DUST_DRAG_AT)   # with the reveal's one inhalation (the view's RV_DUST)
 	_say(ev, "It breathed in. The dust came to it. Sideways.", 10.8, true)
-	_say(ev, REVEAL_LAST_SAY, 12.8, true)
+	_say(ev, REVEAL_LAST_SAY, REVEAL_LAST_AT, true)
+	_fx(ev, "hold_breath", {"seconds": HOLD_BREATH_SECONDS, "delay": REVEAL_LAST_AT})
 
 # ---------------------------------------------------------------------------------------------
 # O04: c_tags
