@@ -7630,6 +7630,15 @@
       "source_svg": null
     },
     {
+      "id": "R12/c_final_r2",
+      "path": "assets/rooms/R12/c_final_r2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "4df3513024070f3a107392c63da802da24a9b59aeeba706df9933cca3ebfe076",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R12/c_frames",
       "path": "assets/rooms/R12/c_frames.png",
       "width": 1448,
@@ -7900,6 +7909,24 @@
       "source_svg": null
     },
     {
+      "id": "R12/m_cup_r2_cold",
+      "path": "assets/rooms/R12/m_cup_r2_cold.png",
+      "width": 1288,
+      "height": 760,
+      "sha256": "7047e0029145e42cac938b871a505f1ab03a19810e851b6aa6d545dbfa21e775",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R12/m_cup_r2_warm",
+      "path": "assets/rooms/R12/m_cup_r2_warm.png",
+      "width": 1288,
+      "height": 760,
+      "sha256": "4b0f8dc53aaee60ddbd74df81468026f63b51c5aedbd089d451336efb5ecb1d4",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R12/m_cup_warm",
       "path": "assets/rooms/R12/m_cup_warm.png",
       "width": 1288,
@@ -7977,6 +8004,15 @@
       "width": 1288,
       "height": 760,
       "sha256": "81dca03e0e9af31d1e379fce5925c35304ca5ac335df1bd2417f97616abab286",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R12/m_kettle",
+      "path": "assets/rooms/R12/m_kettle.png",
+      "width": 1288,
+      "height": 760,
+      "sha256": "ae157b3f5f6c899dc9d8cd3d349f0a473948ec1c8721dfef54e6655d3b7fd95f",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -8337,6 +8373,24 @@
       "width": 1448,
       "height": 1086,
       "sha256": "36afbb373895c96309ddde1310a1b80bc1cd9b1bd3bc37d2054e89d65a8e39f1",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "end_a_card",
+      "path": "assets/stages/R12/end_a_card.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "97eca828c05b480e55993430c7e3bbfae930bca6ce22b1c7d34c5f87c98b9ab7",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "end_b_card",
+      "path": "assets/stages/R12/end_b_card.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "c112dbf14ee55d9e1830ca4573424d132589fc9edb5a611d5eea1b4013741b9c",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },

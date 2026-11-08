@@ -20,6 +20,9 @@ const PAGE_TEX := {
 	"end_b_field": "res://assets/stages/R12/end_b_wide_3.png",
 	"end_b_wide": "res://assets/stages/R12/end_b_wide_3.png",
 	"c_routing": "res://assets/rooms/R12/c_routing_preview.png",
+	"c_final": "res://assets/rooms/R12/c_final_r2.png",
+	"m_cup_cold": "res://assets/rooms/R12/m_cup_r2_cold.png",
+	"m_cup_warm": "res://assets/rooms/R12/m_cup_r2_warm.png",
 }
 
 # ---------------------------------------------------------------------------------------------
@@ -62,13 +65,13 @@ const FRAMES_CONTROLS := [
 	["look_body", Rect2(180, 540, 260, 64), "BODY plate"],
 	["look_place", Rect2(594, 540, 260, 64), "PLACE plate"],
 	["look_name", Rect2(1008, 540, 260, 64), "NAME plate"],
-	["rack_position_b", Rect2(98, 656, 130, 216), "Card: POSITION"],
-	["rack_trace_a", Rect2(236, 656, 130, 216), "Card: MOVEMENT"],
-	["rack_identity", Rect2(374, 656, 130, 216), "Card: CONTRACT"],
-	["rack_trace", Rect2(512, 656, 130, 216), "Card: MOVEMENT"],
-	["rack_identity_b", Rect2(650, 656, 130, 216), "Card: CONTRACT"],
-	["rack_trace_b", Rect2(788, 656, 130, 216), "Card: MOVEMENT"],
-	["rack_position", Rect2(926, 656, 130, 216), "Card: POSITION"],
+	["rack_position_b", Rect2(98, 620, 130, 360), "Card in my name"],
+	["rack_trace_a", Rect2(236, 620, 130, 360), "Card in my name"],
+	["rack_identity", Rect2(374, 620, 130, 360), "Card in my name"],
+	["rack_trace", Rect2(512, 620, 130, 360), "Card in my name"],
+	["rack_identity_b", Rect2(650, 620, 130, 360), "Card in my name"],
+	["rack_trace_b", Rect2(788, 620, 130, 360), "Card in my name"],
+	["rack_position", Rect2(926, 620, 130, 360), "Card in my name"],
 	["look_strip", Rect2(1110, 600, 300, 80), "Strip"],
 	["switch", Rect2(1110, 700, 300, 120), "Switch: WITNESS / COPY"],
 	["route", Rect2(1110, 840, 300, 130), "ROUTE"],
@@ -78,17 +81,34 @@ const ROUTING_CONTROLS := [
 	["look_continue", Rect2(798, 100, 540, 360), "CONTINUE plate"],
 	["preview_sever", Rect2(260, 470, 240, 90), "PREVIEW SEVER"],
 	["preview_continue", Rect2(948, 470, 240, 90), "PREVIEW CONTINUE"],
+	["cord_feed_a", Rect2(150, 612, 190, 200), "FEED A cord"],
+	["cord_feed_b", Rect2(370, 612, 190, 200), "FEED B cord"],
+	["cord_ev", Rect2(888, 612, 190, 200), "E.V. cord"],
+	["cord_am", Rect2(1108, 612, 190, 200), "A.M. cord"],
+	["jack_open", Rect2(250, 836, 240, 120), "OPEN socket"],
+	["jack_am", Rect2(604, 836, 240, 120), "A.M. socket"],
+	["jack_terminal", Rect2(958, 836, 240, 120), "TERMINAL socket"],
 ]
+## c_final: the eye's window is the top strip (FINAL_STRIP); the six panels hang FINAL_DY lower
+## than the first plate had them, in front of its sill; the knife switches sit below them.
+const FINAL_DY := 120.0
+const FINAL_STRIP := Rect2(0, 0, 1448, 300)
+const FINAL_EYE_C := Vector2(724, 150)
+const FINAL_EYE_SCALE := 1.2
 const FINAL_CONTROLS := [
-	["contacts", Rect2(100, 140, 440, 260), "Feed contacts"],
-	["look_lamps", Rect2(560, 140, 328, 260), "Preview lamps"],
-	["bridge_seat", Rect2(908, 140, 440, 260), "My terminal"],
-	["tray", Rect2(100, 440, 440, 170), "Yoke tray"],
-	["preview", Rect2(604, 460, 240, 120), "PREVIEW"],
-	["look_handle", Rect2(908, 440, 440, 170), "Severance handle"],
-	["btn_sever", Rect2(100, 700, 600, 200), "BREAK CONNECTION AND LEAVE"],
-	["btn_continue", Rect2(748, 700, 600, 200), "REMAIN AS WITNESS"],
+	["contacts", Rect2(100, 260, 440, 260), "Feed contacts"],
+	["look_lamps", Rect2(560, 260, 328, 260), "Preview lamps"],
+	["bridge_seat", Rect2(908, 260, 440, 260), "My terminal"],
+	["tray", Rect2(100, 560, 440, 170), "Yoke tray"],
+	["preview", Rect2(604, 580, 240, 120), "PREVIEW"],
+	["look_handle", Rect2(908, 560, 440, 170), "Severance handle"],
+	["btn_sever", Rect2(100, 760, 600, 200), "BREAK CONNECTION AND LEAVE"],
+	["btn_continue", Rect2(748, 760, 600, 200), "REMAIN AS WITNESS"],
 ]
+## The core holds these fx to their delay and plays them on time: SEVER's indicators go out on them.
+const TIMED_FX := ["line_out_1", "line_out_2", "line_out_3", "line_out_4", "line_out_5", "line_out_6",
+	"line_out_7", "line_out_8"]
+
 
 # ---------------------------------------------------------------------------------------------
 # sound (tools/audio/rooms/R12.py, S4)
@@ -215,15 +235,22 @@ const FRAMES_C := [140.0, 554.0, 968.0]
 ## c_frames: seven rack slots (R12Sim.RACK_ORDER), slot i at RACK_X0 + RACK_STEP i.
 const RACK_X0 := 98.0
 const RACK_STEP := 138.0
-const RACK_SLOT := Vector2(130, 216)
-const RACK_Y := 656.0
-const TAB := Vector2(118, 196)  # a card standing in its slot
+const RACK_SLOT := Vector2(130, 360)
+const RACK_Y := 620.0
+const TAB := Vector2(118, 344)  # a card standing in its slot: its whole face, wrapped, no header
+const TAB_PAD := 7.0            # the face's inset in the card
+const TAB_LEAD := 21.0          # a wrapped row at CARD_BODY px
+const TAB_GAP := 7.0            # between the lines of a face
 const RACK_B_X0 := 572.0        # view B: pocket i at RACK_B_X0 + 108 i
 const FELT := Color("30463f")
 const STRIP_RECT := Rect2(1122, 612, 236, 56)
 const SWITCH_AT := Vector2(1110, 700)
 const ROUTE_AT := Vector2(1110, 840)
 const BTN_X := {"sever": 100.0, "continue": 748.0}
+const BTN_Y := 760.0
+const SMALLCAPS_BIG := 30
+const SMALLCAPS_SMALL := 23
+const SMALLCAPS_TRACK := 1.5
 const BTN_TEXT := {"sever": "BREAK CONNECTION AND LEAVE", "continue": "REMAIN AS WITNESS"}
 const FINAL_LAMPS_Y := [200.0, 270.0]
 const OVAL_AT := Vector2(80, 40)     # the instrument tableau window in end_card
@@ -232,7 +259,22 @@ const CAPTIONS := {
 	"m_funnels": "LISTENING ROOM", "m_diaphragm": "MACHINE ROOM", "m_jars": "WET LABORATORY",
 	"m_spoon": "KITCHEN AND MESS", "m_bed": "BUNK ROOM", "m_pen": "CHART ROOM",
 	"m_funnel_venn": "LISTENING ROOM", "m_coat": "INTAKE OFFICE", "m_cup": "KITCHEN AND MESS",
+	"m_kettle": "KITCHEN AND MESS",
 }
+## SEVER's first page (c_sever_wall): view B drawn SEVER_WALL_SCALE larger, its point
+## SEVER_WALL_FROM at SEVER_WALL_AT; each indicator WALL_R round (over 120 px across).
+const SEVER_WALL_SCALE := 1.24
+const SEVER_WALL_FROM := Vector2(140, 84)
+const SEVER_WALL_AT := Vector2(0, 150)
+const WALL_R := 62.0
+const WALL_GAP := 8.0
+const WALL_TURN := [-14.0, -27.0, -19.0, -33.0, -9.0, -24.0, -30.0, -17.0]   # R12.py TURN_ANG
+const WALL_NAME_SIZE := 26
+const SEVER_FILL_LAG := 0.6
+## a_morning: a warm wash up the wall round the pane (Ink.PAPER, strongest high), never on the water.
+const MORNING_WASH := 0.25
+const MORNING_RISE := 2.0
+
 ## [before, after] sprite suffixes of each instrument tableau.
 const PAIRS := {
 	"m_funnels": ["on", "off"], "m_diaphragm": ["in", "still"], "m_jars": ["tilted", "level"],
@@ -316,6 +358,7 @@ var paper_t0 := -1.0
 var cover_line_t0 := -1.0
 var page_spoke := false        # the page's first line has gone up (ends SEVER's silence)
 var cont_t0 := -1.0            # the 'Go on' button appeared (-1 = not yet)
+var wall_out_t := [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0]   # c_sever_wall: when each went out
 var cont_node: Node2D          # the button, on its own node so it can fade
 # --- the eye ----------------------------------------------------------------------------------
 var gaze_at := Vector2.ZERO    # the eye's drawn offset (R12Sim.PUPIL_OFFSET, tweened)
@@ -518,10 +561,12 @@ func _tick_ending() -> void:
 	var said: Array = st.lines
 	if not page_spoke and not said.is_empty() and game.cur_text == said[0][1]:
 		page_spoke = true
-	if page_finished():
+	# 'Go on' shows as soon as her lines are read (a sound may still be to come); unanswered, the
+	# page turns itself only once its sounds have played too
+	if captions_done() or page_finished():
 		if cont_t0 < 0.0:
 			cont_t0 = _now()
-		elif _now() - cont_t0 >= AUTO_NEXT:
+		elif _now() - cont_t0 >= AUTO_NEXT and page_finished():
 			cont_t0 = -1.0
 			game.dispatch("ending_next")
 	else:
@@ -733,6 +778,36 @@ func play_fx(id: String, e: Dictionary) -> void:
 			fit_t0 = _now()
 		"ending":
 			_start_step(int(e.get("step", 0)), str(e.get("tableau", "")), str(e.get("change", "")))
+		_:
+			if id.begins_with("line_out_"):
+				_line_out(clampi(int(id.substr(9)), 1, 8))
+
+## SEVER's indicator n (1..8) goes out: its lamp to unlit ink at once, its name plate's brass
+## fill SEVER_FILL_LAG later (at once with Motion off). Only ever from the line_out_n fx.
+func _line_out(n: int) -> void:
+	if cur_tab != "c_sever_wall":
+		return
+	for i in n:
+		if wall_out_t[i] < 0.0:
+			wall_out_t[i] = _now()
+	lines_out = maxi(lines_out, n)
+
+## How many of the eight indicators are out on c_sever_wall now (always in order).
+func wall_dark() -> int:
+	if tab_done:
+		return 8
+	var n := 0
+	for t in wall_out_t:
+		if t >= 0.0:
+			n += 1
+	return n
+
+## True once indicator i's (0..7) name-plate letters have lost their brass fill.
+func wall_unfilled(i: int) -> bool:
+	if tab_done:
+		return true
+	var t: float = wall_out_t[i]
+	return t >= 0.0 and (not motion or _now() - t >= SEVER_FILL_LAG)
 
 ## A held breath keyed to a sound starts `lead` s before it plays.
 func on_sfx_pending(id: String, left: float) -> void:
@@ -778,7 +853,8 @@ func on_sfx(id: String) -> void:
 		"paper_cover":
 			if cur_tab == "end_b_cover" and paper_t0 < 0.0:
 				paper_t0 = _now()
-	if id.begins_with("line_out_") and cur_tab == "c_sever":
+	if id.begins_with("line_out_") and cur_tab in ["c_sever", "c_sever_wall"]:
+		# the sound: the hum loses its eighth (the indicator itself goes out on the fx)
 		lines_out = maxi(lines_out, clampi(int(id.substr(9)), 0, 8))
 	if id == cur_change and change_t0 < 0.0 and _in_ending():
 		change_t0 = _now()
@@ -811,6 +887,7 @@ func _start_step(step: int, tab: String, change: String) -> void:
 	cover_line_t0 = -1.0
 	page_spoke = false
 	cont_t0 = -1.0
+	wall_out_t = [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0]
 
 ## The window's glance (P26): the preview it was asked to show, and the surface drawing back
 ## with it once P26 is done. The room shows both itself.
@@ -930,8 +1007,22 @@ func action_at(p: Vector2) -> String:
 		return "ending_next" if page_finished() or cont_visible() or captions_done() else ""
 	for h in closeup_controls(_view()):
 		if h[1].has_point(p):
-			return h[0]
+			return _patched(h[0])
 	return ""
+
+## With a cord in hand, a socket's click is the patch itself: patch:<cord>:<socket>.
+func _patched(id: String) -> String:
+	if _view() == "c_routing" and id.begins_with("jack_") and r.held_cord() != "":
+		return "patch:%s:%s" % [r.held_cord(), id.substr(5)]
+	return id
+
+## The rect of control `id`; a patch:<cord>:<socket> is its socket's.
+func control_rect(id: String) -> Rect2:
+	if id.begins_with("patch:"):
+		var parts := id.split(":")
+		if parts.size() == 3:
+			return super.control_rect("jack_" + parts[2])
+	return super.control_rect(id)
 
 func hover_at(p: Vector2) -> String:
 	if _in_ending():
@@ -939,7 +1030,12 @@ func hover_at(p: Vector2) -> String:
 	return action_at(p)
 
 func label_for(id: String) -> String:
+	if id.begins_with("patch:"):
+		var parts := id.split(":")
+		if parts.size() == 3 and R12Sim.CORD_LABEL.has(parts[1]) and R12Sim.JACK_LABEL.has(parts[2]):
+			return "%s into %s" % [R12Sim.CORD_LABEL[parts[1]], R12Sim.JACK_LABEL[parts[2]]]
 	for v in [_view(), "room", "frames", "routing", "c_frames", "c_routing", "c_final"]:
+
 		for h in closeup_controls(v):
 			if h[0] == id:
 				return h[2]
@@ -1295,18 +1391,31 @@ static func _minus(a: Rect2, b: Rect2) -> Array:
 		out.append(Rect2(i.end.x, i.position.y, a.end.x - i.end.x, i.size.y))
 	return out
 
-## Ending B's morning: warm light down the wall round the pane (strongest high up, gone by the
-## wainscot), never on the water. Flat bands, no flicker.
+## Ending B's morning: the chamber brightens. A warm wash (Ink.PAPER at MORNING_WASH) up the
+## wall round the pane, strongest high, gone by the wainscot, never on the water; it rises over
+## MORNING_RISE s from the page's start and never falls back. Motion off: at full strength.
+func morning_k() -> float:
+	if tab_done or not motion or cur_tab != "a_morning":
+		return 1.0   # loaded, still, or the page fading out behind the next: never darker
+	return clampf((_now() - tab_t0) / MORNING_RISE, 0.0, 1.0)
+
 func _draw_morning(c: CanvasItem) -> void:
+	var k := morning_k()
+	if k <= 0.0:
+		return
 	var g := GLASS
+	var top := Color(Ink.PAPER, MORNING_WASH * k)
+	var low := Color(Ink.PAPER, MORNING_WASH * 0.7 * k)
 	var bands := [
 		Rect2(0, 0, SIZE.x, g.position.y),                                  # over the pane
 		Rect2(0, g.position.y, g.position.x, g.size.y),                     # left of it
 		Rect2(g.end.x, g.position.y, SIZE.x - g.end.x, g.size.y),           # right of it
 	]
-	for b in bands:
-		_vgrad(c, b, Color(MORNING, 0.34), Color(MORNING, 0.24))
-	_vgrad(c, Rect2(0, g.end.y, SIZE.x, 700.0 - g.end.y), Color(MORNING, 0.24), Color(MORNING, 0.0))
+	_vgrad(c, bands[0], top, top)
+	for b in bands.slice(1):
+		_vgrad(c, b, top, low)
+	_vgrad(c, Rect2(0, g.end.y, SIZE.x, 700.0 - g.end.y), low, Color(Ink.PAPER, 0.0))
+
 
 static func _vgrad(c: CanvasItem, r: Rect2, top: Color, bot: Color) -> void:
 	var pts := PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
@@ -1614,12 +1723,16 @@ func _draw_c_frames(c: CanvasItem) -> void:
 				_card(c, cid, cen - Vector2(150, 100) * s, s, Color(1, 1, 1).darkened(0.35 * slide))
 			else:
 				_card(c, cid, at)
-	# the rack: seven slots over the painted wells, each card standing in its own
-	c.draw_rect(Rect2(104, 652, 960, 218), FELT)
+	# the rack: seven tall slots over the painted wells, each card standing in its own, its whole
+	# face showing
+	var rack := Rect2(RACK_X0 - 10.0, RACK_Y - 8.0, RACK_STEP * 7.0 + 12.0, RACK_SLOT.y + 14.0)
+	c.draw_rect(rack.grow(6.0), TIMBER)
+	c.draw_rect(rack.grow(6.0), INK, false, 2.0)
+	c.draw_rect(rack, FELT)
 	for i in R12Sim.RACK_ORDER.size() + 1:
 		var x := RACK_X0 + RACK_STEP * i - 4.0
-		c.draw_rect(Rect2(x, 652, 4, 218), TIMBER)
-		c.draw_line(Vector2(x, 652), Vector2(x, 870), INK, 1.5)
+		c.draw_rect(Rect2(x, rack.position.y, 4, rack.size.y), TIMBER)
+		c.draw_line(Vector2(x, rack.position.y), Vector2(x, rack.end.y), INK, 1.5)
 	for i in R12Sim.RACK_ORDER.size():
 		var cid: String = R12Sim.RACK_ORDER[i]
 		var at := Vector2(RACK_X0 + RACK_STEP * i, RACK_Y) + Vector2(6, 12)
@@ -1640,7 +1753,20 @@ func _draw_c_frames(c: CanvasItem) -> void:
 	_sprite(c, "route_key_turned" if done else "route_key", ROUTE_AT)
 	_draw_strip(c)
 
-## A card standing in its rack slot: its category large, then the start of its face.
+## The rows of card `cid`'s face as it stands in the rack: [[text, baseline y from the card's
+## top]], every line of the face wrapped at CARD_BODY px inside the card, nothing cut. No header.
+func tab_rows(cid: String) -> Array:
+	var f := Ink.serif()
+	var out := []
+	var y := TAB_PAD + CARD_BODY
+	for line in r.card_text(cid):
+		for row in _wrap(str(line), TAB.x - 2.0 * TAB_PAD, CARD_BODY, f):
+			out.append([str(row), y])
+			y += TAB_LEAD
+		y += TAB_GAP
+	return out
+
+## A card standing in its rack slot: its whole face, at CARD_BODY px, wrapped. No category.
 func _tab(c: CanvasItem, cid: String, at: Vector2, shadow := true) -> void:
 	var rect := Rect2(at, TAB)
 	if shadow:
@@ -1648,23 +1774,8 @@ func _tab(c: CanvasItem, cid: String, at: Vector2, shadow := true) -> void:
 	c.draw_rect(rect, ENAMEL)
 	c.draw_rect(rect, INK, false, 2.0)
 	var f := Ink.serif()
-	var cat: String = r.card_header(cid).get_slice(" ", 0)
-	_ctext(c, cat, rect.get_center().x, at.y + 26, 16, INK, f)
-	c.draw_line(at + Vector2(8, 34), at + Vector2(TAB.x - 8, 34), Color(INK, 0.5), 1.0)
-	# the start of its face at CARD_BODY px, wrapped; what doesn't fit ends in an ellipsis (the
-	# whole face is on the card in its frame, in her voice when lifted, and in the notebook)
-	var y := at.y + 58
-	var rows := []
-	for line in r.card_text(cid):
-		rows.append_array(_wrap(str(line), TAB.x - 12, CARD_BODY, f))
-	for k in rows.size():
-		if y > at.y + TAB.y - 8:
-			break
-		var row: String = rows[k]
-		if y + 22 > at.y + TAB.y - 8 and k < rows.size() - 1:
-			row += "…"
-		_ltext(c, row, at.x + 6, y, CARD_BODY, INK, f)
-		y += 22.0
+	for row in tab_rows(cid):
+		_ltext(c, row[0], at.x + TAB_PAD, at.y + row[1], CARD_BODY, INK, f)
 
 ## A card at `at` (top-left), scale s: the painted card with its printed face.
 func _card(c: CanvasItem, cid: String, at: Vector2, s := 1.0, mod := Color(1, 1, 1)) -> void:
@@ -1682,8 +1793,9 @@ func _card(c: CanvasItem, cid: String, at: Vector2, s := 1.0, mod := Color(1, 1,
 	var wrapped := []
 	var n := 0
 	for i in lines.size():
-		var font: Font = Ink.hand() if cid == "trace" and i == lines.size() - 1 else f
+		var font: Font = f   # one face for every card: nothing but the words tells them apart
 		var rows := _wrap(str(lines[i]), 268, CARD_BODY, font)
+
 		wrapped.append([font, rows])
 		n += rows.size()
 	var lead := clampf((188.0 - 84.0 - 2.0 * (lines.size() - 1)) / maxf(1.0, n - 1), 19.0, 22.0)
@@ -1758,52 +1870,154 @@ func _draw_c_routing(c: CanvasItem) -> void:
 		if r.previewed(route):
 			# a small brass tick on the key's plate once she has watched it
 			_square(c, Vector2(lr.end.x - 12, lr.get_center().y), 6.0, BRASS_HI)
+		if r.incomplete_route == route:
+			# a wrong patch: the plate's own lamp band lights and says so (steady, no flash)
+			var band := incomplete_rect(route)
+			c.draw_rect(band, AMBER_HI)
+			c.draw_rect(band.grow(2.0), BRUISE, false, 3.0)
+			_spaced(c, R12Sim.ROUTE_INCOMPLETE, band, 24, INK, f, 2.0)
+	_draw_patch(c)
+
+## The lit ROUTE INCOMPLETE band on a routing plate, over its OUTER DOOR row.
+func incomplete_rect(route: String) -> Rect2:
+	return Rect2((110.0 if route == "sever" else 798.0) + 40.0, 368.0, 460.0, 60.0)
+
+# --- the patch field (P26) ------------------------------------------------------------------
+const PATCH_PANEL := Rect2(110, 612, 1228, 358)
+## Each cord's contact stud (its cord leaves from here) and its own line's socket below it.
+const CORD_AT := {"feed_a": Vector2(245, 684), "feed_b": Vector2(465, 684), "ev": Vector2(983, 684),
+	"am": Vector2(1203, 684)}
+const CORD_HOME_DY := 92.0
+const CORD_TAG := {"feed_a": "FEED A · 1–4", "feed_b": "FEED B · 5–8", "ev": "E.V.", "am": "A.M."}
+const CORD_COLOR := {"feed_a": Color("675d51"), "feed_b": Color("675d51"), "ev": Color("746577"),
+	"am": Color("617d74")}
+## Each socket is a brass bar with a hole per cord (in CORDS order), centred here.
+const JACK_AT := {"open": Vector2(370, 870), "am": Vector2(724, 870), "terminal": Vector2(1078, 870)}
+const JACK_HOLE := 40.0
+
+## Where cord `c`'s plug sits now: its own line, or its hole in a socket's bar.
+func plug_at(c: String) -> Vector2:
+	var j: String = r.patch_of(c)
+	if j == "home" or not JACK_AT.has(j):
+		return CORD_AT[c] + Vector2(0, CORD_HOME_DY)
+	return JACK_AT[j] + Vector2(JACK_HOLE * (R12Sim.CORDS.find(c) - 1.5), 0)
+
+func _draw_patch(c: CanvasItem) -> void:
+	var f := Ink.serif()
+	var pn := PATCH_PANEL
+	c.draw_rect(pn.grow(8.0), BRASS)
+	c.draw_rect(pn.grow(8.0), INK, false, 2.0)
+	c.draw_rect(pn, Color("2b3a44"))
+	c.draw_rect(pn, INK, false, 2.0)
+	# the sockets: a brass bar each, a hole per cord, a stamped plate under it
+	for j in JACK_AT:
+		var at: Vector2 = JACK_AT[j]
+		var bar := Rect2(at.x - 92, at.y - 20, 184, 40)
+		c.draw_rect(bar, BRASS)
+		c.draw_rect(Rect2(bar.position, Vector2(bar.size.x, 5)), BRASS_HI)
+		c.draw_rect(bar, INK, false, 2.0)
+		for k in 4:
+			c.draw_circle(at + Vector2(JACK_HOLE * (k - 1.5), 0), 9.0, Ink.BLACK)
+			c.draw_arc(at + Vector2(JACK_HOLE * (k - 1.5), 0), 9.0, 0.0, TAU, 20, INK, 1.5)
+		var label: String = R12Sim.JACK_LABEL[j]
+		var lw := _tw(label, 20, f) + 24.0
+		var lr := Rect2(at.x - lw / 2.0, at.y + 30, lw, 30)
+		_plate(c, lr)
+		_rtext(c, label, lr, 20, INK, f)
+	# the contacts, their own lines, and the cords between
+	for cid in R12Sim.CORDS:
+		var at: Vector2 = CORD_AT[cid]
+		var home: Vector2 = at + Vector2(0, CORD_HOME_DY)
+		c.draw_circle(home, 11.0, Ink.BLACK)
+		c.draw_arc(home, 11.0, 0.0, TAU, 20, Color(BRASS, 0.9), 2.0)
+		var tag: String = CORD_TAG[cid]
+		var tw := _tw(tag, 18, f) + 20.0
+		var tr := Rect2(at.x - tw / 2.0, at.y - 62, tw, 28)
+		_plate(c, tr)
+		_rtext(c, tag, tr, 18, INK, f)
+	for cid in R12Sim.CORDS:
+		_draw_cord(c, cid)
+	for cid in R12Sim.CORDS:
+		var at: Vector2 = CORD_AT[cid]
+		c.draw_circle(at, 22.0, BRASS)
+		c.draw_arc(at, 22.0, 0.0, TAU, 28, INK, 2.0)
+		c.draw_circle(at, 8.0, BRASS_HI)
+		c.draw_arc(at, 8.0, 0.0, TAU, 16, INK, 1.5)
+
+## A cord: from its contact to its plug, sagging a little. In hand, the plug is lifted clear of
+## where it was (Motion off: in place, ringed in brass).
+func _draw_cord(c: CanvasItem, cid: String) -> void:
+	var a: Vector2 = CORD_AT[cid] + Vector2(0, 18)
+	var b := plug_at(cid)
+	var held: bool = r.held_cord() == cid
+	if held and motion:
+		b += Vector2(0, -LIFT * 1.5)
+	var mid := (a + b) / 2.0 + Vector2(0, 26.0 + 0.08 * absf(b.x - a.x))
+	var pts := PackedVector2Array()
+	for i in 25:
+		var t := i / 24.0
+		pts.append(a.lerp(mid, t).lerp(mid.lerp(b - Vector2(0, 16), t), t))
+	c.draw_polyline(pts, INK, 9.0)
+	c.draw_polyline(pts, CORD_COLOR[cid], 5.0)
+	# the plug: a brass sleeve, its tip in the hole
+	var plug := Rect2(b.x - 8, b.y - 30, 16, 26)
+	c.draw_rect(plug, BRASS_HI if held else BRASS)
+	c.draw_rect(plug, INK, false, 1.5)
+	c.draw_rect(Rect2(b.x - 3, b.y - 6, 6, 8), BRASS_HI)
+	if held:
+		# in her hand: ringed in brass (and lifted, with Motion)
+		c.draw_rect(plug.grow(5.0), BRASS_HI, false, 3.0)
+
 
 func _draw_c_final(c: CanvasItem) -> void:
+	# the eye's window across the top: it looks down at the switches (R12Sim "final")
+	_draw_final_strip(c)
+	# the panels hang in front of its sill (c_final_r2: open above the sill but for the panels)
 	_full(c, "c_final")
 	var f := Ink.serif()
+	var dy := FINAL_DY
 	# feed studs and her terminal
 	for k in 2:
 		var cx := 220.0 + 200.0 * k
-		var rect := Rect2(cx - 82, 340, 164, 50)
+		var rect := Rect2(cx - 82, 340 + dy, 164, 50)
 		_plate(c, rect)
-		_ctext(c, ["FEED A", "FEED B"][k], cx, 361, 18, INK, f)
-		_ctext(c, ["SUBJECTS 1–4", "SUBJECTS 5–8"][k], cx, 383, 18, INK, f)
-	_rtext(c, "A. MERCER · WITNESS", Rect2(1008, 176, 240, 30), 20, INK, f)
+		_ctext(c, ["FEED A", "FEED B"][k], cx, 361 + dy, 18, INK, f)
+		_ctext(c, ["SUBJECTS 1–4", "SUBJECTS 5–8"][k], cx, 383 + dy, 18, INK, f)
+	_rtext(c, "A. MERCER · WITNESS", Rect2(1008, 176 + dy, 240, 30), 20, INK, f)
 	# the lamp panel: eight subjects, then E.V. and A.M.
 	var sv := _plate_state("sever", "", "c_final")
 	var ct := _plate_state("continue", "", "c_final")
 	var d := sv if pv_route == "sever" else ct
 	for i in 8:
-		var at := Vector2(600 + 64 * (i % 4), FINAL_LAMPS_Y[i / 4])
+		var at := Vector2(600 + 64 * (i % 4), FINAL_LAMPS_Y[i / 4] + dy)
 		_lamp(c, at, d.subj[i], 1.25)
 		_ctext(c, str(i + 1), at.x, at.y + 33, 12, Color(Ink.PAPER, 0.85), f)
 	var ev_on: bool = (sv.feed if pv_route == "sever" else ct.ev)
-	_lamp(c, Vector2(620, 350), ev_on, 1.25)
-	_lamp(c, Vector2(820, 350), ct.am, 1.25)
-	_ctext(c, "E.V.", 668, 356, 14, PAPER, f)
-	_ctext(c, "A.M.", 772, 356, 14, PAPER, f)
+	_lamp(c, Vector2(620, 350 + dy), ev_on, 1.25)
+	_lamp(c, Vector2(820, 350 + dy), ct.am, 1.25)
+	_ctext(c, "E.V.", 668, 356 + dy, 14, PAPER, f)
+	_ctext(c, "A.M.", 772, 356 + dy, 14, PAPER, f)
 	if pv_route == "continue" and pv_t0 >= 0.0:
 		var sx := lerpf(640, 800, ct.slider)
-		c.draw_line(Vector2(640, 376), Vector2(800, 376), Color(PAPER, 0.5), 2.0)
-		var sr := Rect2(sx - 7, 368, 14, 16)
+		c.draw_line(Vector2(640, 376 + dy), Vector2(800, 376 + dy), Color(PAPER, 0.5), 2.0)
+		var sr := Rect2(sx - 7, 368 + dy, 14, 16)
 		c.draw_rect(sr, BRASS)
 		c.draw_rect(sr, INK, false, 1.5)
 	# the PREVIEW key's word
-	var pr := Rect2(644, 584, 160, 22)
+	var pr := Rect2(644, 584 + dy, 160, 22)
 	_plate(c, pr)
 	_rtext(c, "PREVIEW", pr, 15, INK, f)
 	# the handle's lock tongue across its slot
-	var tongue := Rect2(1190, 506, 22, 40)
+	var tongue := Rect2(1190, 506 + dy, 22, 40)
 	c.draw_rect(tongue, BRASS)
-	c.draw_rect(Rect2(1193, 509, 4, 34), BRASS_HI)
+	c.draw_rect(Rect2(1193, 509 + dy, 4, 34), BRASS_HI)
 	c.draw_rect(tongue, INK, false, 2.0)
 	# the yoke and the bridge
 	var yt := _tex("yoke")
 	if yt:
-		var yat := Vector2(110, 455)
+		var yat := Vector2(110, 455 + dy)
 		if r.yoke() == "contacts":
-			yat = Vector2(110, 210)
+			yat = Vector2(110, 210 + dy)
 			if fit_what == "yoke_fit" and motion and fit_t0 >= 0.0:
 				yat.y -= 12.0 * (1.0 - _k(fit_t0, 0.25))
 			c.draw_texture(yt, yat)
@@ -1817,24 +2031,68 @@ func _draw_c_final(c: CanvasItem) -> void:
 		else:
 			c.draw_texture(yt, yat)
 	if r.bridge_seated():
-		var bat := Vector2(1008, 225)
+		var bat := Vector2(1008, 225 + dy)
 		if fit_what == "bridge_seat" and motion and fit_t0 >= 0.0:
 			bat.y -= 12.0 * (1.0 - _k(fit_t0, 0.25))
 		_sprite(c, "bridge", bat)
-	# the two buttons
+	# the two knife switches: navy small caps stamped into each brass band (painted in c_final_r2)
 	for route in R12Sim.ROUTES:
-		var x0: float = BTN_X[route]
-		var face := Rect2(x0 + 30, 730, 540, 140)
-		var text: String = BTN_TEXT[route]
-		var lines := _wrap(text, 500, 30, f)
-		var refused: bool = r.refused_button == route
-		var block := 38.0 * lines.size() + (30.0 if refused else 0.0)
-		var y := face.get_center().y - block / 2.0 + 28.0
-		for line in lines:
-			_ctext(c, line, face.get_center().x, y, 30, INK, f)
-			y += 38.0
-		if refused:
-			_ctext(c, "Preview first.", face.get_center().x, y + 2, 20, BRUISE, Ink.hand())
+		var band := knife_band(route)
+		_small_caps(c, BTN_TEXT[route], band, f)
+		if r.refused_button == route:
+			var x0: float = BTN_X[route]
+			_ctext(c, "Preview first.", x0 + 300, BTN_Y + 176, 20, AMBER_HI, Ink.hand())
+
+## The brass lettering band of a knife-switch plate (tools/art/rooms/R12.py KNIFE_BAND).
+func knife_band(route: String) -> Rect2:
+	return Rect2(BTN_X[route] + 40.0, BTN_Y + 30.0, 520.0, 50.0)
+
+## Stamped small caps centred in `band`: each word's first letter at SMALLCAPS_BIG px, the rest
+## at SMALLCAPS_SMALL px, navy, with a pale brass lip under each stroke.
+func _small_caps(c: CanvasItem, s: String, band: Rect2, f: Font) -> void:
+	var parts := []   # [char, size]
+	for w in s.split(" "):
+		if not parts.is_empty():
+			parts.append([" ", SMALLCAPS_SMALL])
+		for i in w.length():
+			parts.append([w[i], SMALLCAPS_BIG if i == 0 else SMALLCAPS_SMALL])
+	var width := 0.0
+	for p in parts:
+		width += f.get_char_size(str(p[0]).unicode_at(0), p[1]).x + SMALLCAPS_TRACK
+	var x := band.get_center().x - width / 2.0
+	var y := band.get_center().y + SMALLCAPS_BIG * 0.36
+	for p in parts:
+		var ch: String = p[0]
+		c.draw_char(f, Vector2(x, y + 1.0), ch, p[1], Color(BRASS_HI, 0.9))
+		c.draw_char(f, Vector2(x, y), ch, p[1], INK)
+		x += f.get_char_size(ch.unicode_at(0), p[1]).x + SMALLCAPS_TRACK
+
+## The eye in c_final's top strip: the surface and iris at its gaze, the slit pupil led a little
+## further, clipped to FINAL_STRIP; the margin of darker water along its edges (P26 is done).
+func _draw_final_strip(c: CanvasItem) -> void:
+	var s := FINAL_STRIP
+	c.draw_rect(s, Color("26343e"))
+	var sc := FINAL_EYE_SCALE
+	_strip_tex(c, _tex("a_surface_eye_r3"), FINAL_EYE_C + gaze_at * sc, sc)
+	_strip_tex(c, _tex("a_pupil_r3"), FINAL_EYE_C + gaze_at * (1.0 + PUPIL_LEAD) * sc, sc)
+	var m := MARGIN_W
+	c.draw_rect(Rect2(s.position.x, s.position.y, m, s.size.y), MARGIN_COLOR)
+	c.draw_rect(Rect2(s.end.x - m, s.position.y, m, s.size.y), MARGIN_COLOR)
+
+## Draws `t` centred on `centre` at scale `sc`, clipped to FINAL_STRIP.
+func _strip_tex(c: CanvasItem, t: Texture2D, centre: Vector2, sc: float) -> void:
+	if t == null:
+		return
+	var size := t.get_size() * sc
+	var dest := Rect2(centre - size / 2.0, size)
+	var part := dest.intersection(FINAL_STRIP)
+	if part.size.x <= 0.0 or part.size.y <= 0.0:
+		return
+	c.draw_texture_rect_region(t, part, Rect2((part.position - dest.position) / sc, part.size / sc))
+
+## The pupil's centre in c_final's strip (tests and captures).
+func final_pupil_centre() -> Vector2:
+	return FINAL_EYE_C + gaze_at * (1.0 + PUPIL_LEAD) * FINAL_EYE_SCALE
 
 # ---------------------------------------------------------------------------------------------
 # layer 5: the ending tableaux
@@ -1845,6 +2103,10 @@ func _draw_tab(c: CanvasItem, id: String, done: bool) -> void:
 	match id:
 		"c_sever", "c_continue":
 			_draw_view_c(c, id)
+		"c_sever_wall":
+			_draw_sever_wall(c, done)
+		"m_kettle":
+			_draw_kettle(c)
 		"b_dark":
 			_draw_view_b(c, "b_dark")
 		"a_day", "a_sit", "a_morning":
@@ -1939,6 +2201,75 @@ func _draw_terminal(c: CanvasItem, id: String, done: bool) -> void:
 			_ltext(c, s.substr(0, n), 230, y, 22, INK, f)
 		else:
 			Ink.handwriting(c, s, n, Vector2(250, y), 22, 40 + i, n < s.length(), PENCIL)
+
+## SEVER's first page: the frames wall, close and wide (view B at SEVER_WALL_SCALE about its
+## indicator row), the eight indicators as after P25, each drawn at full size over it: lit until
+## its line_out fx, then unlit ink; its name plate's letters lose their brass fill a moment later.
+func _draw_sever_wall(c: CanvasItem, done: bool) -> void:
+	c.draw_rect(Rect2(Vector2.ZERO, SIZE), Color("344652"))
+	c.draw_set_transform(SEVER_WALL_AT - SEVER_WALL_FROM * SEVER_WALL_SCALE, 0.0, Vector2(SEVER_WALL_SCALE, SEVER_WALL_SCALE))
+	for id in ["view_b", "b_shutters_turned", "b_copy_uncapped", "b_frames_filled", "b_terminal_lit"]:
+		var t := _tex(id)
+		if t:
+			c.draw_texture(t, Vector2.ZERO)
+	# the wall's own words, as view B writes them: her name plate, the frames' plates, her card
+	var f := Ink.serif()
+	_spaced(c, "ADA MERCER", Rect2(474, 250, 500, 66), 30, INK, f, 7.0)
+	_spaced(c, "ADA MERCER", Rect2(FRAMES_B[2] + 62, 432, 216, 72), 24, INK, f, 3.0)
+	for i in 3:
+		_rtext(c, ["BODY", "PLACE", "NAME"][i], Rect2(FRAMES_B[i] + 40, 650, 260, 40), 22, INK, f)
+	c.draw_set_transform_matrix(Transform2D.IDENTITY)
+	var dark := 8 if done else wall_dark()
+	# the name plates first (over view B's own), then the indicators above them
+	for i in 8:
+		var at := sever_wall_centre(i)
+		var plate := Rect2(at.x - 76.0, at.y + WALL_R - 8.0, 152.0, 44.0)
+		_plate(c, plate)
+		var name: String = R12Sim.STAFF[i]
+		var w := _tw(name, WALL_NAME_SIZE, f)
+		var pos := Vector2(plate.get_center().x - w / 2.0, plate.get_center().y + WALL_NAME_SIZE * 0.36)
+		c.draw_string_outline(f, pos, name, HORIZONTAL_ALIGNMENT_LEFT, -1, WALL_NAME_SIZE, 3, INK)
+		# brass-filled while the line lives; hollow (the plate's own enamel) once it has gone
+		c.draw_string(f, pos, name, HORIZONTAL_ALIGNMENT_LEFT, -1, WALL_NAME_SIZE,
+			ENAMEL if wall_unfilled(i) else BRASS)
+	for i in 8:
+		var at := sever_wall_centre(i)
+		var out := i < dark
+		# the lamp's light round the bezel while it is lit
+		if not out:
+			c.draw_circle(at, WALL_R + 16.0, Color(AMBER_HI, 0.16))
+			c.draw_circle(at, WALL_R + 7.0, Color(AMBER_HI, 0.28))
+		c.draw_circle(at, WALL_R, BRASS)
+		c.draw_arc(at, WALL_R, 0.0, TAU, 48, INK, 3.0)
+		c.draw_arc(at, WALL_R - 4.0, deg_to_rad(195), deg_to_rad(300), 16, BRASS_HI, 2.0)
+		var ri := WALL_R - 8.0
+		c.draw_circle(at, ri, INK if out else AMBER_HI)
+		if not out:
+			c.draw_circle(at, ri * 0.55, Color(1.0, 0.95, 0.82, 0.8))
+		# the two leaves, turned a little as after P25, parted on their seam
+		var ang := deg_to_rad(WALL_TURN[i])
+		var n := Vector2(cos(ang), sin(ang))
+		for sd in [-1.0, 1.0]:
+			var pts := PackedVector2Array()
+			var base := ang + (PI / 2.0 if sd < 0.0 else -PI / 2.0)
+			var off: Vector2 = n * sd * WALL_GAP
+			pts.append(at + off)
+			for k in 25:
+				var a := base + PI * k / 24.0
+				pts.append(at + off + Vector2(cos(a), sin(a)) * ri)
+			c.draw_colored_polygon(pts, Color("2e3840") if sd < 0.0 else Color("20282f"))
+			c.draw_polyline(pts, INK, 1.5)
+		c.draw_circle(at, 5.0, BRASS_HI)
+
+## Indicator i's centre on c_sever_wall (view B's LAMPS_B through the page's scale).
+func sever_wall_centre(i: int) -> Vector2:
+	return SEVER_WALL_AT + (Vector2(LAMP_B_X0 + LAMP_B_STEP * i, LAMP_B_Y) - SEVER_WALL_FROM) * SEVER_WALL_SCALE
+
+## CONTINUE's kitchen, close: the range, the kettle, the one lit window, its steam (m_kettle).
+func _draw_kettle(c: CanvasItem) -> void:
+	_full(c, "end_card")
+	_sprite(c, "m_kettle", OVAL_AT)
+	_rtext(c, CAPTIONS.get("m_kettle", ""), CAPTION, 22, INK, Ink.serif())
 
 ## CONTINUE's wide page: the night field (end_b_wide_3). Its one lit window and its small flat
 ## glow are painted; nothing here moves.
