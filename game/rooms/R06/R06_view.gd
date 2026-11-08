@@ -91,12 +91,13 @@ const SLOPE_CONTROLS := [
 	["printed_line", Rect2(220, 440, 360, 64), "The printed line"],
 	["rest_record", Rect2(160, 200, 480, 420), "RECORD rest"],
 	["rest_evidence", Rect2(808, 200, 480, 420), "EVIDENCE rest"],
-	["fin_prev", Rect2(160, 680, 64, 80), "Finding ◁"],
-	["fin_next", Rect2(456, 680, 64, 80), "Finding ▷"],
-	["obj_prev", Rect2(544, 680, 64, 80), "Object ◁"],
-	["obj_next", Rect2(840, 680, 64, 80), "Object ▷"],
-	["own_prev", Rect2(928, 680, 64, 80), "Owner ◁"],
-	["own_next", Rect2(1224, 680, 64, 80), "Owner ▷"],
+	# ◁ brings the word above the window down; ▷ brings the word below it up (R06Sim.WHEEL_NEXT)
+	["fin_prev", Rect2(160, 680, 64, 80), "FINDING ◁ (word above)"],
+	["fin_next", Rect2(456, 680, 64, 80), "FINDING ▷ (word below)"],
+	["obj_prev", Rect2(544, 680, 64, 80), "OBJECT ◁ (word above)"],
+	["obj_next", Rect2(840, 680, 64, 80), "OBJECT ▷ (word below)"],
+	["own_prev", Rect2(928, 680, 64, 80), "OWNER ◁ (word above)"],
+	["own_next", Rect2(1224, 680, 64, 80), "OWNER ▷ (word below)"],
 	# the drums' windows between the studs: where the pencil writes (item:pencil on it)
 	["amend_line", Rect2(224, 680, 232, 80), "Amendment line"],
 	["amend_line", Rect2(608, 680, 232, 80), "Amendment line"],
@@ -109,6 +110,10 @@ const WHEEL_X := [[230.0, 450.0], [614.0, 834.0], [998.0, 1218.0]]
 const WHEEL_BASE := 731.0
 const WHEEL_PITCH := 34.0      # the neighbour words, half under the drum's curve
 const WHEEL_MARGIN := 24.0
+## The drums' name plates (R06Sim.WHEEL_LABELS), in the gap under the drum bar: plate top, height.
+const WHEEL_PLATE_Y := 789.0
+const WHEEL_PLATE_H := 24.0
+const WHEEL_PLATE_W := 128.0
 ## The engraved plates under ERASE and APPEND (centre x, baseline).
 const KEY_LABEL := {"erase": Vector2(300, 932), "append": Vector2(1148, 932)}
 const KEY_TIME := 0.15
@@ -929,7 +934,8 @@ func _draw_slope(c: CanvasItem) -> void:
 		var box := Rect2(470, 276, 120, 44)
 		c.draw_rect(box, INK, false, 2.0)
 		c.draw_rect(box.grow(-3), Color(INK, 0.6), false, 1.0)
-		_ctext(c, R06Sim.REGISTER_STAMP, box.get_center().x, box.get_center().y + 6, 16, INK, narrow)
+		var ss := _fit(R06Sim.REGISTER_STAMP, narrow, 16, 12, box.size.x - 10.0)
+		_ctext(c, R06Sim.REGISTER_STAMP, box.get_center().x, box.get_center().y + 6, ss, INK, narrow)
 		if r.amendment_written():
 			_draw_amendment(c)
 			_draw_card_ring(c)
@@ -946,10 +952,8 @@ func _draw_slope(c: CanvasItem) -> void:
 		var w: Array = WHEEL_X[i]
 		var cx: float = (w[0] + w[1]) / 2.0
 		var width: float = w[1] - w[0] - WHEEL_MARGIN
-		var words: Array = R06Sim.WHEELS[i]
-		var idx := int(st.wheels[i])
 		for d in [-1, 1]:
-			var nb := str(words[posmod(idx + d, words.size())])
+			var nb := r.wheel_neighbour(i, d)
 			var ns := _fit(nb, narrow, 16, 11, width)
 			_ctext(c, nb, cx, WHEEL_BASE + WHEEL_PITCH * d, ns, Color(INK, 0.7), narrow)
 	_full(c, "c_slope_drums")
@@ -961,6 +965,7 @@ func _draw_slope(c: CanvasItem) -> void:
 		# engraved: a bright brass lip under the cut
 		_ctext(c, s, cx + 1, WHEEL_BASE + 1, size, Color(PAPER_HI, 0.55), narrow)
 		_ctext(c, s, cx, WHEEL_BASE, size, INK, narrow)
+		_draw_wheel_plate(c, R06Sim.WHEEL_LABELS[i], cx)
 	for k in [["erase", 160.0, "ERASE"], ["append", 1008.0, "APPEND"]]:
 		if key_t[k[0]] > 0.0:
 			var kd := _tex("c_%s_down" % k[0])
@@ -969,6 +974,21 @@ func _draw_slope(c: CanvasItem) -> void:
 		var lp: Vector2 = KEY_LABEL[k[0]]
 		_ctext(c, k[2], lp.x + 1, lp.y + 1, 18, Color(PAPER_HI, 0.5), serif_bold)
 		_ctext(c, k[2], lp.x, lp.y, 18, INK, serif_bold)
+
+## A small engraved name plate under drum `cx`: cream card stock in a navy rule, like RECORD and
+## EVIDENCE above, so FINDING / OBJECT / OWNER read at a glance.
+func wheel_plate_rect(i: int) -> Rect2:
+	var w: Array = WHEEL_X[i]
+	var cx: float = (w[0] + w[1]) / 2.0
+	return Rect2(cx - WHEEL_PLATE_W / 2.0, WHEEL_PLATE_Y, WHEEL_PLATE_W, WHEEL_PLATE_H)
+
+func _draw_wheel_plate(c: CanvasItem, label: String, cx: float) -> void:
+	var box := Rect2(cx - WHEEL_PLATE_W / 2.0, WHEEL_PLATE_Y, WHEEL_PLATE_W, WHEEL_PLATE_H)
+	c.draw_rect(box, PAPER_HI)
+	c.draw_rect(box, INK, false, 2.0)
+	for sx in [box.position.x + 7.0, box.end.x - 7.0]:
+		c.draw_circle(Vector2(sx, box.get_center().y), 2.2, Color(INK, 0.7))
+	_ctext(c, label, cx, box.position.y + 18.0, 16, INK, narrow)
 
 ## Ada's amendment, in pencil under the printed line (the P22 reward): it writes itself in while
 ## the pencil scratches, and stays.

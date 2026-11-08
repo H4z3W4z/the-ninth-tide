@@ -82,6 +82,8 @@ func run_tests() -> void:
 	test_p22_commit()
 	test_p22_card_on_rest_saves()
 	test_card_never_lost()
+	test_rest_persistence()
+	test_wheels()
 	test_p22_p23_order()
 	test_cup_reveal()
 	test_malformed_saves()
@@ -564,7 +566,7 @@ func test_p22_refusals() -> void:
 		check(says(ev) == ERASE_NOTHING and has_ev(ev, "sfx", "erase_refuse"), "P22 %s without the card" % a)
 	ev = use(g, "nora_register_card", "rest_record")
 	check(r.state.card_on_rest and not g.has_item("nora_register_card") and r.has_seen("register_card"), "P22: card laid")
-	check(says(ev) == "Her register card. 'No surviving personal effects.' Stamped SPECIMEN N-27.", "P22: card line")
+	check(says(ev) == "Her register card. 'No surviving personal effects.' Stamped SPECIMEN 27-11.", "P22: card line")
 	before = snapshot(g)
 	for a in ["erase", "printed_line"]:
 		ev = g.dispatch(a)
@@ -731,10 +733,10 @@ func test_p22_card_on_rest_saves() -> void:
 	check(has_ev(ev, "fx", "notice_cup") and glances(ev, "p22_cup").size() == 1, "P22 on rest: the cup beat and its glance after the load")
 	check(g.from_dict(g.to_dict()) and g.has_item("amended_nora_card") and g.state.inventory.count("amended_nora_card") == 1,
 		"P22 on rest: exactly one card after another load")
-	# A malformed save: card on the rest before P22 goes back to her bag.
+	# Before P22 the rests keep what she laid on them too (test_rest_persistence has the rest).
 	var m := p22_ready()
 	lay_all(m, [1, 3, 3])
-	check(m.from_dict(m.to_dict()) and m.has_item("nora_register_card") and not r06(m).state.card_on_rest, "pre-P22: a load returns the card")
+	check(m.from_dict(m.to_dict()) and not m.has_item("nora_register_card") and r06(m).state.card_on_rest, "pre-P22: a load keeps the card on the rest")
 
 func test_card_never_lost() -> void:
 	var g := p22_ready()
@@ -750,12 +752,120 @@ func test_card_never_lost() -> void:
 	use(g, "nora_register_card", "slope")
 	check(r06(g).state.card_on_rest, "card: laid via the slope hotspot")
 	check(g.from_dict(g.to_dict()), "card: loads")
-	check(g.has_item("nora_register_card") and not r06(g).state.card_on_rest, "card: a save returns it")
+	check(not g.has_item("nora_register_card") and r06(g).state.card_on_rest, "card: a save keeps it on the rest")
 	to_slope(g)
-	use(g, "nora_register_card", "rest_record")
+	check(r06(g).state.card_on_rest, "card: still on the rest when she opens the slope")
 	g.dispatch("notebook")
 	g.dispatch("plan:R05")
 	check(g.state.room == "R05" and g.has_item("nora_register_card"), "card: plan travel from c_slope returns it")
+
+## The slope's rests survive save and load before P22: the card and the sketch stay where she
+## laid them, never duplicated in her bag, and stepping back from the slope still collects them.
+func test_rest_persistence() -> void:
+	var g := p22_ready()
+	lay_all(g, [1, 3, 0])
+	var r := r06(g)
+	check(r.state.card_on_rest and r.state.sketch_on_rest, "rests: both laid")
+	var d = JSON.parse_string(JSON.stringify(g.to_dict()))
+	check(g.from_dict(d), "rests: loads through JSON")
+	r = r06(g)
+	check(r.state.card_on_rest and r.state.sketch_on_rest, "rests: card and sketch restored on the rests")
+	check(not g.has_item("nora_register_card"), "rests: the card is not also in her bag")
+	check(r.state.wheels == [1, 3, 0] and r.objective() == "p22", "rests: wheels kept, the objective unchanged")
+	# A second round trip changes nothing.
+	var snap := snapshot(g)
+	check(g.from_dict(g.to_dict()) and snapshot(g) == snap, "rests: a second load is identical")
+	# She can finish from where she left it, without laying anything again.
+	r = r06(g)
+	to_slope(g)
+	set_wheels(g, [1, 3, 3])
+	check(r.append_refusal() == "", "rests: commit ready after the load")
+	amend(g)
+	check(g.flag("P22"), "rests: P22 after the load")
+	# Only the card on the rest: the sketch stays off, and vice versa.
+	for which in ["card", "sketch"]:
+		var h := p22_ready()
+		to_slope(h)
+		if which == "card":
+			use(h, "nora_register_card", "rest_record")
+		else:
+			h.dispatch("rest_evidence")
+		check(h.from_dict(h.to_dict()), "rests %s only: loads" % which)
+		var rr := r06(h)
+		check(rr.state.card_on_rest == (which == "card") and rr.state.sketch_on_rest == (which == "sketch"),
+			"rests %s only: exactly that one restored" % which)
+		check(h.has_item("nora_register_card") == (which == "sketch"), "rests %s only: the card is in one place" % which)
+	# Back still collects the card and lifts the sketch after a load.
+	var b := p22_ready()
+	lay_all(b, [0, 0, 0])
+	b.from_dict(b.to_dict())
+	to_slope(b)
+	var ev := b.dispatch("back")
+	check(gives(ev, "nora_register_card") == 1 and b.has_item("nora_register_card"), "rests: Back after a load gives the card once")
+	check(not r06(b).state.card_on_rest and not r06(b).state.sketch_on_rest, "rests: Back clears both")
+	# Impossible saves never conjure or duplicate a card.
+	var dup := p22_ready()
+	var dd: Dictionary = dup.to_dict()
+	dd.rooms.R06.card_on_rest = true
+	dd.rooms.R06.sketch_on_rest = true
+	check(dup.from_dict(dd) and dup.state.inventory.count("nora_register_card") == 1 and not r06(dup).state.card_on_rest,
+		"rests: a card in the bag wins over one claimed on the rest")
+	var early := fresh()
+	var de: Dictionary = early.to_dict()
+	de.rooms.R06.card_on_rest = true
+	de.rooms.R06.sketch_on_rest = true
+	check(early.from_dict(de) and not r06(early).state.card_on_rest and not r06(early).state.sketch_on_rest,
+		"rests: before P13 and her book, nothing can lie on the rests")
+	# Laid before P21 and saved: her card is needed elsewhere, so the room says where it is.
+	var e7 := p22_ready(7)
+	to_slope(e7)
+	use(e7, "nora_register_card", "rest_record")
+	e7.from_dict(e7.to_dict())
+	var r7 := r06(e7)
+	check(r7.state.card_on_rest and r7.objective() == "card_on_slope", "rests before P21: the objective is to take the card back")
+	check(r7.hint_line(0) == R06Sim.HINTS.card_on_slope[0], "rests before P21: the hint names the slope")
+	to_slope(e7)
+	e7.dispatch("back")
+	check(e7.has_item("nora_register_card") and r7.objective() == "away", "rests before P21: Back returns it, nothing to do here")
+
+## The amendment drums: ▷ brings the word below the window up into it, ◁ the word above down;
+## every drum is labelled FINDING / OBJECT / OWNER.
+func test_wheels() -> void:
+	check(R06Sim.WHEEL_LABELS == ["FINDING", "OBJECT", "OWNER"], "wheels: labelled FINDING / OBJECT / OWNER")
+	var g := p22_ready()
+	to_slope(g)
+	var r := r06(g)
+	var nexts := ["fin_next", "obj_next", "own_next"]
+	var prevs := ["fin_prev", "obj_prev", "own_prev"]
+	for i in 3:
+		var n: int = (R06Sim.WHEELS[i] as Array).size()
+		for start in n:
+			r.state.wheels[i] = start
+			var below := r.wheel_neighbour(i, 1)
+			var above := r.wheel_neighbour(i, -1)
+			check(r.wheel_neighbour(i, 0) == r.wheel_text(i), "wheel %d@%d: the window word" % [i, start])
+			check(below == str(R06Sim.WHEELS[i][posmod(start + 1, n)]) and above == str(R06Sim.WHEELS[i][posmod(start - 1, n)]),
+				"wheel %d@%d: next below, previous above" % [i, start])
+			g.dispatch(nexts[i])
+			check(r.wheel_text(i) == below, "wheel %d@%d: ▷ brings the word below up (got %s)" % [i, start, r.wheel_text(i)])
+			g.dispatch(prevs[i])
+			check(int(r.state.wheels[i]) == start, "wheel %d@%d: ◁ undoes ▷" % [i, start])
+			g.dispatch(prevs[i])
+			check(r.wheel_text(i) == above, "wheel %d@%d: ◁ brings the word above down" % [i, start])
+		r.state.wheels[i] = 0
+	# The controls' hover labels name the drum and the direction the word comes from.
+	var ctl: Array = view_consts().SLOPE_CONTROLS
+	var want := {"fin_next": "FINDING ▷", "fin_prev": "FINDING ◁", "obj_next": "OBJECT ▷", "obj_prev": "OBJECT ◁",
+		"own_next": "OWNER ▷", "own_prev": "OWNER ◁"}
+	for h in ctl:
+		if want.has(h[0]):
+			check(str(h[2]).begins_with(want[h[0]]), "wheels: %s labelled %s" % [h[0], want[h[0]]])
+			check(("below" in str(h[2])) == h[0].ends_with("_next"), "wheels: %s names where its word comes from" % h[0])
+	# The stamp on her card, on the rest and in the notebook.
+	check(R06Sim.REGISTER_STAMP == "SPECIMEN 27-11", "stamp: SPECIMEN 27-11")
+	check(obs_text("register_card").ends_with("Stamped SPECIMEN 27-11."), "stamp: in the notebook")
+	for t in R06Sim.OBSERVATIONS.values():
+		check(not "N-27" in str(t), "stamp: no N-27 left in the notebook")
 
 func test_p22_p23_order() -> void:
 	var a := p22_ready()
@@ -855,10 +965,10 @@ func test_save_mid_puzzle() -> void:
 	var p := p22_ready()
 	lay_all(p, [1, 3, 2])
 	check(p.from_dict(p.to_dict()), "mid P22: loads")
-	check(r06(p).state.wheels == [1, 3, 2] and p.has_item("nora_register_card"), "mid P22: wheels kept, card in hand")
-	# R05 owns nora_ledger; until its sim declares it, a load drops it from the notebook.
-	p.observe("R05", "nora_ledger")
-	lay_all(p, [1, 3, 3])
+	check(r06(p).state.wheels == [1, 3, 2] and r06(p).state.card_on_rest and r06(p).state.sketch_on_rest,
+		"mid P22: wheels kept, card and sketch still on the rests")
+	to_slope(p)
+	set_wheels(p, [1, 3, 3])
 	amend(p)
 	p.dispatch("back")
 	check(p.flag("P22"), "mid P22: finishes after a load")
@@ -872,9 +982,11 @@ func test_objectives_hints() -> void:
 	var ladders := {
 		"p08": ["Four belongings, four open lockers, and a card on each door.",
 			"Each card names a habit. Lift each object and turn it over: it shows the wear that habit leaves.",
+			"Three new cups, kept none: mended, not replaced. An instrument he altered: a filed jaw. Writes from the left: worn on the left. Won't take a new issue: sewn.",
 			"Cup to Bell, calipers to Rook, pencil holder to Venn, glove to Ives."],
 		"p22": ["Nora's register card says something the bunk room can contradict.",
 			"Her cup is a personal effect. Corrections are added, never written over.",
+			"Her book in the kitchen draws the same cup: 'Cup, mine, mended 3 Feb.' Her card on the RECORD rest, my copy of that sketch on the EVIDENCE rest.",
 			"Put her card and the cup sketch on the slope, set the wheels to 'personal effect identified / repaired cup / Nora Bell', and APPEND with my pencil."],
 		"take_card": ["Her card is still on the writing slope.",
 			"The amendment is written. The card goes with me, not on the rest.",
@@ -909,11 +1021,23 @@ func test_objectives_hints() -> void:
 	check(path == ["p08", "away", "p22", "take_card", "done"], "objectives: p08 -> away -> p22 -> take_card -> done (got %s)" % [path])
 	for o in ladders:
 		check(R06Sim.OBJECTIVES.get(o, "") == texts[o], "objective %s text exact" % o)
-		for i in 3:
+		check(R06Sim.HINTS[o].size() == ladders[o].size(), "hint %s: %d tiers" % [o, ladders[o].size()])
+		for i in ladders[o].size():
 			check(R06Sim.HINTS[o][i] == ladders[o][i], "hint %s %d exact" % [o, i])
 	var h := fresh()
-	for i in 3:
+	check(r06(h).hint_tiers() == 4, "hint_tiers: P08 has four (nudge, relationship, evidence, solution)")
+	for i in 4:
 		check(r06(h).hint_line(i) == ladders.p08[i], "hint_line p08 %d" % i)
+	check(r06(h).hint_line(9) == ladders.p08[3], "hint_line p08 clamps to the solution")
+	var q := p22_ready()
+	check(r06(q).objective() == "p22" and r06(q).hint_tiers() == 4, "hint_tiers: P22 has four")
+	for i in 4:
+		check(r06(q).hint_line(i) == ladders.p22[i], "hint_line p22 %d" % i)
+	# The evidence tier names the evidence, not the answer.
+	check("RECORD" in ladders.p22[2] and "EVIDENCE" in ladders.p22[2] and not "APPEND" in ladders.p22[2], "P22 evidence tier: the rests, not the commit")
+	check(not "Bell" in ladders.p08[2] and not "Rook" in ladders.p08[2], "P08 evidence tier: the wear, not the names")
+	for o in ["away", "done", "take_card", "card_on_slope"]:
+		check(R06Sim.HINTS[o].size() == 3, "hint %s: three tiers" % o)
 
 # ---------------------------------------------------------------------------------------------
 # (17) every hotspot answers, (18) wrong-target items
