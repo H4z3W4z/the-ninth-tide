@@ -9,11 +9,20 @@ extends RoomView
 ##          overlays and every label; a child node adds the pendant's constant amber glow.
 ##   CanvasLayer 5 `close`: c_contact (P16), c_folders (P18), c_model (P23).
 ##
-## Painted plates: assets/rooms/R10/*.png (tools/art/rooms/R10.py). They carry no text: every
-## label, numeral, clock hand, tally and printed line is drawn here, so the clues stay exact.
+## Painted plates: assets/rooms/R10/*.png, and the later-stage art in assets/stages/R10/*.png (the
+## STAFF slot, its shut seam, the vault grade), both from tools/art/rooms/R10.py. They carry no
+## text: every label, numeral, clock hand, tally and printed line is drawn here, so the clues stay
+## exact.
 ## Owner rule: no darkening at any band. Dread is what is clearly seen being wrong.
 
 const DIR := "res://assets/rooms/R10/%s.png"
+const STAGE_DIR := "res://assets/stages/R10/%s.png"
+## The overlays that live in assets/stages/R10/ (new stage art; the room's own plates stay put).
+const STAGE_IDS := ["staff_slot", "staff_slot_1", "staff_slot_2", "staff_slot_riffle", "staff_shut", "vault_grade"]
+## The STAFF slot at aperture width 0, 1, 2: each step a wider slot and one more row of cards.
+const STAFF_SLOTS := ["staff_slot", "staff_slot_1", "staff_slot_2"]
+## From this band the back shelving is graded toward storm navy (vault_grade).
+const GRADE_BAND := 6
 
 const PAPER := Color("ded4ba")
 const PAPER_HI := Color("e8e1cf")
@@ -108,10 +117,22 @@ const SFX_DB := {
 	"letters_take": -6.0, "staff_open": -3.0, "staff_settle": -2.0, "drawer_locked": -4.0, "card_flip": -6.0,
 	"clock_tap": -5.0, "string_untie": -6.0, "paper_unwrap": -5.0, "lead_plug": -5.0, "lead_unplug": -6.0,
 	"test_key": -4.0, "stamp_closed": -2.0, "stamp_open": -4.0, "reset_key": -5.0, "bridge_lift": -4.0,
+	"staff_slam": -2.0,
 }
-const SFX_SOFT := ["clip_snap", "stamp_closed", "drawer_locked"]
+const SFX_SOFT := ["clip_snap", "stamp_closed", "drawer_locked", "staff_slam"]
 
-const LOOPS := ["r10_room", "r10_paper_far", "r10_sea_wall", "r10_aperture", "r10_model_hum"]
+const LOOPS := ["r10_room", "r10_paper_far", "r10_paper_tick", "r10_sea_wall", "r10_aperture", "r10_model_hum"]
+## The band-driven bed, dB per weather band 0..7 (OFF = silent). tools/audio/rooms/R10.py keeps a
+## copy (STAGE_DB) and checks the mix survives a laptop speaker; the level sits within 3 dB of the
+## laboratory's at the same band. Paper ticks from band 0; far paper from band 2 until band 7
+## swaps it for the aperture's breath; the sea through the wall at band 4 only.
+const OFF := -80.0
+const STAGE_DB := {
+	"r10_room": [-6.0, -6.0, -6.0, -6.0, -6.0, -6.0, -6.0, -5.0],
+	"r10_paper_far": [OFF, OFF, -14.0, -14.0, -14.0, -14.0, -14.0, OFF],
+	"r10_paper_tick": [-16.0, -16.0, -16.0, -16.0, -16.0, -16.0, -16.0, -16.0],
+	"r10_sea_wall": [OFF, OFF, OFF, OFF, -12.0, OFF, OFF, OFF],
+}
 ## The quiet reveals the room's loops duck under (6 dB).
 const DUCK_IDS := ["blank_turn", "index_close"]
 const LOOP_RATE := 0.11
@@ -184,7 +205,6 @@ const REFL_INSET := Rect2(510, 640, 160, 220)
 
 # --- c_folders geometry -------------------------------------------------------------------
 const POCKETS := [Rect2(110, 190, 360, 400), Rect2(544, 190, 360, 400), Rect2(978, 190, 360, 400)]
-const FOLDER_CAPTIONS := ["MASS / BREATH TRACE", "BEARING", "PERSONAL CARD"]
 const REC_SPRITE := {"nora_frame": "c_rec_frame", "nora_spatial_strip": "c_rec_strip",
 	"nora_register_card": "c_rec_card"}
 const REC_LABEL := {"nora_frame": "N. BELL", "nora_spatial_strip": "BEARING: N. BELL",
@@ -231,6 +251,15 @@ const PRINT_RATE := 18.0
 const MIRROR := Rect2(270, 112, 196, 78)
 const MIRROR_SRC := Rect2(420, 406, 220, 88)
 const AP_TIME := 1.0
+## The faceplate carries only the terminals' names, over the sockets they name.
+const FACEPLATE_PORTS := ["INPUT", "COPY", "WITNESS"]
+const FACEPLATE_PORT_X := [640.0, 848.0, 1056.0]
+## The copy test: the frame photographs on the shelves wall go blank for one beat (s).
+const BLANK_BEAT := 0.9
+## Where each frame's photograph sits in view A (R10.py frame_photo: FRIEZE_X + 12, y 349, 60x86).
+const FRIEZE_X0 := 572.0
+const FRIEZE_DX := 94.0
+const PHOTO_RECT := Rect2(12, 349, 60, 86)
 const KEY_DOWN_TIME := 0.15
 const PRESS_TIME := 0.15
 
@@ -249,7 +278,7 @@ const REVEAL_SOUND := {
 	"last_turn": ["blank_turn", 0], "index_close": ["index_close", 0], "riffle": ["tabs_riffle", 0],
 	"release": ["release_lever", 0], "records_back": ["records_return", 0], "stamp_closed": ["stamp_closed", 0],
 	"stamp_open": ["stamp_open", 0], "print2": ["strip_print", 1], "bridge_free": ["bridge_lift", 0],
-	"aperture_wider": ["staff_settle", 0],
+	"aperture_wider": ["staff_settle", 0], "staff_slam": ["staff_slam", 0],
 }
 ## Seconds a reveal still waits once its sound is no longer queued (it never arrived).
 const REVEAL_FALLBACK := 1.5
@@ -304,6 +333,9 @@ var ap_t := -1.0                # seconds into its widening in the mirror; -1 se
 var cg_t := -1.0                # c_contact's own glance (frame 16); -1 none
 var cg_rect := Rect2()
 var bg_t := -1.0                # view B's two-part glance after P18: STAFF, then Venn's drawer
+var slam_hold := false          # the copy test: STAFF still shows open until its slam is heard
+var blank_t := -1.0             # seconds into the photographs' blank beat; -1 none
+var blank_owed := false         # the beat came while she was not facing the shelves wall
 
 func _ready() -> void:
 	narrow = SystemFont.new()
@@ -318,7 +350,7 @@ func _ready() -> void:
 
 func _tex(id: String) -> Texture2D:
 	if not textures.has(id):
-		var path := DIR % id
+		var path: String = (STAGE_DIR if id in STAGE_IDS else DIR) % id
 		textures[id] = load(path) as Texture2D if ResourceLoader.exists(path) else null
 	return textures[id]
 
@@ -386,6 +418,8 @@ func bay_doorway() -> bool:
 func overlay_ids() -> Array:
 	var out := []
 	if _side() == "a":
+		if _band() >= GRADE_BAND:
+			out.append("vault_grade")
 		out.append("a_sheet_assembled" if r.sheet_assembled() else "a_panels_loose")
 		if r.photos_turned():
 			out.append("a_photos_turned")
@@ -395,10 +429,12 @@ func overlay_ids() -> Array:
 			out.append("a_mercer_card")
 		return out
 	if r.staff_open():
-		if riffle_t >= 0.0:
-			out.append("b_tabs_riffle")
+		if staff_shut_drawn():
+			out.append("staff_shut")
+		elif riffle_t >= 0.0:
+			out.append("staff_slot_riffle")
 		else:
-			out.append(["b_staff_open", "b_aperture_1", "b_aperture_2"][clampi(r.aperture_width(), 0, 2)])
+			out.append(STAFF_SLOTS[clampi(r.aperture_width(), 0, 2)])
 	if r.drawer_open() and not drawer_hide:
 		out.append("b_drawer_open")
 	if r.shutter_open():
@@ -407,6 +443,22 @@ func overlay_ids() -> Array:
 		out.append("b_string_loose")
 	elif r.wrap() == 2:
 		out.append("b_photo_unwrapped")
+	return out
+
+## The STAFF drawer is drawn slammed shut: the sim says so (the copy closed the record) and its
+## slam has been heard.
+func staff_shut_drawn() -> bool:
+	return r.staff_shut() and not slam_hold
+
+## The photographs on the shelves wall are blank for their beat.
+func photos_blank() -> bool:
+	return blank_t >= 0.0
+
+## The frame photographs' rects in view A (eight, and the ninth once it hangs).
+func photo_rects() -> Array:
+	var out := []
+	for i in (9 if r.ninth_photo() else 8):
+		out.append(Rect2(PHOTO_RECT.position + Vector2(FRIEZE_X0 + FRIEZE_DX * i, 0), PHOTO_RECT.size))
 	return out
 
 ## The last blank's pose sprites and alphas: [[id, alpha], ...].
@@ -608,6 +660,13 @@ func tick(dt: float) -> void:
 		ap_t += dt
 		if ap_t > AP_TIME:
 			ap_t = -1.0
+	if blank_owed and _view() == "room":
+		blank_owed = false
+		blank_t = 0.0
+	if blank_t >= 0.0:
+		blank_t += dt
+		if blank_t > BLANK_BEAT or _view() != "room":
+			blank_t = -1.0
 	if drawer_t >= 0.0:
 		drawer_t += dt
 		if drawer_t > DRAWER_SLIDE:
@@ -645,9 +704,9 @@ func loop_targets() -> Dictionary:
 	var b := _band()
 	var v := _view()
 	var out := {}
-	out["r10_room"] = 0.45 if b >= 7 else 0.4
-	out["r10_paper_far"] = 0.55 if b >= 4 and b <= 6 else 0.0
-	out["r10_sea_wall"] = 0.35 if b == 4 else 0.0
+	for id in STAGE_DB:
+		var db: float = STAGE_DB[id][b]
+		out[id] = 0.0 if db <= OFF else db_to_linear(db)
 	var ap := 0.0
 	if r.staff_open():
 		ap = [0.0, 0.25, 0.45][clampi(r.aperture_width(), 0, 2)]
@@ -705,12 +764,19 @@ func play_fx(id: String, e: Dictionary) -> void:
 			print1_t = 0.0 if motion else -1.0
 			print2_hold = true
 			ap_hold = true
+		"print_closed":
+			print1_t = 0.0 if motion else -1.0
 		"stamp_closed", "stamp_open":
 			stamp_hold = true
 		"bridge_free":
 			bridge_hold = true
 		"aperture_wider":
 			ap_hold = true
+		"staff_slam":
+			slam_hold = true
+		"photos_blank":
+			# one beat, when she next faces the shelves wall (now, if she does)
+			blank_owed = true
 	if REVEAL_SOUND.has(id):
 		var s: Array = REVEAL_SOUND[id]
 		if float(e.get("delay", 0.0)) <= 0.0 and s[1] == 0 and not (game and game.sfx_pending(s[0])):
@@ -794,6 +860,8 @@ func _begin(id: String) -> void:
 		"aperture_wider":
 			ap_hold = false
 			ap_t = 0.0 if motion else -1.0
+		"staff_slam":
+			slam_hold = false
 
 func on_view_changed(_before: String) -> void:
 	if _view() != "c_folders":
@@ -885,6 +953,9 @@ func reset_presentation() -> void:
 	cg_t = -1.0
 	cg_rect = Rect2()
 	bg_t = -1.0
+	slam_hold = false
+	blank_t = -1.0
+	blank_owed = false
 
 func redraw() -> void:
 	room.queue_redraw()
@@ -1112,6 +1183,11 @@ func _draw_view_a(c: CanvasItem) -> void:
 	if "a_mercer_card" in ov:
 		_full(c, "a_mercer_card")
 		_rtext(c, "MERCER, A.", MERCER_RECT, 26, INK, narrow)
+	if photos_blank():
+		# the copy closed a record: for one beat every photograph is only its paper
+		for pr in photo_rects():
+			c.draw_rect(pr, PAPER_HI)
+			c.draw_rect(pr, Color(INK, 0.6), false, 1.4)
 	# the vault door's inner plate
 	c.draw_rect(RECORDS_PLATE, Color("d4cab0"))
 	c.draw_rect(RECORDS_PLATE, INK, false, 2.0)
@@ -1419,7 +1495,6 @@ func _draw_folders(c: CanvasItem) -> void:
 		var pk: Rect2 = POCKETS[k]
 		var f: String = R10Sim.FOLDER_ORDER[k]
 		_rtext(c, f, Rect2(pk.position.x + 90, pk.position.y + 10, pk.size.x - 180, 26), 20, INK, narrow)
-		_ctext(c, FOLDER_CAPTIONS[k], pk.get_center().x, pk.position.y + 66, 17, INK, narrow_reg)
 		var rec: String = st.filed[f]
 		var ga := 1.0
 		var goff := Vector2.ZERO
@@ -1570,7 +1645,9 @@ func _cable(c: CanvasItem, a: Vector2, b: Vector2, sag: float) -> void:
 func mirror_staff() -> Array:
 	if not r.staff_open():
 		return []
-	var ids := ["b_staff_open", "b_aperture_1", "b_aperture_2"]
+	if staff_shut_drawn():
+		return [["staff_shut", 1.0]]
+	var ids := STAFF_SLOTS
 	var w := clampi(r.aperture_width(), 0, 2)
 	if ap_hold:
 		return [[ids[maxi(0, w - 1)], 1.0]]
@@ -1601,10 +1678,10 @@ func _draw_model(c: CanvasItem) -> void:
 	var st: Dictionary = r.state
 	_full(c, "c_model")
 	_draw_mirror(c)
-	# faceplate
-	_ctext(c, "INDEX MODEL. FOR TRAINING.", 725, 136, 24, INK, narrow)
-	_ctext(c, "A copied acknowledgement closes the cycle.", 725, 166, 20, INK)
-	_ctext(c, "A human witness may append another correction.", 725, 190, 20, INK)
+	# faceplate: the port labels and nothing else. The rule is written only in the margin of
+	# the session log (R04, P17); here it is learned by testing.
+	for k in FACEPLATE_PORTS.size():
+		_ctext(c, FACEPLATE_PORTS[k], FACEPLATE_PORT_X[k], 164, 26, INK, narrow)
 	# the strip
 	var lines := strip_lines()
 	for i in lines.size():
