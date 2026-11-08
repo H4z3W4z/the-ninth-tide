@@ -54,7 +54,7 @@ Photograph: `photo_after` (continue) or `photo_turned` (turn). Two log rows writ
 
 ## Hints
 
-- Return to office: "Something in the office has changed." / "Venn's log is not finished with you." / "Go back to the Intake Office and open the tide log."
+- Return to office: "Something in the office has changed." / "The duty card said reconcile the records. The log is a record, and it isn't finished." / "Go back to the Intake Office and open the tide log."
 - Chair: "The log has told you what you do next." / "'She looks at the chair.'" / "Inspect the chair behind the desk."
 - Report: "Each line has a witness. The evening's high water has to be worked out, not read." / "Pilings: the chart as it is now. Observers: count the trails from the puddle. The evening tide: Venn's margin rule, from the last time in the log. The height: what the log wrote for itself." / "Pilings 10. Observers 2. High water 19:34 (07:13 plus 12 h 21 m). Height 9.9 m. Then sign it."
 - Filed: "Put the report down." / "Step back from the desk." / "Use Back."

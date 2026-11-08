@@ -90,6 +90,9 @@ const TIDE_REST := 0.10
 const GO_ON_LINE := "Go on, then."
 ## The doorway's hover name once she may go on: the one verb the threshold hint names.
 const WALK_ON_LABEL := "Walk toward it"
+## Its label's top (screen): the bottom of the corridor, under the figure's feet and just
+## above the subtitles, so the name never lies across what stands there.
+const WALK_ON_LABEL_Y := 960.0
 ## The window during the threshold: the horizon, the piling feet's mud line, the top bar.
 const WINDOW_HORIZON := 476.0
 const WINDOW_MUD_LOW := 532.0
@@ -1459,6 +1462,8 @@ func label_for(id: String) -> String:
 	if id == "turn":
 		return "Entry wall" if office.facing == "A" else "Desk wall"
 	if id == "continue" and office.view == "threshold":
+		if game and game.hover_id == id:
+			return ""   # the view anchors it under the figure's feet (draw_hud), never on it
 		return WALK_ON_LABEL
 	if office.facing == "B" and game and game.hover_id == id:
 		return ""   # the entry wall anchors its names above each object (draw_hud), off its props
@@ -3369,6 +3374,36 @@ func draw_hud(c: Node2D) -> void:
 	if office.view == "threshold" and game and game.sim.view == "room":
 		var hot := _has_pointer() and TURN_RECT.has_point(game.pointer_position())
 		_draw_turn_tab(c, 1.0 if hot else TAB_REST_ALPHA, hot)
+		if game.hover_id == "continue":
+			var r := walk_on_label_rect()
+			c.draw_rect(r, Color(0.03, 0.06, 0.08, 0.8))
+			c.draw_string(serif, r.position + Vector2(10, 24), WALK_ON_LABEL, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, PAPER)
+
+## The figure in the doorway as the screen shows it (pure): its whole unclipped silhouette
+## and rim, at its current nearness, through the lean and the push.
+func threshold_figure_rect() -> Rect2:
+	var sc := fig_scale if motion else FIGURE_SCALE_STILL
+	var feet_y := VP.y + (DOOR_SLAB.end.y - VP.y) * FIGURE_DEPTH
+	var hh := feet_y - VP.y - 1.0   # head to heel, as _draw_threshold_figure has it
+	var half_w := 0.16 * hh * sc
+	var top := VP.y + (feet_y - hh - VP.y) * sc
+	var bottom := VP.y + (feet_y - VP.y) * sc
+	var native := Rect2(VP.x - half_w, top, 2.0 * half_w, bottom - top).grow(3.0)
+	return _zoom_xform() * native
+
+## Where "Walk toward it" sits at the threshold (pure: drawing and tests): centred on the
+## corridor under the figure, at the bottom of the frame above the subtitles, stepped aside
+## (toward the figure's side) off the turn tab.
+func walk_on_label_rect() -> Rect2:
+	var w := serif.get_string_size(WALK_ON_LABEL, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x + 20.0
+	var fig := threshold_figure_rect()
+	var y := maxf(WALK_ON_LABEL_Y, fig.end.y + 6.0)
+	var r := Rect2(clampf(fig.get_center().x - w / 2.0, 8.0, SIZE.x - w - 8.0), y, w, 34.0)
+	var tab := TURN_RECT.grow(6.0)
+	if r.intersects(tab):
+		var left := tab.position.x - w
+		r.position.x = left if fig.get_center().x <= tab.get_center().x and left >= 8.0 else tab.end.x
+	return r
 
 ## Ink.button with an opacity: the same plaque, faded as a whole.
 func _plaque(c: CanvasItem, rect: Rect2, label: String, a: float, active: bool, size := 19) -> void:

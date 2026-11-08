@@ -2164,8 +2164,12 @@ func test_rewrite_needs_tide1() -> void:
 		var ev := s.dispatch("logbook")
 		check(s.state.log_rewritten and not s.state.prints_seen and has_ev(ev, "fx", "log_write"),
 			"%s then %s: the log rewrites, without the prints" % order)
-	check(R02Sim.HINTS["reread"] == ["Something in the office has changed.", "Venn's log is not finished with you.",
+	check(R02Sim.HINTS["reread"] == ["Something in the office has changed.",
+		"The duty card said reconcile the records. The log is a record, and it isn't finished.",
 		"Go back to the Intake Office and open the tide log."], "reread hints")
+	var rr: Array = R02Sim.HINTS["reread"]
+	check(rr[0] != rr[1] and rr[1] != rr[2] and rr[0] != rr[2], "T1X reread: the three tiers all differ")
+	check(rr[1] != R02Sim.HINTS["log"][2], "T1X reread tier 2 is not the first read's evidence line")
 	check(R02Sim.OBJECTIVES["reread"] == "The logbook has been written in since I left.", "reread objective")
 	check(R02Sim.HINTS["instruments"].size() == 4 and "chart room" in R02Sim.HINTS["instruments"][3], "instruments hints")
 	var bad := new_sim()
@@ -3162,6 +3166,38 @@ func test_repaint_pass() -> void:
 	xf = v._zoom_xform()
 	check(scene.action_at(xf * v.VP) == "continue" and scene.action_at(v.TURN_RECT.get_center()) == "turn",
 		"pushed in, the doorway is where it is drawn and the turn tab still turns her")
+	# The corridor's hover name never lies across the figure: the core draws none while it
+	# is hovered, and the view's own sits under its feet (y >= 960), at every lean, push,
+	# nearness and Motion setting, wherever the pointer rests on it.
+	var label_ok := true
+	for zk in [0.0, 0.5, 1.0]:
+		for pk in [0.0, 0.5, 1.0]:
+			for fs in v.FIGURE_SCALES + [v.FIGURE_SCALE_STILL]:
+				for mo in [true, false]:
+					v.zoom_k = zk
+					v.push_k = pk
+					v.fig_scale = fs
+					v.motion = mo
+					var fig: Rect2 = v.threshold_figure_rect()
+					var on_fig: Vector2 = fig.get_center()
+					if scene.room_view.hover_at(on_fig) != "continue":
+						label_ok = false
+						continue
+					scene.hover_id = "continue"
+					var core_box: Rect2 = scene.hover_label_rect("continue", on_fig)
+					var box: Rect2 = v.walk_on_label_rect()
+					if core_box.size != Vector2.ZERO or box.intersects(fig) or box.position.y < 960.0 \
+							or box.intersects(v.TURN_RECT) \
+							or box.end.y > 994.0 or box.position.x < 0.0 or box.end.x > v.SIZE.x:
+						label_ok = false
+	check(label_ok, "the walk-on label never crosses the figure: under its feet, above the subtitles, off the turn tab")
+	check(v.label_for("continue") == "" and scene._hover_label("continue") == "",
+		"hovered at the threshold, the core draws no label of its own over the corridor")
+	scene.hover_id = ""
+	check(v.label_for("continue") == v.WALK_ON_LABEL, "the verb is still the threshold's one name")
+	v.motion = true
+	v.zoom_k = 1.0
+	v.push_k = 1.0
 	scene.dispatch("turn")
 	await process_frame
 	v._tick_zoom(5.0)
