@@ -13,7 +13,8 @@ extends RefCounted
 ## Core actions: begin, notebook, menu, hint, back, resume, toggle_motion, toggle_soft,
 ## restart, new_game, return_decision, "go:<rid>" (an exit), "plan:<rid>" (fast travel from
 ## the notebook plan, after P05), "item:<id>" (select / deselect an inventory item),
-## "tab:<rid>|plan" (notebook page). Anything else goes to the current room.
+## "disarm" (put the item in hand away, silently), "tab:<rid>|plan" (notebook page).
+## Anything else goes to the current room.
 
 ## Full-game save schema. 5 was the Intake Office slice; its saves migrate (migrate_slice).
 const SCHEMA := 6
@@ -43,17 +44,18 @@ const TIDE_TITLES := ["The Last Shift", "The Boat at the Window", "Supper for th
 const NUMERALS := ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"]
 
 ## The two endings (GDD section 9). Ids are the cards' `ending_choice` values. The chamber
-## room (R12) calls finish(); the core shows the end card. `still` is an optional painted
-## plate drawn faintly under the card (a missing file draws nothing).
+## room (R12) calls finish(); the core shows the end card. `still` lists the painted plates
+## to draw under the card, preferred first: the first file that exists is drawn (R12's newer
+## plates, then the earlier ones; none at all draws nothing).
 const ENDINGS := {
 	"sever": {"title": "The Unrecorded Shore", "lines": [
 		"I write eight names. Then his.",
 		"\"I cannot certify their absence.\"",
-	], "still": "res://assets/rooms/R12/end_a_page.png"},
+	], "still": ["res://assets/stages/R12/r12_sever_office_r2.png", "res://assets/rooms/R12/end_a_page.png"]},
 	"continue": {"title": "The Last Observer", "lines": [
 		"\"Subject Bell possesses no surviving personal effects.\"",
 		"\"Nora Bell took her tea without sugar. Begin there.\"",
-	], "still": "res://assets/rooms/R12/end_b_field.png"},
+	], "still": ["res://assets/stages/R12/end_b_wide_3.png", "res://assets/rooms/R12/end_b_field.png"]},
 }
 
 const GENERIC_WRONG_USE := "That isn't what it's for."
@@ -93,11 +95,12 @@ var rooms := {}        # rid -> RoomSim
 var order: Array = []  # rids, sorted
 var state := {}
 ## Saved apart from the story. endings_seen lives here so it survives New game (flags.md).
-var settings := {"motion": true, "soft_audio": false, "endings_seen": []}
+var settings := {"motion": true, "soft_audio": false, "endings_seen": [], "plan_nudged": false}
 var view := "title"
 var return_view := "room"   # where Back goes from the notebook / menu
 var selected_item := ""     # transient: the inventory item in hand
 var nb_tab := ""            # transient: the notebook page ("" = current room)
+var walk_start := ""        # transient: where her current walk on foot began (the Plan nudge)
 var start_room := START_ROOM
 
 func _init(rooms_dir := ROOMS_DIR) -> void:
@@ -128,7 +131,7 @@ static func discover(dir := ROOMS_DIR) -> Array:
 
 func reset(keep_settings := true) -> void:
 	if not keep_settings:
-		settings = {"motion": true, "soft_audio": false, "endings_seen": []}
+		settings = {"motion": true, "soft_audio": false, "endings_seen": [], "plan_nudged": false}
 	state = {
 		"schema": SCHEMA, "started": false, "room": start_room, "visited": [],
 		"flags": {}, "inventory": [], "notebook": [], "movement_events": [], "p05_trace": [],
@@ -143,6 +146,7 @@ func reset(keep_settings := true) -> void:
 	return_view = "room"
 	selected_item = ""
 	nb_tab = ""
+	walk_start = ""
 
 # ---------------------------------------------------------------------------
 # global state API (for rooms)
@@ -399,6 +403,61 @@ func reachable(from := "") -> Array:
 				queue.append(e[0])
 	return seen_rooms
 
+## The fewest open exits from `from` to `to` (BFS over EXITS where exit_open: each room's
+## REQUIRES and the exit's own flags). 0 for the same room, -1 when there is no open way.
+func hops(from: String, to: String) -> int:
+	if from == to:
+		return 0
+	var dist := {from: 0}
+	var queue := [from]
+	while not queue.is_empty():
+		var cur: String = queue.pop_front()
+		for e in exits(cur):
+			if not dist.has(e[0]) and exit_open(cur, e[0]):
+				dist[e[0]] = dist[cur] + 1
+				if e[0] == to:
+					return dist[e[0]]
+				queue.append(e[0])
+	return -1
+
+## The room the "Now:" line sends her to: the work elsewhere, else the room she is in. ""
+## at the end of the build.
+func objective_room() -> String:
+	if room() == null or build_end():
+		return ""
+	var away := work_elsewhere()
+	return away if away != "" else state.room
+
+## Walks of this many open exits or more are what the notebook plan is for.
+const PLAN_HOPS := 3
+## Said once (settings.plan_nudged), the first time she walks a trip of PLAN_HOPS or more.
+const PLAN_NUDGE := "The plan in my notebook knows the way. Quicker than my feet."
+
+## True when "Now:" should offer the plan: it is hers, and the objective's room is PLAN_HOPS
+## or more open exits away.
+func now_via_plan() -> bool:
+	if not plan_unlocked():
+		return false
+	var to := objective_room()
+	return to != "" and hops(state.room, to) >= PLAN_HOPS
+
+## After a step on foot: the first walk of PLAN_HOPS or more (from where the walk began,
+## by open exits) with the plan in her notebook, she says so once. A feedback line, after
+## anything the arrival says.
+func _after_walk(from: String, ev: Array) -> void:
+	if walk_start == "":
+		walk_start = from
+	if not plan_unlocked() or bool(settings.get("plan_nudged", false)):
+		return
+	if hops(walk_start, state.room) < PLAN_HOPS:
+		return
+	settings.plan_nudged = true
+	var last := -1.0
+	for e in ev:
+		if e.type == "say":
+			last = maxf(last, float(e.delay))
+	ev.append({"type": "say", "text": PLAN_NUDGE, "delay": last + 0.5 if last >= 0.0 else 0.0, "story": false})
+
 func _travel(to: String, ev: Array, fast := false) -> void:
 	var from: String = state.room
 	if to == from or not rooms.has(to):
@@ -483,6 +542,8 @@ func _dispatch(action: String) -> Array:
 			settings.soft_audio = not settings.soft_audio
 		"restart":
 			reset()
+		"disarm":
+			selected_item = ""
 		_:
 			if action.begins_with("tab:") and view == "notebook":
 				nb_tab = action.substr(4)
@@ -497,6 +558,7 @@ func _dispatch(action: String) -> Array:
 						tries += 1
 					if room().local_view == "room":
 						_travel(to, ev, true)
+						walk_start = state.room
 					else:
 						ev.append({"type": "say", "text": "Not from here.", "delay": 0.0, "story": false})
 					if state.room != before:
@@ -517,13 +579,18 @@ func _dispatch(action: String) -> Array:
 					handled = room().use_item(held, action, ev)
 				# Exits leave from any base view (R09's rail, R10's catalogue wall), never a close-up.
 				if not handled and not room().is_closeup():
+					var from: String = state.room
 					_travel(action.substr(3), ev)
+					if state.room != from:
+						_after_walk(from, ev)
 			elif selected_item != "":
+				walk_start = state.room
 				var item := selected_item
 				selected_item = ""
 				if not room().use_item(item, action, ev):
 					ev.append({"type": "say", "text": GENERIC_WRONG_USE, "delay": 0.0, "story": false})
 			else:
+				walk_start = state.room
 				room().act(action, ev)
 	return ev
 
@@ -813,6 +880,8 @@ func load_settings(d: Variant) -> void:
 			for e in d.endings_seen:
 				if e is String and ENDINGS.has(e) and not e in settings.endings_seen:
 					settings.endings_seen.append(e)
+		if d.get("plan_nudged") is bool:
+			settings.plan_nudged = d.plan_nudged
 
 ## Restores a save (full game, or a slice save that migrates). Ignores anything malformed.
 ## Returns true if loaded.

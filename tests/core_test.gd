@@ -114,8 +114,18 @@ func run() -> void:
 	await test_end_card_panel()
 	await test_title_screen()
 	await test_hold_breath()
+	await test_hud_at_once()
+	await test_hint_card()
+	await test_disarm()
+	await test_ghost_slots()
+	await test_exit_rush()
+	await test_hint_ladder_every_step()
+	await test_bed_loudness()
+	await test_now_plan()
+	await test_hover_anchor()
+	await test_glance_clears()
 	if failures.is_empty():
-		print("PASS: core — discovery, topology, gates per tide, tides and weather, travel, latched office, inventory, notebook, hints, saves, slice migration, debug jumps, plan travel, endings, events, objective elsewhere, objective every tide, plan from a close-up, load behind a gate, scene rooms, scene saves, inventory paging, notebook pages, hover and back, travel fade, card and slab, placeholder, item on exit, item labels, hint ladder, build end, clicks never eaten, hover labels, glance, consume_click, room hooks, cinematic keys, Now: after P02, end card lines, end clears lines, resume view, travel outside the graph, retired items, plan equals walking, plan button, reveal leak, hotspot clicks act, plan slot, hint tiers, tide card rules, end card panel, title screen, hold breath")
+		print("PASS: core — discovery, topology, gates per tide, tides and weather, travel, latched office, inventory, notebook, hints, saves, slice migration, debug jumps, plan travel, endings, events, objective elsewhere, objective every tide, plan from a close-up, load behind a gate, scene rooms, scene saves, inventory paging, notebook pages, hover and back, travel fade, card and slab, placeholder, item on exit, item labels, hint ladder, build end, clicks never eaten, hover labels, glance, consume_click, room hooks, cinematic keys, Now: after P02, end card lines, end clears lines, resume view, travel outside the graph, retired items, plan equals walking, plan button, reveal leak, hotspot clicks act, plan slot, hint tiers, tide card rules, end card panel, title screen, hold breath, HUD at once, hint card, disarm, ghost slots, exit rush, hint ladder every step, bed loudness, Now: via the plan, hover anchor, glance clears")
 	else:
 		print("FAIL (%d): %s" % [failures.size(), "; ".join(failures)])
 	for i in 10:
@@ -467,7 +477,7 @@ func test_saves() -> void:
 	# Settings are saved apart from the story and survive a restart.
 	var s := GameSim.new()
 	s.dispatch("menu"); s.dispatch("toggle_motion"); s.dispatch("toggle_soft")
-	check(not s.to_dict().has("settings") and s.settings_dict() == {"motion": false, "soft_audio": true, "endings_seen": []},
+	check(not s.to_dict().has("settings") and s.settings_dict() == {"motion": false, "soft_audio": true, "endings_seen": [], "plan_nudged": false},
 		"settings apart")
 	s.dispatch("resume"); s.dispatch("begin"); s.dispatch("restart")
 	check(s.view == "title" and not s.settings.motion, "a restart keeps the settings")
@@ -618,7 +628,7 @@ func test_scene_rooms() -> void:
 		scene.dispatch("go:" + rid)
 	check(scene.room_view.rid == "R04" and scene.sim.state.room == "R04", "walked every room at tide IX")
 	scene.dispatch("hint")
-	check(scene.cur_text != "", "hint in a skeleton room")
+	check(scene.hint_card_text() != "", "hint in a skeleton room")
 	scene.dispatch("notebook")
 	check(scene.action_at(scene.BACK_RECT.get_center()) == "back", "notebook Back")
 	var tabs: Array = scene._notebook_tabs()
@@ -1181,6 +1191,8 @@ func test_clicks_never_eaten() -> void:
 	var slot: Array = scene._inv_layout()[0]
 	scene.click(slot[0].get_center())
 	check(scene.sim.selected_item == slot[1].substr(5), "an inventory click during a chain selects the item")
+	check(scene.cur_text == "A story line still being read on the screen." and scene.pending_action == "",
+		"and the chain is neither advanced nor waited on (%s)" % scene.cur_text)
 	await free_scene(scene)
 
 ## Hover labels sit clear of the controls they name.
@@ -1370,8 +1382,13 @@ func test_end_card_lines() -> void:
 	check(GameSim.ENDINGS.sever.lines == ["I write eight names. Then his.", "\"I cannot certify their absence.\""],
 		"the severance card's lines")
 	check(GameSim.ENDINGS.continue.lines.size() == 2, "the continuation card keeps its lines")
-	check(GameSim.ENDINGS.sever.still == "res://assets/rooms/R12/end_a_page.png"
-		and GameSim.ENDINGS.continue.still == "res://assets/rooms/R12/end_b_field.png", "each ending names its still")
+	check(GameSim.ENDINGS.sever.still == ["res://assets/stages/R12/r12_sever_office_r2.png", "res://assets/rooms/R12/end_a_page.png"]
+		and GameSim.ENDINGS.continue.still == ["res://assets/stages/R12/end_b_wide_3.png", "res://assets/rooms/R12/end_b_field.png"],
+		"each ending prefers R12's newer still, then the earlier one")
+	for id in GameSim.ENDINGS:
+		var paths: Array = GameSim.ENDINGS[id].still
+		var want: String = paths[0] if ResourceLoader.exists(paths[0]) else (paths[1] if ResourceLoader.exists(paths[1]) else "")
+		check(GameView.end_still_path(id) == want, "%s: the first still that exists is drawn (%s)" % [id, GameView.end_still_path(id)])
 
 ## An ending's lines still queued when the card goes up never follow her back into R12.
 func test_end_clears_lines() -> void:
@@ -1702,7 +1719,8 @@ func test_reveal_leak() -> void:
 	for i in range(last_old + 1, d.scene.shown_rooms.size()):
 		check(d.scene.shown_rooms[i] == "R02", "after the double click every line is the office's")
 	await free_scene(d.scene)
-	# The re-timing: lines EXIT_LINE_STEP apart from the line on screen, travel after the last.
+	# The re-timing: the line on screen squeezed, the last two at their full read time, and she
+	# goes once the last has had its hold.
 	var scene = new_scene("user://core_retime_test.json")
 	await process_frame
 	scene.tide_jump(2, "R02")
@@ -1714,15 +1732,20 @@ func test_reveal_leak() -> void:
 	var t0: float = scene.cur_since
 	scene.click(exit_r.get_center())
 	check(scene.pending_travel == "go:R01" and scene.sim.state.room == "R02", "the exit waits")
-	check(is_equal_approx(scene.lines[0].due, scene.cur_since + 0.6) and is_equal_approx(scene.lines[1].due, scene.cur_since + 1.2),
-		"the rest due 0.6 s apart (%s)" % [scene.lines])
-	check(is_equal_approx(scene.pending_sfx[0][1], 1.2), "the beat's sound moves with its line (%s)" % [scene.pending_sfx])
+	var h1 := GameView.rush_hold("One.")
+	var h2 := GameView.min_read("Two.")
+	var h3 := GameView.min_read("Three.")
+	check(is_equal_approx(scene.lines[0].due, t0 + h1) and is_equal_approx(scene.lines[1].due, t0 + h1 + h2),
+		"the rest due back to back (%s)" % [scene.lines])
+	check(is_equal_approx(scene.lines[0].hold, h2) and is_equal_approx(scene.lines[1].hold, h3), "the last two keep their full read")
+	check(is_equal_approx(scene.pending_sfx[0][1], h1 + h2), "the beat's sound moves with its line (%s)" % [scene.pending_sfx])
 	var went := -1.0
 	for i in 40:
 		scene._process(0.1)
 		if scene.sim.state.room == "R01" and went < 0.0:
 			went = scene.time
-	check(went > 0.0 and went >= t0 + 1.8 - 0.001 and went <= t0 + 1.95, "she went 0.6 s after the last line (%.2f after)" % (went - t0))
+	var want := t0 + h1 + h2 + h3
+	check(went > 0.0 and went >= want - 0.001 and went <= want + 0.15, "she went after the last line's hold (%.2f after, want %.2f)" % [went - t0, want - t0])
 	check(scene.shown_rooms.count("R02") >= 3, "all three lines went up in the office (%s)" % [scene.shown_log])
 	# A view change to the notebook drops a deferred exit.
 	scene.tide_jump(2, "R02")
@@ -1767,19 +1790,42 @@ func test_hotspot_click_acts() -> void:
 	scene.click(log_r.get_center())
 	check(scene.room_sim().local_view != "room", "with only the line on screen left, the hotspot acts at once")
 	scene.dispatch("back")
-	# More of the chain queued: it advances, and the hotspot acts when the chain ends.
+	# More of the chain queued: the rest is rushed where it was said, the hotspot shows pressed
+	# and acts when the chain ends.
 	scene._reset_presentation()
-	scene._show_line("A story line still typing out across the screen.", true)
-	scene._queue_line("And one more after it.", 1.0, true)
+	var first := "A story line still typing out across the screen."
+	scene._show_line(first, true)
+	scene._queue_line("And one more after it.", 6.0, true)
 	scene.time += 0.5
+	var t_click: float = scene.time
 	scene.click(log_r.get_center())
 	check(scene.room_sim().local_view == "room" and scene.pending_action == "logbook"
-		and scene.cur_text == "And one more after it.", "the chain advances; the hotspot waits (%s)" % scene.pending_action)
+		and scene.cur_text == first, "the hotspot waits; the line on screen stays (%s)" % scene.pending_action)
+	check(is_equal_approx(scene.cur_hold, GameView.rush_hold(first)) and scene.lines[0].due < t_click + 6.0,
+		"the rest of the chain is rushed (%.2f, due %.2f)" % [scene.cur_hold, scene.lines[0].due - t_click])
+	var seen_second := false
 	for i in 60:
 		scene._process(0.1)
+		seen_second = seen_second or scene.cur_text == "And one more after it."
 		if scene.room_sim().local_view != "room":
 			break
+	check(seen_second, "the rushed line still went up")
 	check(scene.room_sim().local_view != "room" and not scene.chain_active(), "the hotspot acts when the chain ends")
+	scene.dispatch("back")
+	# A second click on the waiting hotspot acts at once; the chain still plays out after.
+	scene._reset_presentation()
+	scene._show_line(first, true)
+	scene._queue_line("And one more after it.", 6.0, true)
+	scene.time += 0.5
+	scene.click(log_r.get_center())
+	scene.time += 0.1
+	scene.click(log_r.get_center())
+	check(scene.room_sim().local_view != "room" and scene.pending_action == "", "the second click acts at once")
+	var all_said := false
+	for i in 80:
+		scene._process(0.1)
+		all_said = all_said or scene.cur_text == "And one more after it."
+	check(all_said, "the chain's last line is never dropped")
 	scene.dispatch("back")
 	# A glance due at the same chain's end lands first; the held hotspot acts after it.
 	scene._reset_presentation()
@@ -1980,14 +2026,17 @@ func test_tide_card_rules() -> void:
 func test_end_card_panel() -> void:
 	var scene = new_scene("user://core_end_panel_test.json")
 	await process_frame
-	check(GameView.END_STILL_ALPHA == 0.6 and GameView.END_TEXT_FADE == 1.0, "still 0.6, text in by 1.0 s")
+	check(GameView.END_STILL_ALPHA == 1.0 and GameView.END_TEXT_FADE == 1.0, "the still at full strength, text in by 1.0 s")
 	for id in GameSim.ENDINGS:
 		var lay: Dictionary = scene.end_layout(id)
 		var e: Dictionary = GameSim.ENDINGS[id]
 		var w: float = scene.serif.get_string_size(e.title, HORIZONTAL_ALIGNMENT_LEFT, -1, lay.title_size).x
-		check(w <= 820.0 and lay.title_size >= 34 and lay.title_size <= 48, "%s: the title fits (%.0f px at %d)" % [id, w, lay.title_size])
+		check(w <= 820.0 and lay.title_size >= 34 and lay.title_size <= 40, "%s: the title fits (%.0f px at %d)" % [id, w, lay.title_size])
 		var panel: Rect2 = lay.panel
-		check(panel.position == Vector2(274, 360) and panel.size.x == 900.0, "%s: the panel (%s)" % [id, panel])
+		check(panel.position == Vector2(274, 760) and panel.size.x == 900.0, "%s: the panel sits in the lower band (%s)" % [id, panel])
+		check(lay.title_y == 812.0 and lay.line_ys[0] == 868.0 and lay.line_ys[1] == 908.0, "%s: title 812, lines 868 + 40" % id)
+		check(panel.end.y <= GameView.END_BUTTONS[0][1].position.y and GameView.END_BUTTONS[0][1].end.y <= GameView.SIZE.y,
+			"%s: the buttons under the panel, on screen" % id)
 		var texts := [[lay.title_y, lay.title_size]]
 		for y in lay.line_ys:
 			texts.append([y, GameView.END_LINE_SIZE])
@@ -2002,8 +2051,9 @@ func test_end_card_panel() -> void:
 		for i in lay.line_ys.size():
 			var lw: float = scene.hand.get_string_size(e.lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, GameView.END_LINE_SIZE).x
 			check(lw <= panel.size.x - 40.0, "%s: quote line %d fits the panel (%.0f)" % [id, i, lw])
-	check(contrast(Ink.PAPER, Ink.STORM) >= 4.5, "PAPER on STORM is AA (%.2f)" % contrast(Ink.PAPER, Ink.STORM))
-	check(contrast(Ink.SEA_GLASS, Ink.STORM) >= 4.5, "SEA_GLASS on STORM is AA (%.2f)" % contrast(Ink.SEA_GLASS, Ink.STORM))
+	# Navy ink on the paper panel (0.8 over a black still, the darkest case) is AA.
+	var worst: Color = Ink.BLACK.lerp(GameView.CARD_PAPER, GameView.END_PANEL_ALPHA)
+	check(contrast(Ink.INK, worst) >= 4.5, "INK on the end panel is AA (%.2f)" % contrast(Ink.INK, worst))
 	# Both cards draw.
 	for id in ["sever", "continue"]:
 		scene.tide_jump(9, "R12")
@@ -2125,4 +2175,421 @@ func test_hold_breath() -> void:
 	scene.play_events([{"type": "say", "text": "Later.", "delay": 1.0, "story": true},
 		{"type": "fx", "id": "hold_breath", "seconds": 0.5, "delay": 1.0}], true)
 	check(scene.pending_fx.size() == 1 and scene.pending_fx[0][1] > 1.0, "a timed fx waits behind the chain (%s)" % [scene.pending_fx])
+	await free_scene(scene)
+
+# ---------------------------------------------------------------------------
+# fix p2 core
+# ---------------------------------------------------------------------------
+const STORY_A := "A story line still being read on the screen."
+const STORY_B := "And one more after it."
+
+func hud_rect(id: String) -> Rect2:
+	for b in GameView.HUD_BUTTONS:
+		if b[0] == id:
+			return b[1]
+	return Rect2()
+
+## A scene in the office at tide III with a two-line story chain playing, past the swallow.
+func chain_scene(path: String) -> Node:
+	var scene = new_scene(path)
+	await process_frame
+	scene.tide_jump(3, "R02")
+	scene.time += 1.0
+	scene._show_line(STORY_A, true)
+	scene._queue_line(STORY_B, 3.0, true)
+	scene.time += 0.5
+	return scene
+
+## P0: the HUD and the inventory act on the press; a chain is neither advanced nor waited on.
+func test_hud_at_once() -> void:
+	var scene = await chain_scene("user://core_hud_now_test.json")
+	scene.click(hud_rect("hint").get_center())
+	check(scene.cur_text == STORY_A and scene.lines.size() == 1 and scene.pending_action == "",
+		"Hint: the chain neither advances nor waits (%s)" % scene.cur_text)
+	check(scene.hint_card_text() != "", "Hint: the reply is up at once")
+	var slot: Array = scene._inv_layout()[0]
+	scene.click(slot[0].get_center())
+	check(scene.sim.selected_item == slot[1].substr(5) and scene.cur_text == STORY_A and scene.pending_action == "",
+		"an inventory slot: selected at once, the chain untouched")
+	scene.click(slot[0].get_center())
+	check(scene.sim.selected_item == "", "the slot again puts it back")
+	scene.click(hud_rect("notebook").get_center())
+	check(scene.sim.view == "notebook" and scene.cur_text == STORY_A and scene.pending_action == "",
+		"Notebook: open at once, the chain untouched")
+	scene.dispatch("back")
+	scene.click(hud_rect("menu").get_center())
+	check(scene.sim.view == "menu" and scene.cur_text == STORY_A, "Menu: open at once, the chain untouched")
+	var due: float = scene.lines[0].due
+	var since: float = scene.cur_since
+	scene._process(1.0)
+	check(is_equal_approx(scene.lines[0].due, due + 1.0) and is_equal_approx(scene.cur_since, since + 1.0) and scene.cur_text == STORY_A,
+		"the pause menu holds the chain where it was")
+	scene.dispatch("resume")
+	await free_scene(scene)
+
+## P0: the Hint's reply is a card under the Hint button, never a subtitle; each press
+## replaces it with this press's answer, the confirmation and the answer included.
+func test_hint_card() -> void:
+	var scene = await chain_scene("user://core_hint_card_test.json")
+	var twin := GameSim.new()
+	twin.from_dict(JSON.parse_string(JSON.stringify(scene.sim.to_dict())))
+	var lines_before: int = scene.lines.size()
+	var log_before: int = scene.shown_log.size()
+	for i in 6:
+		var want := says(twin.dispatch("hint"))
+		scene.click(hud_rect("hint").get_center())
+		check(scene.hint_card_text() == want, "press %d: the card answers this press ('%s' vs '%s')" % [i, scene.hint_card_text(), want])
+		var r: Rect2 = scene.hint_card_rect()
+		check(is_equal_approx(r.end.x, GameView.HINT_CARD_RIGHT) and r.position.y == GameView.HINT_CARD_TOP
+			and r.size.x <= GameView.HINT_CARD_MAX_W + 0.01 and r.size.y >= GameView.HINT_CARD_SIZE,
+			"press %d: the card under the Hint button (%s)" % [i, r])
+		scene.time += 0.4
+	check(GameSim.HINT_CONFIRM in scene.hint_log, "the confirmation is on the card too (%s)" % [scene.hint_log])
+	check(scene.shown_log.size() == log_before and scene.lines.size() == lines_before,
+		"no hint line ever enters the subtitle queue (%s)" % [scene.lines])
+	# The card stays up its read time, at least HINT_CARD_MIN.
+	scene.click(hud_rect("hint").get_center())
+	var text: String = scene.hint_card_text()
+	var hold := maxf(GameView.min_read(text) + GameView.HINT_CARD_EXTRA, GameView.HINT_CARD_MIN)
+	scene.time += hold - 0.1
+	check(scene.hint_card_text() == text, "the card is up for its read time")
+	scene.time += 0.2
+	check(scene.hint_card_text() == "", "then it is gone (%.2f s)" % hold)
+	# The next click anywhere puts it away; H answers the same way.
+	key(scene, KEY_H)
+	check(scene.hint_card_text() != "", "H shows the card")
+	scene.click(Vector2(724, 1040))
+	check(scene.hint_card_text() == "", "the next click anywhere puts the card away")
+	scene.dispatch("hint")
+	check(scene.hint_card_text() != "" and scene.cur_text != scene.hint_card_text(), "dispatch('hint') goes to the card too")
+	await free_scene(scene)
+
+## P0: the item in hand is a banner, and Esc or the right button puts it away ("disarm").
+func test_disarm() -> void:
+	var g := GameSim.new()
+	g.debug_tide(3, "R02")
+	g.selected_item = g.state.inventory[0]
+	var ev := g.dispatch("disarm")
+	check(ev.is_empty() and g.selected_item == "", "disarm: put away, nothing said (%s)" % [ev])
+	check(g.dispatch("disarm").is_empty(), "disarm with nothing in hand: nothing")
+	var scene = new_scene("user://core_disarm_test.json")
+	await process_frame
+	scene.tide_jump(3, "R02")
+	check(scene.arm_banner_text() == "" and scene.arm_banner_rect() == Rect2(), "no banner with nothing in hand")
+	var slot: Array = scene._inv_layout()[0]
+	scene.click(slot[0].get_center())
+	var item: String = slot[1].substr(5)
+	var d: Dictionary = scene.sim.item_defs()[item]
+	check(scene.arm_banner_text() == "Using: %s   (Esc or right-click to put away)" % d.get("short", d.name),
+		"the banner names it (%s)" % scene.arm_banner_text())
+	var br: Rect2 = scene.arm_banner_rect()
+	check(br.position == GameView.ARM_BANNER_POS and br.end.x <= GameView.SIZE.x - 16.0, "the banner in the HUD band, on screen (%s)" % br)
+	key(scene, KEY_ESCAPE)
+	check(scene.sim.selected_item == "" and scene.sim.view == "room", "Esc puts the item away, nothing else")
+	key(scene, KEY_ESCAPE)
+	check(scene.sim.view == "menu", "Esc with nothing in hand: its usual menu")
+	scene.dispatch("resume")
+	scene.click(slot[0].get_center())
+	var rb := InputEventMouseButton.new()
+	rb.button_index = MOUSE_BUTTON_RIGHT
+	rb.pressed = true
+	scene._unhandled_input(rb)
+	check(scene.sim.selected_item == "" and scene.sim.view == "room", "the right button puts it away")
+	await free_scene(scene)
+
+## P0: an item used up in a close-up leaves a ghost slot; nothing moves until Back.
+func test_ghost_slots() -> void:
+	var scene = new_scene("user://core_ghost_test.json")
+	await process_frame
+	scene.tide_jump(2, "R03")
+	var items := []
+	for id in scene.sim.item_defs():
+		if items.size() < 4 and not id in scene.sim.state.retired:
+			items.append(id)
+	scene.sim.state.inventory = items.duplicate()
+	scene._process(0.1)
+	scene.dispatch("recorder")
+	check(scene.room_sim().is_closeup(), "the recorder close-up is open")
+	var rects := {}
+	for slot in scene._inv_layout():
+		rects[slot[1]] = slot[0]
+	for k in 3:
+		scene.sim.take(items[k])   # seated in the close-up, in order
+		scene._process(0.1)
+		var lay: Array = scene._inv_layout()
+		check(lay.size() == 4, "seat %d: four slots still (%d)" % [k + 1, lay.size()])
+		for j in range(k + 1, 4):
+			check(lay[j][1] == "item:" + items[j] and lay[j][0] == rects["item:" + items[j]],
+				"seat %d: %s keeps slot %d" % [k + 1, items[j], j])
+		for j in k + 1:
+			check(lay[j][1] == "", "seat %d: slot %d is a ghost" % [k + 1, j])
+			check(scene.action_at(lay[j][0].get_center()) == "", "seat %d: the ghost slot does nothing" % [k + 1])
+	# A click just after the bar changed is ignored; a moment later it acts.
+	scene.sim.take(items[2])
+	var last: Rect2 = rects["item:" + items[3]]
+	scene.click(last.get_center())
+	check(scene.sim.selected_item == "", "a click within 0.3 s of the bar changing is ignored")
+	scene.time += GameView.INV_GUARD + 0.05
+	scene.click(last.get_center())
+	check(scene.sim.selected_item == items[3], "after the guard the slot acts")
+	scene.dispatch("item:" + items[3])
+	scene.dispatch("back")
+	var lay2: Array = scene._inv_layout()
+	check(lay2.size() == 1 and lay2[0][1] == "item:" + items[3], "Back compacts the bar (%s)" % [lay2])
+	await free_scene(scene)
+
+## P1: an exit pressed mid-reveal rushes the reveal; no line is up for less than its
+## squeezed read time, the last two for less than their full one; the tab shows pressed.
+func test_exit_rush() -> void:
+	var scene = new_scene("user://core_exit_rush_test.json")
+	await process_frame
+	scene.tide_jump(2, "R02")
+	var texts := ["The first line of the reveal, forty-odd chars.",
+		"Second: the tide table has a column I never ruled.",
+		"Third, and the column is in my own hand, dated tomorrow.",
+		"Fourth: the ink is still wet where the date should be.",
+		"Fifth. Somebody has signed it for two of us, not one.",
+		"Sixth and last: the second name is the sea's own name."]
+	var ev := []
+	for i in texts.size():
+		check(texts[i].length() >= 40 and texts[i].length() <= 60, "fixture line %d is 40-60 chars" % i)
+		ev.append({"type": "say", "text": texts[i], "delay": 4.0 * i, "story": true})
+	scene.play_events(ev)
+	scene._process(0.5)
+	var exit_r: Rect2 = scene.room_view.live_exit_rects()["R01"]
+	scene.click(exit_r.get_center())
+	check(scene.pending_travel == "go:R01", "the exit waits for the rushed reveal")
+	var up := {texts[0]: scene.cur_since}
+	var last_text: String = scene.cur_text
+	var gone_at := -1.0
+	for i in 600:
+		scene._process(0.02)
+		if scene.sim.state.room != "R02":
+			gone_at = scene.time
+			break
+		if scene.cur_text != last_text:
+			last_text = scene.cur_text
+			up[last_text] = scene.time
+	check(gone_at > 0.0, "she went")
+	check(up.size() == texts.size(), "every line went up before she left (%d)" % up.size())
+	for i in texts.size():
+		if not up.has(texts[i]):
+			continue
+		var end: float = up[texts[i + 1]] if i + 1 < texts.size() and up.has(texts[i + 1]) else gone_at
+		var need := GameView.min_read(texts[i]) if i >= texts.size() - GameView.EXIT_FULL_LAST \
+			else GameView.min_read(texts[i]) * GameView.BACKLOG_SQUEEZE
+		check(end - up[texts[i]] >= need - 0.021, "line %d up %.2f s, needs %.2f" % [i, end - up[texts[i]], need])
+	await free_scene(scene)
+
+## P1: the Hint ladder at every chain step whose room has four tiers ends HINT_CONFIRM, then
+## the last tier; tiers 2 and 3 of every ladder say different things.
+func test_hint_ladder_every_step() -> void:
+	var g := GameSim.new()
+	var ch = load("res://tests/chain_test.gd").new()
+	ch.external_game = g
+	var probed := [0]
+	ch.step_hook = func(pid: String, _rid: String, phase: String) -> void:
+		if g.view != "room" or g.room().is_closeup() or g.room().hint_tiers() < 4:
+			return
+		var snap := g.to_dict()
+		var said := []
+		for i in 6:
+			said.append(says(g.dispatch("hint")))
+		var uniq := []
+		for x in said:
+			if uniq.is_empty() or uniq[-1] != x:
+				uniq.append(x)
+		probed[0] += 1
+		check(uniq.size() >= 2 and uniq[-2] == GameSim.HINT_CONFIRM,
+			"%s/%s in %s: HINT_CONFIRM right before the last tier (%s)" % [pid, phase, g.state.room, uniq])
+		g.from_dict(snap)
+	await ch.run_tests()
+	check(ch.failures.is_empty(), "the chain plays with the ladder probes (%s)" % [ch.failures])
+	check(probed[0] > 0, "some step stands in a four-tier room")
+	ch.free()
+	for rid in g.order:
+		var hints: Dictionary = g.room(rid).c("HINTS", {})
+		for o in hints:
+			var l: Array = hints[o]
+			if l.size() >= 3:
+				check(GameSim._hint_key(l[1]) != GameSim._hint_key(l[2]),
+					"%s %s: hint tiers 2 and 3 say different things ('%s')" % [rid, o, l[1]])
+
+## P1: the loudness ladder. Every bed loop is trimmed per room; from Tide IV on no room is
+## quieter than the opening rooms less 3 dB; silence only ever comes from hold_breath.
+func test_bed_loudness() -> void:
+	var scene = new_scene("user://core_loudness_test.json")
+	await process_frame
+	var m := LoopMixer.new()
+	m.trim = db_to_linear(6.0)
+	check(is_equal_approx(m.gain(), db_to_linear(6.0)), "the trim applies with the beds up")
+	m.duck = 0.0
+	check(m.gain() == 0.0, "and none of it while a breath is held")
+	m.free()
+	var table := {}
+	var ref := []
+	for rid in ["R01", "R02", "R03"]:
+		scene.tide_jump(1, rid)
+		for i in 5:
+			scene._process(0.1)
+		var l: Dictionary = scene.bed_loudness()
+		ref.append(l.db)
+	var ref_db: float = (ref[0] + ref[1] + ref[2]) / 3.0
+	var rows := ["room      t1      t3      t5      t7      t9"]
+	for rid in ALL:
+		var row: String = rid + " "
+		for t in [1, 3, 5, 7, 9]:
+			if not rid in REACH[t]:
+				row += "    --  "
+				continue
+			scene.tide_jump(t, rid)
+			for i in 5:
+				scene._process(0.1)
+			var l: Dictionary = scene.bed_loudness()
+			for mx in GameView._mixers_in(scene.room_view):
+				check(is_equal_approx(mx.trim, scene.room_trim(rid)), "%s t%d: the bed carries its room trim" % [rid, t])
+			check(l.live > 0, "%s t%d: the bed is never silent (%d of %d loops up)" % [rid, t, l.live, l.loops])
+			if t >= 5:
+				check(l.db >= ref_db - 3.0, "%s t%d: %.1f dB, no quieter than the opening rooms less 3 dB (%.1f)" % [rid, t, l.db, ref_db - 3.0])
+			row += "%7.1f " % l.db
+		rows.append(row)
+	print("bed loudness (dB re full scale; opening rooms R01-R03 at tide I: %.1f)\n  %s" % [ref_db, "\n  ".join(rows)])
+	await free_scene(scene)
+
+## P2: "Now:" offers the plan when it is hers and the work is 3 or more exits away.
+func test_now_plan() -> void:
+	var g := GameSim.new()
+	var on := 0
+	var off_unlocked := 0
+	for t in range(1, 10):
+		for rid in REACH[t]:
+			g.debug_tide(t, rid)
+			var to := g.objective_room()
+			var want: bool = g.plan_unlocked() and to != "" and g.hops(rid, to) >= 3
+			check(g.now_via_plan() == want, "t%d %s -> %s (%d hops): the (Plan) suffix %s" % [t, rid, to, g.hops(rid, to), want])
+			if want:
+				on += 1
+			elif g.plan_unlocked():
+				off_unlocked += 1
+	check(on > 0 and off_unlocked > 0, "both cases occur (%d on, %d off)" % [on, off_unlocked])
+	check(g.hops("R01", "R07") == 3 and g.hops("R02", "R02") == 0, "hops are open exits")
+	g.debug_tide(9, "R01")
+	g.set_flag("P05", false)
+	check(not g.now_via_plan(), "no suffix before the plan is hers")
+	# The scene: the suffix is a link to the plan, its pin pulsing.
+	var scene = new_scene("user://core_now_plan_test.json")
+	await process_frame
+	var found := false
+	for t in range(3, 10):
+		for rid in REACH[t]:
+			if found:
+				break
+			scene.tide_jump(t, rid)
+			if not scene.sim.now_via_plan():
+				continue
+			found = true
+			scene.dispatch("notebook")
+			check(scene.now_line().ends_with(" (Plan)"), "the notebook's Now: ends ' (Plan)' (%s)" % scene.now_line())
+			var link: Rect2 = scene.now_plan_rect()
+			check(scene.action_at(link.get_center()) == "nbnow:plan", "the suffix is a click target")
+			scene.click(link.get_center())
+			check(scene._nb_page() == "plan" and scene.plan_pulse != "" and scene.plan_pulse in scene.sim.state.visited,
+				"one click: the plan, with a pin pulsing (%s)" % scene.plan_pulse)
+			scene._redraw()
+			await process_frame
+	check(found, "some start of tide offers the plan link")
+	scene.tide_jump(2, "R02")
+	scene.dispatch("notebook")
+	check(not scene.now_line().ends_with(" (Plan)") and scene.now_plan_rect() == Rect2(), "no link before P05")
+	await free_scene(scene)
+	# The first walk of 3 or more exits says so, once.
+	var w := GameSim.new()
+	w.debug_tide(4, "R01")
+	var said := ""
+	for to in ["R02", "R05", "R07"]:
+		said += says(w.dispatch("go:" + to)) + " | "
+	check(said.count(GameSim.PLAN_NUDGE) == 1 and w.settings.plan_nudged, "the 3-exit walk: the nudge once (%s)" % said)
+	for to in ["R05", "R02", "R01", "R02", "R05", "R07"]:
+		check(not GameSim.PLAN_NUDGE in says(w.dispatch("go:" + to)), "never again")
+	var n := GameSim.new()
+	n.debug_tide(4, "R01")
+	n.set_flag("P05", false)
+	var said2 := ""
+	for to in ["R02", "R05", "R07"]:
+		said2 += says(n.dispatch("go:" + to))
+	check(not GameSim.PLAN_NUDGE in said2, "no nudge before the plan is hers")
+	var s := GameSim.new()
+	s.load_settings({"plan_nudged": true})
+	check(s.settings.plan_nudged, "the nudge is remembered with the settings")
+
+## P2: hover labels sit on their target's rect, never in the HUD band or on the tide card.
+const TOP_VIEW := """extends RoomView
+const HOTSPOTS := [["top", Rect2(600, 20, 160, 64), "A thing at the top"], ["low", Rect2(60, 900, 200, 70), "A thing low down"]]
+"""
+
+func test_hover_anchor() -> void:
+	var scene = new_scene("user://core_hover_anchor_test.json")
+	await process_frame
+	scene.tide_jump(2, "R02")
+	var s := GDScript.new()
+	s.source_code = TOP_VIEW
+	s.reload()
+	var v: RoomView = s.new()
+	var old: RoomView = scene.room_view
+	v.game = scene
+	v.rid = old.rid
+	v.sim = old.sim
+	scene.world.remove_child(old)
+	old.queue_free()
+	scene.world.add_child(v)
+	scene.room_view = v
+	var a: Rect2 = scene.hover_label_rect("top", Vector2(610, 30))
+	var b: Rect2 = scene.hover_label_rect("top", Vector2(750, 80))
+	check(a.position.y >= 80.0, "a hotspot at y=20: its label top is >= 80 (%s)" % a)
+	check(a == b, "the label is anchored to the rect, not the pointer")
+	check(is_equal_approx(a.get_center().x, 680.0) and not a.intersects(Rect2(600, 20, 160, 64)), "centred on it, clear of it")
+	var low: Rect2 = scene.hover_label_rect("low", Vector2(100, 950))
+	check(low.end.y <= 900.0 and is_equal_approx(low.get_center().x, 160.0), "a low hotspot: centred above it (%s)" % low)
+	scene.tide_card_n = 2
+	scene.tide_card_t = 1.0
+	scene.tide_card_at = GameView.TIDE_CARD_RECT
+	var lc: Rect2 = scene.hover_label_rect("low", Vector2(100, 950))
+	check(not lc.intersects(GameView.TIDE_CARD_RECT) and lc.position.y >= 80.0 and not lc.intersects(Rect2(60, 900, 200, 70)),
+		"with the tide card up, the label clears it (%s)" % lc)
+	scene.tide_card_t = 99.0
+	await free_scene(scene)
+	# A close-up opening, and travel, clear the hover.
+	var sc = new_scene("user://core_hover_clear_test.json")
+	await process_frame
+	sc.tide_jump(2, "R03")
+	sc.hover_id = "recorder"
+	sc.dispatch("recorder")
+	sc._process(0.1)
+	check(sc.room_sim().is_closeup() and sc.hover_id == "", "a close-up opening clears the hover")
+	await free_scene(sc)
+
+## P2: the core's glance brackets fade out, and nothing of them survives travel, the
+## notebook or a close-up.
+func test_glance_clears() -> void:
+	var scene = new_scene("user://core_glance_clear_test.json")
+	await process_frame
+	scene.tide_jump(2, "R03")
+	scene.glance_rect = Rect2(10, 120, 300, 200)
+	scene.glance_t = GameView.GLANCE_TIME - GameView.GLANCE_FADE * 0.5
+	var mid: float = scene.glance_alpha()
+	check(mid > 0.3 and mid < 0.7, "the brackets fade over their last 0.4 s (%.2f)" % mid)
+	scene.glance_t = 1.0
+	check(scene.glance_alpha() == 1.0, "and are full in the middle")
+	scene.dispatch("go:R02")
+	check(scene.glance_alpha() == 0.0 and scene.glance_rect == Rect2(), "after travel, no glance draws")
+	scene.tide_jump(2, "R03")
+	scene.glance_rect = Rect2(10, 120, 300, 200)
+	scene.glance_t = 1.0
+	scene.dispatch("notebook")
+	check(scene.glance_alpha() == 0.0, "the notebook clears it")
+	scene.dispatch("back")
+	scene.glance_rect = Rect2(10, 120, 300, 200)
+	scene.glance_t = 1.0
+	scene.dispatch("recorder")
+	check(scene.room_sim().is_closeup() and scene.glance_alpha() == 0.0, "a close-up opening clears it")
 	await free_scene(scene)
