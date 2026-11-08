@@ -7432,6 +7432,15 @@
       "source_svg": null
     },
     {
+      "id": "R12/a_pupil_r3",
+      "path": "assets/rooms/R12/a_pupil_r3.png",
+      "width": 272,
+      "height": 82,
+      "sha256": "160626d5449f7c0f57e5fc5fa014f772d1ff88f0fd4b2e11001d6177d4167d1d",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "R12/a_stain_1",
       "path": "assets/rooms/R12/a_stain_1.png",
       "width": 1448,
@@ -7464,6 +7473,15 @@
       "width": 1024,
       "height": 320,
       "sha256": "6dd53862cdd697b1fb492b58ce30dda0e3cf7f2889bacdcad6dec5c9c578f2ae",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "R12/a_surface_eye_r3",
+      "path": "assets/rooms/R12/a_surface_eye_r3.png",
+      "width": 1404,
+      "height": 500,
+      "sha256": "358758137468f7526d4fe1e74dbd6dd717b475c260e5d7c8bc98dead8290382c",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },
@@ -8170,6 +8188,15 @@
       "source_svg": null
     },
     {
+      "id": "end_b_wide_3",
+      "path": "assets/stages/R12/end_b_wide_3.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "2142db577256880e4840fef7e32170e21d73dbfeffac4921fb10a5a271a00d22",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
       "id": "r12_continue_terminal",
       "path": "assets/stages/R12/r12_continue_terminal.png",
       "width": 1448,
@@ -8184,6 +8211,15 @@
       "width": 1448,
       "height": 1086,
       "sha256": "0a9e55de362d1940027147a9f32d18597a97c4e4fc166000e70d366df7f8f6f4",
+      "kind": "overlay_or_sprite",
+      "source_svg": null
+    },
+    {
+      "id": "r12_sever_office_r2",
+      "path": "assets/stages/R12/r12_sever_office_r2.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "da5e8fb4399e06bca3e523ed13b26b80ff6f06b201189cb4808ad044c4fd7973",
       "kind": "overlay_or_sprite",
       "source_svg": null
     },

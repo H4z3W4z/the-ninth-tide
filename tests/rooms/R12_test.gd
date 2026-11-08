@@ -44,9 +44,11 @@ const CONTINUE_PREVIEW := ["PREVIEW. On the CONTINUE plate the eight subject lam
 	"The witness feed slides along its rail, from the terminal marked E.V. to the one marked A.M.",
 	"His lamp goes out. Mine comes on. Behind me, the window is showing it too."]
 const BLINK_LINE := "Outside, the surface closes once, all the way, and opens. On me."
+const EYE_DOOR := "The eye in the window isn't on the instrument. It's on the door I came in by."
 const ARRIVAL_STORY := [
 	"The chamber. A chair faces an instrument. Nothing in here is dusty.",
 	"Every arm of the instrument ends where a part of a seated person would be. Head. Hands. Feet.",
+	EYE_DOOR,
 	"Through the left arch, a wall of frames. One of them already has a name on it.",
 	"Mine.",
 	"Outside, the surface closes once, all the way, and opens. On me.",
@@ -127,6 +129,7 @@ func run_tests() -> void:
 		await test_view_eye()
 		await test_view_window_preview()
 		await test_view_hold_breath()
+		await test_view_legibility()
 	else:
 		print("SKIP: R12 view_checks: the R12 view does not yet declare rects for every sim hotspot (view team)")
 
@@ -258,13 +261,20 @@ func test_arrival() -> void:
 	var ev := g.dispatch("go:R12")
 	check(g.state.room == ROOM, "walked into the chamber")
 	var st := story(ev)
-	check(st.slice(0, 5) == ARRIVAL_STORY, "the arrival chain, the blink line last (%s)" % [st])
+	check(st.slice(0, 6) == ARRIVAL_STORY, "the arrival chain, the blink line last (%s)" % [st])
 	var says_at := {}
 	for e2 in ev:
 		if e2.type == "say":
 			says_at[e2.text] = _d(e2.delay)
-	check(says_at.get(BLINK_LINE) == 9.0 and says_at.get("Mine.") == 7.2, "the blink line at 9.0, after 'Mine.' at 7.2")
-	check(says_at.get("The bridge is in my pocket. The door gave it back.") == 11.4, "the bridge line after the blink")
+	check(says_at.get(EYE_DOOR) == 5.0 and says_at.get("Every arm of the instrument ends where a part of a seated person would be. Head. Hands. Feet.") == 2.4,
+		"the eye on the door, after the instrument line")
+	check(says_at.get(BLINK_LINE) == 11.8 and says_at.get("Mine.") == 10.0, "the blink line at 11.8, after 'Mine.' at 10.0")
+	check(says_at.get("The bridge is in my pocket. The door gave it back.") == 14.2, "the bridge line after the blink")
+	var looks := _fxs(ev, "eye_look")
+	check(looks.size() == 1 and looks[0].get("target") == "door" and looks[0].get("from") == "centre"
+		and looks[0].get("line") == EYE_DOOR and _d(looks[0].get("delay")) == 5.0,
+		"arrival: the eye turns to the door with its line (%s)" % [looks])
+	check(r12(g).gaze() == "door" and r12(g).state.eye_look == "door", "arrival: the eye is on the door")
 	check(fx_count(ev, "notice") == 1 and fx(ev, "notice").get("which") == "name_frame", "notice fx: the name frame")
 	check(r12(g).has_seen("chamber"), "arrival notes the chamber")
 	check(bridges(g) == 1 and "The bridge is in my pocket. The door gave it back." in says(ev),
@@ -273,6 +283,7 @@ func test_arrival() -> void:
 	g.dispatch("go:R11")
 	ev = g.dispatch("go:R12")
 	check(story(ev).is_empty() and fx_count(ev, "notice") == 0, "the arrival chain plays once")
+	check(fx_count(ev, "eye_look") == 0 and r12(g).gaze() == "door", "re-arrival: the eye stays on the door")
 	check(bridges(g) == 1 and not "door gave it back" in says(ev), "no second bridge on re-arrival")
 	# Arrival with the bridge already in hand: no bridge line, chain without it.
 	var h := with_flags(["P04", "P24"], "R11")
@@ -795,30 +806,76 @@ func test_p26_checkpoint() -> void:
 # ---------------------------------------------------------------------------------------------
 # the eye: gaze, blinks, held breaths
 # ---------------------------------------------------------------------------------------------
-## The pupil's offset is a pure function of the flags (and the seated bridge): centred before
-## P25, toward the chair after, toward her terminal once P26 is done and the bridge is in it.
+## The eye looks where its last eye_look sent it (state.eye_look): centred before she comes in,
+## the door on arrival, the chair at the P25 commit, the routing wall at each P26 preview. gaze()
+## is a pure function of state, so a load puts it back exactly; flags alone floor it.
 func test_eye_gaze() -> void:
-	check(R12Sim.PUPIL_OFFSET == {"centre": [0, 0], "chair": [-40, 0], "terminal": [40, 0]}, "the three offsets")
-	var g := fresh()
+	check(R12Sim.PUPIL_OFFSET == {"centre": [0, 0], "door": [0, 40], "chair": [-150, 12], "routing": [150, 12]},
+		"the four offsets")
+	var g := _stair()
 	var r := r12(g)
-	check(r.gaze() == "centre" and r.pupil_offset() == Vector2.ZERO, "before P25: centred")
-	play(g, P25_ACTIONS)
-	check(r.gaze() == "chair" and r.pupil_offset() == Vector2(-40, 0), "P25: toward the chair")
-	play(g, P26_ACTIONS)
-	check(r.gaze() == "chair", "P26 alone: still the chair")
-	play(g, ["back", "bridge_seat", "bridge_seat"])
-	check(r.bridge_seated() and r.gaze() == "terminal" and r.pupil_offset() == Vector2(40, 0), "the bridge seated: toward her terminal")
-	g.dispatch("bridge_seat")
-	check(not r.bridge_seated() and r.gaze() == "chair", "the bridge out: back to the chair")
+	check(r.gaze() == "centre" and r.pupil_offset() == Vector2.ZERO, "before she comes in: centred")
+	g.dispatch("go:R12")
+	check(r.gaze() == "door" and r.pupil_offset() == Vector2(0, 40), "arrival: the door")
+	check(r12(roundtrip(g)).gaze() == "door", "the door survives a save")
+	var ev := []
+	for a in P25_ACTIONS:
+		ev = g.dispatch(a)
+	var looks := _fxs(ev, "eye_look")
+	check(looks.size() == 1 and looks[0].get("target") == "chair" and looks[0].get("from") == "door",
+		"P25 commit: eye_look chair (%s)" % [looks])
+	check(r.gaze() == "chair" and r.pupil_offset() == Vector2(-150, 12), "P25: toward the chair")
+	check(r12(roundtrip(g)).gaze() == "chair", "the chair survives a save")
+	# the refused routes before it never turn it
+	var h := _stair()
+	h.dispatch("go:R12")
+	var refused := 0
+	for a in ["to_frames", "frame_body", "route", "rack_trace", "f_body", "route", "switch", "route"]:
+		refused += _fxs(h.dispatch(a), "eye_look").size()
+	check(refused == 0 and r12(h).gaze() == "door", "a refused ROUTE doesn't turn the eye")
+	# P26: each preview, routing
+	var pv := []
+	for a in P26_ACTIONS:
+		var e2 := g.dispatch(a)
+		for x in _fxs(e2, "eye_look"):
+			pv.append(x.get("target"))
+		if a == "preview_sever":
+			check(r.gaze() == "routing" and r12(roundtrip(g)).gaze() == "routing", "the first preview: routing, saved")
+	check(pv == ["routing", "routing"], "P26: eye_look routing on each preview (%s)" % [pv])
+	check(r.pupil_offset() == Vector2(150, 12), "P26: toward the routing wall")
+	pv = []
+	play(g, ["back", "back", "to_routing", "plate_sever"])
+	for x in _fxs(g.dispatch("preview_sever"), "eye_look"):
+		pv.append(x.get("target"))
+	check(pv == ["routing"], "a preview again: routing again")
+	play(g, ["back", "back", "to_routing", "bridge_seat", "bridge_seat"])
+	check(r.bridge_seated() and r.gaze() == "routing", "the bridge seated: still the routing wall")
+	# a load: gaze() is what was saved, validated
+	var t := roundtrip(g)
+	check(r12(t).gaze() == r.gaze() and r12(t).pupil_offset() == r.pupil_offset(), "gaze() after a load matches")
+	var d: Dictionary = r12(g).state.duplicate(true)
+	for bad in [7, "sideways", null]:
+		d.eye_look = bad
+		r12(t).load_state(d)
+		check(r12(t).gaze() == "routing", "a bad eye_look (%s) floors to where she has got" % [bad])
+	d.eye_look = "terminal"
+	r12(t).load_state(d)
+	check(r12(t).gaze() == "routing", "'terminal' is read as 'routing'")
+	var e := fresh()
+	var de: Dictionary = r12(e).state.duplicate(true)
+	de.eye_look = "chair"
+	r12(e).load_state(de)
+	check(r12(e).gaze() == "chair", "a saved look ahead of the floor is kept")
 	# by flags alone, no actions
 	var f := with_flags(["P24", "P25"], ROOM)
 	r12(f).reconcile()
 	check(r12(f).gaze() == "chair", "P25 by flag: the chair")
 	for n in [0, 1, 2, 3, 4, 6]:
 		var j := _jumped(n)
-		var want := "centre" if n == 0 else ("terminal" if n in [4, 6] else "chair")
+		var want := "centre" if n == 0 else ("routing" if n >= 2 else "chair")
 		check(r12(j).gaze() == want, "jump %d: %s (%s)" % [n, want, r12(j).gaze()])
 		check(r12(roundtrip(j)).gaze() == want, "jump %d: the gaze survives a save" % n)
+	check(_jumped(1).room(ROOM).gaze() == "chair" and _jumped(2).room(ROOM).gaze() == "routing", "jumps 1, 2: chair, routing")
 
 ## The surface blinks exactly twice in a game: on the first arrival (with the line after
 ## 'Mine.') and when the strip types NINTH OBSERVER LOCATED. Never again, saved.
@@ -828,7 +885,7 @@ func test_blinks() -> void:
 	var blinks := []
 	var ev := g.dispatch("go:R12")
 	blinks.append_array(_fxs(ev, "blink"))
-	check(blinks.size() == 1 and blinks[0].get("which") == "arrival" and _d(blinks[0].get("delay")) == 9.0
+	check(blinks.size() == 1 and blinks[0].get("which") == "arrival" and _d(blinks[0].get("delay")) == 11.8
 		and blinks[0].get("line") == BLINK_LINE, "the arrival blink, timed to its line (%s)" % [blinks])
 	check(r.blinks() == ["arrival"] and r.has_seen("surface_blink"), "the arrival blink is spent and noted")
 	# reload, leave, come back: no second arrival blink
@@ -872,7 +929,7 @@ func test_hold_breath() -> void:
 	var g := _stair()
 	var ev := g.dispatch("go:R12")
 	var hb := _fxs(ev, "hold_breath")
-	check(hb.size() == 1 and _d(hb[0].seconds) == 1.5 and _d(hb[0].delay) == 9.0 and hb[0].get("line") == BLINK_LINE,
+	check(hb.size() == 1 and _d(hb[0].seconds) == 1.5 and _d(hb[0].delay) == 11.8 and hb[0].get("line") == BLINK_LINE,
 		"arrival: hold_breath 1.5 s at the blink (%s)" % [hb])
 	play(g, P25_ACTIONS.slice(0, P25_ACTIONS.size() - 1))
 	ev = g.dispatch("route")
@@ -900,11 +957,25 @@ func test_hold_breath() -> void:
 			throat = x[1]
 	check(hb.size() == 1 and _d(hb[0].seconds) == 1.5 and _d(hb[0].delay) == _d(throat - 1.5) and hb[0].get("sfx") == "throat"
 		and _d(hb[0].get("lead")) == 1.5, "SEVER: 1.5 s held, 1.5 s before the throat at %s (%s)" % [throat, hb])
-	# no other page holds its breath
+	# no other SEVER page holds its breath
 	var others := 0
 	for i in 11:
 		others += _fxs(s.dispatch("ending_next"), "hold_breath").size()
 	check(others == 0, "only the throat page holds its breath")
+	# CONTINUE: the wide page goes silent as the kettle line goes up, so the end card comes in over silence
+	var c := _jumped(6)
+	var wide_hb := []
+	for i in 9:
+		ev = c.dispatch("ending_next")
+		var tab = fx(ev, "ending").get("tableau")
+		var h := _fxs(ev, "hold_breath")
+		if tab == "end_b_wide":
+			wide_hb = h
+		else:
+			check(h.is_empty(), "CONTINUE page %s: no held breath" % tab)
+	check(wide_hb.size() == 1 and _d(wide_hb[0].seconds) == 3.0 and _d(wide_hb[0].delay) == 6.0
+		and wide_hb[0].get("line") == "The kitchen. Someone has put the kettle on.",
+		"the wide page: hold_breath 3 s at 6.0, on the kettle line (%s)" % [wide_hb])
 
 ## On the stair landing, the chamber never yet entered, her trace stored, the bridge in hand.
 func _stair() -> GameSim:
@@ -1199,9 +1270,23 @@ func test_ending_reload() -> void:
 func test_ending_timings() -> void:
 	var funnels: Dictionary = R12Sim.ENDING_SEVER[1]
 	check(funnels.sfx == [["funnel_stop", 0.4], ["throat", 3.6]], "the throat clears at 3.6 s (%s)" % [funnels.sfx])
+	var morning: Dictionary = R12Sim.ENDING_CONTINUE[7]
+	check(morning.tableau == "a_morning" and morning.lines == [[0.0, "Morning reaches the windows."]],
+		"the morning page: only 'Morning reaches the windows.'")
 	var wide: Dictionary = R12Sim.ENDING_CONTINUE[8]
-	check(wide.tableau == "end_b_wide" and wide.lines == [[0.0, "Far out in the dark, one small lit window. The kitchen."],
-		[4.2, "Around it, more windows than I can count. None of them lit."]], "the wide page: both lines, 1.2 s more silence")
+	check(wide.tableau == "end_b_wide" and wide.lines == [[0.0, "The station does not go back to the shore."],
+		[2.8, "Out to the edge of the water, stations. Every window dark but one."],
+		[6.0, "The kitchen. Someone has put the kettle on."]], "the wide page: its three lines")
+	check(wide.breath == [{"seconds": 3.0, "delay": 6.0, "line": "The kitchen. Someone has put the kettle on."}],
+		"the wide page holds its breath 3 s on the kettle line")
+	for st in R12Sim.ENDING_CONTINUE:
+		for l in st.lines:
+			check(not "Far out in the dark" in l[1] and not "more windows than I can count" in l[1], "the old wide lines are gone")
+	check(R12Sim.end_still("continue") == "res://assets/stages/R12/end_b_wide_3.png"
+		and R12Sim.end_still("sever") == "res://assets/stages/R12/r12_sever_office_r2.png", "the end stills")
+	for still in [R12Sim.end_still("continue"), R12Sim.end_still("sever")]:
+		var tex: Texture2D = load(still)
+		check(tex != null and tex.get_size() == Vector2(1448, 1086), "%s: native 1448x1086" % still)
 
 func test_use_item() -> void:
 	var g := fresh()
@@ -1603,8 +1688,9 @@ func test_view_surface() -> void:
 	var view_script: Dictionary = load("res://game/rooms/R12/R12_view.gd").get_script_constant_map()
 	check(view_script.HOTSPOTS[1] == ["window", Rect2(474, 96, 500, 290), "Window"], "the window hotspot is unchanged")
 	check(ResourceLoader.exists("res://assets/rooms/R12/a_surface_wide.png")
-		and ResourceLoader.exists("res://assets/rooms/R12/a_surface_eye.png")
-		and ResourceLoader.exists("res://assets/stages/R12/end_b_wide_2.png"), "the plates exist")
+		and ResourceLoader.exists("res://assets/rooms/R12/a_surface_eye_r3.png")
+		and ResourceLoader.exists("res://assets/rooms/R12/a_pupil_r3.png")
+		and ResourceLoader.exists("res://assets/stages/R12/end_b_wide_3.png"), "the plates exist")
 	var scene = await _scene_at(0, [])
 	var view = scene.room_view
 	var g: Rect2 = view_script.GLASS_IN
@@ -1613,9 +1699,27 @@ func test_view_surface() -> void:
 		for k in 5:
 			scene.time = 40.0 + 7.0 * k
 			check(view.blink_k() == 0.0 and is_equal_approx(view.lid_bottom(), g.position.y), "no blink, no lid (motion %s, t %d)" % [m, k])
-	var eye: Texture2D = load("res://assets/rooms/R12/a_surface_eye.png")
-	check(eye.get_size() == g.size, "the eye overlay is GLASS_IN-sized")
+	var eye: Texture2D = load("res://assets/rooms/R12/a_surface_eye_r3.png")
+	# wide and tall enough that, at any look and x1.15, it still covers the whole water
+	for look in R12Sim.PUPIL_OFFSET:
+		var o: Array = R12Sim.PUPIL_OFFSET[look]
+		for sc in [1.0, 1.15]:
+			var size: Vector2 = eye.get_size() * sc
+			var rect := Rect2(view_script.EYE_C + Vector2(o[0], o[1]) - size / 2.0, size)
+			check(rect.encloses(g), "the eye covers the water looking at %s, x%s" % [look, sc])
+	var pupil: Texture2D = load("res://assets/rooms/R12/a_pupil_r3.png")
+	check(absf(pupil.get_size().x - 272.0) < 1.0 and absf(pupil.get_size().y - 82.0) < 1.0, "the slit pupil: 260 x 70 and its rim")
+	check(is_equal_approx(view.water_y(), 382.0), "s0: the water line low in the window")
+	check(is_equal_approx(view.eye_scale(), 1.0), "s0: the eye at its size")
 	await free_scene(scene)
+	var s1 = await _scene_at(1, [])
+	check(is_equal_approx(s1.room_view.water_y(), 302.0), "after P25: the water line 80 px higher")
+	check(is_equal_approx(s1.room_view.eye_scale(), 1.0), "after P25: the eye not yet closer")
+	await free_scene(s1)
+	var s2 = await _scene_at(2, [])
+	check(is_equal_approx(s2.room_view.water_y(), 302.0) and is_equal_approx(s2.room_view.eye_scale(), 1.15),
+		"after P26: the eye x1.15")
+	await free_scene(s2)
 
 ## The SEVER line-outs end in true silence; the wide CONTINUE page ducks its gap; the bed levels;
 ## the throat under soft audio.
@@ -1662,7 +1766,7 @@ func test_view_ending_sound() -> void:
 	view.tick(0.0)
 	check(not view.sever_silence() and view.loop_targets().r12_pressure_low > 0.0, "its first line up: the bed comes back")
 	await free_scene(sc)
-	# CONTINUE's wide page
+	# CONTINUE's wide page: the wide dark under it, silent from the kettle line for 3 s
 	var cc = await _scene_at(6, [])
 	var cr: R12Sim = cc.sim.room(ROOM)
 	cr.state.ending_step = 7
@@ -1670,14 +1774,21 @@ func test_view_ending_sound() -> void:
 	var cv = cc.room_view
 	check(cr.tableau() == "end_b_wide" and cv.cur_tab == "end_b_wide", "on the wide page")
 	cv.tick(0.0)
-	check(is_equal_approx(cv.loop_targets().end_wide, lin.call(-14.0)), "the first line over the wide dark")
-	cc.time += 3.2
+	check(is_equal_approx(cv.loop_targets().end_wide, lin.call(-14.0)), "the wide dark under its lines")
+	check(not cv.breath_held() and cv.breath_waits.size() == 1, "the breath waits for the kettle line")
+	cc.cur_text = R12Sim.ENDING_CONTINUE[8].lines[2][1]
 	cv.tick(0.0)
-	check(cv.wide_duck() and is_equal_approx(cv.loop_targets().end_wide, lin.call(-40.0)), "the gap: ducked to -40 dB")
-	cc.cur_text = R12Sim.ENDING_CONTINUE[8].lines[1][1]
+	check(cv.breath_held() and cv.loop_targets().end_wide == 0.0, "the kettle line: silence")
+	cc.time += 3.1
 	cv.tick(0.0)
-	check(not cv.wide_duck() and is_equal_approx(cv.loop_targets().end_wide, lin.call(-14.0)), "the count: the dark comes back")
+	check(not cv.breath_held(), "and the breath is let go after 3 s")
 	await free_scene(cc)
+	# the mid band: -6 dB, +2 after P25, +2 more after P26
+	for n in 3:
+		var sm = await _scene_at(n, [])
+		check(is_equal_approx(sm.room_view.loop_targets().r12_mid, lin.call(-6.0 + 2.0 * n)),
+			"s%d: r12_mid at %d dB" % [n, -6 + 2 * n])
+		await free_scene(sm)
 
 ## The ending's 'continue' mark: once the page is done, pulsing (still with Motion off); and
 ## unanswered for 12 s it turns the page by itself, on both endings, to the end card.
@@ -1688,18 +1799,23 @@ func test_view_continue_mark() -> void:
 		var r: R12Sim = scene.sim.room(ROOM)
 		var step := r.ending_step()
 		view.tick(0.0)
-		check(view.page_finished() and view.cont_visible(), "ending %d: the finished page shows the mark" % n)
+		check(view.page_finished() and view.cont_visible(), "ending %d: the finished page shows 'Go on'" % n)
 		scene.sim.settings.motion = false
-		check(is_equal_approx(view.cont_alpha(), 0.8), "ending %d: Motion off, the mark is still at 0.8" % n)
+		check(is_equal_approx(view.cont_alpha(), 1.0), "ending %d: Motion off, 'Go on' is simply there" % n)
 		scene.sim.settings.motion = true
-		var lo := 1.0
-		var hi := 0.0
 		var t0: float = scene.time
+		check(view.cont_alpha() < 0.05, "ending %d: with Motion it starts to fade in" % n)
+		scene.time = t0 + 0.3
+		check(view.cont_alpha() > 0.4 and view.cont_alpha() < 0.6, "ending %d: half in at 0.3 s" % n)
+		var held := true
 		for k in 9:
-			scene.time = t0 + k * 0.25
-			lo = minf(lo, view.cont_alpha())
-			hi = maxf(hi, view.cont_alpha())
-		check(lo >= 0.45 - 0.001 and lo < 0.5 and hi > 0.95 and hi <= 1.0, "ending %d: it pulses 0.45-1.0 (%s-%s)" % [n, lo, hi])
+			scene.time = t0 + 0.6 + k * 0.25
+			held = held and is_equal_approx(view.cont_alpha(), 1.0)
+		check(held, "ending %d: then it stays, no pulse" % n)
+		var vs: Dictionary = view.get_script().get_script_constant_map()
+		check(vs.CAPTION_BAR.encloses(vs.CONT_RECT) and vs.CONT_RECT.end.x > vs.CAPTION_BAR.end.x - 30.0,
+			"ending %d: 'Go on' at the subtitle bar's right end" % n)
+		check(vs.CAPTION_X + vs.CAPTION_W / 2.0 < vs.CONT_RECT.position.x, "ending %d: her line wraps clear of it" % n)
 		scene.time = t0 + 11.0
 		view.tick(0.0)
 		check(r.ending_step() == step and scene.sim.view == "room", "ending %d: no turn before 12 s" % n)
@@ -1753,23 +1869,46 @@ func test_view_caption_desync() -> void:
 func test_view_eye() -> void:
 	for n in [0, 1, 2, 4]:
 		var scene = await _scene_at(n, [])
-		var want := Vector2.ZERO if n == 0 else (Vector2(40, 0) if n == 4 else Vector2(-40, 0))
-		check(scene.room_view.gaze_at == want, "jump %d: the pupil at %s (%s)" % [n, want, scene.room_view.gaze_at])
+		var want: Vector2 = scene.sim.room(ROOM).pupil_offset()
+		check(want == (Vector2(-150, 12) if n == 1 else (Vector2(150, 12) if n >= 2 else want)), "jump %d: the sim's look" % n)
+		check(scene.room_view.gaze_at == want, "jump %d: the eye snapped to %s (%s)" % [n, want, scene.room_view.gaze_at])
 		await free_scene(scene)
-	var sc = await _scene_at(2, ["to_routing", "contacts", "bridge_seat"])
+	# a preview turns it: 0.8 s eased in and out with Motion, at once without
+	var sc = await _scene_at(1, ["to_routing", "plate_sever"])
 	var v = sc.room_view
-	check(sc.sim.room(ROOM).gaze() == "terminal", "the bridge seated: the sim looks at her terminal")
 	sc.sim.settings.motion = true
-	v.tick(0.5)
-	check(v.gaze_at.x > -40.0 and v.gaze_at.x < 40.0, "with Motion the pupil travels (%s)" % [v.gaze_at])
-	for i in 6:
-		v.tick(0.5)
-	check(v.gaze_at == Vector2(40, 0), "and arrives at her terminal")
-	sc.dispatch("bridge_seat")
-	sc.sim.settings.motion = false
+	check(v.gaze_at == Vector2(-150, 12), "P25: on the chair")
+	sc.dispatch("preview_sever")
+	check(v.look_running() and v.gaze_at == Vector2(-150, 12), "the preview: the eye starts to turn")
+	var tl: float = sc.time
+	sc.time = tl + 0.4
 	v.tick(0.0)
-	check(v.gaze_at == Vector2(-40, 0), "Motion off: it is simply where it looks")
+	check(v.gaze_at.x > -60.0 and v.gaze_at.x < 60.0, "half way at 0.4 s (%s)" % [v.gaze_at])
+	sc.time = tl + 0.1
+	v.tick(0.0)
+	check(v.gaze_at.x < -130.0, "eased: slow out of the chair (%s)" % [v.gaze_at])
+	sc.time = tl + 0.81
+	v.tick(0.0)
+	check(v.gaze_at == Vector2(150, 12) and not v.look_running(), "and on the routing wall at 0.8 s")
 	await free_scene(sc)
+	var so = await _scene_at(1, ["to_routing", "plate_sever"])
+	so.sim.settings.motion = false
+	so.dispatch("preview_continue")
+	check(so.room_view.gaze_at == Vector2(150, 12) and not so.room_view.look_running(), "Motion off: it is simply where it looks")
+	await free_scene(so)
+	# arrival: it stays where it was until its line goes up, then turns to the door
+	var sa = new_scene("user://r12_view_test.json")
+	await process_frame
+	sa.tide_jump(9, "R11")
+	sa.sim.state.visited.erase(ROOM)
+	sa.sim.settings.motion = false
+	sa.dispatch("go:R12")
+	var va = sa.room_view
+	check(va.gaze_at == Vector2.ZERO and va.look_waits.size() == 1, "arrival: centred, the turn waits for its line")
+	sa.cur_text = EYE_DOOR
+	va.tick(0.0)
+	check(va.gaze_at == Vector2(0, 40), "the line up: on the door")
+	await free_scene(sa)
 	# the arrival blink
 	for m in [true, false]:
 		var scene = new_scene("user://r12_view_test.json")
@@ -1817,14 +1956,20 @@ func test_view_window_preview() -> void:
 		scene.time = t0 + 1.0
 		check(view.window_preview_a() > 0.99, "%s: up in the window" % route)
 		if route == "sever":
+			check(view.pupil_lamps() == [true, true], "sever: two lamps lit in the pupil")
 			scene.time = t0 + 1.2
 			check(view.window_lamps_out() == 1, "sever: the first portrait lamp out (%d)" % view.window_lamps_out())
+			scene.time = t0 + 3.0
+			check(view.pupil_lamps() == [false, true], "sever: one pupil lamp out (%s)" % [view.pupil_lamps()])
 			scene.time = t0 + 4.5
 			check(view.window_lamps_out() == 8, "sever: all eight out")
+			check(view.pupil_lamps() == [false, false], "sever: both pupil lamps out")
 		else:
 			check(view.window_feed()[0] == 0.0, "continue: the feed at E.V.")
+			check(view.pupil_lamps() == [true, true], "continue: his lamp and the kitchen's in the pupil")
 			scene.time = t0 + 4.6
 			check(view.window_feed() == [1.0, 1.0], "continue: the feed at A.M., the oilskin up")
+			check(view.pupil_lamps() == [false, true], "continue: his out, the kitchen's lit")
 		scene.time = t0 + 9.0
 		view.tick(0.0)
 		check(view.win_route == "" and view.window_preview_a() == 0.0, "%s: gone again" % route)
@@ -1860,3 +2005,30 @@ func test_view_hold_breath() -> void:
 	scene.time += 1.6
 	check(not view.breath_held(), "and let go after 1.5 s")
 	await free_scene(scene)
+
+## Legibility: the countersign plaque and the c_frames strip print every word of the strip in
+## full (14 px floor, wrapped, never cut); card faces are at least 18 px.
+func test_view_legibility() -> void:
+	var vs: Dictionary = load("res://game/rooms/R12/R12_view.gd").get_script_constant_map()
+	check(vs.CARD_BODY >= 18, "card body text at least 18 px")
+	var scene = await _scene_at(1, ["to_frames"])
+	var view = scene.room_view
+	var lay: Dictionary = view.countersign_layout()
+	check(lay.size >= 14 and " ".join(lay.rows) == " ".join(R12Sim.STRIP_DONE),
+		"the countersign plaque: every word, at %d px (%s)" % [lay.size, lay.rows])
+	var terminal := Rect2(130, 740, 340, 170)
+	check(terminal.encloses(lay.rect), "the plaque on the terminal's face (%s)" % [lay.rect])
+	for row in lay.rows:
+		check(view._tw(str(row), lay.size, Ink.serif()) <= lay.rect.size.x - 16.0, "the plaque row fits: %s" % row)
+	scene.dispatch("frame_body")
+	var st: Dictionary = view.strip_layout()
+	var joined := []
+	for row in st.rows:
+		joined.append(row[1])
+	check(st.size >= 14 and " ".join(joined) == " ".join(R12Sim.STRIP_DONE), "the strip: every word (%s)" % [joined])
+	for row in st.rows:
+		check(view._tw(str(row[1]), st.size, Ink.serif()) <= st.rect.size.x - 16.0, "the strip row fits: %s" % row[1])
+	check(st.rect.end.y < 700.0, "the strip clear of the switch")
+	await free_scene(scene)
+	var fit: Dictionary = load("res://game/rooms/R12/R12_view.gd").fit_rows(["A SHORT ONE", "AND A MUCH LONGER LINE THAN FITS"], 120.0, Ink.serif())
+	check(fit.size == 14 and " ".join(fit.rows) == "A SHORT ONE AND A MUCH LONGER LINE THAN FITS", "fit_rows wraps at the floor, never cuts")

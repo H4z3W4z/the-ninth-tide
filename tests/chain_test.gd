@@ -628,6 +628,7 @@ func play_p25() -> void:
 	check(g.flag("P25") and chamber.frames() == R12Sim.SOLUTION_FRAMES and chamber.switch() == "witness",
 		"P25: her record routed to the witness line")
 	check(not has_ev(ev, "fx", "tide"), "P25: no tide past IX")
+	check(has_ev(ev, "fx", "eye_look") and chamber.gaze() == "chair", "P25: the eye in the window turns to the chair")
 
 ## Backs out of R12's frames, routing and close-ups to the chamber itself.
 func _r12_room() -> void:
@@ -641,9 +642,11 @@ func _r12_room() -> void:
 ## The checkpoint.
 func play_p26() -> void:
 	_r12_room()
+	var ev := []
 	for a in ["to_routing", "plate_sever", "preview_sever"]:
-		_qd(a)
+		ev = _qd(a)
 	check(not g.flag("P26") and chamber.previewed("sever"), "P26: one route seen is not enough")
+	check(has_ev(ev, "fx", "eye_look") and chamber.gaze() == "routing", "P26: a preview turns the eye to the routing wall")
 	_r12_room()   # the SEVER preview's window glance may have put the close-up down
 	for a in ["to_routing", "plate_continue", "preview_continue"]:
 		_qd(a)
