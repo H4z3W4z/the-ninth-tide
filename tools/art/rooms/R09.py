@@ -20,6 +20,9 @@ Writes, and only writes, assets/rooms/R09/*.png and assets/stages/R09/*.png:
                                   the surface on end clipped to the gallery glass (seed 1509)
   p15_wall_r4*, p15_rooms_r4*    fix p3 (ASSETS_P1): the standing sea as water on end, and its rooms
                                   with this gallery's dials window in them (seeds 1511, 1510)
+  p15_wall_r5*, p15_fig_*_r5     fix p4 (ASSETS_P1): the sea on end as striations, its bent horizon and
+                                  the station's windows in one layer; the seated figure in this
+                                  room's window, side on and turned to face out (seeds 1512, 1513)
   surface_standing*, c_view_*_r3, c_rim_*
                                   fix pass w3 (see ASSETS_W3): the standing sea at a glance, and
                                   a bowl in every aperture with its rim under the lens
@@ -3150,6 +3153,189 @@ def paint_p15_rooms_r4(rng, lighthouse_too=False):
     im.putalpha(ImageChops.multiply(im.getchannel("A"), clip))
     return im
 
+# ----------------------------------------------------------------------------- fix p4: the standing sea, r5
+# assets/stages/R09/p15_wall_r5*.png: one layer, the sea stood on end with the station in it. The
+# water is near-vertical striations in dark storm navy (each stroke leaning a little and wavering,
+# bottom of the glass to its top edge, so it runs to the top of every pane) with thin sea-glass
+# highlights among them. The old horizon is still there: a bright 3 px line across the middle,
+# bent upward at both window edges until it runs up the sides of the glass. The station's lit
+# windows are embedded in it as in p15_rooms_r4 (kitchen, bunks, listening room, the office and
+# its lamp, chart room, machine room, vault, jetty), and among them this room's own lit window
+# (DIALS_WINDOW: the lens's brass ring, the bearing dials, the rail), painted empty: the seated
+# figure is its own overlay. The standing figure at the rail (p15_rooms_r3/r4's "gallery") is
+# gone: R09's window is the only one with anyone in it. No rail-light string (the bead row).
+# assets/stages/R09/p15_fig_side_r5.png / p15_fig_out_r5.png: the seated figure in that window,
+# side on at the dials (until the reveal's last line) and turned round to face the gallery, a
+# flat silhouette facing out with two pale eye dots (from it, for good).
+R5_HORIZON_Y = 400
+R5_BEND = 150                                # the horizon bends up over this much of each edge
+R5_HORIZON_COL = (214, 230, 218)             # bright pale sea glass
+R5_WATER = (24, 40, 53)                      # dark storm navy, under the striations
+R5_STRIA = [STAND_SLAB, STORM_DK, STORM, STORM_HI]
+R5_HI = [SEAGLASS_HI, STAND_LOW, mix(SEAGLASS_HI, PAPER_HI, 0.35)]
+R5_EYE = (236, 242, 230)
+P15_WINDOWS_R5 = {k: v for k, v in P15_WINDOWS.items() if k not in ("wetlab", "gallery")}
+
+
+def r5_stroke(rng, x, y0, y1, lean, wob):
+    """A near-vertical stroke from the glass's foot to its top edge: leaning `lean` px over its
+    height and wavering `wob` px."""
+    ph = rng.uniform(0.0, 2.0 * math.pi)
+    per = rng.uniform(90.0, 170.0)
+    pts = []
+    y = float(y1)
+    while y >= y0 - 2:
+        k = (y1 - y) / (y1 - y0)
+        pts.append((x + lean * k + wob * math.sin(2.0 * math.pi * y / per + ph), y))
+        y -= 4.0
+    pts.append((x + lean + wob * math.sin(2.0 * math.pi * (y0 - 2) / per + ph), y0 - 2))
+    return pts
+
+
+def r5_horizon(x0, x1, y_top):
+    """The old horizon: level, then bent upward at both edges until it runs up the glass."""
+    yh, b = R5_HORIZON_Y, R5_BEND
+    left = bezier([(x0 + b, yh), (x0 + 8, yh), (x0 + 8, yh - 40), (x0 + 8, y_top - 4)], 40)
+    right = bezier([(x1 - b, yh), (x1 - 8, yh), (x1 - 8, yh - 40), (x1 - 8, y_top - 4)], 40)
+    return list(reversed(left)) + right
+
+
+def dials_window_bare(p, halos, x0, y0, x1, y1):
+    """This gallery seen from outside, with nobody in it: the lens's brass ring, the bearing
+    dials on their pedestal, and the rail across the front (dials_window's draws, no figure)."""
+    halos.ell((x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) * 0.75, (y1 - y0) * 1.0, ROOM_LIT, None)
+    p.rect(x0, y0, x1, y1, ROOM_LIT, INK, 2.6)
+    fig = mix(INK, STORM_DK, 0.25)
+    lx, ly, lr = x0 + 36, y0 + 25, 21
+    p.ell(lx, ly, lr - 5, lr - 5, mix(GALLERY_GLOW, ROOM_LIT, 0.35), None)
+    p.ring(lx, ly, lr - 5, lr, BRASS, INK, 1.6)
+    p.line([(lx - lr + 7, ly), (lx + lr - 7, ly)], mix(BRASS, INK, 0.35), 1.2)
+    dx0, dx1, dy = x0 + 100, x0 + 128, y0 + 22
+    p.rect(dx0, dy, dx1, dy + 12, BRASS_LO, INK, 1.6)
+    for k in range(3):
+        p.ell(dx0 + 5 + k * 9, dy + 6, 3.4, 3.4, PAPER_HI, INK, 1.2)
+    p.rect(dx0 + 10, dy + 12, dx0 + 18, y1 - 1, fig, None)
+
+
+def dials_rail(p, x0, y0, x1, y1):
+    rail_y = y1 - 13
+    p.line([(x0 + 2, rail_y), (x1 - 2, rail_y)], INK, 3.2)
+    p.line([(x0 + 2, rail_y + 8), (x1 - 2, rail_y + 8)], INK, 1.8)
+    for x in (x0 + 12, (x0 + x1) / 2, x1 - 12):
+        p.line([(x, rail_y), (x, y1 - 1)], INK, 2.2)
+    p.rect(x0, y0, x1, y1, None, INK, 2.6)
+
+
+def paint_p15_wall_r5(rng, lighthouse_too=False):
+    p = Pen(W, H, rng)
+    x0, y0, x1, y1 = SURF_GLASS
+    p.rect(x0, y0, x1, y1, R5_WATER, None)
+    # the water on end: dense dark striations, every one from the foot to the top edge
+    stria = p.layer()
+    x = x0 - 12.0
+    while x < x1 + 12:
+        col = rng.choice(R5_STRIA)
+        stria.line(r5_stroke(rng, x, y0, y1, rng.uniform(-9, 9), rng.uniform(0.8, 2.4)), col,
+                   rng.uniform(2.0, 5.5))
+        x += rng.uniform(4.0, 9.0)
+    p.put(stria)
+    # sea-glass highlights: thin, sparser, the same lean, also to the top edge
+    hi = p.layer()
+    x = x0 + rng.uniform(4, 20)
+    while x < x1:
+        pts = r5_stroke(rng, x, y0, y1, rng.uniform(-7, 7), rng.uniform(0.6, 1.8))
+        if rng.random() < 0.35:
+            # a broken one: it starts partway up and still runs to the top
+            cut = rng.randint(len(pts) // 4, len(pts) * 3 // 4)
+            pts = pts[cut:]
+        hi.line(pts, rng.choice(R5_HI), rng.uniform(1.0, 1.8))
+        x += rng.uniform(16.0, 42.0)
+    p.put(hi, 0.55)
+    # the station's windows sit in the water; the horizon and the highlights stop short of them
+    wins = dict(P15_WINDOWS_R5)
+    if lighthouse_too:
+        wins.pop("chart")
+    holes = [(a - WAVE_GAP, b - WAVE_GAP, c + WAVE_GAP, d + WAVE_GAP) for a, b, c, d, _ in wins.values()]
+    holes.append((DIALS_WINDOW[0] - WAVE_GAP, DIALS_WINDOW[1] - WAVE_GAP,
+                  DIALS_WINDOW[2] + WAVE_GAP, DIALS_WINDOW[3] + WAVE_GAP))
+    # the old horizon, bright, bent upward at both edges
+    hor = p.layer()
+    line = r5_horizon(x0, x1, y0)
+    hor.line(line, R5_HORIZON_COL, 3.0)
+    hor.cut(rect_mask((W, H), holes))
+    glow = p.layer()
+    glow.line(line, R5_HORIZON_COL, 9.0)
+    glow.cut(rect_mask((W, H), holes))
+    p.put_soft(glow, 4, 0.35)
+    p.put(hor)
+    if lighthouse_too:
+        lighthouse(p, 1000, 240, 2.0, inv=True, white=mix(STORM_HI, PAPER, 0.38), band=STORM_DK,
+                   glass=mix(STORM, SEAGLASS, 0.3), ink=INK, lw=4.5)
+        ly = 240 + 2.0 * (432 - 330.5)
+        soft_disc(p, 1000, ly, 16, AMBER, 0.22, 6)
+        p.rect(995, ly - 6, 1005, ly + 6, ROOM_LIT_LO, INK, 2.0)
+    halos = p.layer()
+    winp = p.layer()
+    for name, (a, b, c, d, kind) in wins.items():
+        p15_window(winp, halos, a, b, c, d, kind, rng)
+    dials_window_bare(winp, halos, *DIALS_WINDOW)
+    ox0, oy0, ox1, oy1, _ = P15_WINDOWS["office"]
+    ox, oy = (ox0 + ox1) / 2 - 18, (oy0 + oy1) / 2 - 6
+    lamp = p.layer()
+    soft_disc(lamp, ox, oy, 52, AMBER, 0.5, 16)
+    p.put_soft(halos, 9, 0.2)
+    p.put(lamp)
+    p.put(winp)
+    soft_disc(p, ox, oy, 14, mix(AMBER, PAPER_HI, 0.5), 0.7, 5)
+    p.ell(ox, oy, 6.5, 6.5, OFFICE_POINT, None)
+    p.ell(ox, oy, 3.0, 3.0, (255, 246, 222), None)
+    im = p.done()
+    clip = Image.new("L", im.size, 0)
+    ImageDraw.Draw(clip).rectangle((x0, y0, x1 - 1, y1 - 1), fill=255)
+    im.putalpha(ImageChops.multiply(im.getchannel("A"), clip))
+    return im
+
+
+def paint_p15_fig_r5(rng, facing_out):
+    """The seated figure in this room's window, with the rail in front of it (the rail is drawn
+    with the figure so it stays in front). Side on, at the dials; or turned round on the stool to
+    face the gallery: a flat silhouette facing out, two pale eye dots."""
+    p = Pen(W, H, rng)
+    x0, y0, x1, y1 = DIALS_WINDOW
+    fig = mix(INK, STORM_DK, 0.25)
+    if not facing_out:
+        hx, hy = x0 + 82, y0 + 17
+        p.ell(hx, hy, 5.6, 6.2, fig, None)
+        p.poly([(hx - 7, hy + 6), (hx + 3, hy + 5), (hx + 9, hy + 13), (hx + 4, hy + 25),
+                (hx - 8, hy + 25)], fig, None)
+        p.line([(hx + 4, hy + 10), (hx + 11, hy + 9), (x0 + 99, y0 + 27)], fig, 3.0)
+        p.poly([(hx - 9, hy + 24), (hx + 10, hy + 24), (hx + 10, hy + 28), (hx - 9, hy + 28)], fig, None)
+        p.line([(hx + 9, hy + 27), (hx + 10, y1 - 2)], fig, 3.0)
+        p.rect(hx - 11, hy + 28, hx + 1, hy + 31, fig, None)
+        p.line([(hx - 9, hy + 31), (hx - 9, y1 - 1)], fig, 2.0)
+        p.line([(hx - 1, hy + 31), (hx - 1, y1 - 1)], fig, 2.0)
+    else:
+        cx, hy = x0 + 80, y0 + 15
+        # the head, square on to us, and the two pale points in it
+        p.ell(cx, hy, 7.0, 7.8, fig, None)
+        p.poly([(cx - 3.5, hy + 6), (cx + 3.5, hy + 6), (cx + 4, hy + 10), (cx - 4, hy + 10)], fig, None)
+        # shoulders, square and level, the body straight down to the lap
+        p.poly([(cx - 15, hy + 15), (cx - 9, hy + 9), (cx + 9, hy + 9), (cx + 15, hy + 15),
+                (cx + 13, hy + 30), (cx - 13, hy + 30)], fig, None)
+        # the arms hang straight; the hands rest on the knees
+        p.line([(cx - 14, hy + 15), (cx - 15, hy + 31)], fig, 3.4)
+        p.line([(cx + 14, hy + 15), (cx + 15, hy + 31)], fig, 3.4)
+        # the knees toward us and the shins straight down; the stool under
+        p.rect(cx - 15, hy + 29, cx + 15, hy + 34, fig, None)
+        p.line([(cx - 9, hy + 33), (cx - 9, y1 - 1)], fig, 3.2)
+        p.line([(cx + 9, hy + 33), (cx + 9, y1 - 1)], fig, 3.2)
+        eye = R5_EYE
+        p.ell(cx - 3.0, hy - 0.6, 1.8, 1.8, eye, None)
+        p.ell(cx + 3.0, hy - 0.6, 1.8, 1.8, eye, None)
+    dials_rail(p, x0, y0, x1, y1)
+    return p.done()
+
+
 ASSETS_P1 = [  # name, seed (random.Random(seed), not SEED + k), painter, opaque, grain; into STAGE_OUT
     ("p15_surface_on_end", 1509, paint_p15_surface_on_end, False, True),
     ("p15_surface_on_end_b6", 1509, lambda r: paint_p15_surface_on_end(r, True), False, True),
@@ -3163,6 +3349,12 @@ ASSETS_P1 = [  # name, seed (random.Random(seed), not SEED + k), painter, opaque
     ("p15_wall_r4_b6", 1511, lambda r: paint_p15_wall(r, True), False, True),
     ("p15_rooms_r4", 1510, paint_p15_rooms_r4, False, True),
     ("p15_rooms_r4_b6", 1510, lambda r: paint_p15_rooms_r4(r, True), False, True),
+    # fix p4: the sea on end as striations with the station's windows (this room's among them) in
+    # one layer, and the seated figure in this room's window, side on and turned round
+    ("p15_wall_r5", 1512, paint_p15_wall_r5, False, True),
+    ("p15_wall_r5_b6", 1512, lambda r: paint_p15_wall_r5(r, True), False, True),
+    ("p15_fig_side_r5", 1513, lambda r: paint_p15_fig_r5(r, False), False, False),
+    ("p15_fig_out_r5", 1513, lambda r: paint_p15_fig_r5(r, True), False, False),
 ]
 
 

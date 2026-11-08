@@ -91,23 +91,27 @@ const NOTICE_LINES := {
 	"no_edge": {"lines": [["It has no edge any more.", 0.8], ["And the lens has me in it. The right way up.", 3.2]],
 		"observe": ["no_edge", "lens_ada"]},
 }
-## The reveal after P15 (story chain): [delay, text].
+## The reveal after P15 (story chain): [delay, text], seconds after the reveal starts. It plays
+## in the room view, from the commit itself (fix p4): RECORD BEARING returns her to the room
+## before its first line and the reveal follows "Recorded." at REVEAL_AFTER_RECORD.
 const REVEAL_LINES := [
 	[0.6, "The horizon's standing up."],
-	[6.8, "It's not the sea any more. It's a surface, on end, and the rooms behind me are in it."],
-	[9.6, "The office lamp is in it. A warm point."],
-	[13.4, "Something passed across the whole of it. Like a lid."],
-	[15.4, "The rain has stopped where it was. It's waiting too."],
-	[18.0, "It hasn't closed again."],
-	[21.0, "One of the lit windows is this one. Someone in it is standing at the rail."],
+	[4.6, "The kitchen is in it. And the bunks."],
+	[7.4, "And this room. Lit."],
 ]
 ## The reveal's timed beats (seconds after reveal_upright), carried as fx delays for the view:
-## the rain stops dead on the first line, the lid crosses on its line, and the core holds its
-## breath on the last (the window with someone at its rail).
+## the standing sea comes up the glass on the first line (rain_freeze is that clock), the core
+## holds its breath from the end of that line, the lid crosses the glass in the held breath,
+## and the seated figure in this room's window has turned to face the gallery on the last line.
 const RAIN_FREEZE_AT := 0.6
-const LID_PASS_AT := 13.4
-const HOLD_BREATH_AT := 21.0
+const HOLD_BREATH_AT := 1.6
 const HOLD_BREATH_SECONDS := 2.5
+const LID_PASS_AT := 2.6
+const FIGURE_TURN_AT := 7.4
+## Where the reveal starts in RECORD BEARING's event list: after "Recorded." and "Her bearing
+## isn't out at sea." have been read (0.5 + 2.6 s, then 2.3 s), so its first line is not queued
+## behind them.
+const REVEAL_AFTER_RECORD := 5.0
 ## After the sever ending, these replace the normal lines.
 const SEVER_LINES := {
 	"lens": "The lens. The gallery's in it, upside down. Me too.",
@@ -138,7 +142,7 @@ const OBSERVATIONS := {
 	"bowl_patch": "Under the lens, the mess-table bowl at the cross of STATION 3 has a square patch riveted over a crack: the same mending as the ninth bowl. There is soup in it, steaming.",
 	"no_subject": "RECORD BEARING prints an empty diagram, NO SUBJECT ON BEARING (on STATION 3: SUBJECT UNCONFIRMED: INSPECT), until the lens has confirmed what the bearing is on. Every aperture has a bowl in it.",
 	"nora_bearing": "Nora Bell's bearing is not out at sea. It is inside the station: STATION 3, the bowl with the square patch.",
-	"upright": "After the bearing printed, the sea outside the glass stood up: a flat surface on end, carrying the rooms behind me, the office lamp a warm point in it. A slow line passed across the whole of it, like a lid opening. The rain has stopped where it was. It's waiting too. It has not closed. One of the lit windows in it is this gallery, and someone is standing at its rail.",
+	"upright": "After the bearing printed, the horizon stood up outside the glass. The water runs straight up the panes to the top, and the old horizon is a bright line bent upward at both edges. The station's lit windows are in it: the kitchen, the bunks, and this room, lit. A slow line passed across the whole of it, like a lid opening, and it has not closed. In this room's window someone is seated at the dials, turned round to face the gallery.",
 	"glass": "Rain runs down outside the lantern glass, slower than rain should.",
 	"glass_dead": "The lantern glass doesn't ring when I tap it.",
 	"horizon": "A conventional horizon. For now.",
@@ -151,7 +155,7 @@ const OBSERVATIONS := {
 	"ruler": "A boxwood rule on the lantern sill, inches in eighths, every mark scratched deeper by hand.",
 	"ruler_subdivisions": "Under the lens the rule's subdivisions keep going between the printed marks: tens inside tens, all scratched by hand. I stopped looking. They didn't stop.",
 	"rail_wet": "Rain on the rail at last. It beads and runs off, like rain.",
-	"dials_window": "One of the lit rooms in the standing sea is this gallery, seen from outside: the brass ring of the lens, the rail, and someone seated at the bearing dials. When I lift my hand, she doesn't.",
+	"dials_window": "One of the lit rooms in the standing sea is this gallery, seen from outside: the brass ring of the lens, the rail, and someone seated at the bearing dials, turned round to face the glass. When I lift my hand, she doesn't.",
 }
 const OBJECTIVES := {
 	"wait_p14": "The scope's clamp is empty. Nora's frame is still being made on the laboratory bench.",
@@ -318,20 +322,22 @@ func _mark_notice(n: String) -> void:
 		if not NOTICES[i] in state.notices:
 			state.notices.append(NOTICES[i])
 
-## The sea stands up. Once, after P15: from back() leaving the scope, arrive() or
-## on_core_return(), whichever comes first.
-func _reveal(ev: Array) -> void:
+## The sea stands up. Once, after P15: from the commit itself (RECORD BEARING, `at`
+## REVEAL_AFTER_RECORD, in the room view), or, for a P15 flag set elsewhere, from arrive() or
+## on_core_return(), whichever comes first. Every delay is `at` plus the beat's own time.
+func _reveal(ev: Array, at := 0.0) -> void:
 	state.reveal_seen = true
 	_mark_notice("upright")
 	_observe("upright")
-	_fx(ev, "reveal_upright")
-	_sfx(ev, "deep_tone", 0.4)
-	_fx(ev, "rain_freeze", {"delay": RAIN_FREEZE_AT})
-	_fx(ev, "lid_pass", {"delay": LID_PASS_AT})
-	_sfx(ev, "lid_pass", LID_PASS_AT)
-	_fx(ev, "hold_breath", {"seconds": HOLD_BREATH_SECONDS, "delay": HOLD_BREATH_AT})
+	_fx(ev, "reveal_upright", {"at": at})
+	_sfx(ev, "deep_tone", at + 0.4)
+	_fx(ev, "rain_freeze", {"delay": at + RAIN_FREEZE_AT})
+	_fx(ev, "hold_breath", {"seconds": HOLD_BREATH_SECONDS, "delay": at + HOLD_BREATH_AT})
+	_fx(ev, "lid_pass", {"delay": at + LID_PASS_AT})
+	_sfx(ev, "lid_pass", at + LID_PASS_AT)
+	_fx(ev, "figure_turn", {"delay": at + FIGURE_TURN_AT})
 	for l in REVEAL_LINES:
-		_say(ev, l[1], l[0], true)
+		_say(ev, l[1], at + l[0], true)
 
 # ---------------------------------------------------------------------------------------------
 # actions
@@ -614,6 +620,9 @@ func _record(ev: Array) -> void:
 		state.record_miss = mini(int(state.record_miss) + 1, 99)
 		_observe("no_subject")
 		return
+	# The reveal plays in the room: she is back from the scope before the first line.
+	local_view = "room"
+	lens_rim = 0
 	_set_done()   # the same arrangement a load gives, so a save round-trips byte-identical
 	last_record = "recorded"
 	_sfx(ev, "record_key", 0.0)
@@ -629,6 +638,7 @@ func _record(ev: Array) -> void:
 	_observe("nora_bearing")
 	_say(ev, "Her bearing isn't out at sea. It's in here, with the bowl.", 2.6, true)
 	_fx(ev, "glance", {"rect": GLANCE_P15, "target": "lens"})
+	_reveal(ev, REVEAL_AFTER_RECORD)
 
 # --- c_ruler: O05 ----------------------------------------------------------------------------
 func _ruler(action: String, ev: Array) -> void:
@@ -678,8 +688,6 @@ func back(ev: Array) -> void:
 			last_record = ""
 			lens_rim = 0
 			local_view = "room"
-			if reveal_due():
-				_reveal(ev)
 		"c_ruler":
 			local_view = "rail"
 		_:

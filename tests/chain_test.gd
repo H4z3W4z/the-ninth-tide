@@ -516,7 +516,8 @@ func play_p14() -> void:
 	check(lab.local_view == "room", "P14: back in the laboratory")
 
 ## R09 P15: her frame on the scope's clamp, STATION 3, the patch under the lens, RECORD
-## BEARING. The strip prints, the frame comes back, and leaving the scope stands the sea up.
+## BEARING. The strip prints, the frame comes back, and in the same event she is back in the
+## room and the sea stands up.
 func play_p15() -> void:
 	if g.state.room != "R09":
 		_qd("go:R09")
@@ -548,21 +549,27 @@ func play_p15() -> void:
 	check(g.flag("P15") and g.has_item("nora_spatial_strip") and g.has_item("nora_frame"),
 		"P15: her bearing recorded; the strip printed; her frame back")
 	check(has_ev(ev, "fx", "tide"), "P15: Tide V closes on the bearing")
-	var up := _qd("back")
-	check(gallery.local_view == "room" and gallery.state.reveal_seen, "P15: the sea stood up")
-	# the reveal is read from RECORD's and Back's events together: a patient player (a clicker
-	# that lets RECORD's own chain play out) can already have it in RECORD's list
+	check(gallery.local_view == "room" and gallery.state.reveal_seen and has_ev(ev, "fx", "reveal_upright"),
+		"P15: RECORD returns her to the room and the sea stands up there, in the same event")
+	# the reveal is in RECORD's own list, after its two lines
 	var told := []
 	var breath := -1.0
-	for e in ev + up:
+	var turn := -1.0
+	for e in ev:
 		if e.type == "say" and e.get("story", false):
 			told.append([e.text, e.delay])
 		elif e.type == "fx" and e.id == "hold_breath":
 			breath = float(e.get("delay", -1.0))
-	check(told.size() >= 2 and told[told.size() - 2][0] == "It hasn't closed again."
-		and told[told.size() - 1][0] == "One of the lit windows is this one. Someone in it is standing at the rail."
-		and is_equal_approx(breath, told[told.size() - 1][1]),
-		"P15: the reveal ends on the lit window with someone at its rail, and the breath held on it")
+		elif e.type == "fx" and e.id == "figure_turn":
+			turn = float(e.get("delay", -1.0))
+	var texts := told.map(func(t): return t[0])
+	check(texts.slice(texts.size() - 3) == ["The horizon's standing up.", "The kitchen is in it. And the bunks.", "And this room. Lit."]
+		and texts[0].begins_with("Recorded."), "P15: 'Recorded.', then the reveal's three lines: %s" % [texts])
+	var t0: float = told[told.size() - 3][1]
+	check(is_equal_approx(breath, t0 + 1.0) and is_equal_approx(turn, told[told.size() - 1][1]),
+		"P15: the breath held from the end of the first line; the figure turned on the last")
+	var up := _qd("back")
+	check(not has_ev(up, "fx", "reveal_upright"), "P15: Back plays nothing more")
 
 # ---------------------------------------------------------------------------
 # Tide IV: the pressure gate
