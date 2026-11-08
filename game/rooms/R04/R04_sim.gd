@@ -114,9 +114,17 @@ const ANSWER_DELAYS := [0.0, 2.2, 6.0]
 ## and the room holds its breath (every bed drops out) for HOLE_HOLD seconds from that line.
 const HOLE_DELAY := 1.4
 const HOLE_HOLD := 2.0
-const TAPE_MOTOR := "LIVE PLAYBACK NOT ISOLATED."
-const TAPE_A := "CHANNEL A LIVE."
-const TAPE_B := "CHANNEL B LIVE."
+## The printed procedure on the board. It says what, never how: the failures teach the how.
+const PROCEDURE := "Address a witness on a quiet line."
+## WITNESS with the motor running: channel C carries the director's 1927 dictation off the cylinder.
+const ROOK_DICTATION := ["ROOK (channel C, 1927): Session of the eighteenth of October. Eight present.",
+	"ROOK (channel C, 1927): The instruments are recording. Witness station C is vacant."]
+const LINE_OCCUPIED := "The line is occupied."
+## WITNESS with A or B open: the P17 session voices bleed onto C.
+const LINE_CROWDED := "Two other voices on the line. His can't get through them."
+## The board's status tape after a failed WITNESS.
+const TAPE_MOTOR := "LINE OCCUPIED."
+const TAPE_CROWDED := "LINE CROWDED."
 const ON_THE_LINE := "Not while he's on the line."
 
 # --- escalation --------------------------------------------------------------------------------
@@ -142,8 +150,10 @@ const OBSERVATIONS := {
 	"recording_tomorrow": "Venn's recording, 17 Oct. VENN: 'Greywake, seventeenth October. Calibration zero is four. Write it down, whoever you are.' VENN: 'The recorder is accurate. That is the difficulty.' [A chair creaks on the cylinder. Then, close to the horn, someone who is not Venn breathes in.] VENN: 'Eighteenth October. Mercer will be standing at the chart table.' The last line is dated tomorrow.",
 	"calibration_zero": "Venn's recording gives the recorder's calibration zero: 4.",
 	"board": "Channel board: a MOTOR switch, live channels A and B, dead channel C, and a key marked WITNESS.",
-	"socket_cuts": "The socket labels are cut, not printed: A one cut, B two cuts, C three cuts.",
-	"procedure": "Printed procedure: 'Isolate live playback before addressing a witness: motor off, live channels closed.'",
+	"socket_cuts": "No words on the sockets. Strokes are cut into the brass above each: I over A, II over B, III over C.",
+	"procedure": "Printed procedure: 'Address a witness on a quiet line.'",
+	"line_occupied": "WITNESS with the motor running: channel C played Rook's 1927 dictation off the cylinder. The line was occupied.",
+	"line_crowded": "WITNESS with channel A or B open: the session voices bled onto C. Two other voices on the line; his couldn't get through them.",
 	"speaker": "A brass speaker funnel above the board, the only funnel that faces into the room.",
 	"mixer": "A two-track mixer: VENN on track 1, NORA on track 2, an offset slider from -3 to +3 and a centre guide.",
 	"session_spool": "A session spool is threaded on the mixer: SESSION, 18 OCT 1927. I didn't thread it.",
@@ -193,8 +203,8 @@ const HINTS := {
 	],
 	"p19": [
 		"The listening room's dead channel can be addressed.",
-		"Venn's seal has three cuts. The procedure says isolate live playback first.",
-		"The notebook has it: three cuts is socket C, Venn's station. The procedure wants the motor off and the live channels, A and B, closed before WITNESS.",
+		"Venn's seal has three cuts. The procedure wants a quiet line.",
+		"The seal rubbing in the notebook, from Venn's locker: three cuts. III is cut over socket C, Venn's station. A quiet line carries nothing else: no cylinder playing, no other channel open.",
 		"Motor off, close A and B, open C, press WITNESS. Ask all three questions.",
 	],
 	"p19_ask": [
@@ -222,7 +232,7 @@ const SAVED_BOOLS := ["p02_complete", "p17_complete", "venn_on", "nora_on", "hea
 ## Transient, never saved: what the view highlights after the last action.
 var seam_break := ""   # "" | "start_end" | "start_arrow" | "join1" | "join2" | "wrong_day"
 var mix_result := ""   # "" | "overlap" | "combined" | "venn" | "nora" | "silent"
-var board_tape := ""   # "" | TAPE_MOTOR | TAPE_A | TAPE_B
+var board_tape := ""   # "" | TAPE_MOTOR | TAPE_CROWDED
 var _board_said := false
 
 func initial_state() -> Dictionary:
@@ -803,7 +813,7 @@ func _channels(action: String, ev: Array) -> bool:
 				state.ch_open[ch] = not state.ch_open[ch]
 				_sfx(ev, "key_channel")
 		"procedure":
-			_say(ev, "'Isolate live playback before addressing a witness: motor off, live channels closed.'")
+			_say(ev, "'%s'" % PROCEDURE)
 			_observe("procedure")
 		"witness":
 			_witness(ev)
@@ -822,19 +832,28 @@ func _witness(ev: Array) -> void:
 	if state.witness_open:
 		_say(ev, "He's listening.")
 		return
-	var tape := ""
-	if state.motor_on:
-		tape = TAPE_MOTOR
-	elif state.ch_open.A:
-		tape = TAPE_A
-	elif state.ch_open.B:
-		tape = TAPE_B
-	if tape != "":
-		board_tape = tape
-		_sfx(ev, "reject_buzz")
-		_say(ev, tape)
+	var ready: bool = game.flag("P17") and game.flag("P18")
+	if ready and state.motor_on:
+		# the cylinder is still turning: C carries the director, not Venn
+		board_tape = TAPE_MOTOR
+		_sfx(ev, "witness_key")
+		_sfx(ev, "rook_dictation", 0.3)
+		_say(ev, ROOK_DICTATION[0], 0.4, true)
+		_say(ev, ROOK_DICTATION[1], 3.4, true)
+		_say(ev, LINE_OCCUPIED, 6.6, true)
+		_observe("line_occupied")
 		return
-	if not state.ch_open.C or not (game.flag("P17") and game.flag("P18")):
+	if ready and (state.ch_open.A or state.ch_open.B):
+		# the live channels bleed the 1927 session onto C
+		board_tape = TAPE_CROWDED
+		_sfx(ev, "witness_key")
+		_sfx(ev, "mix_overlap", 0.3)
+		_say(ev, MIX_OVERLAP[0], 0.4, true)
+		_say(ev, MIX_OVERLAP[1], 1.6, true)
+		_say(ev, LINE_CROWDED, 4.4, true)
+		_observe("line_crowded")
+		return
+	if not state.ch_open.C or not ready:
 		_sfx(ev, "witness_key")
 		_say(ev, "The key clicks. Nothing answers.")
 		return

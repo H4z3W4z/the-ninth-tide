@@ -88,7 +88,8 @@ const SFX_DB := {"throat_clear": -10.0, "motor_click": -12.0, "band_seat": -8.0,
 	"slider_step": -12.0, "toggle_channel": -11.0, "mix_overlap": -6.0, "mix_combined": -4.0,
 	"mix_venn": -4.0, "mix_nora": -4.0, "breath_c": -9.0, "switch_motor": -8.0, "key_channel": -9.0,
 	"witness_key": -7.0, "reject_buzz": -9.0, "relay_on": -11.0, "relay_off": -7.0,
-	"venn_answer_where": -4.0, "venn_answer_whole": -4.0, "venn_answer_need": -4.0, "venn_funnel": -3.0}
+	"venn_answer_where": -4.0, "venn_answer_whole": -4.0, "venn_answer_need": -4.0, "venn_funnel": -3.0,
+	"rook_dictation": -5.0}
 const SFX_SOFT := ["needle_skip", "reject_buzz", "relay_off", "venn_funnel"]
 ## The funnel voice must still be heard: it is only taken down 8 dB.
 const SFX_SOFT_CUT := {"venn_funnel": 8.0}
@@ -96,7 +97,7 @@ const SFX_SOFT_CUT := {"venn_funnel": 8.0}
 const LOOPS := ["r04_room", "r04_motor", "r04_leak_wind", "r04_leak_rain", "r04_c_tone", "r04_pressure"]
 ## Voices the room ducks its loops under (8 dB).
 const DUCK_IDS := ["recording_p02", "mix_overlap", "mix_combined", "mix_venn", "mix_nora",
-	"venn_answer_where", "venn_answer_whole", "venn_answer_need", "venn_funnel"]
+	"venn_answer_where", "venn_answer_whole", "venn_answer_need", "venn_funnel", "rook_dictation"]
 const LOOP_RATE := 0.11        # linear units / s: a ~1.5 s fade at these levels
 const DARK_SILENCE := 4.0      # seconds of silence round the funnel voice after channel C goes dark
 
@@ -136,11 +137,12 @@ const PAPER_PIVOT := Vector2(1138, 398)
 const PAPER_PERIOD := 7.0
 const CHANNEL_X := {"A": 505.0, "B": 675.0, "C": 845.0}
 const CUTS := {"A": 1, "B": 2, "C": 3}
-const CUT_WORDS := {"A": "one cut", "B": "two cuts", "C": "three cuts"}
 const CLOSE_X := {"A": 515.0, "B": 745.0, "C": 975.0}
 
 ## Notice holds: focus rects.
 const HOLD_TIME := 1.5
+## Largest notice focus (px) that gets the hold ring.
+const RING_MAX := 320.0
 const NOTICE_FOCUS := {
 	"throat": Rect2(630, 145, 140, 140),
 	"leak_wind": Rect2(390, 330, 160, 140),
@@ -729,7 +731,9 @@ func _draw_room() -> void:
 		_draw_view_b(room)
 	else:
 		_draw_view_a(room)
-	if hold_t > 0.0 and not r.is_closeup():
+	# the ring marks a single object; a wall-wide notice (silence, turned funnels, the bulge)
+	# would ring half the room in a pale circle, so those hold on the zoom and the line alone
+	if hold_t > 0.0 and not r.is_closeup() and maxf(hold_rect.size.x, hold_rect.size.y) <= RING_MAX:
 		var a := 0.9 if not motion else 0.9 * smoothstep(0.0, 0.3, HOLD_TIME - hold_t)
 		var ctr := hold_rect.get_center()
 		var rad := hold_rect.size * 0.5 + Vector2(22, 22)
@@ -807,7 +811,7 @@ func _draw_view_a(c: CanvasItem) -> void:
 	# the spindle's START arrow field
 	_arrow(c, Vector2(968, 519), 22, INK)
 	# the way through to the board
-	_plate(c, Rect2(1362, 650, 70, 26), "BOARD", 16)
+	_plate(c, Rect2(1322, 650, 70, 26), "BOARD", 16)   # inside the 4:3 safe area
 
 # --- funnel 5 -------------------------------------------------------------------------------
 ## [angle, az] of funnel 5 now: the sim's pose, eased toward the viewer while the P19 turn plays.
@@ -928,11 +932,20 @@ func _arrow(c: CanvasItem, at: Vector2, w: float, col: Color) -> void:
 	c.draw_colored_polygon(PackedVector2Array([at + Vector2(w * 0.55, -w * 0.3), at + Vector2(w, 0),
 		at + Vector2(w * 0.55, w * 0.3)]), col)
 
-func _notches(c: CanvasItem, x: float, top: float, n: int, w: float, h: float) -> void:
+## The socket's mark: n strokes cut into a brass inlay (I, II, III), slanted like the cuts of
+## Venn's seal. No words: the rubbing in the notebook is the key. `x` is the inlay's left edge.
+func _cut_strokes(c: CanvasItem, x: float, top: float, n: int, h: float) -> void:
+	var step := h * 0.42
+	var pad := h * 0.3
+	var inlay := Rect2(x, top, pad * 2.0 + step * 2.0 + h * 0.16, h + pad * 1.2)
+	c.draw_rect(inlay, BRASS_LO)
+	c.draw_rect(inlay, INK, false, maxf(1.5, h * 0.07))
+	var lw := maxf(2.4, h * 0.15)
 	for i in n:
-		var cx := x + i * (w + 4)
-		c.draw_colored_polygon(PackedVector2Array([Vector2(cx - w / 2, top), Vector2(cx + w / 2, top),
-			Vector2(cx, top + h)]), THROAT)
+		var a := Vector2(x + pad + i * step, top + pad * 0.6)
+		var b := a + Vector2(h * 0.16, h)
+		c.draw_line(a + Vector2(lw * 0.45, 0), b + Vector2(lw * 0.45, 0), BRASS_HI, lw * 0.5, true)  # lit far wall
+		c.draw_line(a, b, THROAT, lw, true)
 
 func _draw_view_b(c: CanvasItem) -> void:
 	var b := _band()
@@ -963,9 +976,9 @@ func _draw_view_b(c: CanvasItem) -> void:
 	for ch in ["A", "B", "C"]:
 		var x: float = CHANNEL_X[ch]
 		_ctext(c, ch, x - 34, 416, 20, INK)
-		_notches(c, x + 6, 394, CUTS[ch], 9.0, 10.0)
 		if lamp_lit(ch) and lit_tex:
 			c.draw_texture(lit_tex, Vector2(x, 440) - lit_tex.get_size() / 2.0)
+		_cut_strokes(c, x + 14, 398, CUTS[ch], 13.0)   # over the lamp's glow, never under it
 		if needle:
 			c.draw_set_transform(Vector2(x, 548), deg_to_rad(needles[ch]), Vector2.ONE)
 			c.draw_texture(needle, Vector2(-5, -72))
@@ -1399,9 +1412,8 @@ func _draw_channels(c: CanvasItem) -> void:
 	var lamp := _tex("c_lamp_lit")
 	for ch in ["A", "B", "C"]:
 		var cx: float = CLOSE_X[ch]
-		_notches(c, cx + 26, 260, CUTS[ch], 12.0, 14.0)
 		_text(c, ch, Vector2(cx - 70, 293), 28, INK)
-		_text(c, CUT_WORDS[ch], Vector2(cx - 42, 292), 16, INK, narrow)
+		_cut_strokes(c, cx + 10, 266, CUTS[ch], 22.0)
 		if lamp_lit(ch) and lamp:
 			c.draw_texture(lamp, Vector2(cx - 48, 282))
 		var open: bool = st.ch_open[ch]
@@ -1424,8 +1436,7 @@ func _draw_channels(c: CanvasItem) -> void:
 	# procedure
 	_text(c, "PROCEDURE", Vector2(186, 694), 16, Color(INK, 0.7), narrow)
 	var y := 724.0
-	for line in _wrap("Isolate live playback before addressing a witness: motor off, live channels closed.",
-			Ink.serif(), 23, 860):
+	for line in _wrap(R04Sim.PROCEDURE, Ink.serif(), 23, 860):
 		_text(c, line, Vector2(186, y), 23, INK)
 		y += 30.0
 	# the session log: her questions in pencil once the line is open; an asked one is struck

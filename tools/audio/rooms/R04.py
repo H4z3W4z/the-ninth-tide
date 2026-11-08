@@ -37,6 +37,7 @@ SUDDEN_ATTACK = 0.006         # every sudden transient rises over 6 ms (>= 4 ms)
 
 VENN_F0 = 105.0
 NORA_F0 = 190.0
+ROOK_F0 = 86.0   # the director: lower and slower than Venn, on wax four years old
 
 
 def seed(nn: int) -> random.Random:
@@ -364,7 +365,10 @@ def voice(dur: float, rnd: random.Random, who: str, phrases, rate: float = 4.0, 
     if tracks is None:
         tracks = voice_tracks(n, rnd, phrases, rate, slow_end, cut_abrupt, onset, thin_last)
     amp, rel, fm, thin = tracks
-    if who == "venn":
+    if who == "rook":
+        src = glottal(n, rnd, ROOK_F0, rel, amp, 0.5, 0.05, wow)
+        out = formant_filter(src, fm, gains=(1.0, 0.5, 0.22), bws=(80, 120, 170))
+    elif who == "venn":
         src = glottal(n, rnd, VENN_F0, rel, amp, 0.55, 0.06, wow, thin if thin_last else None)
         out = formant_filter(src, fm, thin=thin if thin_last else None)
     else:
@@ -991,6 +995,18 @@ def venn_funnel() -> list[float]:
     return highpass(out, 70)        # full band, dry, in the room: no crackle, hum or motor
 
 
+def rook_dictation() -> list[float]:
+    """WITNESS with the motor running: the director's 1927 dictation, off the cylinder, down C."""
+    rnd = seed(36)
+    dur = 6.4
+    n = n_of(dur)
+    v = voice(dur, rnd, "rook", [(0.1, 2.8), (3.1, 6.0)], rate=3.0, wow=0.007)
+    v = wax(v, rnd, crackle_rate=50, crackle_gain=0.16)
+    motor = hum_tone(n, 180, [1.0, 0.4, 0.2])
+    v = [x + 0.04 * m for x, m in zip(v, motor)]
+    return fade_edges(line(v, rnd, hiss=0.015, hum=0.012), 0.06, 0.15)
+
+
 # ---------------------------------------------------------------- build
 
 def main() -> None:
@@ -1013,7 +1029,7 @@ def main() -> None:
         ("witness_key", witness_key), ("reject_buzz", reject_buzz), ("relay_on", relay_on),
         ("relay_off", relay_off), ("venn_answer_where", venn_answer_where),
         ("venn_answer_whole", venn_answer_whole), ("venn_answer_need", venn_answer_need),
-        ("venn_funnel", venn_funnel),
+        ("venn_funnel", venn_funnel), ("rook_dictation", rook_dictation),
     ]
     sudden = {"needle_skip", "reject_buzz", "relay_off", "venn_funnel"}
     for name, fn in shots:

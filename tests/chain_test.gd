@@ -768,7 +768,14 @@ func _solo(venn: bool, nora: bool) -> void:
 func play_p19() -> void:
 	_qd("to_board")
 	_qd("witness_key")
-	if listen.state.motor_on: _qd("motor")
+	# taught by failure: the procedure only asks for a quiet line; the line says what's on it
+	if listen.state.motor_on:
+		check(says(_qd("witness")).ends_with(R04Sim.LINE_OCCUPIED) and not g.flag("P19"),
+			"P19: motor on, Rook's dictation occupies the line")
+		_qd("motor")
+	if listen.state.ch_open.A or listen.state.ch_open.B:
+		check(says(_qd("witness")).ends_with(R04Sim.LINE_CROWDED) and not listen.state.witness_open,
+			"P19: A or B open, the session voices crowd him out")
 	if listen.state.ch_open.A: _qd("key_a")
 	if listen.state.ch_open.B: _qd("key_b")
 	if not listen.state.ch_open.C: _qd("key_c")
