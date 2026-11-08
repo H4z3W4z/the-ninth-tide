@@ -13,22 +13,22 @@ const VALVES := ["SUPPLY", "GATE", "RETURN", "INDEX"]
 const SOLUTION := {"SUPPLY": true, "GATE": true, "RETURN": true, "INDEX": false}
 ## Reference fault lines and pump refusals, written out independently of R08Sim.
 const REF_FIRST := {
-	"no_supply": "No supply. The pump would turn over on nothing.",
+	"no_supply": "No pressure. The pump would turn over on nothing.",
 	"index": "It runs straight up the sealed line.",
 	"gate_shut": "It stops short of the gate.",
 	"dead_gate": "It reaches the gate and has no way back.",
-	"loop": "Out through the gate and back. INDEX stays dry.",
+	"loop": "Out through the gate and back. The sealed line stays dry.",
 }
 const REF_AGAIN := {
-	"no_supply": "Still no supply.",
-	"index": "Into INDEX again.",
+	"no_supply": "Still no pressure.",
+	"index": "Into the sealed line again.",
 	"gate_shut": "Dead before the gate.",
 	"dead_gate": "Nothing coming back.",
 	"loop": "The loop's clean.",
 }
 const REF_NAMES := {
-	"no_supply": "NO SUPPLY",
-	"index": "DIVERTED TO INDEX",
+	"no_supply": "NO PRESSURE",
+	"index": "DIVERTED TO SEALED STUB",
 	"gate_shut": "DEAD END BEFORE GATE",
 	"dead_gate": "DEAD END AT GATE",
 	"loop": "LOOP COMPLETE",
@@ -41,11 +41,14 @@ const REF_PUMP := {
 }
 const REF_RESPIRATION := "With the gate loop running, one belt stopped. The diaphragm kept breathing without it. Under the belt, a nameplate: REFERENCE RESPIRATION."
 const REF_HINTS := [
-	"The valve toggles have numbers, not names. Venn tagged everything he repaired: his tags hang behind the middle belt.",
-	"Match each toggle's number to its tag, then route the drawing's loop: out through the gate and back, never into the sealed line.",
-	"Venn's tags: No. 07 SUPPLY, No. 12 GATE, No. 31 RETURN, No. 44 INDEX, 'Do not open.' The drawing caps INDEX: SEALED. NEVER FEED.",
-	"No. 07 (SUPPLY), No. 12 (GATE) and No. 31 (RETURN) open, No. 44 (INDEX) shut. Then the pump.",
+	"The drawing above the valve board is the circuit: a pump, four numbered valves, the stair gate, and one capped stub.",
+	"The capped stub on the drawing is the line that must never be fed. Find its valve.",
+	"On the drawing, 07, 12 and 31 carry the loop out to the stair gate and back. The capped stub hangs off 44, and Venn's tag for 44 says 'Do not open.'",
+	"07, 12 and 31 open, 44 shut. Then the pump.",
 ]
+## The words the drawing may never carry: the lines' names live only on Venn's tags.
+const LINE_NAMES := ["SUPPLY", "RETURN", "INDEX"]
+const REF_DRAWING := "From the pump through 07 and 12 to the stair gate, back through 31. A stub off 44, capped: SEALED. NEVER FEED."
 ## The stamped tag number on each toggle, and the four valve tags, written out independently.
 const REF_VALVE_TAGS := {"SUPPLY": "07", "GATE": "12", "RETURN": "31", "INDEX": "44"}
 const REF_TAG_LINES := [
@@ -350,7 +353,7 @@ func test_board_first_open() -> void:
 		check(says(g.dispatch(h)) == "", "reopening the board is silent")
 	var g := game_at(4, ROOM)
 	g.dispatch("valve_board")
-	check(says(g.dispatch("look_drawing")) == "Out through SUPPLY and GATE, back through RETURN. INDEX capped: SEALED. NEVER FEED.", "look_drawing")
+	check(says(g.dispatch("look_drawing")) == REF_DRAWING, "look_drawing")
 	g.dispatch("preview")
 	g.dispatch("back")
 	check(r08(g).trace == "" and r08(g).trace_kind == "", "back clears the trace")
@@ -621,12 +624,26 @@ func test_first_arrival() -> void:
 func test_hints_objective() -> void:
 	var g := game_at(4, ROOM)
 	var r := r08(g)
-	check(r.objective() == "p11" and r.objective_text() == "Route the pump to the stair gate without feeding the INDEX line.", "p11 objective")
+	check(r.objective() == "p11" and r.objective_text() == "Route the pump to the stair gate without feeding the sealed line.", "p11 objective")
 	check(r.hint_tiers() == 4, "P11's ladder has four tiers: nudge, relationship, evidence, solution")
 	check(r.hint_line(2) == REF_HINTS[2] and r.hint_line(3) == REF_HINTS[3], "P11: evidence, then solution")
-	for i in 4:
+	# pressed in the room: three tiers, the core's confirmation, then the solution
+	var confirm: String = GameSim.HINT_CONFIRM
+	for i in 3:
 		check(says(g.dispatch("hint")) == REF_HINTS[i], "hint %d exact" % i)
+	check(says(g.dispatch("hint")) == confirm, "the core asks before the solution")
+	check(says(g.dispatch("hint")) == REF_HINTS[3], "then the solution")
 	check(says(g.dispatch("hint")) == REF_HINTS[3], "the ladder stops at the solution")
+	# every tier says something new (the second and third most of all)
+	for i in 4:
+		for j in range(i + 1, 4):
+			check(GameSim._hint_key(REF_HINTS[i]) != GameSim._hint_key(REF_HINTS[j]), "hint tiers %d and %d differ" % [i + 1, j + 1])
+	check(REF_HINTS[1] == "The capped stub on the drawing is the line that must never be fed. Find its valve.", "tier 2 points at the capped stub")
+	# no room-side bridge: the core's ladder is the room's HINTS, press by press
+	check(not (load("res://game/rooms/R08/R08_sim.gd") as Script).source_code.contains("func hint_line("),
+		"R08 does not override hint_line")
+	for i in 4:
+		check(r.hint_line(i) == REF_HINTS[i], "hint_line(%d) is the ladder's tier, whatever was pressed" % i)
 	# the evidence tier names what's on the tags and the drawing, not the switch positions
 	check(not "open" in REF_HINTS[2].to_lower().replace("do not open", "")
 		and not "shut" in REF_HINTS[2].to_lower(), "the evidence tier doesn't set the board")
@@ -662,7 +679,7 @@ func test_use_item() -> void:
 		check(says(ev) == "I'm not feeding it anything.", "%s on the diaphragm refused" % item)
 		check(g.has_item(item), "%s kept" % item)
 	ev = use(g, "inspection_lens", "drawing")
-	check(says(ev) == "INDEX is drawn in a different ink. Added after, then capped." and r.has_seen("lens_index_ink"), "lens on the drawing")
+	check(says(ev) == "The capped stub is drawn in a different ink. Added after, then capped." and r.has_seen("lens_index_ink"), "lens on the drawing")
 	check(says(use(g, "inspection_lens", "dust")) == "Grey grains, every one lying the same way. Toward it.", "lens on dust pre-P11")
 	check(says(use(g, "inspection_lens", "nameplate")) == "Not through a running belt.", "lens on nameplate pre-P11")
 	check(says(use(g, "inspection_lens", "bolts")) == "The paint stripe is unbroken on all twelve.", "lens on bolts at band 2")
@@ -805,9 +822,24 @@ func test_valve_tags() -> void:
 	check(R08Sim.TAGS[R08Sim.TAG_LAST] == "18 OCT 31", "the stamped tag is last")
 	check(R08Sim.TAGS.find("3 NOV 27. Fitted restraining bolts, twelve. Rim weeps oil. E.V.") < R08Sim.TAGS.find(
 		"30 JAN 29. Replaced bolt 5, sheared. Sheared outward. E.V."), "dated tags in order")
-	# the drawing keeps the names; PREVIEW names faults by them
-	check(R08Sim.DRAWING_LINE.contains("SUPPLY") and R08Sim.DRAWING_LINE.contains("INDEX"), "the drawing keeps the names")
-	check(R08Sim.FAULT_NAMES.index == "DIVERTED TO INDEX", "faults named by the drawing's names")
+	# the drawing is topology only: numbers, the stair gate, the capped stub; no line names,
+	# in its line, its notebook entry, its lens entry or the fault window printed on it
+	check(R08Sim.DRAWING_LINE == REF_DRAWING, "DRAWING_LINE exact")
+	var on_drawing := [R08Sim.DRAWING_LINE, R08Sim.OBSERVATIONS.drawing, R08Sim.OBSERVATIONS.lens_index_ink,
+		R08Sim.OBJECTIVES.p11]
+	for code in R08Sim.FAULT_NAMES:
+		on_drawing.append("FAULT: " + R08Sim.FAULT_NAMES[code])
+	for text in on_drawing:
+		for n in LINE_NAMES:
+			check(not text.contains(n), "the drawing never names %s: %s" % [n, text])
+	for num in ["07", "12", "31", "44"]:
+		check(R08Sim.DRAWING_LINE.contains(num) and R08Sim.OBSERVATIONS.drawing.contains(num), "the drawing numbers valve %s" % num)
+	check(R08Sim.OBSERVATIONS.drawing.contains("STAIR GATE") and R08Sim.OBSERVATIONS.drawing.contains("SEALED. NEVER FEED."),
+		"the drawing keeps the stair gate box and the capped stub")
+	# the hints never name a line either: names come from the tags alone
+	for h in R08Sim.HINTS.p11:
+		for n in LINE_NAMES:
+			check(not h.contains(n), "P11 hint names no line: %s" % h)
 	# reading the ring: each valve tag goes into the notebook with its number and line
 	var g := game_at(4, ROOM)
 	var r := r08(g)
@@ -829,8 +861,8 @@ func test_valve_tags() -> void:
 	check(r.state.toggles == SOLUTION, "07, 12, 31 open and 44 shut is the solution")
 	g.dispatch("pump")
 	check(g.flag("P11"), "then PUMP solves P11")
-	# the hints point at the tags first
-	check(R08Sim.HINTS.p11[0].contains("tags") and R08Sim.HINTS.p11 == REF_HINTS, "hints start at the tags")
+	# the hints start at the drawing
+	check(R08Sim.HINTS.p11[0].contains("drawing") and R08Sim.HINTS.p11 == REF_HINTS, "hints start at the drawing")
 
 func test_way_in_hint() -> void:
 	check(R08Sim.WAY_IN_HINT == "The hatch in the kitchen floor is open: the laboratory and the machine room.", "WAY_IN_HINT exact")
@@ -1031,6 +1063,22 @@ func test_view_live() -> void:
 	check(t["r08_cycle"] > 0.0 and t["r08_breath"] > 0.0 and t["r08_hold"] == 0.0, "arrival: cycle and breath loops")
 	check(v.belts() == [true, true, true], "arrival: every belt runs")
 	check(v.exits_active(), "arrival: exits live")
+	# the notice glance (the flywheel's): a soft surround that fades in and out, no frame
+	var was_motion: bool = v.motion
+	v.motion = true
+	v._start_hold("cycle_pause")
+	check(v.hold_active() and v.focus_alpha() == 0.0, "the glance starts unfocused")
+	v.hold_t = v.HOLD_TIME / 2.0
+	check(is_equal_approx(v.focus_alpha(), 1.0), "mid-glance the surround is full")
+	v.hold_t = v.FOCUS_OUT * 0.25
+	check(v.focus_alpha() < 0.25, "the surround fades out before the glance ends")
+	v.hold_t = 0.0
+	check(v.focus_alpha() == 0.0, "after the glance nothing frames the flywheel")
+	var src: String = (v.get_script() as Script).source_code
+	var body := src.substr(src.find("func _draw_focus"))
+	body = body.substr(0, body.find("\nfunc ", 1))
+	check(not body.contains(", false, "), "_draw_focus strokes no frame round the object")
+	v.motion = was_motion
 	# the valve board: controls, Back, Esc
 	scene.dispatch("valve_board")
 	await process_frame
