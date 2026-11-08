@@ -743,8 +743,8 @@ func test_view_w1(scene) -> void:
 		var d1: PackedVector2Array = v.rain_hang_dashes(n)
 		v.rain_hang.clear()
 		check(d1 == v.rain_hang_dashes(n) and d1.size() > 600, "W1: %s dashes are deterministic" % s)
-		# Round p1 (lead's mix table): the planks are heard under the hanging rain at 5 and 6.
-		check(v.MIX[s].get("rain_planks", 0.0) == (1.1 if s == "s5" else 0.4), "W1: %s rain on the planks (p1 mix)" % s)
+		# Fix p4: the hanging rain makes no sound ("silent_rain"): no planks at 5 and 6.
+		check(not v.MIX[s].has("rain_planks"), "W1: %s the hanging rain is silent (p4 mix)" % s)
 	check(scene.room_view.rain_hang_dashes(5) != scene.room_view.rain_hang_dashes(6), "W1: seeded per band")
 	# band 7: something under the hum that small speakers can play
 	scene_in(scene, "s7")
@@ -901,11 +901,18 @@ func test_round_p1_lines() -> void:
 			check(r.hint_line(i) == R01Sim.HINTS[o][i], "p1: %s tier %d" % [o, i])
 	var ri := r01(games.inspect)
 	var rs := r01(games.signal)
-	check(ri.hint_line(2) == R01Sim.EVIDENCE_INSPECT and rs.hint_line(2) == R01Sim.EVIDENCE_SIGNAL,
+	check(ri.hint_line(2) == R01Sim.EVIDENCE_INSPECT and rs.hint_line(1) == R01Sim.EVIDENCE_SIGNAL,
 		"p1: the evidence tier sits before the answer")
+	# Fix p4: after the lens, the third tier ties the tally's drawn pennant to its bell.
+	check(rs.hint_line(2) == "The tallies have a pennant drawn on them. One of the bells hangs under the same shape."
+		and R01Sim.HINT_PENNANT == rs.hint_line(2), "p4: the pennant tier before the answer")
 	check(ri.hint_line(3).contains("UNVERIFIED RETURN") and rs.hint_line(3).contains("broken pennant"),
 		"p1: the last tier is still the answer")
-	for e in [R01Sim.EVIDENCE_INSPECT, R01Sim.EVIDENCE_SIGNAL]:
+	for e in [R01Sim.EVIDENCE_INSPECT, R01Sim.EVIDENCE_SIGNAL, R01Sim.HINT_PENNANT]:
+		if e == R01Sim.HINT_PENNANT:
+			check(not e.contains("UNVERIFIED") and not e.contains("broken") and not e.contains("second"),
+				"p4: the pennant tier doesn't give the answer")
+			continue
 		check(e.contains("two stripes") or e.contains("has two"), "p1: the evidence names the contract's two stripes")
 		check(not e.contains("UNVERIFIED") and not e.contains("bell 2") and not e.contains("broken"),
 			"p1: the evidence tier doesn't give the answer")
@@ -952,8 +959,9 @@ func test_view_p1() -> void:
 	var mx: Dictionary = v.MIX
 	# Fix p2: s5 (Tide VII) raised to the core loudness ladder (no bed under the opening rooms
 	# less 3 dB from Tide IV on); rain and wind still carry it.
-	check(mx.s5 == {"sea_thin": 1.0, "rain_planks": 1.1, "wind_whistle": 0.5, "wind_jetty": 0.4}, "P1: s5 mix")
-	check(mx.s6 == {"sea_thin": 0.4, "rain_planks": 0.4}, "P1: s6 mix")
+	# Fix p4: the hanging rain is silent, so no planks under it; wind and a rising hum instead.
+	check(mx.s5 == {"sea_thin": 1.0, "wind_whistle": 0.6, "wind_jetty": 0.5, "pressure_hum": 0.15}, "P1: s5 mix")
+	check(mx.s6 == {"sea_thin": 1.0, "wind_whistle": 0.6, "pressure_hum": 0.25}, "P1: s6 mix")
 	await free_scene(scene)
 	await test_view_p1_exits()
 
@@ -1088,19 +1096,28 @@ func test_round_p2_pennants() -> void:
 	var re := RegEx.new()
 	re.compile("(?i)bells? +[0-9]")
 	check(re.search(text) == null, "p2: no bell numbers on the placard")
-	check(R01Sim.PLACARD_LINES[2] == "2. Matching: set VERIFIED, ring the bell under the matching pennant, board.",
-		"p2: the matching rule")
-	check(R01Sim.PLACARD_LINES[3] == "3. Mismatched: set UNVERIFIED RETURN, ring the bell under the broken pennant, do not board.",
-		"p2: the mismatched rule")
-	check(re.search(R01Sim.OBSERVATIONS["panel"]) == null and "broken pennant" in R01Sim.OBSERVATIONS["panel"],
-		"p2: the notebook's placard has no numbers")
+	# Fix p4: the procedure is two rules; it names neither the tally nor the bell.
+	var rules := R01Sim.PLACARD_LINES.filter(func(l): return str(l).substr(0, 1).is_valid_int())
+	check(rules == ["1. Compare the vessel's pennant with the contract.", "2. Do not board what you have not verified."],
+		"p4: the placard's two rules (%s)" % [rules])
+	check(R01Sim.PLACARD_LINES[0] == "MOORING PROCEDURE" and R01Sim.PLACARD_PENCIL.ends_with("E.V."), "p4: heading and margin note kept")
+	for t in [text, R01Sim.OBSERVATIONS["panel"]]:
+		check(not "broken" in t and not "UNVERIFIED RETURN, ring" in t and not "ring the bell" in t,
+			"p4: the placard and its notebook entry state neither the action nor the bell (%s)" % t)
+	check(re.search(R01Sim.OBSERVATIONS["panel"]) == null, "p2: the notebook's placard has no numbers")
+	check("VERIFIED" in R01Sim.OBSERVATIONS["panel"] and "UNVERIFIED RETURN" in R01Sim.OBSERVATIONS["panel"]
+		and "Four bells" in R01Sim.OBSERVATIONS["panel"], "p4: the notebook keeps the tallies and the bells")
+	check(R01Sim.TALLY_LABELS == {"verified": "VERIFIED", "unverified": "UNVERIFIED RETURN"}, "p4: the tallies kept")
 	check(R01Sim.BELL_PENNANTS == ["matching", "broken", "wave", "cross"], "p2: the pennant over each bell")
 	for o in ["inspect", "signal"]:
 		check(re.search(R01Sim.HINTS[o][3]) == null and "broken pennant" in R01Sim.HINTS[o][3], "p2: %s answer by pennant" % o)
-	check(re.search(R01Sim.BELL_MISS) == null and "broken pennant" in R01Sim.BELL_MISS, "p2: the wrong bell by pennant")
+	check(re.search(R01Sim.BELL_MISS) == null and "pennant" in R01Sim.BELL_MISS and not "broken" in R01Sim.BELL_MISS,
+		"p4: the wrong bell, by pennant, without naming the right one")
 	var g := lensed_game()
 	g.dispatch("panel")
-	check("broken pennant" in says(g.dispatch("placard")), "p2: reading the placard")
+	var read := says(g.dispatch("placard"))
+	check(read == "'Compare the vessel's pennant with the contract. Do not board what you have not verified.'",
+		"p4: reading the placard (%s)" % read)
 	# The solution is unchanged: the bell under the broken pennant is bell 2.
 	var n := R01Sim.BELL_PENNANTS.find("broken") + 1
 	check(n == 2, "p2: the broken pennant hangs over the second bell")

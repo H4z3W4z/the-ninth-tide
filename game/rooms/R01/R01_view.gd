@@ -50,8 +50,10 @@ const MIX := {
 	"s4": {"sea_thin": 0.7, "wind_jetty": 0.5, "wind_whistle": 0.3, "rain_planks": 0.7},
 	## s5 (Tide VII) thins out by instrument, not by level: from Tide IV no bed sits more than
 	## 3 dB under the opening rooms' (core_test test_bed_loudness).
-	"s5": {"sea_thin": 1.0, "rain_planks": 1.1, "wind_whistle": 0.5, "wind_jetty": 0.4},
-	"s6": {"sea_thin": 0.4, "rain_planks": 0.4},
+	## The hanging rain at 5 and 6 is silent ("silent_rain"): no rain_planks. Wind, and the
+	## pressure hum coming up under it toward s7.
+	"s5": {"sea_thin": 1.0, "wind_whistle": 0.6, "wind_jetty": 0.5, "pressure_hum": 0.15},
+	"s6": {"sea_thin": 1.0, "wind_whistle": 0.6, "pressure_hum": 0.25},
 	## The hum alone is all sub-bass: laptop speakers would play nothing. A thin sea under it.
 	"s7": {"pressure_hum": 0.35, "sea_thin": 0.2},
 	"A": {"sea_jetty": 1.0, "gulls": 0.7, "engine_idle": 0.6, "wind_jetty": 0.4},
