@@ -62,7 +62,10 @@ OUT = os.path.join(ROOT, "assets", "rooms", "R11")
 ## Assets written somewhere other than OUT: {name: directory}.
 OUT_DIRS = {"p12_water_slab": os.path.join(ROOT, "assets", "stages", "R11"),
             "b6_wash": os.path.join(ROOT, "assets", "stages", "R11"),
-            "b6_wash_L1": os.path.join(ROOT, "assets", "stages", "R11")}
+            "b6_wash_L1": os.path.join(ROOT, "assets", "stages", "R11"),
+            "wl_L1": os.path.join(ROOT, "assets", "stages", "R11"),
+            "wl_L2": os.path.join(ROOT, "assets", "stages", "R11"),
+            "wl_L2_wash": os.path.join(ROOT, "assets", "stages", "R11")}
 W, H = 1448, 1086
 SS = 2                      # supersampling for every painted shape
 SEED = 1931_11_00
@@ -2584,6 +2587,83 @@ def paint_b6_wash_L1(rng):
     return _cut_band(p, 0, y0 - 4, y1 + 40)
 
 
+# ----------------------------------------------------------------------------- p4 overlays
+# Band 2+ (R11 is first reachable before P12 at band 2; from band 3 on always): the sea's
+# height in the office, carried down here. One hard horizontal waterline at WL_Y (0.55 of the
+# plate, R02's height) across both landings' walls; below it the wall, the dado and the floor
+# are multiplied toward storm navy by WL_K (each channel v -> v * (1 - WL_K * (1 - storm/255))),
+# above it the plate is untouched. Objects (gateway, gauge, lock-box, placard, ladder, lamp;
+# doors, reader panel, stair) keep their own pixels: the mask is the objects replayed on a
+# clear canvas with the plate's own seed and draw order, so their coverage is exact. The line
+# is a 4 px navy meniscus with a 3 px pale sea-glass skin under it, on the wall only.
+# Sources are the approved plates on disk (and, for the late variant, the plate under b6_wash),
+# so the overlay is the plate pixel for pixel wherever it is not darkened.
+WL_Y = 597                  # round(0.55 * 1086)
+WL_K = 0.92
+WL_SKIN = (184, 214, 202)
+
+
+def _wl_objects(landing):
+    """Alpha (W x H, 1x) of the landing's objects: the plate replayed with its seed, the wall,
+    dado and ceiling drawn to a scratch pen (they only consume the rng), the objects to a clear
+    one. The floor is drawn last on the plate, so it is never an object."""
+    rng = rng_for(0 if landing == 1 else 20)
+    p = Pen(W, H, rng, PLASTER)
+    o = Pen(W, H, rng)
+    if landing == 1:
+        stone_wall(p, rng, (-4, 80, W + 4, DADO_Y), PLASTER, 96, 80,
+                   skip=[(1350, 550, 1442, 770), (906, 160, 954, 880)], mottle=0.18, joints=0.4)
+        dado(p, rng)
+        ceiling_band(p, rng, -4, W + 4)
+        ladder(o, rng)
+        gateway(o, rng)
+        gauge(o, rng)
+        lockbox(o, rng)
+        placard(o, rng)
+        bulkhead_lamp(o, 1060, 250)
+    else:
+        stone_wall(p, rng, (-4, -4, W + 4, DADO_Y), PLASTER, 96, 0, skip=[(10, 120, 96, 360)], mottle=0.18, joints=0.4)
+        dado(p, rng)
+        o.put(office_cutaway(rng))
+        upper_stair(o, rng)
+        slab(o, rng)
+        return_door(o, rng)
+        lower_door(o, rng)
+        reader_panel(o, rng)
+        bulkhead_lamp(o, 1005, 392)
+    # Only what is painted solid counts: the soft glows and shadows the objects throw on the wall
+    # (the hatch's light shaft, the lamp's pool; opacity <= 0.75) are wall and go under.
+    a = o.done().getchannel("A").point(lambda v: 0 if v < 200 else (255 if v >= 248 else (v - 200) * 255 // 48))
+    # under the floor line everything on the plate is floor
+    ImageDraw.Draw(a).rectangle((0, FLOOR_Y - 2, W, H), fill=0)
+    return a
+
+
+def paint_waterline(landing, washed=False):
+    plate = Image.open(os.path.join(OUT, "L%d_base.png" % landing)).convert("RGBA")
+    if washed:
+        plate.alpha_composite(Image.open(os.path.join(OUT_DIRS["b6_wash"], "b6_wash.png")).convert("RGBA"))
+    rgb = plate.convert("RGB")
+    f = [1.0 - WL_K * (1.0 - c / 255.0) for c in STORM]
+    dark = Image.merge("RGB", [ch.point(lambda v, m=m: int(round(v * m))) for ch, m in zip(rgb.split(), f)])
+    wall = ImageOps.invert(_wl_objects(landing))
+    band = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(band).rectangle((0, WL_Y, W, H), fill=255)
+    m = ImageChops.multiply(wall, band)
+    # the waterline: navy meniscus on WL_Y-2..WL_Y+1, a pale skin on WL_Y+2..WL_Y+4, wall only
+    line = Image.new("RGB", (W, H), (0, 0, 0))
+    ld = ImageDraw.Draw(line)
+    ld.rectangle((0, WL_Y - 2, W, WL_Y + 1), fill=INK)
+    ld.rectangle((0, WL_Y + 2, W, WL_Y + 4), fill=WL_SKIN)
+    lm = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(lm).rectangle((0, WL_Y - 2, W, WL_Y + 4), fill=255)
+    lm = ImageChops.multiply(lm, wall)
+    dark = Image.composite(line, dark, lm)
+    out = dark.convert("RGBA")
+    out.putalpha(ImageChops.lighter(m, lm))
+    return out
+
+
 def paint_name_shutter(rng):
     """The iron shutter over the NAME frame's glass: flat storm-navy slats in a riveted plate,
     a brass bottom lip. The view stencils its word."""
@@ -2661,6 +2741,10 @@ ASSETS = [  # name, seed index, painter, opaque, grain
     # p3 overlays (new files)
     ("b6_wash", 20, paint_b6_wash, False, False),
     ("b6_wash_L1", 0, paint_b6_wash_L1, False, False),
+    # p4 overlays (new files; read the plates and b6_wash above, so they come after them)
+    ("wl_L1", 0, lambda r: paint_waterline(1), False, False),
+    ("wl_L2", 20, lambda r: paint_waterline(2), False, False),
+    ("wl_L2_wash", 20, lambda r: paint_waterline(2, True), False, False),
 ]
 
 

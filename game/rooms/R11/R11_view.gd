@@ -210,6 +210,14 @@ const GHOST_BAND := 5        # c_gate: a second faint needle resting on 2
 ## the horizontal pane's line). Each is its plate repainted under its objects, so every
 ## contour on it stays at full ink; drawn straight over the plate, under everything else.
 const WASH_BAND := 6
+## Band 2+ (the room is first reachable before P12 at band 2, and P12 ends band 2): the sea's
+## height in the office carried down here. One hard waterline across both landings' walls at
+## 0.55 of the plate (y 597, R02's height); below it the wall, dado and floor multiplied toward
+## storm navy, above it the plate untouched, every object at its own pixels. wl_L1 on the gate
+## landing; wl_L2 on the lower landing, or wl_L2_wash (the same over b6_wash) once washed.
+## Drawn over the plate, its wash and the stairwell, under everything else.
+const WATERLINE_BAND := 2
+const WATERLINE_Y := 597.0
 ## Where the far-side marks stand (beyond the water, inside the gateway), in the jamb's order reversed.
 const FAR_MARKS := {"circle": Vector2(588, 610), "linked": Vector2(588, 712), "bracket": Vector2(588, 820)}
 
@@ -297,7 +305,7 @@ func _load_textures() -> void:
 			var t := load(path) as Texture2D
 			if t:
 				textures[n] = t
-	for n in ["p12_water_slab", "b6_wash", "b6_wash_L1"]:
+	for n in ["p12_water_slab", "b6_wash", "b6_wash_L1", "wl_L1", "wl_L2", "wl_L2_wash"]:
 		var st := load("res://assets/stages/R11/%s.png" % n) as Texture2D
 		if st:
 			textures[n] = st
@@ -785,6 +793,8 @@ func _draw_l1() -> void:
 		_placeholder(HOTSPOTS)
 	if wash_shown():
 		_plate("b6_wash_L1")
+	if waterline_shown():
+		_plate(waterline_plate())
 	var n := r11.tide_lines()
 	if n > 0:
 		_plate("L1_tide_%d" % n)
@@ -814,6 +824,16 @@ func _draw_l1() -> void:
 ## The late wash on both landings' walls (state only: the weather band).
 func wash_shown() -> bool:
 	return _band() >= WASH_BAND
+
+## The waterline on both landings' walls (state only: the weather band).
+func waterline_shown() -> bool:
+	return _band() >= WATERLINE_BAND
+
+## The waterline overlay for the landing in view (the lower landing's matches its wash).
+func waterline_plate() -> String:
+	if landing() == 1:
+		return "wl_L1"
+	return "wl_L2_wash" if wash_shown() else "wl_L2"
 
 ## The horizontal pane: before P12 the whole gateway (wet navy steps above it, bone-dry ones
 ## below, one hard sea-glass slab between); after it, the slab alone over the standing water,
@@ -1029,6 +1049,8 @@ func _draw_l2() -> void:
 	if wash_shown():
 		_plate("b6_wash")
 	_plate("stairwell_fill")
+	if waterline_shown():
+		_plate(waterline_plate())
 	if _band() >= CAUSTIC_BAND:
 		_draw_floor_caustics()
 	_plate("L2_shoes_" + r11.shoes_state())
