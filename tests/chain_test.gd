@@ -416,7 +416,12 @@ func play_p09() -> void:
 	check(kitchen.has_seen("eight_retained"), "P09: eight retained, one witnessing")
 	check(g.exit_open("R05", "R07") and g.exit_open("R05", "R08"), "P09: the hatch opens the lab and the machine room")
 	_qd("back")
-	_qd("to_mess")
+	# Played by clicks, the glance may already have put the board down and turned her to the
+	# mess table; only from the kitchen is there a step back to it.
+	if kitchen.local_view == "kitchen":
+		_qd("to_mess")
+	else:
+		check(kitchen.local_view == "room", "P09: the glance put her back at the mess table (%s)" % kitchen.local_view)
 
 ## R07 P10: tilt the rack, rest jar C, tip, seat it in the reference socket.
 func play_p10() -> void:

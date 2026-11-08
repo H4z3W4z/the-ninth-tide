@@ -328,8 +328,8 @@ var office: R02Sim:
 		return sim as R02Sim
 
 var textures := {}
-var serif: SystemFont
-var hand: SystemFont
+var serif: Font
+var hand: Font
 
 # nodes
 var room: Node2D

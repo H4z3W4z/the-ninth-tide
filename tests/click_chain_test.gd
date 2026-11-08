@@ -57,6 +57,7 @@ func run() -> void:
 	for mode in modes():
 		summaries.append(await run_mode(mode))
 	await test_closeup_click_acts()
+	await test_nav_during_chain()
 	var summary := "; ".join(summaries)
 	if failures.is_empty():
 		print("PASS: click_chain_test — " + summary)
@@ -296,6 +297,58 @@ func test_closeup_click_acts() -> void:
 	var before := JSON.stringify(r.state)
 	A.click(Vector2(724, 1040))   # the subtitle bar
 	check(JSON.stringify(r.state) == before and A.cur_text == "Its follow-up.", "a subtitle-bar click only advances the chain")
+	GameView.remove_saves(SAVE)
+	A.queue_free()
+	await process_frame
+
+## Pointer mode: an in-room step (R05's to_kitchen) clicked during the P07 reveal rushes the
+## rest of the reveal and lands as it ends, like an exit; no waiting out the full chain.
+func test_nav_during_chain() -> void:
+	pointer_mode = true
+	A = new_game_scene()
+	A.sim_pointer_on = true
+	await process_frame
+	A.tide_jump(3, "R05")
+	var k: R05Sim = A.room_sim()
+	A.dispatch("bowl_stack")
+	for i in 9:
+		A.dispatch("slot_%d" % R05Sim.RACK_HOME.find(R05Sim.SOLUTION[i]))
+		A.dispatch("place_%d" % (i + 1))
+	var guard := 0
+	while int(k.state.tally) != R05Sim.SOLUTION_TALLY and guard < 30:
+		A.dispatch("tally_up" if int(k.state.tally) < R05Sim.SOLUTION_TALLY else "tally_down")
+		guard += 1
+	A.dispatch("compare")
+	check(A.sim.flag("P07"), "nav: P07 committed")
+	wait(0.5)
+	A.dispatch("back")
+	wait(0.5)
+	check(k.local_view == "room" and A._story_queued(), "nav: at the mess table with the P07 reveal still queued (%s)" % k.local_view)
+	var unrushed: float = A._story_backlog_end()
+	var p := find("to_kitchen")
+	check(p.x >= 0, "nav: the kitchen door is clickable during the reveal")
+	if p.x < 0:
+		A.queue_free()
+		await process_frame
+		return
+	var t0: float = A.time
+	press(p)
+	var rushed: float = A._story_backlog_end()
+	check(A.pending_action == "to_kitchen" or k.local_view == "kitchen", "nav: the step waits for the rushed reveal (%s)" % A.pending_action)
+	check(rushed < unrushed - 0.5, "nav: the rest of the reveal is rushed (%.2f s, was %.2f s)" % [rushed - t0, unrushed - t0])
+	var landed := -1.0
+	for i in 200:
+		A._process(0.05)
+		if k.local_view == "kitchen":
+			landed = A.time
+			break
+	check(landed > 0.0 and landed <= rushed + 0.3, "nav: in the kitchen as the rushed reveal ends (%.2f s after the click, chain ended at %.2f s, unrushed %.2f s)" % [landed - t0, rushed - t0, unrushed - t0])
+	# With nothing queued, a step goes at once.
+	A.dispatch("to_mess")
+	wait(12.0)
+	var q := find("to_kitchen")
+	press(q)
+	check(k.local_view == "kitchen", "nav: with no reveal, the step goes in the same press")
 	GameView.remove_saves(SAVE)
 	A.queue_free()
 	await process_frame

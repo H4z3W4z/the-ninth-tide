@@ -45,8 +45,14 @@ const INV_GAP := 10.0
 const INV_MAX := 6
 ## More items than slots: five items a page and a pager in the sixth slot.
 const INV_PER_PAGE := 5
+## The end card's buttons. New game is small, dim and out of the way, and takes two clicks:
+## the first arms it (END_NEW_GAME_ARMED: the warning, wider), the second within RESTART_ARM
+## starts over. Only then is the checkpoint at the final decision given up.
 const END_BUTTONS := [["return_decision", Rect2(364, 990, 340, 66), "Return to final decision"],
-	["new_game", Rect2(744, 990, 340, 66), "New game"]]
+	["new_game", Rect2(1188, 1010, 220, 50), "New game"]]
+const END_NEW_GAME_ARMED := ["new_game", Rect2(788, 1010, 620, 50),
+	"Start over? Your place at the final decision will be lost."]
+const END_BUTTON_SIZE := 20
 const NOTEBOOK_PAGE := Rect2(164, 90, 1120, 900)
 
 const REVEAL_CPS := 14.0      # characters per second handwriting writes itself
@@ -142,6 +148,34 @@ const TITLE_LOOP_DB := -24.0
 ## Base levels for one-shots (dB) the core plays for itself; rooms add their own SFX_DB.
 const SFX_DB := {"page": -10.0}
 
+## echo_trace: the room sim's {type: "fx", id: "echo_trace", moves: [up to 3 MOVES ids]}. The
+## core plays her last movements back at her, off to one side: for event i, at i * ECHO_GAP,
+## two soft heel strikes (echo_step), then the movement's own sound ECHO_STEP_LEAD later.
+## Core-owned WAVs (assets/audio/<id>.wav), at ECHO_DB, panned ECHO_PAN away from the way she
+## came in. Soften sudden sounds: ECHO_SOFT_CUT lower, with an ECHO_SOFT_FADE fade-in. No
+## caption goes up until the last sound plus ECHO_TAIL. Presentation only, never saved.
+const ECHO_SFX := {"lamp_mended": "switch", "log_read": "page", "drawer_opened": "drawer",
+	"recording_played": "dial", "charts_aligned": "page", "report_signed": "pen",
+	"held_still": "breath", "turned_round": "seat", "zero_turned": "dial", "interval_set": "clunk",
+	"hatch_opened": "latch_far", "stair_looked": "door"}
+const ECHO_GAP := 1.8
+const ECHO_STEP_LEAD := 0.6
+const ECHO_STEP := "echo_step"
+const ECHO_MAX := 3
+const ECHO_DB := -10.0
+const ECHO_SOFT_CUT := 6.0
+const ECHO_SOFT_FADE := 0.03
+const ECHO_PAN := 0.7
+const ECHO_TAIL := 0.8
+const ECHO_BUSES := {"left": "EchoLeft", "right": "EchoRight"}
+
+## The Plan HUD button pulses once when the Now: objective moves PLAN_HUD_FAR or more rooms
+## away on foot: a PLAN_HUD_SWELL brass rim swell, or (Motion off) a steady rim for
+## PLAN_HUD_STILL. No text, no sound.
+const PLAN_HUD_FAR := 3
+const PLAN_HUD_SWELL := 1.2
+const PLAN_HUD_STILL := 3.0
+
 var save_path := DEFAULT_SAVE_PATH
 ## Tests and capture runs set this false so they never pick up the slice's real save.
 var migrate_slice_save := true
@@ -172,6 +206,7 @@ var oneshots: Array = []
 var dev := false
 var click_id := 0
 var restart_armed_at := -INF
+var new_game_armed_at := -INF  # the end card's New game, armed by its first click
 var slab_a := 0.0
 var shown_log: Array = []      # every line that went up, in order (tests and drivers read it)
 var played_log: Array = []     # [sfx id, shown_log.size() when it played]
@@ -195,8 +230,10 @@ var nb_cache := {}             # notebook pagination, keyed by what it depends o
 var came_from := ""            # the room she last travelled from (the placeholder's way back)
 var travel_dip_t := 99.0
 var fading_mixers: Array = []  # [LoopMixer, seconds left] the rooms she just left
-var seen_game_view := ""
-var seen_local_view := ""
+## What the hover label was read against: [local view, item in hand, game view, chain playing].
+## When any of it changes, the label goes; the frame after, it is read again under the pointer.
+var hover_ctx: Array = []
+var hover_recheck := false
 var seen_inv_size := 0
 var shown_rooms: Array = []    # the room each shown_log line went up in (tests read it)
 ## An exit clicked during a reveal: the action, sent once the reveal's last line has been up
@@ -220,6 +257,17 @@ var inv_sig := ""              # the inventory as last seen, to notice the bar c
 var inv_changed_at := -INF
 var plan_pulse := ""           # the plan row the Now: link pulses
 var plan_pulse_t := 99.0
+## echo_trace (presentation only): [sfx id, seconds left, pan] waiting to play, every sound as
+## scheduled ({id, at, db, pan}: tests read it), and when captions may go up again.
+var pending_echo: Array = []
+var echo_log: Array = []
+var echo_hold_until := -INF
+## The Plan HUD pulse: the objective room it last answered (never saved; "?" = not read yet),
+## what that was read against, when the pulse began, and how many pulses there have been.
+var plan_hud_obj := "?"
+var plan_hud_key: Array = []
+var plan_hud_t := 99.0
+var plan_hud_pulses := 0
 
 func _ready() -> void:
 	serif = Ink.serif()
@@ -277,6 +325,7 @@ func _build_nodes() -> void:
 	hud_layer.add_child(subtitle)
 
 func _build_audio() -> void:
+	_build_echo_buses()
 	# One limiter on Master, however many times the scene is instanced.
 	for i in AudioServer.get_bus_effect_count(0):
 		if AudioServer.get_bus_effect(0, i) is AudioEffectHardLimiter:
@@ -284,6 +333,20 @@ func _build_audio() -> void:
 	var limiter := AudioEffectHardLimiter.new()
 	limiter.ceiling_db = -1.0
 	AudioServer.add_bus_effect(0, limiter)
+
+## Two buses for echo_trace, each panned ECHO_PAN to its side (made once per process).
+static func _build_echo_buses() -> void:
+	for side in ECHO_BUSES:
+		var bus: String = ECHO_BUSES[side]
+		if AudioServer.get_bus_index(bus) != -1:
+			continue
+		AudioServer.add_bus()
+		var i := AudioServer.bus_count - 1
+		AudioServer.set_bus_name(i, bus)
+		AudioServer.set_bus_send(i, "Master")
+		var pan := AudioEffectPanner.new()
+		pan.pan = -ECHO_PAN if side == "left" else ECHO_PAN
+		AudioServer.add_bus_effect(i, pan)
 
 ## The title's loop: the thin sea, on the core's own mixer (no music).
 func _build_title_audio() -> void:
@@ -447,6 +510,7 @@ func _process(dt: float) -> void:
 		if cur_story and cur_text != "":
 			story_end = cur_since + cur_hold
 		_tick_sfx(dt)
+		_tick_echo(dt)
 		_tick_fx(dt)
 		_tick_glance()
 		_tick_pending()
@@ -462,6 +526,8 @@ func _process(dt: float) -> void:
 	tide_card_t += dt
 	glance_t += dt
 	plan_pulse_t += dt
+	plan_hud_t += dt
+	_tick_plan_hud()
 	_tick_tide_card()
 	_tick_fading_mixers(dt)
 	_refresh_hover_on_view_change()
@@ -473,18 +539,31 @@ func _process(dt: float) -> void:
 		card.queue_redraw()
 	hud.queue_redraw()
 
-## The pause menu over a game: the story chain (lines, timed sounds and fx, a deferred
-## exit or hotspot) waits under it, so nothing is said while the subtitles are hidden.
+## The pause menu over a game, and the notebook opened from the room: the story chain
+## (lines, timed sounds and fx, hold_breath, a glance, a deferred exit or hotspot) waits under
+## them, so nothing is said or played while she reads or the subtitles are hidden. The
+## notebook's own clock (the stranger's line writing itself) keeps running.
 func chain_paused() -> bool:
-	return sim.view == "menu" and sim.return_view != "title"
+	if sim.view == "menu" and sim.return_view != "title":
+		return true
+	# A plan row clicked mid-reveal: the rest of it plays out (rushed) and she goes.
+	return sim.view == "notebook" and sim.return_view == "room" and not pending_travel.begins_with("plan:")
 
-## Holds the chain still for `dt`: every queued line and the one on screen keep their place.
+## Holds the chain still for `dt`: every queued line and the one on screen keep their place,
+## and so does every core timer keyed to them (timed sounds and fx simply don't count down).
 func _hold_chain(dt: float) -> void:
 	for l in lines:
 		l.due += dt
 	if cur_text != "":
 		cur_since += dt
+		# The line on screen finishes typing (it is not replaced, and its hold waits).
+		line_t += dt
+		subtitle.visible_characters = int(line_t * TYPE_CPS)
 	story_end += dt
+	echo_hold_until += dt
+	if breath_end > time:
+		breath_end += dt   # a held breath holds with its chain (the beds stay where they are)
+		breath_start += dt
 
 ## The current room's bed trim (ROOM_TRIM_DB), linear.
 func room_trim(rid: String) -> float:
@@ -595,22 +674,23 @@ func glance_alpha() -> float:
 		return 1.0
 	return smoothstep(0.0, GLANCE_EASE, glance_t) * clampf((GLANCE_TIME - glance_t) / GLANCE_FADE, 0.0, 1.0)
 
-## A view change (the notebook, a close-up put down) re-reads what is under the pointer, so
-## a label from the view she left never hangs over the new one. A close-up opening clears
-## it: nothing is named there until the pointer moves.
+## The hover label never outlives what it was read against (hover_context()): when the
+## room's view, the item in hand, the game's view or the chain changes, the label is cleared
+## that frame, and on the next frame read again under the pointer (when there is one), so a
+## label from the view she left never hangs over the new one.
 func _refresh_hover_on_view_change() -> void:
-	var lv: String = room_sim().local_view if room_sim() else ""
-	if sim.view == seen_game_view and lv == seen_local_view:
-		return
-	_mark_view_seen()
-	if sim.view == "room" and room_sim() != null and room_sim().is_closeup():
+	var now := hover_context()
+	if hover_recheck:
+		hover_recheck = false
+		if now == hover_ctx and has_pointer():
+			hover_id = _hover_at(pointer_position())
+	if now != hover_ctx:
+		hover_ctx = now
 		hover_id = ""
-		return
-	hover_id = _hover_at(pointer_position())
+		hover_recheck = true
 
-func _mark_view_seen() -> void:
-	seen_game_view = sim.view
-	seen_local_view = room_sim().local_view if room_sim() else ""
+func hover_context() -> Array:
+	return [room_sim().local_view if room_sim() else "", sim.selected_item, sim.view, chain_active()]
 
 func _tick_sfx(dt: float) -> void:
 	for i in range(pending_sfx.size() - 1, -1, -1):
@@ -768,7 +848,7 @@ func _squeeze_backlog() -> float:
 	return t
 
 func _tick_lines(dt: float) -> void:
-	if not lines.is_empty() and lines[0].due <= time and _cur_readable(lines[0]):
+	if not lines.is_empty() and lines[0].due <= time and time >= echo_hold_until and _cur_readable(lines[0]):
 		var head: Dictionary = lines.pop_front()
 		_show_line(head.text, head.story, head.hold, head.click)
 	if cur_text != "":
@@ -862,6 +942,8 @@ func chain_active() -> bool:
 func advance() -> void:
 	if cur_story and cur_text != "" and time - cur_since < ADVANCE_SWALLOW:
 		return   # a double click doesn't skip a line unread
+	if time < echo_hold_until:
+		return   # her own steps are still sounding: nothing is said over them
 	var next: Dictionary = {}
 	for l in lines:
 		if l.story:
@@ -939,6 +1021,22 @@ func click(p: Vector2) -> void:
 			advance()
 		dispatch(a)
 		return
+	if is_nav_action(a):
+		# A step inside the room (to the kitchen, round to the other wall): like an exit, it
+		# rushes a reveal still queued and goes when it ends; a second click goes at once.
+		if a == pending_action:
+			pending_action = ""
+			dispatch(a)
+			return
+		if _chain_gates() and _story_queued():
+			pending_action = a
+			_rush_chain()
+			return
+		if _chain_gates() and chain_active():
+			advance()
+		pending_action = ""
+		dispatch(a)
+		return
 	if always_acts(a) or _closeup_acts(a):
 		if _chain_gates() and chain_active():
 			advance()
@@ -977,6 +1075,15 @@ const SUBTITLE_BAR := Rect2(20, 994, 1408, 80)
 ## An exit tab ("go:<rid>") or a notebook plan row ("plan:<rid>"): an action that travels.
 static func is_exit_action(a: String) -> bool:
 	return a.begins_with("go:") or a.begins_with("plan:")
+
+## An in-room move between the room's own views: "to_<view>", a turn to another wall, and
+## any id the room view lists in NAV_ACTIONS.
+func is_nav_action(a: String) -> bool:
+	if a == "":
+		return false
+	if a.begins_with("to_") or a in ["turn", "wall_left", "wall_right"]:
+		return true
+	return room_view != null and a in room_view.c("NAV_ACTIONS", [])
 
 ## True for the actions a click always carries out, even during a story chain: exits,
 ## Back, the inventory, and in the notebook its tabs, plan rows and page turners.
@@ -1077,7 +1184,9 @@ func _queue_line(text: String, delay := 0.0, story := false) -> void:
 func _say_now(text: String, story: bool) -> void:
 	lines = lines.filter(func(l): return l.story or l.click == click_id)
 	var due := -1.0
-	if _cur_protected():
+	if time < echo_hold_until:
+		due = echo_hold_until
+	elif _cur_protected():
 		due = time
 	elif not cur_story and cur_text != "" and time - cur_since < FEEDBACK_HOLD:
 		due = cur_since + FEEDBACK_HOLD
@@ -1097,12 +1206,20 @@ func dispatch(action: String) -> void:
 		restart_armed_at = time
 		_redraw()
 		return
+	if action == "new_game_arm":
+		# So does the end card's New game: the first click only warns.
+		new_game_armed_at = time
+		_redraw()
+		return
+	if action == "new_game":
+		new_game_armed_at = -INF
 	click_id += 1
 	if action == "back":
 		last_back_at = time
 	var before_game := sim.view
 	var before_rid: String = sim.state.room
 	var before_room := room_sim().view if room_sim() else ""
+	var before_local := room_sim().local_view if room_sim() else ""
 	var chain_was := chain_active()
 	var before_tab := sim.nb_tab
 	var before_closeup: bool = room_sim() != null and room_sim().is_closeup()
@@ -1122,14 +1239,17 @@ func dispatch(action: String) -> void:
 	var after_room := room_sim().view if room_sim() else ""
 	if before_room != after_room or before_game != sim.view:
 		hover_id = ""   # the label of what she was pointing at stays with the view she left
-		_mark_view_seen()
 		_on_view_changed(before_game, before_room)
 		var closeup_now: bool = room_sim() != null and room_sim().is_closeup()
 		if (sim.view == "notebook" and before_game != "notebook") or (closeup_now and before_room != after_room):
 			_clear_glance()   # no bracket outlives the room view it pointed into
-	if before_room != after_room or before_game != sim.view or before_rid != sim.state.room:
+	# The notebook or menu over the room (and Back from it) only pauses the chain: what
+	# waits for it, waits on.
+	var pause_hop: bool = before_rid == sim.state.room and room_sim() != null and before_local == room_sim().local_view and (
+		(before_game == "room" and chain_paused()) or (sim.view == "room" and before_game in ["notebook", "menu"]))
+	if not pause_hop and (before_room != after_room or before_game != sim.view or before_rid != sim.state.room):
 		pending_action = ""   # a deferred hotspot belongs to the view it was clicked in
-	if before_game != sim.view and sim.view in ["notebook", "menu", "end", "title"]:
+	if not pause_hop and before_game != sim.view and sim.view in ["notebook", "menu", "end", "title"]:
 		pending_travel = ""
 	if sim.nb_tab != before_tab:
 		nb_page = -1
@@ -1138,7 +1258,6 @@ func dispatch(action: String) -> void:
 	_note_inv_change()
 	if sim.view == "title":
 		_reset_presentation()
-	_refresh_hover_on_view_change()
 	_save_progress()
 	_redraw()
 
@@ -1186,6 +1305,10 @@ func _note_inv_change() -> void:
 ## Plays a list of sim events. Story chains are atomic: anything that arrives while one
 ## plays (a Hint, a key) waits after it, whole and in order, with its timed sounds.
 func play_events(ev: Array, chain_was := false) -> void:
+	if not ev.is_empty():
+		# A new click's events: chatter an earlier click queued and never said is stale now
+		# (story lines are never dropped; the line on screen is replaced as ever).
+		lines = lines.filter(func(l): return l.story or l.click == click_id)
 	var beat := false
 	for e in ev:
 		if e.type == "say" and e.get("story", false) and e.delay > 0.0:
@@ -1195,6 +1318,10 @@ func play_events(ev: Array, chain_was := false) -> void:
 			# already in the notebook; its arrival line is the first thing on screen.
 			_clear_for_travel()
 			chain_was = false
+	# An echo_trace first, so its caption hold covers every line in the same list.
+	for e in ev:
+		if e.type == "fx" and e.id == "echo_trace":
+			_play_fx(e)
 	var offset := 0.0
 	if chain_was:
 		offset = maxf(0.0, _story_backlog_end() - time)
@@ -1218,6 +1345,8 @@ func play_events(ev: Array, chain_was := false) -> void:
 				else:
 					_play_sfx_now(e.id)
 			"fx":
+				if e.id == "echo_trace":
+					continue   # started above
 				var d := float(e.get("delay", 0.0))
 				if d > 0.0 and fx_timed_by_core(str(e.id)):
 					pending_fx.append([e, d + offset, beat_id])
@@ -1253,6 +1382,7 @@ func _clear_for_travel() -> void:
 	pending_fx.clear()
 	pending_travel = ""
 	pending_action = ""
+	_clear_echo()
 	_clear_breath()
 
 ## While one event list plays, a new tide card is offered to the room as "just started"
@@ -1297,6 +1427,8 @@ func _play_fx(e: Dictionary, late := 0.0, from_queue := false) -> void:
 			card_offered = true
 		"glance":
 			pending_glance = e.duplicate()
+		"echo_trace":
+			start_echo(e.get("moves", []), maxf(0.0, float(e.get("delay", 0.0))) if not from_queue else 0.0)
 		"item_added":
 			_show_item_page(str(e.get("item", "")))
 		_:
@@ -1359,11 +1491,15 @@ func _reset_presentation() -> void:
 	shown_log.clear()
 	played_log.clear()
 	restart_armed_at = -INF
+	new_game_armed_at = -INF
 	pending_sfx.clear()
 	pending_fx.clear()
 	pending_travel = ""
 	pending_action = ""
 	shown_rooms.clear()
+	_clear_echo()
+	echo_log.clear()
+	plan_hud_t = 99.0
 	_clear_breath()
 	for p in oneshots:
 		if is_instance_valid(p):
@@ -1452,6 +1588,118 @@ func sfx_pending(id: String) -> bool:
 			return true
 	return false
 
+# ---------------------------------------------------------------------------
+# echo_trace: her last movements, played back at her from one side
+# ---------------------------------------------------------------------------
+## The sounds an echo_trace of `moves` plays, [sfx id, seconds from its start], in order:
+## per known move i (unknown ids skipped, ECHO_MAX at most) echo_step at i * ECHO_GAP and its
+## ECHO_SFX ECHO_STEP_LEAD later.
+static func echo_schedule(moves: Variant) -> Array:
+	var out := []
+	var i := 0
+	if not moves is Array:
+		return out
+	for m in moves:
+		if i >= ECHO_MAX:
+			break
+		if not ECHO_SFX.has(str(m)):
+			continue
+		var t := i * ECHO_GAP
+		out.append([ECHO_STEP, t])
+		out.append([ECHO_SFX[str(m)], t + ECHO_STEP_LEAD])
+		i += 1
+	return out
+
+## The side the trace sounds from: away from where she came in. Left when the room she came
+## from sorts before this one, else right.
+func echo_side() -> String:
+	return "left" if came_from < str(sim.state.room) else "right"
+
+func echo_db() -> float:
+	return ECHO_DB - (ECHO_SOFT_CUT if sim.settings.soft_audio else 0.0)
+
+## Schedules an echo_trace `delay` s from now and holds captions until its last sound plus
+## ECHO_TAIL. A trace with no known move is nothing.
+func start_echo(moves: Variant, delay := 0.0) -> void:
+	var sched := echo_schedule(moves)
+	if sched.is_empty():
+		return
+	var side := echo_side()
+	for s in sched:
+		pending_echo.append([s[0], delay + float(s[1]), side])
+		echo_log.append({"id": s[0], "at": float(s[1]), "db": echo_db(), "pan": side})
+	echo_hold_until = maxf(echo_hold_until, time + delay + float(sched[-1][1]) + ECHO_TAIL)
+
+func _tick_echo(dt: float) -> void:
+	var due := []
+	for i in range(pending_echo.size() - 1, -1, -1):
+		pending_echo[i][1] -= dt
+		if pending_echo[i][1] <= 0.000001:
+			due.push_front(pending_echo[i])
+			pending_echo.remove_at(i)
+	due.sort_custom(func(a, b): return a[1] < b[1])
+	for p in due:
+		_play_echo_now(p[0], p[2])
+
+func _clear_echo() -> void:
+	pending_echo.clear()
+	echo_hold_until = -INF
+
+## One echo sound, now: the shared WAV, on its side's bus, at echo_db() (soft: faded in).
+func _play_echo_now(id: String, side: String) -> void:
+	played_log.append([id, shown_log.size()])
+	var path := "res://assets/audio/%s.wav" % id
+	if not ResourceLoader.exists(path):
+		return
+	var p := AudioStreamPlayer.new()
+	p.stream = load(path) as AudioStream
+	p.set_meta("sfx_id", id)
+	p.bus = ECHO_BUSES.get(side, "Master") if AudioServer.get_bus_index(ECHO_BUSES.get(side, "")) != -1 else "Master"
+	var db := echo_db()
+	p.volume_db = -60.0 if sim.settings.soft_audio else db
+	add_child(p)
+	oneshots.append(p)
+	p.finished.connect(func():
+		oneshots.erase(p)
+		p.queue_free())
+	p.play()
+	if sim.settings.soft_audio:
+		var tw := p.create_tween()
+		tw.tween_property(p, "volume_db", db, ECHO_SOFT_FADE)
+
+# ---------------------------------------------------------------------------
+# the Plan HUD pulse
+# ---------------------------------------------------------------------------
+## Re-reads the Now: objective's room when anything it depends on may have changed; when it
+## moves to a room PLAN_HUD_FAR or more on foot from her (and the plan is hers), the Plan
+## button pulses once. The first reading (a load, a jump) never pulses.
+func _tick_plan_hud() -> void:
+	if not sim.state.started or sim.view in ["title", "end"]:
+		return
+	var key := [click_id, sim.state.room, sim.state.flags.size(), sim.state.visited.size(), sim.view]
+	if key == plan_hud_key:
+		return
+	plan_hud_key = key
+	var to := sim.objective_room()
+	if to == plan_hud_obj:
+		return
+	var first := plan_hud_obj == "?"
+	plan_hud_obj = to
+	if first or to == "" or not sim.plan_unlocked():
+		return
+	if sim.walk_distance(sim.state.room, to) >= PLAN_HUD_FAR:
+		plan_hud_t = 0.0
+		plan_hud_pulses += 1
+
+## 0..1: the Plan button's brass rim. Motion on, one PLAN_HUD_SWELL swell; off, steady for
+## PLAN_HUD_STILL.
+func plan_hud_alpha() -> float:
+	if not sim.settings.motion:
+		return 1.0 if plan_hud_t < PLAN_HUD_STILL else 0.0
+	if plan_hud_t >= PLAN_HUD_SWELL:
+		return 0.0
+	return sin(PI * plan_hud_t / PLAN_HUD_SWELL)
+
 func _redraw() -> void:
 	if room_view:
 		room_view.redraw()
@@ -1477,11 +1725,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				elif sim.view == "title":
 					dispatch("menu")
 				elif sim.view == "room":
-					var esc := room_view.esc_action() if room_view else "menu"
+					var esc := esc_room_action()
 					if always_acts(esc) and _chain_gates() and chain_active():
 						advance()   # Back is one press: the line finishes and she steps back
-					if esc != "":
-						dispatch(esc)
+					dispatch(esc)
 				elif sim.view in ["notebook", "menu"]:
 					if _chain_gates() and chain_active():
 						advance()
@@ -1503,6 +1750,24 @@ func _unhandled_input(event: InputEvent) -> void:
 						tide_jump(n + 1)          # Shift+1..9: start of tide I..IX
 					else:
 						room_jump(sim.state.room, n)   # 1..9: the room's own stages 0..8
+
+## Views Esc never steps back out of: they open the menu (R12's ending, R02's threshold and
+## end), whatever the room's own esc_action says.
+const ESC_MENU_VIEWS := ["ending", "threshold", "end"]
+
+## What Esc does in the room (after the item in hand is put away): Back wherever Back is on
+## show, or in any view other than the room's own that has a way back; else the room's
+## esc_action(), and the menu when that is "" (a hold or a cut: the menu holds the chain).
+func esc_room_action() -> String:
+	if room_view == null:
+		return "menu"
+	var lv: String = room_sim().local_view if room_sim() else "room"
+	if room_view.back_visible():
+		return "back"
+	var esc := room_view.esc_action()
+	if lv != "room" and esc == "menu" and not lv in ESC_MENU_VIEWS:
+		return "back"
+	return esc if esc != "" else "menu"
 
 ## Puts the item in hand away (Esc, the right button, in the room) through the sim's
 ## "disarm". Returns false, doing nothing, when nothing is in hand.
@@ -1582,8 +1847,10 @@ func _core_action_at(p: Vector2) -> String:
 		"end":
 			if end_t < 1.5:
 				return ""
-			for b in END_BUTTONS:
-				if b[1].has_point(p) and (b[0] != "return_decision" or not sim.checkpoint.is_empty()):
+			for b in end_buttons():
+				if b[1].has_point(p):
+					if b[0] == "new_game" and not new_game_armed():
+						return "new_game_arm"
 					return b[0]
 			return ""
 		"menu":
@@ -1714,6 +1981,20 @@ func _show_item_page(item: String) -> void:
 
 func _restart_armed() -> bool:
 	return time - restart_armed_at < RESTART_ARM
+
+## The end card's New game: armed by its first click, for RESTART_ARM.
+func new_game_armed() -> bool:
+	return time - new_game_armed_at < RESTART_ARM
+
+## The end card's buttons on show, [action, rect, label]: Return to final decision (when a
+## checkpoint is kept) and New game (wider, with its warning, while armed).
+func end_buttons() -> Array:
+	var out := []
+	for b in END_BUTTONS:
+		if b[0] == "return_decision" and sim.checkpoint.is_empty():
+			continue
+		out.append(END_NEW_GAME_ARMED if b[0] == "new_game" and new_game_armed() else b)
+	return out
 
 func _menu_rect(i: int) -> Rect2:
 	return Rect2(474, 330 + i * 100, 500, 76)
@@ -2104,27 +2385,34 @@ func _draw_end(c: Node2D) -> void:
 		c.draw_texture_rect(still, Rect2(Vector2.ZERO, SIZE), false, Color(1, 1, 1, END_STILL_ALPHA))
 	var a := clampf(end_t / END_TEXT_FADE, 0.0, 1.0) if sim.settings.motion else 1.0
 	var lay := end_layout(sim.state.ending)
-	# A paper panel in the lower band, navy ink on it: the painted still stays the picture.
-	c.draw_rect(lay.panel, Color(CARD_PAPER, END_PANEL_ALPHA * a))
+	# A panel in the lower band: the painted still stays the picture. CONTINUE writes navy ink
+	# on paper; SEVER, the unrecorded shore, paper on storm-navy ink.
+	var cols := end_panel_colors(sim.state.ending)
+	c.draw_rect(lay.panel, Color(cols.fill, cols.fill.a * a))
 	c.draw_rect(lay.panel, Color(Ink.BRASS, a), false, 2.0)
 	var x: float = lay.panel.position.x
 	var w: float = lay.panel.size.x
-	Ink.text(c, e.title, Vector2(x, lay.title_y), lay.title_size, Color(Ink.INK, a), serif, w)
+	var ink: Color = cols.text
+	Ink.text(c, e.title, Vector2(x, lay.title_y), lay.title_size, Color(ink, a), serif, w)
 	for i in e.lines.size():
-		Ink.text(c, e.lines[i], Vector2(x, lay.line_ys[i]), END_LINE_SIZE, Color(Ink.INK, a), hand, w)
-	Ink.text(c, end_seen_text(), Vector2(x, lay.seen_y), END_SEEN_SIZE, Color(Ink.INK, 0.8 * a), serif, w)
+		Ink.text(c, e.lines[i], Vector2(x, lay.line_ys[i]), END_LINE_SIZE, Color(ink, a), hand, w)
+	Ink.text(c, end_seen_text(), Vector2(x, lay.seen_y), END_SEEN_SIZE, Color(ink, 0.8 * a), serif, w)
 	if end_t >= 1.5:
-		for b in END_BUTTONS:
-			if b[0] == "return_decision" and sim.checkpoint.is_empty():
-				continue
-			Ink.button(c, b[1], b[2])
+		for b in end_buttons():
+			if b[0] == "new_game":
+				# Dim until armed; armed, the warning reads at full strength.
+				Ink.button(c, b[1], b[2], false, END_BUTTON_SIZE, not new_game_armed())
+			else:
+				Ink.button(c, b[1], b[2])
 
 const END_STILL_ALPHA := 1.0
 const END_TEXT_FADE := 1.0
 const END_PANEL_X := 274.0
 const END_PANEL_W := 900.0
 const END_PANEL_TOP := 760.0
-const END_PANEL_ALPHA := 0.80
+const END_PANEL_ALPHA := 0.96
+## SEVER's panel: storm-navy ink, paper text (CONTINUE keeps the paper panel).
+const END_PANEL_INK_ALPHA := 0.94
 const END_PANEL_PAD := 40.0       # the panel runs this far below the "Endings seen" line
 const END_TITLE_Y := 812.0
 const END_TITLE_MAX := 40
@@ -2133,6 +2421,12 @@ const END_LINE_SIZE := 26
 const END_LINE_Y := 868.0
 const END_LINE_STEP := 40.0
 const END_SEEN_SIZE := 20
+
+## The end panel's colours for ending `id` at full fade-in: {fill (with its alpha), text}.
+static func end_panel_colors(id: String) -> Dictionary:
+	if id == "sever":
+		return {"fill": Color(Ink.INK, END_PANEL_INK_ALPHA), "text": Ink.PAPER}
+	return {"fill": Color(CARD_PAPER, END_PANEL_ALPHA), "text": Ink.INK}
 
 func end_seen_text() -> String:
 	return "Endings seen: %d of 2" % sim.settings.endings_seen.size()
@@ -2217,6 +2511,11 @@ func _draw_hud() -> void:
 		c.draw_string(serif, Vector2(1392, 1040), "▸", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(Ink.PAPER, 0.55 * pulse))
 	for b in hud_buttons():
 		Ink.button(c, b[1], b[2], false, PLAN_LABEL_SIZE if b[0] == "plan" else 21)
+		if b[0] == "plan":
+			var k := plan_hud_alpha()
+			if k > 0.0:
+				var grow := 2.0 + (4.0 * k if sim.settings.motion else 2.0)
+				c.draw_rect(b[1].grow(grow), Color(Ink.BRASS, 0.95 * k), false, 3.0)
 	if sim.view == "notebook":
 		Ink.button(c, BACK_RECT, "Back", false, 21)
 		_draw_hint_card(c)

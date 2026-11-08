@@ -124,8 +124,18 @@ func run() -> void:
 	await test_now_plan()
 	await test_hover_anchor()
 	await test_glance_clears()
+	await test_end_new_game_arm()
+	await test_esc_means_back()
+	await test_notebook_holds_chain()
+	await test_stale_feedback()
+	await test_hover_context()
+	await test_end_panel_sever()
+	await test_echo_trace()
+	test_bundled_fonts()
+	await test_plan_hud_pulse()
+	test_hint_level_roundtrip()
 	if failures.is_empty():
-		print("PASS: core — discovery, topology, gates per tide, tides and weather, travel, latched office, inventory, notebook, hints, saves, slice migration, debug jumps, plan travel, endings, events, objective elsewhere, objective every tide, plan from a close-up, load behind a gate, scene rooms, scene saves, inventory paging, notebook pages, hover and back, travel fade, card and slab, placeholder, item on exit, item labels, hint ladder, build end, clicks never eaten, hover labels, glance, consume_click, room hooks, cinematic keys, Now: after P02, end card lines, end clears lines, resume view, travel outside the graph, retired items, plan equals walking, plan button, reveal leak, hotspot clicks act, plan slot, hint tiers, tide card rules, end card panel, title screen, hold breath, HUD at once, hint card, disarm, ghost slots, exit rush, hint ladder every step, bed loudness, Now: via the plan, hover anchor, glance clears")
+		print("PASS: core — discovery, topology, gates per tide, tides and weather, travel, latched office, inventory, notebook, hints, saves, slice migration, debug jumps, plan travel, endings, events, objective elsewhere, objective every tide, plan from a close-up, load behind a gate, scene rooms, scene saves, inventory paging, notebook pages, hover and back, travel fade, card and slab, placeholder, item on exit, item labels, hint ladder, build end, clicks never eaten, hover labels, glance, consume_click, room hooks, cinematic keys, Now: after P02, end card lines, end clears lines, resume view, travel outside the graph, retired items, plan equals walking, plan button, reveal leak, hotspot clicks act, plan slot, hint tiers, tide card rules, end card panel, title screen, hold breath, HUD at once, hint card, disarm, ghost slots, exit rush, hint ladder every step, bed loudness, Now: via the plan, hover anchor, glance clears, end New game arms, Esc means back, notebook holds the chain, stale feedback, hover context, sever end panel, echo trace, bundled fonts, plan HUD pulse, hint level round trip")
 	else:
 		print("FAIL (%d): %s" % [failures.size(), "; ".join(failures)])
 	for i in 10:
@@ -1382,13 +1392,21 @@ func test_end_card_lines() -> void:
 	check(GameSim.ENDINGS.sever.lines == ["I write eight names. Then his.", "\"I cannot certify their absence.\""],
 		"the severance card's lines")
 	check(GameSim.ENDINGS.continue.lines.size() == 2, "the continuation card keeps its lines")
-	check(GameSim.ENDINGS.sever.still == ["res://assets/stages/R12/r12_sever_office_r2.png", "res://assets/rooms/R12/end_a_page.png"]
-		and GameSim.ENDINGS.continue.still == ["res://assets/stages/R12/end_b_wide_3.png", "res://assets/rooms/R12/end_b_field.png"],
-		"each ending prefers R12's newer still, then the earlier one")
+	check(GameSim.ENDINGS.sever.still == ["res://assets/stages/R12/end_a_card.png",
+			"res://assets/stages/R12/r12_sever_office_r2.png", "res://assets/rooms/R12/end_a_page.png"]
+		and GameSim.ENDINGS.continue.still == ["res://assets/stages/R12/end_b_card.png",
+			"res://assets/stages/R12/end_b_wide_3.png", "res://assets/rooms/R12/end_b_field.png"],
+		"each ending prefers R12's end card plate, then the newer still, then the earlier one")
 	for id in GameSim.ENDINGS:
 		var paths: Array = GameSim.ENDINGS[id].still
-		var want: String = paths[0] if ResourceLoader.exists(paths[0]) else (paths[1] if ResourceLoader.exists(paths[1]) else "")
-		check(GameView.end_still_path(id) == want, "%s: the first still that exists is drawn (%s)" % [id, GameView.end_still_path(id)])
+		var want := ""
+		for p in paths:
+			if want == "" and ResourceLoader.exists(p):
+				want = p
+		var got := GameView.end_still_path(id)
+		# The card plate lands with R12 this round: either it or the still before it is drawn.
+		check(got == want and (got == paths[0] or got == paths[1] or (got == paths[2] and not ResourceLoader.exists(paths[1]))),
+			"%s: the first still that exists is drawn (%s)" % [id, got])
 
 ## An ending's lines still queued when the card goes up never follow her back into R12.
 func test_end_clears_lines() -> void:
@@ -1756,7 +1774,14 @@ func test_reveal_leak() -> void:
 	scene._insert_line("Two.", scene.time + 3.0, true, 7)
 	scene.click(exit_r.get_center())
 	scene.dispatch("notebook")
-	check(scene.pending_travel == "", "the notebook drops the deferred exit")
+	check(scene.pending_travel == "go:R01", "the notebook holds the deferred exit with its chain")
+	for i in 100:
+		scene._process(0.05)
+	check(scene.sim.state.room == "R02" and scene.sim.view == "notebook", "she reads on; nothing goes under the notebook")
+	scene.dispatch("back")
+	for i in 200:
+		scene._process(0.05)
+	check(scene.sim.state.room == "R01", "back in the room, the chain plays out and she goes (%s)" % scene.sim.state.room)
 	await free_scene(scene)
 
 ## A hotspot click is never eaten by a leftover line.
@@ -1933,7 +1958,7 @@ func test_hint_tiers() -> void:
 	bad.hint.level = 9
 	var b := GameSim.new(FIXTURES)
 	b.from_dict(bad)
-	check(int(b.state.hint.level) == 4, "a saved level is clamped to 0..4 (%s)" % b.state.hint.level)
+	check(int(b.state.hint.level) == 5, "a saved level is clamped to the four tiers and the confirmation (%s)" % b.state.hint.level)
 	check(GameSim.with_confirmation(["x", "x"]) == ["x", "x"], "no confirmation before a line already said")
 
 ## The tide card waits for close-ups and reveals, and sits clear of exits and the glance.
@@ -2391,7 +2416,9 @@ func test_hint_ladder_every_step() -> void:
 	var ch = load("res://tests/chain_test.gd").new()
 	ch.external_game = g
 	var probed := [0]
+	var ruled := [0]
 	ch.step_hook = func(pid: String, _rid: String, phase: String) -> void:
+		ruled[0] += hint_ladder_rule(g, "%s/%s" % [pid, phase])
 		if g.view != "room" or g.room().is_closeup() or g.room().hint_tiers() < 4:
 			return
 		var snap := g.to_dict()
@@ -2409,6 +2436,7 @@ func test_hint_ladder_every_step() -> void:
 	await ch.run_tests()
 	check(ch.failures.is_empty(), "the chain plays with the ladder probes (%s)" % [ch.failures])
 	check(probed[0] > 0, "some step stands in a four-tier room")
+	check(ruled[0] > 0, "the tier 2 / tier 3 rule met some four-tier ladder")
 	ch.free()
 	for rid in g.order:
 		var hints: Dictionary = g.room(rid).c("HINTS", {})
@@ -2417,6 +2445,34 @@ func test_hint_ladder_every_step() -> void:
 			if l.size() >= 3:
 				check(GameSim._hint_key(l[1]) != GameSim._hint_key(l[2]),
 					"%s %s: hint tiers 2 and 3 say different things ('%s')" % [rid, o, l[1]])
+
+## The hint ladder rule at one step: in the room she stands in (when the Hint says its own
+## ladder there: not an idle objective while work waits elsewhere), and in every room with an
+## open objective, a four-tier ladder says something new at tier 3 (hint_line(2) !=
+## hint_line(3)), and its tier 3 still sits behind the confirmation. Returns how many
+## ladders it checked.
+func hint_ladder_rule(g: GameSim, at: String) -> int:
+	var n := 0
+	for rid in g.order:
+		var r: RoomSim = g.room(rid)
+		var open_work: bool = g.room_open(rid) and g._room_has_work(r) and not GameSim._idle(r.objective())
+		var said_here: bool = rid == g.state.room and (open_work or g.work_elsewhere() == "")
+		if not (said_here or open_work):
+			continue
+		if r.hint_tiers() < 4:
+			continue
+		n += 1
+		var l2 := r.hint_line(2)
+		var l3 := r.hint_line(3)
+		check(GameSim._hint_key(l2) != GameSim._hint_key(l3),
+			"%s: %s objective %s: hint tiers 2 and 3 are the same ('%s' / '%s')" % [at, rid, r.objective(), l2, l3])
+		var ladder := []
+		for i in r.hint_tiers():
+			ladder.append(r.hint_line(i))
+		var seq := GameSim.with_confirmation(ladder)
+		check(seq.size() >= 2 and seq[-2] == GameSim.HINT_CONFIRM and seq[-1] == l3,
+			"%s: %s objective %s: tier 3 sits behind the confirmation (%s)" % [at, rid, r.objective(), seq])
+	return n
 
 ## P1: the loudness ladder. Every bed loop is trimmed per room; from Tide IV on no room is
 ## quieter than the opening rooms less 3 dB; silence only ever comes from hold_breath.
@@ -2596,3 +2652,359 @@ func test_glance_clears() -> void:
 	scene.dispatch("recorder")
 	check(scene.room_sim().is_closeup() and scene.glance_alpha() == 0.0, "a close-up opening clears it")
 	await free_scene(scene)
+
+# ---------------------------------------------------------------------------
+# fix p3 core
+# ---------------------------------------------------------------------------
+## An end card scene: R12 at tide IX, the checkpoint kept, `ending` on show, buttons live.
+func end_scene(path: String, ending := "sever") -> Node:
+	var scene = new_scene(path)
+	await process_frame
+	scene.tide_jump(9, "R12")
+	scene.sim.save_checkpoint()
+	scene.sim.finish(ending)
+	scene._mount_room()
+	scene.end_t = 2.0
+	return scene
+
+## P0: New game on the end card never resets on one click. The first click arms it (the
+## warning, wider); a second within RESTART_ARM starts over; later, it only re-arms.
+func test_end_new_game_arm() -> void:
+	var scene = await end_scene("user://core_end_arm_test.json")
+	var ng: Rect2 = GameView.END_BUTTONS[1][1]
+	check(GameView.END_BUTTONS[0][1] == Rect2(364, 990, 340, 66) and ng == Rect2(1188, 1010, 220, 50)
+		and GameView.END_BUTTONS[1][2] == "New game", "the end buttons' places")
+	scene.click(ng.get_center())
+	check(scene.sim.view == "end" and not scene.sim.checkpoint.is_empty(), "one click on New game: still the end card, the checkpoint kept")
+	var armed: Array = scene.end_buttons()[-1]
+	check(armed[2] == "Start over? Your place at the final decision will be lost." and armed[1] == Rect2(788, 1010, 620, 50),
+		"armed: the warning, wider (%s)" % [armed])
+	check(not armed[1].intersects(GameView.END_BUTTONS[0][1]), "the armed button keeps clear of Return to final decision")
+	scene._redraw()
+	await process_frame   # the armed card draws
+	scene.time += 1.0
+	scene.click(ng.get_center())
+	check(scene.sim.view != "end", "a second click within 3 s starts a new game (%s)" % scene.sim.view)
+	# Armed, then too late: the click only re-arms.
+	scene.sim.from_dict(scene.sim.checkpoint)
+	scene.sim.finish("sever")
+	scene.end_t = 2.0
+	scene.click(ng.get_center())
+	scene.time += 3.1
+	check(scene.end_buttons()[-1][2] == "New game", "the arm lapses after 3 s")
+	scene.click(ng.get_center())
+	check(scene.sim.view == "end" and not scene.sim.checkpoint.is_empty() and scene.new_game_armed(),
+		"a click after 3.1 s only re-arms")
+	# Return to final decision still restores P26's decision.
+	scene.time += 3.1
+	scene.click(GameView.END_BUTTONS[0][1].get_center())
+	check(scene.sim.view == "room" and scene.sim.state.room == "R12"
+		and JSON.stringify(scene.sim.to_dict()) == JSON.stringify(scene.sim.checkpoint),
+		"Return to final decision restores the checkpoint at the decision (%s/%s)" % [scene.sim.view, scene.sim.state.room])
+	await free_scene(scene)
+
+## The tide each room is first open at (REACH), for debug_prepare.
+static func open_tide(rid: String) -> int:
+	for t in range(1, 10):
+		if rid in REACH[t]:
+			return t
+	return 9
+
+## Every view of `rid` Esc should step back out of: its close-ups and its base views with a
+## way back.
+func esc_views(scene: Node, rid: String) -> Array:
+	var r: RoomSim = scene.sim.room(rid)
+	var out: Array = r.c("CLOSEUPS", []).duplicate()
+	if out.is_empty():
+		var consts: Dictionary = r.get_script().get_script_constant_map()
+		for k in consts:
+			if str(k).begins_with("C_") and consts[k] is String:
+				out.append(consts[k])
+	if rid == "R02":
+		out = ["repair", "logbook", "duty", "note", "drawer", "report", "board", "photo"]
+	out.append_array({"R05": ["kitchen"], "R09": ["rail"], "R10": ["catalogue"], "R12": ["frames", "routing"]}.get(rid, []))
+	return out
+
+## P1: Esc means Back in every close-up and every base view with a way back; from the room
+## itself (and R12's ending, R02's threshold) it opens the menu.
+func test_esc_means_back() -> void:
+	var scene = new_scene("user://core_esc_back_test.json")
+	await process_frame
+	var tried := 0
+	for rid in ALL:
+		for v in esc_views(scene, rid):
+			scene.tide_jump(open_tide(rid), rid)
+			scene.room_sim().local_view = v
+			scene._mount_room()
+			scene._process(0.05)
+			key(scene, KEY_ESCAPE)
+			var lv: String = scene.room_sim().local_view
+			check(scene.sim.view == "room" and lv != v,
+				"%s %s: Esc steps back (now %s/%s)" % [rid, v, scene.sim.view, lv])
+			tried += 1
+		scene.tide_jump(open_tide(rid), rid)
+		key(scene, KEY_ESCAPE)
+		check(scene.sim.view == "menu", "%s: Esc from the room opens the menu (%s)" % [rid, scene.sim.view])
+	check(tried >= 30, "Esc was tried in every close-up (%d)" % tried)
+	for c in [["R12", "ending"], ["R02", "threshold"]]:
+		scene.tide_jump(open_tide(c[0]), c[0])
+		scene.room_sim().local_view = c[1]
+		key(scene, KEY_ESCAPE)
+		check(scene.sim.view == "menu", "%s %s: Esc opens the menu (%s)" % [c[0], c[1], scene.sim.view])
+	# A room that answers Esc with nothing (a hold, a cut): the menu, which holds the chain.
+	scene.tide_jump(1, "R02")
+	scene.room_sim().local_view = "end"
+	key(scene, KEY_ESCAPE)
+	check(scene.sim.view == "menu", "an empty esc_action opens the menu (%s)" % scene.sim.view)
+	await free_scene(scene)
+
+## P1: the notebook opened over a reveal holds the chain, as the menu does: no line, sound,
+## fx, glance or deferred action moves until she is back; the notebook's own clock runs on.
+func test_notebook_holds_chain() -> void:
+	var scene = new_scene("user://core_nb_hold_test.json")
+	await process_frame
+	scene.tide_jump(3, "R02")
+	scene.time += 1.0
+	scene.click_id += 1
+	scene.play_events([
+		{"type": "say", "text": "The first line of the reveal.", "delay": 0.0, "story": true},
+		{"type": "say", "text": "The second line of the reveal.", "delay": 2.5, "story": true},
+		{"type": "say", "text": "The third line of the reveal.", "delay": 5.0, "story": true},
+		{"type": "sfx", "id": "knock_glass", "delay": 3.0},
+		{"type": "fx", "id": "hold_breath", "seconds": 1.0, "delay": 3.5},
+		{"type": "fx", "id": "glance", "rect": [600, 600, 200, 200], "target": "desk"}])
+	scene.pending_action = "logbook"
+	check(scene.lines.size() == 2 and scene.cur_text == "The first line of the reveal.", "a three-line reveal is playing")
+	scene._process(0.5)
+	scene.dispatch("notebook")
+	check(scene.sim.view == "notebook" and scene.chain_paused(), "the notebook holds the chain")
+	var text: String = scene.cur_text
+	var n: int = scene.lines.size()
+	var fx: int = scene.pending_fx.size()
+	var sfx: int = scene.pending_sfx.size()
+	var played: int = scene.played_log.size()
+	var t_in: float = scene.intrusion_t
+	for i in 200:
+		scene._process(0.05)
+	check(scene.cur_text == text and scene.lines.size() == n, "10 s in the notebook: the same line, the same queue (%s, %d)" % [scene.cur_text, scene.lines.size()])
+	check(scene.pending_fx.size() == fx and scene.pending_sfx.size() == sfx and scene.played_log.size() == played
+		and scene.breath_gain() == 1.0, "no sound or fx fired under the notebook (hold_breath included)")
+	check(not scene.pending_glance.is_empty() and scene.pending_action == "logbook", "the glance and the waiting hotspot wait too")
+	check(scene.intrusion_t >= t_in, "the notebook's own clock runs")
+	scene.dispatch("back")
+	check(scene.sim.view == "room" and scene.pending_action == "logbook", "back in the room, the hotspot still waits")
+	var next := ""
+	for i in 200:
+		scene._process(0.05)
+		if scene.cur_text != text:
+			next = scene.cur_text
+			break
+	check(next == "The second line of the reveal.", "the chain resumes from the same line (%s)" % next)
+	await free_scene(scene)
+
+## P1: a new click's events drop the chatter an earlier click queued and never said.
+func test_stale_feedback() -> void:
+	var scene = new_scene("user://core_stale_test.json")
+	await process_frame
+	scene.tide_jump(3, "R02")
+	scene.time += 1.0
+	scene.click_id += 1
+	scene.play_events([{"type": "say", "text": "Not that, I think.", "delay": 2.0, "story": false}])
+	scene._process(0.3)
+	scene.click_id += 1
+	scene.play_events([{"type": "say", "text": "Something has changed in the room.", "delay": 0.0, "story": true},
+		{"type": "say", "text": "And it keeps changing.", "delay": 1.0, "story": true}])
+	for i in 120:
+		scene._process(0.05)
+	check(not "Not that, I think." in scene.shown_log, "the earlier click's refusal never goes up (%s)" % [scene.shown_log])
+	check("And it keeps changing." in scene.shown_log, "story lines are never dropped")
+	await free_scene(scene)
+
+## P2: the hover label goes when what it was read against changes, and is read again under
+## the pointer the frame after.
+func test_hover_context() -> void:
+	var scene = new_scene("user://core_hover_ctx_test.json")
+	await process_frame
+	scene.sim_pointer_on = true
+	scene.tide_jump(2, "R04")
+	scene._process(0.05)
+	scene._process(0.05)
+	var p0: Vector2 = scene.room_view.hotspot_rect("spindle").get_center()
+	scene.hover(p0)
+	check(scene.hover_id == "spindle", "hovering the spindle names it (%s)" % scene.hover_id)
+	scene.dispatch("spindle")
+	check(scene.room_sim().local_view == "c_spindle", "the spindle opens its close-up")
+	# The pointer rests over a control of the new view.
+	var p1 := Vector2(-1, -1)
+	for y in range(100, 980, 12):
+		for x in range(12, 1440, 12):
+			if p1.x < 0 and scene._hover_at(Vector2(x, y)) != "":
+				p1 = Vector2(x, y)
+	check(p1.x >= 0, "the close-up has a control to rest on")
+	scene.sim_pointer = p1
+	scene._process(0.05)
+	check(scene.hover_id == "", "one frame after the view changed: no label (%s)" % scene.hover_id)
+	scene._process(0.05)
+	check(scene.hover_id != "" and scene.hover_id == scene._hover_at(p1), "the frame after: the control under the pointer (%s)" % scene.hover_id)
+	# The item in hand changing clears it the same way.
+	scene.dispatch("back")
+	scene._process(0.05)
+	scene._process(0.05)
+	scene.hover(p0)
+	if not scene.sim.state.inventory.is_empty():
+		scene.dispatch("item:" + scene.sim.state.inventory[0])
+		scene._process(0.05)
+		check(scene.hover_id == "", "an item taken in hand clears the label")
+	await free_scene(scene)
+
+## P1: SEVER's end panel is storm-navy ink with paper text; CONTINUE keeps paper. Both at
+## AA over the darkest still, the panel and buttons where they were.
+func test_end_panel_sever() -> void:
+	check(GameView.END_PANEL_ALPHA == 0.96, "the paper panel at 0.96")
+	var sever: Dictionary = GameView.end_panel_colors("sever")
+	var cont: Dictionary = GameView.end_panel_colors("continue")
+	check(sever.fill.is_equal_approx(Color(Ink.INK, 0.94)) and sever.text == Ink.PAPER, "SEVER: ink panel, paper text")
+	check(cont.fill.is_equal_approx(Color(GameView.CARD_PAPER, 0.96)) and cont.text == Ink.INK, "CONTINUE: paper panel, navy text")
+	for bg in [Ink.BLACK, Color.WHITE]:
+		var s: Color = bg.lerp(Color(Ink.INK, 1.0), 0.94)
+		check(contrast(Ink.PAPER, s) >= 4.5 and contrast(Color(Ink.PAPER, 1.0).lerp(s, 0.2), s) >= 4.5,
+			"SEVER text is AA over the panel on %s (%.2f)" % [bg, contrast(Ink.PAPER, s)])
+	check(GameSim.ENDINGS.sever.lines == ["I write eight names. Then his.", "\"I cannot certify their absence.\""]
+		and GameSim.ENDINGS.continue.lines[0] == "\"Subject Bell possesses no surviving personal effects.\"", "the end lines unchanged")
+	check(GameSim.ENDINGS.sever.still[0] == "res://assets/stages/R12/end_a_card.png"
+		and GameSim.ENDINGS.continue.still[0] == "res://assets/stages/R12/end_b_card.png", "R12's card plates first")
+	for id in ["sever", "continue"]:
+		var scene = await end_scene("user://core_end_sever_test.json", id)
+		var p: String = GameView.end_still_path(id)
+		check(p != "" and p in GameSim.ENDINGS[id].still, "%s: a still is drawn (%s)" % [id, p])
+		check(scene.end_layout(id).panel.end.y <= GameView.END_BUTTONS[0][1].position.y, "%s: the panel's lower edge is where it was" % id)
+		scene._redraw()
+		await process_frame
+		await free_scene(scene)
+
+## P1: echo_trace, the core's own playback of her last movements: echo_step then the move's
+## sound per event, 1.8 s apart, panned away from where she came in, soft mode 6 dB down;
+## nothing said until the last sound plus 0.8 s; held under the notebook.
+func test_echo_trace() -> void:
+	var scene = new_scene("user://core_echo_test.json")
+	await process_frame
+	scene.tide_jump(3, "R02")
+	scene.came_from = "R01"
+	var moves := ["drawer_opened", "held_still", "turned_round"]
+	var want := [["echo_step", 0.0], ["drawer", 0.6], ["echo_step", 1.8], ["breath", 2.4], ["echo_step", 3.6], ["seat", 4.2]]
+	check(GameView.echo_schedule(moves) == want, "the schedule (%s)" % [GameView.echo_schedule(moves)])
+	check(GameView.echo_schedule(["no_such_move", "drawer_opened"]).size() == 2, "unknown moves are skipped")
+	check(GameView.echo_schedule(["log_read", "log_read", "log_read", "log_read"]).size() == 6, "three events at most")
+	for soft in [false, true]:
+		scene._reset_presentation()
+		scene.sim.settings.soft_audio = soft
+		scene.click_id += 1
+		scene.play_events([{"type": "say", "text": "Someone else's steps.", "delay": 0.0, "story": true},
+			{"type": "fx", "id": "echo_trace", "moves": moves}])
+		check(scene.echo_log.size() == 6, "soft %s: exactly six sounds scheduled (%d)" % [soft, scene.echo_log.size()])
+		var ok := true
+		for i in scene.echo_log.size():
+			var e: Dictionary = scene.echo_log[i]
+			ok = ok and e.id == want[i][0] and is_equal_approx(e.at, want[i][1]) and e.pan == "left"
+			ok = ok and is_equal_approx(e.db, -16.0 if soft else -10.0)
+		check(ok, "soft %s: in order, 0.0/0.6/1.8/2.4/3.6/4.2 s, left, at %s dB (%s)" % [soft, -16 if soft else -10, scene.echo_log])
+		check(scene.cur_text == "", "soft %s: the caption waits for the steps" % soft)
+		var t0: float = scene.time
+		var shown_at := -1.0
+		var order := []
+		for i in 140:
+			scene._process(0.05)
+			if shown_at < 0.0 and scene.cur_text == "Someone else's steps.":
+				shown_at = scene.time - t0
+		for p in scene.played_log:
+			order.append(p[0])
+		check(order == ["echo_step", "drawer", "echo_step", "breath", "echo_step", "seat"], "soft %s: played in order (%s)" % [soft, order])
+		check(shown_at >= 4.2 + 0.8 - 0.001 and shown_at <= 5.2, "soft %s: the caption goes up 0.8 s after the last sound (%.2f)" % [soft, shown_at])
+	scene.sim.settings.soft_audio = false
+	check(GameView.ECHO_SFX.size() == GameSim.MOVES.size(), "every movement has its sound")
+	for m in GameView.ECHO_SFX:
+		check(GameSim.MOVES.has(m) and ResourceLoader.exists("res://assets/audio/%s.wav" % GameView.ECHO_SFX[m]), "%s: a core sound" % m)
+	check(ResourceLoader.exists("res://assets/audio/echo_step.wav"), "echo_step.wav is built")
+	# Came from a room that sorts after this one: from the right.
+	scene._reset_presentation()
+	scene.came_from = "R05"
+	scene.play_events([{"type": "fx", "id": "echo_trace", "moves": ["log_read"]}])
+	check(scene.echo_log[0].pan == "right", "came from R05 into R02: the trace sounds right")
+	# Held under the notebook.
+	scene._reset_presentation()
+	scene.dispatch("notebook")
+	var before: int = scene.played_log.size()
+	scene.play_events([{"type": "fx", "id": "echo_trace", "moves": moves}])
+	for i in 120:
+		scene._process(0.05)
+	check(scene.played_log.size() == before, "no echo plays under the notebook (%s)" % [scene.played_log])
+	await free_scene(scene)
+
+## P1: the bundled fonts load from res://assets/fonts/.
+func test_bundled_fonts() -> void:
+	var s := Ink.serif()
+	var h := Ink.hand()
+	var l := Ink.label_font()
+	check(s is FontFile and s.resource_path == "res://assets/fonts/NotoSerif-Regular.ttf", "serif() is the bundled Noto Serif (%s)" % s.resource_path)
+	check(h is FontFile and h.resource_path == "res://assets/fonts/NotoSerif-Italic.ttf", "hand() is the bundled italic (%s)" % h.resource_path)
+	check(l is FontFile and l.resource_path == "res://assets/fonts/LiberationSansNarrow-Regular.ttf", "label_font() is Liberation Sans Narrow (%s)" % l.resource_path)
+	check(Ink.label_color(false).is_equal_approx(Color(Ink.INK, 0.85)) and Ink.label_color(true) == Ink.BRASS, "label colours")
+	check(s.get_string_size("The Ninth Tide", HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x > 100.0, "the serif measures text")
+
+## P2: the Plan button pulses once when the Now: objective moves 3+ rooms away on foot.
+func test_plan_hud_pulse() -> void:
+	var g := GameSim.new()
+	g.debug_tide(9, "R10")
+	check(g.walk_distance("R10", "R04") >= 3, "R10 to R04 is 3+ rooms on foot (%d)" % g.walk_distance("R10", "R04"))
+	check(g.walk_distance("R04", "R04") == 0, "a room is 0 from itself")
+	var scene = new_scene("user://core_plan_hud_test.json")
+	await process_frame
+	var found := false
+	for t in range(3, 9):
+		for rid in REACH[t]:
+			if found:
+				break
+			scene.sim.debug_tide(t, rid)
+			scene._mount_room()
+			scene._reset_presentation()
+			for i in 3:
+				scene._process(0.05)
+			var obj: String = scene.sim.objective_room()
+			var n0: int = scene.plan_hud_pulses
+			scene.sim.debug_tide(t + 1, rid)
+			var to: String = scene.sim.objective_room()
+			if to == obj or to == "" or scene.sim.walk_distance(rid, to) < GameView.PLAN_HUD_FAR:
+				continue
+			scene._mount_room()
+			for i in 3:
+				scene._process(0.05)
+			check(scene.plan_hud_pulses == n0 + 1 and scene.plan_hud_alpha() > 0.0,
+				"tide %d in %s: the objective moved to %s, the Plan pulses once (%d)" % [t + 1, rid, to, scene.plan_hud_pulses - n0])
+			for i in 30:
+				scene._process(0.05)
+			check(scene.plan_hud_pulses == n0 + 1 and scene.plan_hud_alpha() == 0.0, "once, and over by 1.2 s (Motion on)")
+			check(not JSON.stringify(scene.sim.to_dict()).contains("plan_hud"), "the pulse is never saved")
+			scene.sim.settings.motion = false
+			scene.plan_hud_t = 2.9
+			check(scene.plan_hud_alpha() == 1.0, "Motion off: a steady rim for 3 s")
+			scene.plan_hud_t = 3.1
+			check(scene.plan_hud_alpha() == 0.0, "and then none")
+			scene.sim.settings.motion = true
+			found = true
+	check(found, "some tide change moves the objective 3+ rooms away")
+	await free_scene(scene)
+
+## P2: a saved hint level loads as it was written (clamped to the tiers and the confirmation).
+func test_hint_level_roundtrip() -> void:
+	var g := GameSim.new()
+	g.debug_tide(4, "R07")
+	g.room().local_view = "c_tilt_rack"
+	check(g.room().hint_tiers() == 4, "R07's ladder has four tiers")
+	g.state.hint = {"for": g.hint_key(), "level": 5}
+	var saved: String = JSON.stringify(g.to_dict())
+	var b := GameSim.new()
+	check(b.from_dict(JSON.parse_string(saved)), "the save loads")
+	check(JSON.stringify(b.to_dict()) == saved, "to_dict() round trips exactly (%s vs %s)" % [b.state.hint, g.state.hint])
+	g.state.hint.level = 9
+	b.from_dict(JSON.parse_string(JSON.stringify(g.to_dict())))
+	check(int(b.state.hint.level) == 5, "a level past the confirmation is clamped to it (%s)" % b.state.hint.level)
