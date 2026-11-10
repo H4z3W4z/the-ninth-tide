@@ -31,6 +31,9 @@ const SERIF_ITALIC_FILE := "res://assets/fonts/NotoSerif-Italic.ttf"
 const LABEL_FILE := "res://assets/fonts/LiberationSansNarrow-Regular.ttf"
 const LABEL_BOLD_FILE := "res://assets/fonts/LiberationSansNarrow-Bold.ttf"
 const SERIF_NAMES := ["Noto Serif", "DejaVu Serif", "Liberation Serif", "serif"]
+## DejaVu Sans: glyph fallback for the UI arrows and marks (▸ ◂ ▾ ▲ ▼ ▷ ◁ → ≡ −) that the
+## other bundled fonts lack. On desktop the OS supplies them; a web build has no system fonts.
+const SYMBOLS_FILE := "res://assets/fonts/DejaVuSans.ttf"
 
 static var _serif: Font
 static var _hand: Font
@@ -40,7 +43,19 @@ static var _label: Font
 static func _font_file(path: String) -> FontFile:
 	if not ResourceLoader.exists(path):
 		return null
-	return load(path) as FontFile
+	var f := load(path) as FontFile
+	if f != null and path != SYMBOLS_FILE and ResourceLoader.exists(SYMBOLS_FILE):
+		var sym := load(SYMBOLS_FILE) as Font
+		if sym != null and not f.fallbacks.has(sym):
+			f.fallbacks = f.fallbacks + [sym]
+	return f
+
+## Web builds cannot see system fonts, so every SystemFont in the room views resolves to
+## the engine fallback font. Point that at the bundled label face (with the symbol fallback)
+## so web text matches the desktop look instead of the engine default.
+static func install_web_fallback() -> void:
+	if OS.has_feature("web"):
+		ThemeDB.fallback_font = label_font()
 
 static func _system(names: Array, italic := false) -> SystemFont:
 	var f := SystemFont.new()

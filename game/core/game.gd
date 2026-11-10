@@ -294,6 +294,7 @@ var plan_hud_t := 99.0
 var plan_hud_pulses := 0
 
 func _ready() -> void:
+	Ink.install_web_fallback()
 	serif = Ink.serif()
 	hand = Ink.hand()
 	_build_nodes()

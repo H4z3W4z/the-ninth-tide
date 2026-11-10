@@ -9,3 +9,9 @@ LiberationSansNarrow-Regular.ttf, LiberationSansNarrow-Bold.ttf
   Licence: GNU GPL v2 with the font exception (embedding the font in a document or program
   does not by itself bring that work under the GPL). It is NOT under the OFL, despite the
   file name LiberationSansNarrow-OFL.txt, which holds the package's full copyright and licence.
+
+DejaVuSans.ttf
+  DejaVu Sans 2.37, from the Debian fonts-dejavu-core package. Used only as a glyph
+  fallback for UI arrows and marks (see Ink.SYMBOLS_FILE).
+  Licence: Bitstream Vera / Arev fonts licence (permissive; free to embed and redistribute).
+  Full text: DejaVuSans-LICENSE.txt
