@@ -51,6 +51,8 @@ func _refresh() -> void:
 
 func _process(dt: float) -> void:
 	time += dt
+	if state == "naming" and _web_input:
+		_web_input_poll()
 	if remove_armed != "" and time - remove_armed_at > ARM_SECONDS:
 		remove_armed = ""
 		queue_redraw()
@@ -116,6 +118,7 @@ func act(a: String) -> void:
 		name_edit.text = ""
 		name_edit.visible = true
 		name_edit.grab_focus()
+		_web_input_show()
 	elif a == "cancel":
 		_close_naming()
 	elif a == "begin":
@@ -136,6 +139,7 @@ func _close_naming() -> void:
 	state = "pick"
 	name_edit.visible = false
 	name_edit.release_focus()
+	_web_input_hide()
 	queue_redraw()
 
 func _create(raw: String) -> void:
@@ -244,6 +248,97 @@ func _build_name_edit() -> void:
 	name_edit.visible = false
 	name_edit.text_submitted.connect(func(t): act("begin"))
 	add_child(name_edit)
+
+# ---------------------------------------------------------------------------
+# web text entry
+# ---------------------------------------------------------------------------
+# On a phone or tablet the browser shows its keyboard only for a real page <input> the
+# player taps; Godot's own LineEdit focuses too late (after the tap event has finished),
+# so iOS never raises the keyboard. In the web build the name box is therefore a page
+# <input> laid exactly over EDIT_RECT; name_edit mirrors its text so the rest of the lobby
+# is unchanged.
+var _web_input := false
+
+const WEB_INPUT_JS := """
+(function () {
+  var W = %d, H = %d, R = [%d, %d, %d, %d], MAX = %d;
+  var el = document.getElementById('nt-name');
+  if (!el) {
+    el = document.createElement('input');
+    el.id = 'nt-name';
+    el.type = 'text';
+    el.autocomplete = 'off';
+    el.setAttribute('autocapitalize', 'words');
+    el.setAttribute('autocorrect', 'off');
+    el.spellcheck = false;
+    el.enterKeyHint = 'go';
+    el.style.cssText = 'position:fixed;z-index:10;box-sizing:border-box;text-align:center;' +
+      'background:rgba(7,11,15,.6);color:#ded4ba;caret-color:#d2aa66;border:2px solid rgba(210,170,102,.7);' +
+      'border-radius:4px;outline:none;font-family:Georgia,"Times New Roman",serif;padding:0 8px;';
+    var stop = function (e) { e.stopPropagation(); };
+    ['keydown', 'keyup', 'keypress', 'pointerdown', 'mousedown', 'touchstart'].forEach(function (t) {
+      el.addEventListener(t, stop);
+    });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); window.ntNameSubmit = true; }
+      else if (e.key === 'Escape') { window.ntNameCancel = true; }
+    });
+    window.ntPlaceName = function () {
+      var c = document.querySelector('canvas');
+      if (!c || el.style.display === 'none') return;
+      var b = c.getBoundingClientRect(), k = Math.min(b.width / W, b.height / H);
+      var ox = b.left + (b.width - W * k) / 2, oy = b.top + (b.height - H * k) / 2;
+      el.style.left = (ox + R[0] * k) + 'px';
+      el.style.top = (oy + R[1] * k) + 'px';
+      el.style.width = (R[2] * k) + 'px';
+      el.style.height = (R[3] * k) + 'px';
+      el.style.fontSize = Math.max(16, 34 * k) + 'px';   // 16px+ stops iOS zooming in
+    };
+    window.addEventListener('resize', window.ntPlaceName);
+    document.body.appendChild(el);
+  }
+  el.maxLength = MAX;
+  el.placeholder = ('ontouchstart' in window) ? 'Tap here, then write your name' : "Your name, as you'd sign the log";
+  el.value = '';
+  window.ntNameSubmit = false;
+  window.ntNameCancel = false;
+  el.style.display = 'block';
+  window.ntPlaceName();
+  el.focus();
+})();
+"""
+
+func _web_input_show() -> void:
+	if not OS.has_feature("web"):
+		return
+	_web_input = true
+	name_edit.visible = false   # the page <input> stands in its place
+	var r := EDIT_RECT
+	JavaScriptBridge.eval(WEB_INPUT_JS % [
+		ProjectSettings.get_setting("display/window/size/viewport_width"),
+		ProjectSettings.get_setting("display/window/size/viewport_height"),
+		r.position.x, r.position.y, r.size.x, r.size.y, ProfileStore.NAME_MAX], true)
+
+func _web_input_hide() -> void:
+	if not _web_input:
+		return
+	_web_input = false
+	JavaScriptBridge.eval("(function(){var el=document.getElementById('nt-name');if(el){el.blur();el.style.display='none';}})()", true)
+
+func _web_input_poll() -> void:
+	# One round trip per frame: "<flag>|<text>", flag "s" (Enter), "c" (Escape) or "".
+	var v = JavaScriptBridge.eval("""(function(){var el=document.getElementById('nt-name');
+		var f=window.ntNameSubmit?'s':(window.ntNameCancel?'c':'');
+		window.ntNameSubmit=false;window.ntNameCancel=false;
+		return f+'|'+(el?el.value:'');})()""", true)
+	if not (v is String) or v.find("|") < 0:
+		return
+	var flag: String = v.get_slice("|", 0)
+	name_edit.text = v.substr(flag.length() + 1)
+	if flag == "c":
+		_close_naming()
+	elif flag == "s":
+		act("begin")
 
 # ---------------------------------------------------------------------------
 # drawing
