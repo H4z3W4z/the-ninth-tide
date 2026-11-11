@@ -47,6 +47,25 @@ class ServeTest(unittest.TestCase):
             self.assertEqual(r.status, 200)
             self.assertEqual(r.headers["Content-Type"], "application/wasm")
 
+    def test_gzip_when_accepted(self):
+        web = os.path.join(self.tmp.name, "web")
+        with open(os.path.join(web, "index.wasm"), "wb") as f:
+            f.write(b"\0asm" + b"A" * 100000)
+        serve.precompress(web)
+        self.assertTrue(os.path.exists(os.path.join(web, "index.wasm.gz")))
+        req = urllib.request.Request(self.base + "/index.wasm", headers={"Accept-Encoding": "gzip"})
+        with urllib.request.urlopen(req) as r:
+            body = r.read()
+            self.assertEqual(r.headers["Content-Encoding"], "gzip")
+            self.assertEqual(r.headers["Content-Type"], "application/wasm")
+            self.assertEqual(int(r.headers["Content-Length"]), len(body))
+            self.assertLess(len(body), 2000)
+        import gzip as gz
+        self.assertEqual(gz.decompress(body)[:4], b"\0asm")
+        with urllib.request.urlopen(self.base + "/index.wasm") as r:   # no gzip asked: plain
+            self.assertIsNone(r.headers["Content-Encoding"])
+            self.assertEqual(len(r.read()), 100004)
+
     def test_create_list_and_unique_names(self):
         self.assertEqual(self.call("GET", "/api/profiles")[:2], (200, {"profiles": []}))
         code, p, _ = self.call("POST", "/api/profiles", {"name": "  Mike   Pearson "})

@@ -17,7 +17,9 @@ Stdlib only. Env: NT_WEB_ROOT, NT_DATA_DIR, NT_PORT, NT_TLS_CERT, NT_TLS_KEY (or
 credential named tls.key). Without a cert it serves plain HTTP (tests, localhost).
 """
 import functools
+import gzip
 import http.server
+import shutil
 import json
 import os
 import re
@@ -36,6 +38,8 @@ NAME_MAX = 24
 MAX_BODY = 4 * 1024 * 1024       # whole request
 MAX_FILE = 2 * 1024 * 1024       # one save file
 MAX_PROFILES = 64
+# Served gzipped (precompressed beside the original as <name>.gz) when the browser accepts it.
+GZIP_EXTS = (".wasm", ".js", ".html", ".pck")
 
 _lock = threading.Lock()
 
@@ -161,8 +165,35 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Cache-Control", "no-cache")
         super().end_headers()
 
-    def log_message(self, *a):
-        pass
+    def log_message(self, fmt, *args):
+        # One line per request to stderr (the systemd journal): enough to see how far a
+        # device's load got. LAN only; no request bodies are logged.
+        ua = self.headers.get("User-Agent", "-") if hasattr(self, "headers") and self.headers else "-"
+        print(f"{self.client_address[0]} {fmt % args} ua={ua[:120]!r}", flush=True)
+
+    def _send_gz(self):
+        """Serves <file>.gz for a GET of <file> when the browser accepts gzip. True if sent."""
+        path = self.translate_path(self.path.split("?", 1)[0])
+        if not path.endswith(GZIP_EXTS) or "gzip" not in self.headers.get("Accept-Encoding", ""):
+            return False
+        gz = path + ".gz"
+        try:
+            if os.path.getmtime(gz) < os.path.getmtime(path):
+                return False   # stale: the original changed after it was compressed
+            f = open(gz, "rb")
+        except OSError:
+            return False
+        with f:
+            size = os.fstat(f.fileno()).st_size
+            self.send_response(200)
+            self.send_header("Content-Type", self.guess_type(path))
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Vary", "Accept-Encoding")
+            self.send_header("Content-Length", str(size))
+            self.end_headers()
+            if self.command != "HEAD":
+                shutil.copyfileobj(f, self.wfile)
+        return True
 
     def _json(self, code, obj):
         body = b"" if obj is None else json.dumps(obj).encode()
@@ -198,6 +229,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         r = self._route()
         if r is None:
+            if self._send_gz():
+                return
             return super().do_GET()
         kind, pid = r
         with _lock:
@@ -208,6 +241,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self._json(404, {"error": "not found"})
 
     def do_POST(self):
+        if self.path.split("?", 1)[0] == "/api/clientlog":
+            # Load diagnostics from tools/web/diag.js: logged, never stored.
+            n = int(self.headers.get("Content-Length") or 0)
+            if 0 < n <= 4096:
+                print(f"{self.client_address[0]} CLIENTLOG {self.rfile.read(n).decode('utf-8', 'replace')}", flush=True)
+            return self._json(204, None)
         r = self._route()
         if r != ("list", None):
             return self._json(404, {"error": "not found"})
@@ -233,6 +272,26 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self._json(404, {"error": "not found"})
         with _lock:
             self._json(*self.store.remove(r[1]))
+
+
+def precompress(web_root):
+    """Writes <file>.gz beside each servable file that gzip shrinks by 10% or more."""
+    for name in os.listdir(web_root):
+        path = os.path.join(web_root, name)
+        if not name.endswith(GZIP_EXTS) or not os.path.isfile(path):
+            continue
+        gz = path + ".gz"
+        if os.path.exists(gz) and os.path.getmtime(gz) >= os.path.getmtime(path):
+            continue
+        with open(path, "rb") as f:
+            data = f.read()
+        packed = gzip.compress(data, compresslevel=9, mtime=0)
+        if len(packed) <= 0.9 * len(data):
+            with open(gz + ".tmp", "wb") as f:
+                f.write(packed)
+            os.replace(gz + ".tmp", gz)
+        elif os.path.exists(gz):
+            os.remove(gz)
 
 
 def make_server(port=PORT, web_root=WEB_ROOT, data_dir=DATA_DIR, host="0.0.0.0"):
