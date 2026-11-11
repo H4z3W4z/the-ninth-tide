@@ -1,9 +1,10 @@
-; The Ninth Tide: the full game (game/core/game.tscn hosts every room).
+; The Ninth Tide: the full game. The lobby (game/lobby/lobby.tscn) picks a player, then
+; hosts game/core/game.tscn, which hosts every room.
 config_version=5
 
 [application]
 config/name="The Ninth Tide"
-run/main_scene="res://game/core/game.tscn"
+run/main_scene="res://game/lobby/lobby.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 
 [display]

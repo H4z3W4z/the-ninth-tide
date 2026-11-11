@@ -190,6 +190,10 @@ const PLAN_HUD_SWELL := 1.2
 const PLAN_HUD_STILL := 3.0
 
 var save_path := DEFAULT_SAVE_PATH
+## Set by the lobby (game/lobby/lobby.gd) when it hosts the game: the menu then offers
+## "Switch player", which saves and emits switch_player_requested. Empty when run alone.
+var player_name := ""
+signal switch_player_requested
 ## Tests and capture runs set this false so they never pick up the slice's real save.
 var migrate_slice_save := true
 var sim := GameSim.new()
@@ -498,6 +502,9 @@ func _load_progress() -> void:
 		_queue_line(r.c("RESUME", "Back.") + " " + sim.objective_text(), 0.3)
 
 func _save_progress() -> void:
+	var dir := save_path.get_base_dir()
+	if not DirAccess.dir_exists_absolute(dir):
+		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))   # a lobby player's own folder
 	var text := JSON.stringify(sim.to_dict())
 	var old := FileAccess.get_file_as_string(save_path) if FileAccess.file_exists(save_path) else ""
 	if old != "" and old != text:
@@ -1246,6 +1253,10 @@ func _say_now(text: String, story: bool) -> void:
 # events
 # ---------------------------------------------------------------------------
 func dispatch(action: String) -> void:
+	if action == "switch_player":
+		_save_progress()
+		switch_player_requested.emit()
+		return
 	if action == "restart_arm":
 		# The menu's restart takes two clicks: the first only asks.
 		restart_armed_at = time
@@ -1929,6 +1940,8 @@ func _core_action_at(p: Vector2) -> String:
 			if _restart_arming():
 				restart = "restart" if _restart_armed() else ""
 			var items := ["resume", "toggle_motion", "toggle_soft", restart]
+			if player_name != "":
+				items.append("switch_player")
 			for i in items.size():
 				if _menu_rect(i).has_point(p):
 					return items[i]
@@ -2167,6 +2180,8 @@ func _draw_menu(c: Node2D) -> void:
 	var labels := ["Resume", "Motion & flicker: " + ("on" if sim.settings.motion else "off"),
 		"Soften sudden sounds: " + ("on" if sim.settings.soft_audio else "off"),
 		"Restart? Click again" if _restart_arming() else "New game"]
+	if player_name != "":
+		labels.append("Switch player (%s)" % player_name)
 	for i in labels.size():
 		Ink.button(c, _menu_rect(i), labels[i])
 

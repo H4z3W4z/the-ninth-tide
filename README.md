@@ -83,6 +83,8 @@ godot --headless --path . --editor --import
 godot --headless --path . --script tests/core_test.gd
 godot --headless --path . --script tests/chain_test.gd
 godot --headless --path . --script tests/click_chain_test.gd
+godot --headless --path . --script tests/lobby_test.gd
+python3 tools/web/test_serve.py
 for f in tests/rooms/R*_test.gd; do godot --headless --path . --script "$f"; done
 godot --headless --path . --script tests/p01_smoke.gd
 python3 tools/validate_assets.py
