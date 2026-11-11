@@ -625,6 +625,7 @@ func test_wrong_items() -> void:
 	ev = g2.dispatch("record")
 	check(says(ev) == "It's printed. It doesn't go back in." and g2.has_item("nora_spatial_strip"), "(r) strip on record")
 	g2.dispatch("back")
+	g2.give("pencil")   # she only has it from Tide VIII (R06's slope), but may come back here with it
 	g2.dispatch("item:pencil")
 	ev = g2.dispatch("diagram")
 	check(says(ev) == "Not mine to amend.", "(r) pencil on the diagram: %s" % says(ev))

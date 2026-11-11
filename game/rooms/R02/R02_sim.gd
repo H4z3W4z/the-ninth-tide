@@ -654,7 +654,7 @@ func arrive(ev: Array, first: bool) -> void:
 	if first:
 		_say(ev, "Greywake Survey Station. The launch won't be back for me until the morning tide.")
 		_say(ev, "Power's out. The duty card says to start with the desk lamp.", 3.2)
-		game.give("pencil", ev)
+		# No pencil yet: it is not needed until P22, so R06 hands it over at the writing slope.
 	_apply_look_away(ev)
 	if game.tide_done(1) and not state.log_rewritten and not state.callback_heard:
 		state.callback_heard = true
@@ -1863,8 +1863,6 @@ func _jump_state(target: int) -> void:
 ## The office as real play leaves it at the start of tide `t`. The core has already set
 ## every earlier tide's flags, so weather_band() is the band she arrives in.
 func debug_prepare(t: int) -> void:
-	if t >= 1:
-		game.give("pencil")
 	if t >= 2:
 		_jump_state(5)
 		game.give("inspection_lens")

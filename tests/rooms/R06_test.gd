@@ -84,6 +84,7 @@ func run_tests() -> void:
 	test_dents_and_curtain()
 	test_notices()
 	test_p22_refusals()
+	test_pencil_found_at_slope()
 	test_p22_commit()
 	test_p22_card_on_rest_saves()
 	test_card_never_lost()
@@ -680,6 +681,28 @@ func test_p22_evidence_rest_items() -> void:
 	check(says(ev) == GameSim.GENERIC_WRONG_USE and r.state.sketch_on_rest,
 		"P22: with the sketch there, the generic refusal and the sketch stays (got '%s')" % says(ev))
 
+## Her pencil is not in the bar until the slope first opens: then it comes out of her coat,
+## once, with its line; never again after P22 files it.
+func test_pencil_found_at_slope() -> void:
+	var g := p22_ready()
+	check(not g.has_item("pencil"), "pencil: not held before the slope")
+	r06(g).local_view = "curtain"
+	var ev := g.dispatch("slope")
+	check(g.has_item("pencil") and R06Sim.PENCIL_FOUND in says(ev), "pencil: found at the slope (got '%s')" % says(ev))
+	g.dispatch("back")
+	ev = g.dispatch("slope")
+	check(not R06Sim.PENCIL_FOUND in says(ev) and g.state.inventory.count("pencil") == 1, "pencil: found only once")
+	# After P22 it is filed and never handed back.
+	var g2 := p22_ready()
+	lay_all(g2, [1, 3, 3])
+	use(g2, "pencil", "append")
+	check(g2.flag("P22"), "pencil: P22 written with it")
+	g2.dispatch("back")
+	g2.dispatch("back")
+	r06(g2).local_view = "curtain"
+	g2.dispatch("slope")
+	check(not g2.has_item("pencil") and "pencil" in g2.retired(), "pencil: not found again after P22")
+
 func test_p22_commit() -> void:
 	# Each of her three ways of writing it: the pencil on APPEND, on the amendment line, or selected
 	# then APPEND (the core turns that into use_item("pencil", "append")).
@@ -688,8 +711,9 @@ func test_p22_commit() -> void:
 		var r := r06(g)
 		check(r.objective() == "p22", "P22 %s: the objective" % how)
 		check(not r.state.letter_read, "P22 %s: solvable without the letter" % how)
-		check(g.has_item("pencil"), "P22 %s: her pencil from Tide I" % how)
+		check(not g.has_item("pencil"), "P22 %s: no pencil before the slope" % how)
 		lay_all(g, [1, 3, 3])
+		check(g.has_item("pencil"), "P22 %s: her own pencil turns up at the slope" % how)
 		var ev: Array
 		if how == "selected":
 			g.dispatch("item:pencil")

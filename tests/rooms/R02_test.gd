@@ -2797,7 +2797,7 @@ func test_debug_prepare() -> void:
 		var g := game_at(t)
 		var s := office(g)
 		var b := g.weather_band()
-		check(g.has_item("pencil"), "t%d: pencil" % t)
+		check(not g.has_item("pencil"), "t%d: no pencil from the office (it turns up at R06's slope)" % t)
 		check(s.state.finished == (t >= 2) and g.has_item("inspection_lens") == (t >= 2), "t%d: office chain and lens" % t)
 		if t >= 2:
 			var want := ["callback"]

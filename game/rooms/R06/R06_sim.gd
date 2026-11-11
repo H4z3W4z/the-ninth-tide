@@ -543,6 +543,7 @@ func use_item(item: String, target: String, ev: Array) -> bool:
 				_sfx(ev, "card_lay")
 				_say(ev, "Her register card. 'No surviving personal effects.' Stamped " + REGISTER_STAMP + ".")
 				_observe("register_card")
+				_find_pencil(ev)
 				return true
 			if target in ["locker_bell", "shelf_bell"]:
 				if state.p08_complete:
@@ -715,6 +716,7 @@ func _curtain(action: String, ev: Array) -> void:
 			else:
 				_say(ev, "A writing slope with two baize rests, RECORD and EVIDENCE, and a ruled amendment line beneath.")
 			_observe("slope")
+			_find_pencil(ev)
 		"ives_letter":
 			if not state.p08_complete:
 				_say(ev, "A pigeonhole in the back of the slope, latched. No keyhole. Whatever opens it isn't here.")
@@ -917,6 +919,17 @@ func append_refusal(with_pencil := true) -> String:
 	if not with_pencil or not game.has_item(PENCIL):
 		return "no_pencil"
 	return ""
+
+## Her own pencil comes out of her coat the first time the slope opens. Nothing needs it
+## before P22, so it is never in the bar before then (it used to be, from the first scene,
+## and read as an item the player was failing to use).
+const PENCIL_FOUND := "My own pencil. It's been in my coat all night."
+
+func _find_pencil(ev: Array) -> void:
+	if state.p22_complete or game.has_item(PENCIL) or PENCIL in game.retired():
+		return
+	game.give(PENCIL, ev)
+	_say(ev, PENCIL_FOUND)
 
 ## APPEND, with the pencil (item:pencil on the amendment line or APPEND, or the pencil selected)
 ## or without it. The card stays on the rest, amended, until she steps back from the slope.
